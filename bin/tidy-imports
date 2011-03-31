@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+"""
+tidy-imports *.py
+tidy-imports < foo.py
+
+Automatically improves python import statements.
+
+  - Adds missing imports.
+  - Removes unused imports.
+  - Nicely formats imports.
+
+If filenames are given on the command line, rewrites them.  If stdin is not a
+tty, read from stdin and write to stdout.
+
+"""
+
+from __future__ import absolute_import, division, with_statement
+
+import optparse
+import os
+import sys
+
+from pyflyby.file import modify_file
+from pyflyby.s2s  import fix_unused_and_missing_imports
+
+def syntax():
+    print >>sys.stderr, __doc__
+    raise SystemExit(1)
+
+def parse_args():
+    parser = optparse.OptionParser()
+    return parser.parse_args() # options, args
+
+def main():
+    options, args = parse_args()
+    if args:
+        for filename in args:
+            modify_file(filename, fix_unused_and_missing_imports)
+    else:
+        if os.isatty(0):
+            syntax()
+        sys.stdout.write(fix_unused_and_missing_imports(sys.stdin.read()))
+
+
+if __name__ == '__main__':
+    main()
+

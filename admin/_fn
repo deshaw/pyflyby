@@ -1,0 +1,7 @@
+# -*- sh -*-
+
+pyflyby=$(readlink -e $(dirname $0)/..)
+PATH=$pyflyby/bin:$PATH
+
+source_files=($pyflyby/lib/python/pyflyby/*.py $(grep -l '#!.*python' $pyflyby/bin/*))
+imports_file=$pyflyby/admin/_imports.py
