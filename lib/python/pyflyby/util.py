@@ -1,6 +1,19 @@
 
 from __future__ import absolute_import, division, with_statement
 
+def memoize(function):
+    cache = {}
+    def wrapped_fn(*args, **kwargs):
+        cache_key = (args, tuple(sorted(kwargs.items())))
+        try:
+            return cache[cache_key]
+        except KeyError:
+            result = function(*args, **kwargs)
+            cache[cache_key] = result
+            return result
+    return wrapped_fn
+
+
 class cached_attribute(object):
     '''Computes attribute value and caches it in instance.
 
@@ -23,6 +36,7 @@ class cached_attribute(object):
         setattr(inst, self.name, result)
         return result
 
+
 def stable_unique(items):
     """
     Return a copy of C{items} without duplicates.  The order of other items is
@@ -39,6 +53,7 @@ def stable_unique(items):
         seen.add(item)
         result.append(item)
     return result
+
 
 def longest_common_prefix(items1, items2):
     """

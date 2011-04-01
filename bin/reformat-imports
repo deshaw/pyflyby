@@ -3,36 +3,22 @@
 reformat-imports *.py
 reformat-imports < foo.py
 
-Reformats the 'import' blocks within the python module/script.
+Reformats the top-level 'import' blocks within the python module/script.
 
 """
 
 from __future__ import absolute_import, division, with_statement
 
-import optparse
-import os
-import sys
-
-from pyflyby.file import modify_file
-from pyflyby.s2s  import reformat_import_statements
-
-def syntax():
-    print >>sys.stderr, __doc__
-    raise SystemExit(1)
-
-def parse_args():
-    parser = optparse.OptionParser()
-    return parser.parse_args() # options, args
+from pyflyby.cmdline import filename_args, parse_args
+from pyflyby.file    import modify_file
+from pyflyby.s2s     import reformat_import_statements
 
 def main():
     options, args = parse_args()
-    if args:
-        for filename in args:
-            modify_file(filename, reformat_import_statements)
-    else:
-        if os.isatty(0):
-            syntax()
-        sys.stdout.write(reformat_import_statements(sys.stdin.read()))
+    def modifier(x):
+        return reformat_import_statements(x, params=options.params)
+    for filename in filename_args(args):
+        modify_file(filename, modifier)
 
 
 if __name__ == '__main__':

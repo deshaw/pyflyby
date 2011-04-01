@@ -2,14 +2,14 @@
 from __future__ import absolute_import, division, with_statement
 
 import ast
-import sys
 import re
 
 from pyflyby.file       import Filename
-from pyflyby.importdb   import global_importdb
-from pyflyby.importstmt import (ImportFormatParams, Imports,
-                                    NoSuchImportError)
+from pyflyby.importdb   import global_known_imports, global_mandatory_imports
+from pyflyby.importstmt import ImportFormatParams, Imports, NoSuchImportError
+from pyflyby.log        import logger
 from pyflyby.parse      import PythonBlock, PythonFileLines
+from pyflyby.util       import Inf
 
 class SourceToSourceTransformationBase(object):
     def __new__(cls, arg):
@@ -56,6 +56,9 @@ class LineNumberAmbiguousError(Exception):
     pass
 
 class NoImportBlockError(Exception):
+    pass
+
+class ImportAlreadyExistsError(Exception):
     pass
 
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
@@ -106,8 +109,16 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           C{int}
         """
         block = self.find_import_block_by_linenumber(linenumber)
-        # Will raise NoSuchImportError if the import isn't in that block:
-        block.imports = block.imports.without_imports([import_as])
+        try:
+            imports = block.imports.by_import_as[import_as]
+        except KeyError:
+            raise NoSuchImportError
+        assert len(imports)
+        if len(imports) > 1:
+            raise Exception("Multiple imports to remove: %r" % (imports,))
+        imp = imports[0]
+        block.imports = block.imports.without_imports([imp])
+        return imp
 
     def select_import_block_by_closest_prefix_match(self, imp, max_linenumber):
         """
@@ -134,6 +145,13 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         if not annotated_blocks:
             raise NoImportBlockError()
         annotated_blocks.sort()
+        if imp.split.module_name == '__future__':
+            # For __future__ imports, only add to an existing block that
+            # already contains __future__ import(s).  If there are no existing
+            # import blocks containing __future__, don't return any result
+            # here, so that we will add a new one at the top.
+            if not annotated_blocks[-1][0][0] > 0:
+                raise NoImportBlockError
         return annotated_blocks[-1][1]
 
     def insert_new_blocks_after_comments(self, blocks):
@@ -173,7 +191,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         self.import_blocks.insert(0, block)
         return block
 
-    def add_import(self, imp, linenumber):
+    def add_import(self, imp, linenumber=Inf):
         """
         Add the specified import.  Picks an existing global import block to
         add to, or if none found, creates a new one near the beginning of the
@@ -182,13 +200,15 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         @type imp:
           L{Import}
         @param linenumber:
-          Line before which to add the import.
+          Line before which to add the import.  C{Inf} means no constraint.
         """
         try:
             block = self.select_import_block_by_closest_prefix_match(
                 imp, linenumber)
         except NoImportBlockError:
             block = self.insert_new_import_block()
+        if imp in block.imports.imports:
+            raise ImportAlreadyExistsError(imp)
         block.imports = block.imports.with_imports([imp])
 
 
@@ -307,6 +327,7 @@ def find_unused_and_missing_imports(codeblock):
 def fix_unused_and_missing_imports(codeblock,
                                    add_missing=True,
                                    remove_unused=True,
+                                   add_mandatory=True,
                                    params=ImportFormatParams()):
     """
     Using C{pyflakes}, check for unused and missing imports, and fix them
@@ -320,7 +341,7 @@ def fix_unused_and_missing_imports(codeblock,
 
       >>> print fix_unused_and_missing_imports(
       ...     'from foo import m1, m2, m3, m4\\n'
-      ...     'm2, m4, np.foo\\n'),
+      ...     'm2, m4, np.foo\\n', add_mandatory=False),
       import numpy as np
       from foo import m2, m4
       m2, m4, np.foo
@@ -331,40 +352,65 @@ def fix_unused_and_missing_imports(codeblock,
       C{str}
     """
     codeblock = PythonBlock(codeblock)
+    filename = codeblock[0].lines.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     unused_imports, missing_imports = find_unused_and_missing_imports(codeblock)
 
-    # Go through imports to remove.  [This used to be organized by going
-    # through import blocks and removing all relevant blocks from there, but
-    # if one removal caused problems the whole thing would fail.  The CPU cost
-    # of calling without_imports() multiple times isn't significant.]
-    for import_as, linenumber in unused_imports:
-        try:
-            transformer.remove_import(import_as, linenumber)
-        except NoSuchImportError:
-            print >>sys.stderr, "Couldn't remove import %s" % (import_as,)
-        else:
-            print >>sys.stderr, "Removed unused import %s" % (import_as,)
+    if remove_unused and unused_imports:
+        # Go through imports to remove.  [This used to be organized by going
+        # through import blocks and removing all relevant blocks from there,
+        # but if one removal caused problems the whole thing would fail.  The
+        # CPU cost of calling without_imports() multiple times isn't worth
+        # that.]
+        # TODO: don't remove unused mandatory imports.  [This isn't
+        # implemented yet because this isn't necessary for __future__ imports
+        # since they aren't reported as unused, and those are the only ones we
+        # have by default right now.]
+        for import_as, linenumber in unused_imports:
+            try:
+                imp = transformer.remove_import(import_as, linenumber)
+            except NoSuchImportError:
+                logger.error(
+                    "%s: couldn't remove import %s", filename, import_as,)
+            else:
+                # TODO: remove entire Import removed
+                logger.info("%s: removed unused import %s",
+                            filename, imp.pretty_print().strip())
 
-    # Decide on where to put each import to be added.  Find the import block
-    # with the longest common prefix.  Tie-break by preferring later blocks.
-    for import_as, linenumber in missing_imports:
-        db = global_importdb()
-        try:
-            imports = db[import_as]
-        except KeyError:
-            # We may want to log a message here about the unused name with
-            # no known import.  However, this could be a misspelled local,
-            # etc.; the user should run pyflakes normally to see all
-            # messages.
-            continue
-        if len(imports) != 1:
-            print >>sys.stderr, "Don't know which of %r to use" % (
-                imports,)
-            continue
-        imp_to_add = imports[0]
-        transformer.add_import(imp_to_add, linenumber)
-        print >>sys.stderr, "Added %s" % (imp_to_add.pretty_print(),)
+    if add_missing and missing_imports:
+        db = global_known_imports().by_import_as
+        # Decide on where to put each import to be added.  Find the import
+        # block with the longest common prefix.  Tie-break by preferring later
+        # blocks.
+        for import_as, linenumber in missing_imports:
+            try:
+                imports = db[import_as]
+            except KeyError:
+                # We may want to log a message here about the unused name with
+                # no known import.  However, this could be a misspelled local,
+                # etc.; the user should run pyflakes normally to see all
+                # messages.
+                continue
+            if len(imports) != 1:
+                logger.error("%s: don't know which of %r to use",
+                             filename, imports)
+                continue
+            imp_to_add = imports[0]
+            transformer.add_import(imp_to_add, linenumber)
+            logger.info("%s: added %r", filename,
+                        imp_to_add.pretty_print().strip())
+
+    if add_mandatory:
+        # Todo: allow not adding to empty __init__ files?
+        db = global_mandatory_imports()
+        for imp in db.imports:
+            try:
+                transformer.add_import(imp)
+            except ImportAlreadyExistsError:
+                pass
+            else:
+                logger.info("%s: added mandatory %r",
+                            filename, imp.pretty_print().strip())
 
     # Pretty-print the result.
     return transformer.pretty_print(params=params)

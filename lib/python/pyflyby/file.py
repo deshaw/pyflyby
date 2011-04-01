@@ -3,7 +3,9 @@ from __future__ import absolute_import, division, with_statement
 
 import os
 import re
+import sys
 
+from pyflyby.log  import logger
 from pyflyby.util import cached_attribute
 
 class UnsafeFilenameError(ValueError):
@@ -97,18 +99,50 @@ class Filename(object):
                     yield rchild
         # Could be broken symlink, special, etc.
 
+STDIO_PIPE = object() # Singleton token
+
+class FileContents(str):
+    def __new__(cls, arg):
+        if isinstance(arg, cls):
+            return arg
+        if isinstance(arg, str):
+            return cls.from_contents(arg)
+        if isinstance(arg, Filename):
+            return read_file(arg)
+        raise TypeError
+
+    @classmethod
+    def from_contents(cls, text, filename=None):
+        if not isinstance(text, str):
+            raise TypeError
+        self = str.__new__(cls, text)
+        self.filename = filename
+        return self
+
+    def __repr__(self):
+        s = "%s.from_contents(%r" % (type(self).__name__, str(self))
+        if self.filename is not None:
+            s += ", %r" % (self.filename,)
+        s += ")"
+        return s
+
 def read_file(filename):
+    if filename is STDIO_PIPE:
+        return FileContents.from_contents(
+            sys.stdin.read(), filename="(stdin)")
     filename = Filename(filename)
     with open(str(filename)) as f:
-        return f.read()
+        return FileContents.from_contents(f.read(), filename=filename)
 
 def write_file(filename, data):
     filename = Filename(filename)
+    data = FileContents(data)
     with open(str(filename), 'w') as f:
         f.write(data)
 
 def atomic_write_file(filename, data):
     filename = Filename(filename)
+    data = FileContents(data)
     temp_filename = Filename("%s.tmp.%s" % (filename, os.getpid(),))
     write_file(temp_filename, data)
     try:
@@ -124,15 +158,20 @@ def modify_file(filename, modifier):
     Modify C{filename} using C{modifier}.
 
     @param modifier:
-      Function that takes a C{str} and returns a C{str}.
+      Function that takes a L{FileContents} and returns a L{FileContents}.
     """
+    if filename is STDIO_PIPE:
+        original = read_file(filename)
+        modified = FileContents(modifier(original))
+        sys.stdout.write(modified)
+        return
     filename = Filename(filename)
     original = read_file(filename)
-    modified = modifier(original)
+    modified = FileContents(modifier(original))
     if modified != original:
-        print "%s modified" % (filename,)
+        logger.info("%s: *** modified ***", filename)
         atomic_write_file(filename, modified)
         return True
     else:
-        print "%s unchanged" % (filename,)
+        logger.debug("%s: (unchanged)", filename)
         return False

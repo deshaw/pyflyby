@@ -8,10 +8,22 @@ from pyflyby.file   import Filename
 from pyflyby.format import FormatParams, pyfill
 from pyflyby.parse  import PythonBlock, PythonStatement
 from pyflyby.util   import (Inf, cached_attribute, longest_common_prefix,
-                                stable_unique)
+                            stable_unique)
 
 class ImportFormatParams(FormatParams):
     align_imports = True
+    """
+    Whether and how to align 'from modulename import aliases...'.  If C{True},
+    then the 'import' keywords will be aligned within a block.  If an integer,
+    then the 'import' keyword will always be at that column.  They will be
+    wrapped if necessary.
+    """
+
+    from_spaces = 1
+    """
+    The number of spaces after the 'from' keyword.  (Must be at least 1.)
+    """
+
 
 class NonImportStatementError(TypeError):
     """
@@ -309,7 +321,8 @@ class ImportStatement(object):
             Import.from_split((self.fromname, alias[0], alias[1]))
             for alias in self.aliases)
 
-    def pretty_print(self, params=FormatParams(), fromname_ljust=0):
+    def pretty_print(self, params=FormatParams(),
+                     import_column=None, from_spaces=1):
         """
         Pretty-print into a single string.
 
@@ -320,9 +333,23 @@ class ImportStatement(object):
         @rtype:
           C{str}
         """
+        s0 = ''
         s = ''
+        assert from_spaces >= 1
         if self.fromname is not None:
-            s += "from %s " % (self.fromname.ljust(fromname_ljust),)
+            s += "from%s%s " % (' ' * from_spaces, self.fromname)
+            if import_column is not None:
+                if len(s) > import_column:
+                    # The caller wants the 'import' statement lined up left of
+                    # where the current end of the line is.  So wrap it
+                    # specially like this::
+                    #     from foo     import ...
+                    #     from foo.bar.baz \
+                    #                  import ...
+                    s0 = s + '\\\n'
+                    s = ' ' * import_column
+                else:
+                    s = s.ljust(import_column)
         s += "import "
         tokens = []
         for importname, asname in self.aliases:
@@ -331,7 +358,7 @@ class ImportStatement(object):
             else:
                 t = "%s" % (importname,)
             tokens.append(t)
-        return pyfill(s, tokens, params=params)
+        return s0 + pyfill(s, tokens, params=params)
 
     @property
     def _data(self):
@@ -455,7 +482,7 @@ class Imports(object):
         new_imports = tuple(Import(imp) for imp in new_imports)
         return type(self).from_imports(self.orig_imports + new_imports)
 
-    def without_imports(self, import_as_exclusions):
+    def without_imports(self, import_exclusions):
         """
         Return a copy of self without the given imports indexed by
         C{import_as}.
@@ -468,21 +495,17 @@ class Imports(object):
         @rtype:
           L{Imports}
         """
-        if isinstance(import_as_exclusions, str):
-            raise TypeError
-        if not isinstance(import_as_exclusions[0], str):
-            raise TypeError
-        import_as_exclusions = set(import_as_exclusions)
+        import_exclusions = set(Import(imp) for imp in import_exclusions)
         new_imports = []
         for imp in self.orig_imports:
-            if imp.import_as in import_as_exclusions:
-                import_as_exclusions.remove(imp.import_as)
+            if imp in import_exclusions:
+                import_exclusions.remove(imp)
                 continue
             new_imports.append(imp)
-        if import_as_exclusions:
+        if import_exclusions:
             raise NoSuchImportError(
                 "%r does not contain import(s) %r"
-                % (self, sorted(import_as_exclusions)))
+                % (self, sorted(import_exclusions)))
         return type(self).from_imports(new_imports)
 
     @cached_attribute
@@ -589,12 +612,18 @@ class Imports(object):
                     "%r imported as %r" % (
                         [imp.qualified_name for imp in self.by_import_as[i]], i)
                     for i in self.conflicting_imports))
-        if params.align_imports and self.statements:
-            max_fromname = max(len(statement.fromname or '')
-                               for statement in self.statements)
+        from_spaces = max(1, params.from_spaces)
+        def isint(x): return isinstance(x, int) and not isinstance(x, bool)
+        if isint(params.align_imports):
+            import_column = params.align_imports
+        elif params.align_imports and self.statements:
+            import_column = (max(len(statement.fromname or '')
+                                 for statement in self.statements) +
+                             from_spaces + 5)
         else:
-            max_fromname = 0
+            import_column = None
         return ''.join(
-            statement.pretty_print(params=params, fromname_ljust=max_fromname)
+            statement.pretty_print(params=params, import_column=import_column,
+                                   from_spaces=from_spaces)
             for statement in self.statements)
 

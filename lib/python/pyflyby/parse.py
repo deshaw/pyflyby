@@ -7,7 +7,7 @@ import re
 
 from itertools import groupby
 
-from pyflyby.file import Filename, read_file
+from pyflyby.file import FileContents, Filename
 from pyflyby.util import cached_attribute
 
 def is_comment_or_blank(line):
@@ -31,9 +31,7 @@ class FileLines(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, Filename):
-            return cls.from_filename(arg)
-        if isinstance(arg, str):
+        if isinstance(arg, (Filename, FileContents, str)):
             return cls.from_text(arg)
         raise TypeError
 
@@ -55,22 +53,13 @@ class FileLines(object):
         return self
 
     @classmethod
-    def from_text(cls, text, filename=None, linenumber=1):
+    def from_text(cls, text, linenumber=1):
+        text = FileContents(text)
         # Split into physical lines.
         lines = text.splitlines(True)
-        self = cls.from_lines(lines, filename=filename, linenumber=linenumber)
+        self = cls.from_lines(lines, filename=text.filename, linenumber=linenumber)
         self.joined = text # optimization
         return self
-
-    @classmethod
-    def from_filename(cls, filename, linenumber=1):
-        filename = Filename(filename)
-        text = read_file(filename)
-        if not text.endswith("\n"):
-            # Ensure that the last line ends with a newline (C{ast} barfs
-            # otherwise).
-            text += "\n"
-        return cls.from_text(text, filename=filename, linenumber=linenumber)
 
     @cached_attribute
     def joined(self):
@@ -95,7 +84,18 @@ class FileLines(object):
         Return the line(s) with the given line number(s).
         If slicing, returns an instance of C{FileLines}.
 
-        TODO: doctest
+        Note that line numbers are indexed based on C{self.linenumber}.
+
+          >>> FileLines("a\\nb\\nc\\nd")[2]
+          'b\\n'
+
+          >>> FileLines("a\\nb\\nc\\nd")[2:4]
+          FileLines('b\\nc\\n', linenumber=2)
+
+          >>> FileLines("a\\nb\\nc\\nd")[0]
+          Traceback (most recent call last):
+            ...
+          ValueError: Line number 0 out of range [1, 5)
 
         @rtype:
           C{str} or L{FileLines}
@@ -113,9 +113,12 @@ class FileLines(object):
             raise TypeError("bad type %r" % (type(arg),))
 
     def __repr__(self):
-        return ("%s.from_text(%r, filename=%r, linenumber=%r)"
-                % (type(self).__name__, self.joined,
-                   self.filename, self.linenumber))
+        if self.filename is None:
+            d = self.joined
+        else:
+            d = FileContents.from_contents(self.joined, self.filename)
+        return "%s.from_text(%r, linenumber=%r)" % (
+            type(self).__name__, d, self.linenumber)
 
 
 class MoreThanOneAstNodeError(Exception):
@@ -126,8 +129,12 @@ class PythonFileLines(FileLines):
     def ast_nodes(self):
         # May also be set internally by L{__attach_nodes}
         filename = str(self.filename) if self.filename else "<unknown>"
-        return compile(
-            self.joined, filename, "exec", ast.PyCF_ONLY_AST, 0).body
+        text = self.joined
+        if not text.endswith("\n"):
+            # Ensure that the last line ends with a newline (C{ast} barfs
+            # otherwise).
+            text += "\n"
+        return compile(text, filename, "exec", ast.PyCF_ONLY_AST, 0).body
 
     def __attach_ast_nodes(self, ast_nodes):
         # Used internally to attach C{nodes} as an optimization when we've
@@ -172,8 +179,22 @@ class PythonFileLines(FileLines):
         for node, next_node in zip(ast_nodes, ast_nodes[1:] + [sentinel]):
             linenumber = node.lineno
             end_linenumber = next_node.lineno
-            # TODO: this doesn't work correctly with semicolon-delimited
-            # compound statements.
+            if linenumber == end_linenumber:
+                # Implementing compound statements (two or more statements
+                # separated by ";") is tricky because we'll have to
+                # re-architect PythonFileLines.  We'll have to allow "lines"
+                # that don't end in a newline, and we'll no longer be able to
+                # index/slice by line number.  There's also the question of
+                # how to pretty-print this: presumably we'd want to just add
+                # newlines before and after import blocks, but not touch
+                # non-import blocks.  The strategy for splitting could be to
+                # split naively on ';', but check that parsing the parts with
+                # C{compile} matches, and if it doesn't (because the ';' is in
+                # a string or something), then try the next one.  Since
+                # compound statements are rarely used, we punt for now.
+                # Note that this only affects top-level compound statements.
+                raise NotImplementedError(
+                    "Not implemented: parsing of top-level compound statements")
             assert 1 <= linenumber < end_linenumber
             while is_comment_or_blank(self[end_linenumber-1]):
                 end_linenumber -= 1
@@ -195,7 +216,7 @@ class PythonStatement(object):
             return arg
         if isinstance(arg, PythonFileLines):
             return cls.from_lines(arg)
-        if isinstance(arg, str):
+        if isinstance(arg, (FileContents, str)):
             return cls.from_source_code(arg)
         raise TypeError
 
@@ -219,11 +240,12 @@ class PythonStatement(object):
 
     @classmethod
     def from_source_code(cls, source_code):
-        statements = PythonBlock.from_source_code(source_code)
+        statements = PythonBlock(source_code)
         if len(statements) != 1:
             raise ValueError(
                 "Code contains %d statements instead of exactly 1: %r"
                 % (len(statements), source_code))
+        assert isinstance(statements[0], cls)
         return statements[0]
 
     @property
@@ -249,17 +271,14 @@ class PythonBlock(tuple):
 
       >>> source_code = '# 1\\nprint 2\\n# 3\\n# 4\\nprint 5\\nx=[6,\\n 7]\\n# 8'
       >>> codeblock = PythonBlock(source_code)
-      >>> print codeblock[0]
-      PythonStatement(PythonFileLines.from_text('# 1\\n', filename=None, linenumber=1))
-
       >>> for stmt in PythonBlock(codeblock):
-      ...     print stmt.lines
-      PythonFileLines.from_text('# 1\\n', filename=None, linenumber=1)
-      PythonFileLines.from_text('print 2\\n', filename=None, linenumber=2)
-      PythonFileLines.from_text('# 3\\n# 4\\n', filename=None, linenumber=3)
-      PythonFileLines.from_text('print 5\\n', filename=None, linenumber=5)
-      PythonFileLines.from_text('x=[6,\\n 7]\\n', filename=None, linenumber=6)
-      PythonFileLines.from_text('# 8', filename=None, linenumber=8)
+      ...     print stmt
+      PythonStatement(PythonFileLines('# 1\\n', linenumber=1))
+      PythonStatement(PythonFileLines('print 2\\n', linenumber=2))
+      PythonStatement(PythonFileLines('# 3\\n# 4\\n', linenumber=3))
+      PythonStatement(PythonFileLines('print 5\\n', linenumber=5))
+      PythonStatement(PythonFileLines('x=[6,\\n 7]\\n', linenumber=6))
+      PythonStatement(PythonFileLines('# 8', linenumber=8))
 
     """
 
@@ -268,12 +287,8 @@ class PythonBlock(tuple):
             return arg
         if isinstance(arg, PythonStatement):
             return cls.from_statements([arg])
-        if isinstance(arg, PythonFileLines):
+        if isinstance(arg, (PythonFileLines, FileContents, Filename, str)):
             return cls.from_lines(arg)
-        if isinstance(arg, Filename):
-            return cls.from_filename(arg)
-        if isinstance(arg, str):
-            return cls.from_source_code(arg)
         if isinstance(arg, (list, tuple)) and arg:
             if isinstance(arg[0], PythonStatement):
                 return cls.from_statements(arg)
@@ -298,27 +313,6 @@ class PythonBlock(tuple):
         return cls.from_statements(
             [PythonStatement.from_lines(sublines)
              for sublines in lines.split()])
-
-    @classmethod
-    def from_source_code(cls, source_code, filename=None):
-        """
-        @type lines:
-          C{str}
-        @rtype:
-          L{PythonBlock}
-        """
-        return cls.from_lines(
-            PythonFileLines.from_text(source_code, filename=filename))
-
-    @classmethod
-    def from_filename(cls, filename):
-        """
-        @type lines:
-          L{Filename}
-        @rtype:
-          L{PythonBlock}
-        """
-        return cls.from_lines(PythonFileLines.from_filename(Filename(filename)))
 
     @classmethod
     def from_multiple(cls, blocks):
