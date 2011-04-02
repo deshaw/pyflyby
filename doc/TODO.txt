@@ -3,3 +3,5 @@
 - Support imports at any level, not just top-level.
 - Per-directory import libraries.
 - Allow configuring whether 'import's come before 'from ... import's.
+- Fix bug: it currently incorrectly inserts new things inside module
+  docstrings
