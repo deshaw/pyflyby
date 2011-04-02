@@ -25,6 +25,8 @@ def parse_args():
     options, args = parser.parse_args()
     if options.align_imports == 1:
         align_imports = True
+    elif options.align_imports == 0:
+        align_imports = False
     else:
         align_imports = options.align_imports
     options.params = ImportFormatParams(

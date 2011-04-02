@@ -382,6 +382,7 @@ def fix_unused_and_missing_imports(codeblock,
         # Decide on where to put each import to be added.  Find the import
         # block with the longest common prefix.  Tie-break by preferring later
         # blocks.
+        added_imports = set()
         for import_as, linenumber in missing_imports:
             try:
                 imports = db[import_as]
@@ -396,7 +397,10 @@ def fix_unused_and_missing_imports(codeblock,
                              filename, imports)
                 continue
             imp_to_add = imports[0]
+            if imp_to_add in added_imports:
+                continue
             transformer.add_import(imp_to_add, linenumber)
+            added_imports.add(imp_to_add)
             logger.info("%s: added %r", filename,
                         imp_to_add.pretty_print().strip())
 
