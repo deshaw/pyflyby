@@ -622,6 +622,10 @@ class Imports(object):
                              from_spaces + 5)
         else:
             import_column = None
+        if len(self.statements) == 1 and self.statements[0].fromname == '__future__':
+            # Special case for 'from __future__ import ...': single space it.
+            import_column = None
+            from_spaces = 1
         return ''.join(
             statement.pretty_print(params=params, import_column=import_column,
                                    from_spaces=from_spaces)
