@@ -5,3 +5,5 @@
 - Allow configuring whether 'import's come before 'from ... import's.
 - Fix bug: it currently incorrectly inserts new things inside module
   docstrings
+- Pyflakes reports unused "import foo.bar" as "foo" making it hard to remove
+  unused "foo.bar" (there could be other imports on the same line).
