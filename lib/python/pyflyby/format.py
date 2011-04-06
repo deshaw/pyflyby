@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, with_statement
 
 class FormatParams(object):
-    max_line_length = 80
+    max_line_length = 79
     wrap_paren = True
     indent = 4
 
