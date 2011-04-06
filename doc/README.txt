@@ -20,3 +20,5 @@ Use '-' in $PYFLYBY_PATH to include the default.
 Example:
   PYFLYBY_PATH=~/myproject/myimports.py:-
 
+
+Author: Karl Chen <Karl.Chen@quarl.org>
