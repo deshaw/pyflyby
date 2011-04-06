@@ -8,7 +8,7 @@ from pyflyby.file   import Filename
 from pyflyby.format import FormatParams, pyfill
 from pyflyby.parse  import PythonBlock, PythonStatement
 from pyflyby.util   import (Inf, cached_attribute, longest_common_prefix,
-                            stable_unique)
+                            stable_unique, union_dicts)
 
 class ImportFormatParams(FormatParams):
     align_imports = True
@@ -22,6 +22,13 @@ class ImportFormatParams(FormatParams):
     from_spaces = 1
     """
     The number of spaces after the 'from' keyword.  (Must be at least 1.)
+    """
+
+    separate_from_imports = True
+    """
+    Whether all 'from ... import ...' in an import block should come after
+    'import ...' statements.  C{separate_from_imports = False} works well with
+    C{from_spaces = 3}.
     """
 
 
@@ -532,6 +539,22 @@ class Imports(object):
                   for k, v in imports.iteritems())
             for imports in [ftr_imports, pkg_imports, frm_imports])
 
+    def get_statements(self, separate_from_imports=True):
+        """
+        Canonicalized L{ImportStatement}s.
+        These have been merged by module and sorted.
+
+        @rtype:
+          C{tuple} of L{ImportStatement}s
+        """
+        groups = self._by_module_name
+        if not separate_from_imports:
+            groups = [groups[0], union_dicts(*groups[1:])]
+        return tuple(
+            ImportStatement(sorted(imports))
+            for importgroup in groups
+            for _, imports in sorted(importgroup.items()))
+
     @cached_attribute
     def statements(self):
         """
@@ -541,10 +564,7 @@ class Imports(object):
         @rtype:
           C{tuple} of L{ImportStatement}s
         """
-        return tuple(
-            ImportStatement(sorted(imports))
-            for importgroup in self._by_module_name
-            for _, imports in sorted(importgroup.items()))
+        return self.get_statements(separate_from_imports=True)
 
     @cached_attribute
     def imports(self):
@@ -558,7 +578,7 @@ class Imports(object):
             imp
             for importgroup in self._by_module_name
             for imports in importgroup.values()
-            for imp in imports)
+            for imp in sorted(imports))
 
     @cached_attribute
     def by_import_as(self):
@@ -629,5 +649,6 @@ class Imports(object):
         return ''.join(
             statement.pretty_print(params=params, import_column=import_column,
                                    from_spaces=from_spaces)
-            for statement in self.statements)
+            for statement in self.get_statements(
+                separate_from_imports=params.separate_from_imports))
 

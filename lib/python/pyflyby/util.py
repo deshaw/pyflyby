@@ -55,6 +55,16 @@ def stable_unique(items):
     return result
 
 
+def union_dicts(*dicts):
+    """
+    Return the union of dictionaries.
+    """
+    d = dicts[0].copy()
+    for d2 in dicts[1:]:
+        d.update(d2)
+    return d
+
+
 def longest_common_prefix(items1, items2):
     """
     Return the longest common prefix.

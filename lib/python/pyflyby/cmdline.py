@@ -18,10 +18,20 @@ def parse_args():
                           block of imports.  If an integer > 1, then align at
                           that column, wrapping with a backslash if
                           necessary.''')
-    parser.add_option('--from-spaces', type='int',
+    parser.add_option('--from-spaces', type='int', default=1,
                       help='''
                           The number of spaces after the 'from' keyword.
                           (Must be at least 1.)''')
+    parser.add_option('--separate-from-imports', action='store_true',
+                      default=True,
+                      help='''
+                          (Default) Separate 'from ... import ...' statements
+                          from 'import ...' statements.''')
+    parser.add_option('--no-separate-from-imports', action='store_false',
+                      dest='separate_from_imports',
+                      help='''
+                          Don't separate 'from ... import ...' statements
+                          from 'import ...' statements.''')
     options, args = parser.parse_args()
     if options.align_imports == 1:
         align_imports = True
@@ -30,8 +40,10 @@ def parse_args():
     else:
         align_imports = options.align_imports
     options.params = ImportFormatParams(
-        align_imports =align_imports,
-        from_spaces   =options.from_spaces)
+        align_imports         =align_imports,
+        from_spaces           =options.from_spaces,
+        separate_from_imports =options.separate_from_imports,
+        )
     return options, args
 
 def filename_args(args):
