@@ -5,9 +5,9 @@ tidy-imports < foo.py
 
 Automatically improves python import statements.
 
-  - Adds missing imports.
+  - Adds missing imports and mandatory imports.
   - Removes unused imports.
-  - Nicely formats imports.
+  - Nicely formats imports (sorts, aligns, wraps).
 
 If filenames are given on the command line, rewrites them.  Otherwise, if
 stdin is not a tty, read from stdin and write to stdout.
