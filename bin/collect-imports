@@ -12,9 +12,9 @@ from __future__ import absolute_import, division, with_statement
 
 import sys
 
-from pyflyby.cmdline    import filename_args, parse_args
-from pyflyby.file       import read_file
-from pyflyby.importstmt import Imports
+from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.file             import read_file
+from   pyflyby.importstmt       import Imports
 
 def main():
     options, args = parse_args()

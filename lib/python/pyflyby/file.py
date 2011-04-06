@@ -5,8 +5,8 @@ import os
 import re
 import sys
 
-from pyflyby.log  import logger
-from pyflyby.util import cached_attribute
+from   pyflyby.log              import logger
+from   pyflyby.util             import cached_attribute
 
 class UnsafeFilenameError(ValueError):
     pass

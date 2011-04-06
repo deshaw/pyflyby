@@ -9,9 +9,9 @@ Reformats the top-level 'import' blocks within the python module/script.
 
 from __future__ import absolute_import, division, with_statement
 
-from pyflyby.cmdline import filename_args, parse_args
-from pyflyby.file    import modify_file
-from pyflyby.s2s     import reformat_import_statements
+from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.file             import modify_file
+from   pyflyby.s2s              import reformat_import_statements
 
 def main():
     options, args = parse_args()

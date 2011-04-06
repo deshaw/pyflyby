@@ -3,9 +3,9 @@ from __future__ import absolute_import, division, with_statement
 
 import os
 
-from pyflyby.file       import Filename
-from pyflyby.importstmt import Imports
-from pyflyby.util       import memoize
+from   pyflyby.file             import Filename
+from   pyflyby.importstmt       import Imports
+from   pyflyby.util             import memoize
 
 
 DEFAULT_CONFIG_DIRS = [

@@ -4,10 +4,10 @@ from __future__ import absolute_import, division, with_statement
 import optparse
 import os
 import sys
-from textwrap import dedent
+from   textwrap                 import dedent
 
-from pyflyby.file       import Filename, STDIO_PIPE
-from pyflyby.importstmt import ImportFormatParams
+from   pyflyby.file             import Filename, STDIO_PIPE
+from   pyflyby.importstmt       import ImportFormatParams
 
 def parse_args():
     parser = optparse.OptionParser()

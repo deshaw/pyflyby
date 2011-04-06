@@ -4,12 +4,14 @@ from __future__ import absolute_import, division, with_statement
 import ast
 import re
 
-from pyflyby.file       import Filename
-from pyflyby.importdb   import global_known_imports, global_mandatory_imports
-from pyflyby.importstmt import ImportFormatParams, Imports, NoSuchImportError
-from pyflyby.log        import logger
-from pyflyby.parse      import PythonBlock, PythonFileLines
-from pyflyby.util       import Inf
+from   pyflyby.file             import Filename
+from   pyflyby.importdb         import (global_known_imports,
+                                        global_mandatory_imports)
+from   pyflyby.importstmt       import (ImportFormatParams, Imports,
+                                        NoSuchImportError)
+from   pyflyby.log              import logger
+from   pyflyby.parse            import PythonBlock, PythonFileLines
+from   pyflyby.util             import Inf
 
 class SourceToSourceTransformationBase(object):
     def __new__(cls, arg):

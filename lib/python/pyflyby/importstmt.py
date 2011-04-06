@@ -2,13 +2,14 @@
 from __future__ import absolute_import, division, with_statement
 
 import ast
-from collections import defaultdict, namedtuple
+from   collections              import defaultdict, namedtuple
 
-from pyflyby.file   import Filename
-from pyflyby.format import FormatParams, pyfill
-from pyflyby.parse  import PythonBlock, PythonStatement
-from pyflyby.util   import (Inf, cached_attribute, longest_common_prefix,
-                            stable_unique, union_dicts)
+from   pyflyby.file             import Filename
+from   pyflyby.format           import FormatParams, pyfill
+from   pyflyby.parse            import PythonBlock, PythonStatement
+from   pyflyby.util             import (Inf, cached_attribute,
+                                        longest_common_prefix, stable_unique,
+                                        union_dicts)
 
 class ImportFormatParams(FormatParams):
     align_imports = True

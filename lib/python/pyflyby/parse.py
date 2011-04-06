@@ -5,10 +5,10 @@ import ast
 import operator
 import re
 
-from itertools import groupby
+from   itertools                import groupby
 
-from pyflyby.file import FileContents, Filename
-from pyflyby.util import cached_attribute
+from   pyflyby.file             import FileContents, Filename
+from   pyflyby.util             import cached_attribute
 
 def is_comment_or_blank(line):
     """
