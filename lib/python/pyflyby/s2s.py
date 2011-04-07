@@ -373,10 +373,10 @@ def fix_unused_and_missing_imports(codeblock,
                 imp = transformer.remove_import(import_as, linenumber)
             except NoSuchImportError:
                 logger.error(
-                    "%s: couldn't remove import %s", filename, import_as,)
+                    "%s: couldn't remove import %r", filename, import_as,)
             else:
                 # TODO: remove entire Import removed
-                logger.info("%s: removed unused import %s",
+                logger.info("%s: removed unused import %r",
                             filename, imp.pretty_print().strip())
 
     if add_missing and missing_imports:
