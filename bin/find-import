@@ -12,7 +12,7 @@ from   pyflyby.importdb         import global_known_imports
 from   pyflyby.log              import logger
 
 def main():
-    options, args = parse_args()
+    options, args = parse_args(import_format_params=True)
     if not args:
         syntax()
     db = global_known_imports().by_import_as

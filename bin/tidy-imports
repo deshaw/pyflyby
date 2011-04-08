@@ -23,7 +23,7 @@ from   pyflyby.file             import modify_file
 from   pyflyby.imports2s        import fix_unused_and_missing_imports
 
 def main():
-    options, args = parse_args()
+    options, args = parse_args(import_format_params=True)
     def modifier(x):
         return fix_unused_and_missing_imports(x, params=options.params)
     for filename in filename_args(args):

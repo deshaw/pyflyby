@@ -14,7 +14,7 @@ from   pyflyby.file             import modify_file
 from   pyflyby.imports2s        import reformat_import_statements
 
 def main():
-    options, args = parse_args()
+    options, args = parse_args(import_format_params=True)
     def modifier(x):
         return reformat_import_statements(x, params=options.params)
     for filename in filename_args(args):

@@ -17,7 +17,7 @@ from   pyflyby.file             import read_file
 from   pyflyby.importstmt       import Imports
 
 def main():
-    options, args = parse_args()
+    options, args = parse_args(import_format_params=True)
     contents = [read_file(fn) for fn in filename_args(args)]
     imports = Imports.from_code(contents, filter_nonimports=True)
     sys.stdout.write(imports.pretty_print(
