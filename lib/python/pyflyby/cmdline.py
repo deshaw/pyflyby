@@ -8,9 +8,22 @@ from   textwrap                 import dedent
 
 from   pyflyby.file             import Filename, STDIO_PIPE
 from   pyflyby.importstmt       import ImportFormatParams
+from   pyflyby.log              import logger
 
 def parse_args(import_format_params=False):
     parser = optparse.OptionParser()
+
+    def log_level_callbacker(level):
+        def callback(option, opt_str, value, parser):
+            logger.set_level(level)
+        return callback
+
+    parser.add_option("--debug", "--verbose", action="callback",
+                      callback=log_level_callbacker("debug"))
+
+    parser.add_option("--quiet", action="callback",
+                      callback=log_level_callbacker("error"))
+
     if import_format_params:
         parser.add_option('--align-imports', type='int', default=1,
                           help=dedent('''

@@ -3,4 +3,4 @@
 source $(dirname $0)/_fn
 
 export PYFLYBY_KNOWN_IMPORTS_PATH=$imports_file:-
-tidy-imports --no-separate --from-spaces=3 --align=32 ${source_files[@]}
+tidy-imports --debug --no-separate --from-spaces=3 --align=32 ${source_files[@]}
