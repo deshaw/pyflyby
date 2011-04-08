@@ -180,6 +180,16 @@ class ExpandedDocIndex(object):
             [str(m.name) for m in sorted(self.modules)])
 
 
+def remove_epydoc_sym_suffix(s):
+    """
+    Remove trailing "'" that Epydoc annoyingly adds to 'shadowed' names.
+
+      >>> remove_epydoc_sym_suffix("a.b'.c'.d")
+      'a.b.c.d'
+
+    """
+    return re.sub(r"'([.]|$)", r'\1', s)
+
 class XrefScanner(object):
 
     def __init__(self, modules):
@@ -301,8 +311,8 @@ class XrefScanner(object):
         def check_defining_module(x):
             if x is None:
                 return False
-            defining_module_name = str(
-                x.defining_module.canonical_name)
+            defining_module_name = remove_epydoc_sym_suffix(str(
+                x.defining_module.canonical_name))
             if defining_module_name in ASSUME_MODULES_OK:
                 return True
             if self.expanded_docindex.add_module(defining_module_name):
@@ -318,7 +328,8 @@ class XrefScanner(object):
             return True
         # If the user has imported foo.bar.baz as baz and now uses
         # C{baz.quux}, we need to add the module foo.bar.baz.
-        for prefix in reversed(list(prefixes(SymbolName(identifier)))):
+        for prefix in reversed(list(prefixes(
+                    SymbolName(remove_epydoc_sym_suffix(identifier))))):
             if check_defining_module(
                 self.docindex.find(str(prefix), container)):
                 return True
