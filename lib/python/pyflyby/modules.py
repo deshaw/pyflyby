@@ -106,7 +106,7 @@ class Module(object):
     def from_module(cls, module):
         if not isinstance(module, types.ModuleType):
             raise TypeError
-        self = cls.from_modulename(module.__package__)
+        self = cls.from_modulename(module.__name__)
         assert self.module is module
         return self
 
