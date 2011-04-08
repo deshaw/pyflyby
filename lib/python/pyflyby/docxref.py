@@ -37,6 +37,9 @@ from   pyflyby.log              import logger
 from   pyflyby.modules          import Module
 from   pyflyby.util             import cached_attribute, memoize, prefixes
 
+# If someone references numpy.*, just assume it's OK - it's not worth
+# following into numpy because it's too slow.
+ASSUME_MODULES_OK = set(['numpy'])
 
 @memoize
 def map_strings_to_line_numbers(module):
@@ -120,6 +123,8 @@ def safe_build_doc_index(modules):
     # build_doc_index isn't re-entrant due to crappy caching! >:(
     from epydoc.docintrospecter import clear_cache
     clear_cache()
+    from epydoc.docparser import _moduledoc_cache
+    _moduledoc_cache.clear()
     # Build a new DocIndex.  It swallows exceptions and returns None on error!
     # >:(
     result = build_doc_index(modules)
@@ -294,9 +299,12 @@ class XrefScanner(object):
             return True
         if (isinstance(container, RoutineDoc) and
             identifier in container.all_args()):
-            return '?'
-        if self.expanded_docindex.add_module(
-            str(container.defining_module.canonical_name)):
+            return True
+        defining_module_name = str(
+            container.defining_module.canonical_name)
+        if defining_module_name in ASSUME_MODULES_OK:
+            return True
+        if self.expanded_docindex.add_module(defining_module_name):
             if check_container():
                 return True
         if identifier in __builtin__.__dict__:
@@ -306,6 +314,8 @@ class XrefScanner(object):
         except ImportError:
             pass
         else:
+            if str(module.name) in ASSUME_MODULES_OK:
+                return True
             if self.expanded_docindex.add_module(module):
                 if check_container():
                     return True
