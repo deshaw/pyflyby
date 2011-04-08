@@ -34,7 +34,7 @@ from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
 from   epydoc.docbuilder        import build_doc_index
 
 from   pyflyby.log              import logger
-from   pyflyby.modules          import Module
+from   pyflyby.modules          import Module, SymbolName
 from   pyflyby.util             import cached_attribute, memoize, prefixes
 
 # If someone references numpy.*, just assume it's OK - it's not worth
@@ -282,6 +282,8 @@ class XrefScanner(object):
         Look in modules that we weren't explicitly asked to look in, if
         needed.
         """
+        if identifier in __builtin__.__dict__:
+            return True
         def check_container():
             if self.expanded_docindex.find(identifier, container) is not None:
                 return True
@@ -295,20 +297,30 @@ class XrefScanner(object):
                     doc = self.expanded_docindex.find(identifier, tcontainer)
                 return doc is not None
             return False
+        def check_defining_module(x):
+            if x is None:
+                return False
+            defining_module_name = str(
+                x.defining_module.canonical_name)
+            if defining_module_name in ASSUME_MODULES_OK:
+                return True
+            if self.expanded_docindex.add_module(defining_module_name):
+                if check_container():
+                    return True
+            return False
         if check_container():
             return True
         if (isinstance(container, RoutineDoc) and
             identifier in container.all_args()):
             return True
-        defining_module_name = str(
-            container.defining_module.canonical_name)
-        if defining_module_name in ASSUME_MODULES_OK:
+        if check_defining_module(container):
             return True
-        if self.expanded_docindex.add_module(defining_module_name):
-            if check_container():
+        # If the user has imported foo.bar.baz as baz and now uses
+        # C{baz.quux}, we need to add the module foo.bar.baz.
+        for prefix in reversed(list(prefixes(SymbolName(identifier)))):
+            if check_defining_module(
+                self.docindex.find(str(prefix), container)):
                 return True
-        if identifier in __builtin__.__dict__:
-            return True
         try:
             module = Module.containing(identifier)
         except ImportError:
