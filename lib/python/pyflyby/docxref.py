@@ -117,6 +117,11 @@ def describe_xref(identifier, container):
 
 
 def safe_build_doc_index(modules):
+    # build_doc_index isn't re-entrant due to crappy caching! >:(
+    from epydoc.docintrospecter import clear_cache
+    clear_cache()
+    # Build a new DocIndex.  It swallows exceptions and returns None on error!
+    # >:(
     result = build_doc_index(modules)
     if result is None:
         raise Exception("Failed to build doc index on %r" % (modules,))
