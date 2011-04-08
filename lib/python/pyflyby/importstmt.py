@@ -495,11 +495,12 @@ class Imports(object):
         Return a copy of self without the given imports indexed by
         C{import_as}.
 
-          >>> Imports('from m import t1, t2, t3, t4').without_imports(['t3'])
+          >>> imports = Imports('from m import t1, t2, t3, t4')
+          >>> imports.without_imports(['from m import t3'])
           Imports([ImportStatement('from m import t1, t2, t4')])
 
         @type import_as_exclusions:
-          Sequence of C{str}
+          Sequence of L{Import}
         @rtype:
           L{Imports}
         """

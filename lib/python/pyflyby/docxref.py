@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Module for checking Epydoc cross-references.
 
 # Portions of the code below are derived from Epydoc, which is distributed
@@ -30,54 +28,27 @@ import __builtin__
 import ast
 import re
 from   textwrap                 import dedent
-import types
 
 from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
                                         RoutineDoc, UNKNOWN, VariableDoc)
 from   epydoc.docbuilder        import build_doc_index
 
 from   pyflyby.log              import logger
-from   pyflyby.util             import cached_attribute, memoize
+from   pyflyby.modules          import Module
+from   pyflyby.util             import cached_attribute, memoize, prefixes
 
-
-def import_module(module_name):
-    logger.debug("Importing %r", module_name)
-    try:
-        return __import__(module_name, fromlist=['dummy'])
-    except Exception as e:
-        logger.debug("Failed to import %r: %s: %r",
-                     module_name, type(e).__name__, e)
-        raise
-
-def pyc_to_py(filename):
-    if filename.endswith(".pyc"):
-        filename = filename[:-1]
-    return filename
 
 @memoize
-def filename_of_module(module_name):
-    # This is inefficient (and potentially ugly exceptions) if the module
-    # isn't already loaded, but in our use cases it already is.
-    module = import_module(module_name)
-    return pyc_to_py(module.__file__)
-
-@memoize
-def parse_module(filename):
-    with open(filename) as f:
-        filecontent = f.read()
-    return ast.parse(filecontent, filename)
-
-@memoize
-def map_strings_to_line_numbers(ast_node):
+def map_strings_to_line_numbers(module):
     """
-    Walk C{ast_node}, looking at all string literals.  Return a map from
+    Walk C{module.ast}, looking at all string literals.  Return a map from
     string literals to line numbers (1-index).
 
     @rtype:
       C{dict} from C{str} to (C{int}, C{str})
     """
     d = {}
-    for node in ast.walk(ast_node):
+    for node in ast.walk(module.ast):
         for fieldname, field in ast.iter_fields(node):
             if isinstance(field, ast.Str):
                 if not hasattr(field, 'lineno'):
@@ -93,7 +64,7 @@ def map_strings_to_line_numbers(ast_node):
     return d
 
 
-def get_string_linenos_in_module(filename, searchstring, within_string):
+def get_string_linenos(module, searchstring, within_string):
     """
     Return the line numbers (1-indexed) within C{filename} that contain
     C{searchstring}.  Only consider string literals (i.e. not comments).
@@ -104,8 +75,9 @@ def get_string_linenos_in_module(filename, searchstring, within_string):
     [If there's a comment on the same line as a string that also contains the
     searchstring, we'll get confused.]
     """
+    module = Module(module)
     regexp = re.compile(searchstring)
-    map = map_strings_to_line_numbers(parse_module(filename))
+    map = map_strings_to_line_numbers(module)
     results = []
     def scan_within_string(results, start_lineno, orig_full_string):
         for i, line in enumerate(orig_full_string.splitlines()):
@@ -123,62 +95,25 @@ def get_string_linenos_in_module(filename, searchstring, within_string):
         # We could continue down if this ever happened.
         raise Exception(
             "Found superstring in %r but not substring %r within superstring"
-            % (filename, searchstring))
+            % (module.filename, searchstring))
     # Try a full text search.
     for lineno, orig_full_string in map.itervalues():
         scan_within_string(results, lineno, orig_full_string)
     if results:
         return tuple(sorted(results))
     raise Exception(
-        "Could not find %r anywhere in %r" % (searchstring, filename))
+        "Could not find %r anywhere in %r" % (searchstring, module.filename))
 
 
 def describe_xref(identifier, container):
-    module_name = str(container.defining_module.canonical_name)
-    filename = container.defining_module.filename
-    assert filename == filename_of_module(module_name)
-    linenos = get_string_linenos_in_module(
-        filename,
+    module = Module(str(container.defining_module.canonical_name))
+    assert module.filename == container.defining_module.filename
+    linenos = get_string_linenos(
+        module,
         "(L{|<)%s" % (identifier,),
         container.docstring)
-    return (module_name, filename, linenos, str(container.canonical_name),
-            identifier)
+    return (module, linenos, str(container.canonical_name), identifier)
 
-
-def import_module_containing(identifier):
-    """
-    Try to find the module that defines a name such as C{a.b.c} by trying to
-    import C{a}, C{a.b}, and C{a.b.c}.
-
-    @return:
-      The name of the 'deepest' module (most commonly it would be C{a.b} in
-      this example).
-    @rtype:
-      C{str}
-    """
-    # In the code below we catch "Exception" rather than just ImportError or
-    # AttributeError since importing and __getattr__ing can raise other
-    # exceptions.
-    parts = identifier.split('.')
-    try:
-        result = import_module(parts[0])
-        module_name = parts[0]
-    except Exception:
-        return None
-    for i, part in enumerate(parts[1:], 2):
-        try:
-            result = getattr(result, part)
-        except Exception:
-            try:
-                module_name = '.'.join(parts[:i])
-                result = import_module(module_name)
-            except Exception:
-                return None
-        else:
-            if isinstance(result, types.ModuleType):
-                module_name = '.'.join(parts[:i])
-    logger.debug("Imported %r to get %r", module_name, identifier)
-    return module_name
 
 
 def safe_build_doc_index(modules):
@@ -195,33 +130,30 @@ class ExpandedDocIndex(object):
     """
     # TODO: this is kludgy and inefficient since it re-reads modules.
     def __init__(self, modules):
-        self.modules = set(modules)
+        self.modules = set([Module(m) for m in modules])
 
-    def add_module(self, module_name):
+    def add_module(self, module):
         """
         Adds C{module} and recreates the DocIndex with the updated set of
         modules.
 
         @return:
-          Whether anything was added.  If module_name is invalid or already
-          added, quietly return False.
+          Whether anything was added.
         """
-        if not module_name:
-            return False
-        # Only add if it's importable.
-        try:
-            module = import_module(module_name)
-        except Exception:
-            return False
-        if module_name in self.modules:
-            return False
-        # Also check by filename, in case the user originally specified
-        # a filename rather than module name.
-        filename = pyc_to_py(module.__file__)
-        if filename in self.modules:
-            return False
-        logger.debug("Expanding docindex to include %r", module_name)
-        self.modules.add(module_name)
+        module = Module(module)
+        for prefix in prefixes(module):
+            if prefix in self.modules:
+                # The module, or a prefix of it, was already added.
+                return False
+
+        for existing_module in sorted(self.modules):
+            if existing_module.startswith(module):
+                # This supersedes an existing module.
+                assert existing_module != module
+                self.modules.remove(existing_module)
+
+        logger.debug("Expanding docindex to include %r", module)
+        self.modules.add(module)
         del self.docindex
         return True
 
@@ -233,7 +165,8 @@ class ExpandedDocIndex(object):
 
     @cached_attribute
     def docindex(self):
-        return safe_build_doc_index(sorted(self.modules))
+        return safe_build_doc_index(
+            [str(m.name) for m in sorted(self.modules)])
 
 
 class XrefScanner(object):
@@ -363,10 +296,14 @@ class XrefScanner(object):
                 return True
         if identifier in __builtin__.__dict__:
             return True
-        if self.expanded_docindex.add_module(
-            import_module_containing(identifier)):
-            if check_container():
-                return True
+        try:
+            module = Module.containing(identifier)
+        except ImportError:
+            pass
+        else:
+            if self.expanded_docindex.add_module(module):
+                if check_container():
+                    return True
         return False
 
     def scan_docstring(self, parsed_docstring, container):
@@ -398,9 +335,8 @@ def find_bad_doc_cross_references(names):
 
     @type names:
       Sequence of module names or filenames.
-    @rtype:
-      Sequence of C{(module_name, filename, linenos, container_name,
-      identifier)} tuples.
+    @return:
+      Sequence of C{(module, linenos, container_name, identifier)} tuples.
     """
     xrs = XrefScanner(names)
     return xrs.scan()

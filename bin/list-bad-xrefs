@@ -21,10 +21,10 @@ def main():
     if not args:
         syntax()
     for rec in find_bad_doc_cross_references(args):
-        module_name, filename, linenos, container_name, identifier = rec
+        module, linenos, container_name, identifier = rec
         for lineno in linenos or ["?"]:
             print "%s:%s: undefined docstring cross-reference in %s: %s" % (
-                filename, lineno, container_name, identifier)
+                module.filename, lineno, container_name, identifier)
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ import re
 
 from   itertools                import groupby
 
-from   pyflyby.file             import FileContents, Filename
+from   pyflyby.file             import FileContents, FileLines, Filename
 from   pyflyby.util             import cached_attribute
 
 def is_comment_or_blank(line):
@@ -21,104 +21,6 @@ def is_comment_or_blank(line):
       True
     """
     return re.sub("#.*", "", line).rstrip() == ""
-
-
-class FileLines(object):
-    """
-    Represents a contiguous sequence of lines from a file.
-    """
-
-    def __new__(cls, arg):
-        if isinstance(arg, cls):
-            return arg
-        if isinstance(arg, (Filename, FileContents, str)):
-            return cls.from_text(arg)
-        raise TypeError
-
-    @classmethod
-    def from_lines(cls, lines, filename=None, linenumber=1):
-        """
-        @type params:
-          Sequence of strings, each of which ends with a newline and has no
-          other newlines.
-        @rtype:
-          L{FileLines}
-        """
-        if isinstance(lines, str):
-            raise TypeError
-        self = object.__new__(cls)
-        self.lines = lines
-        self.filename = filename
-        self.linenumber = linenumber
-        return self
-
-    @classmethod
-    def from_text(cls, text, linenumber=1):
-        text = FileContents(text)
-        # Split into physical lines.
-        lines = text.splitlines(True)
-        self = cls.from_lines(lines, filename=text.filename, linenumber=linenumber)
-        self.joined = text # optimization
-        return self
-
-    @cached_attribute
-    def joined(self):
-        return ''.join(self.lines)
-
-    @cached_attribute
-    def end_linenumber(self):
-        """
-        The number of the line after the lines contained in self.
-        """
-        return self.linenumber + len(self.lines)
-
-    def _linenumber_to_index(self, linenumber):
-        if not self.linenumber <= linenumber <= self.end_linenumber:
-            raise ValueError(
-                "Line number %d out of range [%d, %d)"
-                % (linenumber, self.linenumber, self.end_linenumber))
-        return linenumber - self.linenumber
-
-    def __getitem__(self, arg):
-        """
-        Return the line(s) with the given line number(s).
-        If slicing, returns an instance of C{FileLines}.
-
-        Note that line numbers are indexed based on C{self.linenumber}.
-
-          >>> FileLines("a\\nb\\nc\\nd")[2]
-          'b\\n'
-
-          >>> FileLines("a\\nb\\nc\\nd")[2:4]
-          FileLines('b\\nc\\n', linenumber=2)
-
-          >>> FileLines("a\\nb\\nc\\nd")[0]
-          Traceback (most recent call last):
-            ...
-          ValueError: Line number 0 out of range [1, 5)
-
-        @rtype:
-          C{str} or L{FileLines}
-        """
-        N = self._linenumber_to_index
-        if isinstance(arg, slice):
-            if arg.step is not None and arg.step != 1:
-                raise ValueError("steps not supported")
-            return type(self).from_lines(
-                self.lines[N(arg.start):N(arg.stop)],
-                self.filename, arg.start)
-        elif isinstance(arg, int):
-            return self.lines[N(arg)]
-        else:
-            raise TypeError("bad type %r" % (type(arg),))
-
-    def __repr__(self):
-        if self.filename is None:
-            d = self.joined
-        else:
-            d = FileContents.from_contents(self.joined, self.filename)
-        return "%s.from_text(%r, linenumber=%r)" % (
-            type(self).__name__, d, self.linenumber)
 
 
 class MoreThanOneAstNodeError(Exception):
@@ -273,12 +175,12 @@ class PythonBlock(tuple):
       >>> codeblock = PythonBlock(source_code)
       >>> for stmt in PythonBlock(codeblock):
       ...     print stmt
-      PythonStatement(PythonFileLines('# 1\\n', linenumber=1))
-      PythonStatement(PythonFileLines('print 2\\n', linenumber=2))
-      PythonStatement(PythonFileLines('# 3\\n# 4\\n', linenumber=3))
-      PythonStatement(PythonFileLines('print 5\\n', linenumber=5))
-      PythonStatement(PythonFileLines('x=[6,\\n 7]\\n', linenumber=6))
-      PythonStatement(PythonFileLines('# 8', linenumber=8))
+      PythonStatement(PythonFileLines.from_text('# 1\\n', linenumber=1))
+      PythonStatement(PythonFileLines.from_text('print 2\\n', linenumber=2))
+      PythonStatement(PythonFileLines.from_text('# 3\\n# 4\\n', linenumber=3))
+      PythonStatement(PythonFileLines.from_text('print 5\\n', linenumber=5))
+      PythonStatement(PythonFileLines.from_text('x=[6,\\n 7]\\n', linenumber=6))
+      PythonStatement(PythonFileLines.from_text('# 8', linenumber=8))
 
     """
 

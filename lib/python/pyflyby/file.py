@@ -18,14 +18,15 @@ class Filename(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, str):
+        if isinstance(arg, basestring):
             return cls.from_filename(arg)
         raise TypeError
 
     @classmethod
     def from_filename(cls, filename):
-        if not isinstance(filename, str):
+        if not isinstance(filename, basestring):
             raise TypeError
+        filename = str(filename)
         if re.search("[^a-zA-Z0-9_=+{}/.,~-]", filename):
             raise UnsafeFilenameError(filename)
         if re.search("(^|/)~", filename):
@@ -44,6 +45,7 @@ class Filename(object):
         return type(self)(os.path.join(self._filename, x))
 
     def __cmp__(self, o):
+        o = type(self)(o)
         return cmp(self._filename, o._filename)
 
     @cached_attribute
@@ -125,6 +127,105 @@ class FileContents(str):
             s += ", %r" % (self.filename,)
         s += ")"
         return s
+
+
+class FileLines(object):
+    """
+    Represents a contiguous sequence of lines from a file.
+    """
+
+    def __new__(cls, arg):
+        if isinstance(arg, cls):
+            return arg
+        if isinstance(arg, (Filename, FileContents, str)):
+            return cls.from_text(arg)
+        raise TypeError
+
+    @classmethod
+    def from_lines(cls, lines, filename=None, linenumber=1):
+        """
+        @type params:
+          Sequence of strings, each of which ends with a newline and has no
+          other newlines.
+        @rtype:
+          L{FileLines}
+        """
+        if isinstance(lines, str):
+            raise TypeError
+        self = object.__new__(cls)
+        self.lines = tuple(lines)
+        self.filename = filename
+        self.linenumber = linenumber
+        return self
+
+    @classmethod
+    def from_text(cls, text, linenumber=1):
+        text = FileContents(text)
+        # Split into physical lines.
+        lines = text.splitlines(True)
+        self = cls.from_lines(lines, filename=text.filename, linenumber=linenumber)
+        self.joined = text # optimization
+        return self
+
+    @cached_attribute
+    def joined(self):
+        return ''.join(self.lines)
+
+    @cached_attribute
+    def end_linenumber(self):
+        """
+        The number of the line after the lines contained in self.
+        """
+        return self.linenumber + len(self.lines)
+
+    def _linenumber_to_index(self, linenumber):
+        if not self.linenumber <= linenumber <= self.end_linenumber:
+            raise ValueError(
+                "Line number %d out of range [%d, %d)"
+                % (linenumber, self.linenumber, self.end_linenumber))
+        return linenumber - self.linenumber
+
+    def __getitem__(self, arg):
+        """
+        Return the line(s) with the given line number(s).
+        If slicing, returns an instance of C{FileLines}.
+
+        Note that line numbers are indexed based on C{self.linenumber}.
+
+          >>> FileLines("a\\nb\\nc\\nd")[2]
+          'b\\n'
+
+          >>> FileLines("a\\nb\\nc\\nd")[2:4]
+          FileLines.from_text('b\\nc\\n', linenumber=2)
+
+          >>> FileLines("a\\nb\\nc\\nd")[0]
+          Traceback (most recent call last):
+            ...
+          ValueError: Line number 0 out of range [1, 5)
+
+        @rtype:
+          C{str} or L{FileLines}
+        """
+        N = self._linenumber_to_index
+        if isinstance(arg, slice):
+            if arg.step is not None and arg.step != 1:
+                raise ValueError("steps not supported")
+            return type(self).from_lines(
+                self.lines[N(arg.start):N(arg.stop)],
+                self.filename, arg.start)
+        elif isinstance(arg, int):
+            return self.lines[N(arg)]
+        else:
+            raise TypeError("bad type %r" % (type(arg),))
+
+    def __repr__(self):
+        if self.filename is None:
+            d = self.joined
+        else:
+            d = FileContents.from_contents(self.joined, self.filename)
+        return "%s.from_text(%r, linenumber=%r)" % (
+            type(self).__name__, d, self.linenumber)
+
 
 def read_file(filename):
     if filename is STDIO_PIPE:

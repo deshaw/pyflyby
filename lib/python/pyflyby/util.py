@@ -83,4 +83,13 @@ def longest_common_prefix(items1, items2):
     return items1[:n]
 
 
+def prefixes(parts):
+    """
+      >>> list(prefixes("abcd"))
+      ['a', 'ab', 'abc', 'abcd']
+
+    """
+    for i in range(1, len(parts)+1):
+        yield parts[:i]
+
 Inf = float('Inf')
