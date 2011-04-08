@@ -32,6 +32,7 @@ from   textwrap                 import dedent
 from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
                                         RoutineDoc, UNKNOWN, VariableDoc)
 from   epydoc.docbuilder        import build_doc_index
+from   epydoc.markup.plaintext  import ParsedPlaintextDocstring
 
 from   pyflyby.log              import logger
 from   pyflyby.modules          import Module, SymbolName
@@ -335,6 +336,8 @@ class XrefScanner(object):
 
     def scan_docstring(self, parsed_docstring, container):
         if parsed_docstring in (None, UNKNOWN): return ''
+        if isinstance(parsed_docstring, ParsedPlaintextDocstring):
+            return ''
 
         def scan_tree(tree):
             if isinstance(tree, basestring):
