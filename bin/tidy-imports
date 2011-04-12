@@ -18,14 +18,52 @@ Only top-level import statements are touched.
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.cmdline          import filename_args, parse_args, hfmt
 from   pyflyby.file             import modify_file
 from   pyflyby.imports2s        import fix_unused_and_missing_imports
 
 def main():
-    options, args = parse_args(import_format_params=True)
+    def addopts(parser):
+        parser.add_option('--add-missing',
+                          default=True, action='store_true',
+                          help=hfmt('''
+                              (Default) Add missing imports.'''))
+        parser.add_option('--no-add-missing', dest='add_missing',
+                          default=True, action='store_false',
+                          help=hfmt('''
+                              Don't add missing imports.'''))
+        parser.add_option('--remove-unused',
+                          default=True, action='store_true',
+                          help=hfmt('''
+                              (Default) Remove unused imports.'''))
+        parser.add_option('--no-remove-unused', dest='remove_unused',
+                          default=True, action='store_false',
+                          help=hfmt('''
+                              Don't remove unused imports.'''))
+        parser.add_option('--add-mandatory',
+                          default=True, action='store_true',
+                          help=hfmt('''
+                              (Default) Add mandatory imports.'''))
+        parser.add_option('--no-add-mandatory', dest='add_mandatory',
+                          default=True, action='store_false',
+                          help=hfmt('''
+                              Don't add mandatory imports.'''))
+        def no_add_callback(option, opt_str, value, group):
+            group.values.add_missing = False
+            group.values.add_mandatory = False
+        parser.add_option('--no-add', action='callback',
+                          callback=no_add_callback,
+                          help=hfmt('''
+                              Equivalent to --no-add-missing
+                              --no-add-mandatory.'''))
+    options, args = parse_args(addopts, import_format_params=True)
     def modifier(x):
-        return fix_unused_and_missing_imports(x, params=options.params)
+        return fix_unused_and_missing_imports(
+            x, params=options.params,
+            add_missing=options.add_missing,
+            remove_unused=options.remove_unused,
+            add_mandatory=options.add_mandatory,
+            )
     for filename in filename_args(args):
         modify_file(filename, modifier)
 

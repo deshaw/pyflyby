@@ -1,6 +1,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import errno
 import os
 import re
 import sys
@@ -264,7 +265,16 @@ def modify_file(filename, modifier):
     if filename is STDIO_PIPE:
         original = read_file(filename)
         modified = FileContents(modifier(original))
-        sys.stdout.write(modified)
+        try:
+            sys.stdout.write(modified)
+            # Explicitly (try to) close here, so that we can catch EPIPE
+            # here.  Otherwise we get an ugly error message at system exit.
+            sys.stdout.close()
+        except IOError as e:
+            # Quietly exit if pipe closed.
+            if e.errno == errno.EPIPE:
+                raise SystemExit(1)
+            raise
         return
     filename = Filename(filename)
     original = read_file(filename)
