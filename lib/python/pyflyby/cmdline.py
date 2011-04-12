@@ -28,14 +28,14 @@ def parse_args(import_format_params=False):
                       callback=log_level_callbacker("error"))
 
     if import_format_params:
-        parser.add_option('--align-imports', type='int', default=1,
+        parser.add_option('--align-imports', type='int', default=0,
                           help=hfmt('''
                               Whether and how to align the 'import' keyword in
-                              'from modulename import aliases...'.  If 0, then
-                              don't align.  If 1 (default), then align within
-                              each block of imports.  If an integer > 1, then
-                              align at that column, wrapping with a backslash
-                              if necessary.'''))
+                              'from modulename import aliases...'.  If 0
+                              (default), then don't align.  If 1, then align
+                              within each block of imports.  If an integer >
+                              1, then align at that column, wrapping with a
+                              backslash if necessary.'''))
         parser.add_option('--from-spaces', type='int', default=1,
                           help=hfmt('''
                               The number of spaces after the 'from' keyword.
