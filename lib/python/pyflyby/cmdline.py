@@ -50,6 +50,11 @@ def parse_args(import_format_params=False):
                           help=hfmt('''
                               Don't separate 'from ... import ...' statements
                               from 'import ...' statements.'''))
+        parser.add_option('--align-future', action='store_true',
+                          default=False,
+                          help=hfmt('''
+                              Align the 'from __future__ import ...' statement
+                              like others.'''))
         parser.add_option('--width', type='int', default=79,
                           help=hfmt('''
                               Maximum line length (default: 79).'''))
@@ -75,6 +80,7 @@ def parse_args(import_format_params=False):
             from_spaces           =options.from_spaces,
             separate_from_imports =options.separate_from_imports,
             max_line_length       =options.width,
+            align_future          = options.align_future
             )
     return options, args
 

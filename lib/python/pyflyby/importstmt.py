@@ -29,7 +29,14 @@ class ImportFormatParams(FormatParams):
     """
     Whether all 'from ... import ...' in an import block should come after
     'import ...' statements.  C{separate_from_imports = False} works well with
-    C{from_spaces = 3}.
+    C{from_spaces = 3}.  ('from __future__ import ...' always comes first.)
+    """
+
+    align_future = False
+    """
+    Whether 'from __future__ import ...' statements should be aligned with
+    others.  If False, uses a single space after the 'from' and 'import'
+    keywords.
     """
 
 
@@ -640,17 +647,20 @@ class Imports(object):
             import_column = params.align_imports
         elif params.align_imports and self.statements:
             import_column = (max(len(statement.fromname or '')
-                                 for statement in self.statements) +
+                                 for statement in self.statements
+                                 if statement.fromname != '__future__') +
                              from_spaces + 5)
         else:
             import_column = None
-        if len(self.statements) == 1 and self.statements[0].fromname == '__future__':
-            # Special case for 'from __future__ import ...': single space it.
-            import_column = None
-            from_spaces = 1
-        return ''.join(
-            statement.pretty_print(params=params, import_column=import_column,
-                                   from_spaces=from_spaces)
-            for statement in self.get_statements(
-                separate_from_imports=params.separate_from_imports))
+        def pp(statement):
+            if statement.fromname == '__future__' and not params.align_future:
+                return statement.pretty_print(
+                    params=params, import_column=None, from_spaces=1)
+            else:
+                return statement.pretty_print(
+                    params=params, import_column=import_column,
+                    from_spaces=from_spaces)
+        statements = self.get_statements(
+            separate_from_imports=params.separate_from_imports)
+        return ''.join(pp(statement) for statement in statements)
 
