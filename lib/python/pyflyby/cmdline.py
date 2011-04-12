@@ -10,6 +10,9 @@ from   pyflyby.file             import Filename, STDIO_PIPE
 from   pyflyby.importstmt       import ImportFormatParams
 from   pyflyby.log              import logger
 
+def hfmt(s):
+    return dedent(s).strip()
+
 def parse_args(import_format_params=False):
     parser = optparse.OptionParser()
 
@@ -26,7 +29,7 @@ def parse_args(import_format_params=False):
 
     if import_format_params:
         parser.add_option('--align-imports', type='int', default=1,
-                          help=dedent('''
+                          help=hfmt('''
                               Whether and how to align the 'import' keyword in
                               'from modulename import aliases...'.  If 0, then
                               don't align.  If 1 (default), then align within
@@ -34,21 +37,31 @@ def parse_args(import_format_params=False):
                               align at that column, wrapping with a backslash
                               if necessary.'''))
         parser.add_option('--from-spaces', type='int', default=1,
-                          help=dedent('''
+                          help=hfmt('''
                               The number of spaces after the 'from' keyword.
                               (Must be at least 1.)'''))
         parser.add_option('--separate-from-imports', action='store_true',
                           default=True,
-                          help=dedent('''
+                          help=hfmt('''
                               (Default) Separate 'from ... import ...'
                               statements from 'import ...' statements.'''))
         parser.add_option('--no-separate-from-imports', action='store_false',
                           dest='separate_from_imports',
-                          help=dedent('''
+                          help=hfmt('''
                               Don't separate 'from ... import ...' statements
                               from 'import ...' statements.'''))
         parser.add_option('--width', type='int', default=79,
-                          help=dedent('Maximum line length (default: 79).'))
+                          help=hfmt('''
+                              Maximum line length (default: 79).'''))
+        def uniform_callback(option, opt_str, value, parser):
+            parser.values.separate_from_imports = False
+            parser.values.from_spaces           = 3
+            parser.values.align_imports         = 32
+        parser.add_option('--uniform', '-u', action="callback",
+                          callback=uniform_callback,
+                          help=hfmt('''
+                              Shortcut for --no-separate-from-imports
+                              --from-spaces=3 --align-imports=32.'''))
     options, args = parser.parse_args()
     if import_format_params:
         if options.align_imports == 1:
