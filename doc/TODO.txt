@@ -2,9 +2,11 @@
 - Support compound statements.
 - Support imports at any level, not just top-level.
 - Per-directory import libraries.
-- Allow configuring whether 'import's come before 'from ... import's.
 - Fix bug: it currently incorrectly inserts new things inside module
   docstrings
 - Pyflakes reports unused "import foo.bar" as "foo" making it hard to remove
   unused "foo.bar" (there could be other imports on the same line).
 - Heuristically guess alignment style from existing code
+- Grouping: Teach tidy-imports to canonicalize import groups; need the user to
+  configure import groups
+
