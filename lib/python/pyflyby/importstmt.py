@@ -8,8 +8,7 @@ from   pyflyby.file             import Filename
 from   pyflyby.format           import FormatParams, pyfill
 from   pyflyby.parse            import PythonBlock, PythonStatement
 from   pyflyby.util             import (Inf, cached_attribute,
-                                        longest_common_prefix, stable_unique,
-                                        union_dicts)
+                                        longest_common_prefix, stable_unique)
 
 class ImportFormatParams(FormatParams):
     align_imports = True
@@ -558,6 +557,12 @@ class Imports(object):
         """
         groups = self._by_module_name
         if not separate_from_imports:
+            def union_dicts(*dicts):
+                result = {}
+                for label, dict in enumerate(dicts):
+                    for k, v in dict.iteritems():
+                        result[(k, label)] = v
+                return result
             groups = [groups[0], union_dicts(*groups[1:])]
         return tuple(
             ImportStatement(sorted(imports))
