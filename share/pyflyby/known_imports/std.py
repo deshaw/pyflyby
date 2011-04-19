@@ -139,11 +139,6 @@ from itertools           import (chain, count, groupby, imap, islice, izip,
 from keyword             import iskeyword
 from lxml                import etree
 from math                import cos, exp, log, pi, sin, sqrt
-from misc.double         import (MAX_VALUE as MAX_VALUE_FLOAT64,
-                                 MIN_NORMAL as MIN_NORMAL_FLOAT64, NAN as NaN,
-                                 POSITIVE_INFINITY as Infinity, copysign, fdiv,
-                                 fpclassify, isfinite, isinf, isnan,
-                                 isnormal as _isnormal, signbit)
 from numbers             import Number
 from operator            import add, indexOf, itemgetter, mul
 from optparse            import (BadOptionError, OptParseError, OptionParser,
