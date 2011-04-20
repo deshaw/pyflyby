@@ -3,7 +3,6 @@ import ConfigParser
 import Queue
 import UserDict
 import __builtin__
-import array
 import atexit
 import base64
 import binascii
