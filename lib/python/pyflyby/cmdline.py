@@ -13,8 +13,12 @@ from   pyflyby.log              import logger
 def hfmt(s):
     return dedent(s).strip()
 
+def maindoc():
+    import __main__
+    return __main__.__doc__.strip()
+
 def parse_args(addopts=None, import_format_params=False):
-    parser = optparse.OptionParser()
+    parser = optparse.OptionParser(usage='\n'+maindoc())
 
     def log_level_callbacker(level):
         def callback(option, opt_str, value, parser):
@@ -101,6 +105,5 @@ def filename_args(args):
         syntax()
 
 def syntax():
-    import __main__
-    print >>sys.stderr, __main__.__doc__
+    print >>sys.stderr, maindoc() + '\n\nFor usage, see: %s --help' % (sys.argv[0],)
     raise SystemExit(1)
