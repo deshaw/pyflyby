@@ -5,7 +5,7 @@ import os
 
 from   pyflyby.file             import Filename
 from   pyflyby.importstmt       import Imports
-from   pyflyby.util             import memoize
+from   pyflyby.util             import memoize, partition
 
 
 DEFAULT_CONFIG_DIRS = [
@@ -49,11 +49,16 @@ def get_python_path(env_var_name, default_path, recurse=False):
 global_config_dirs = get_python_path('PYFLYBY_PATH', DEFAULT_CONFIG_DIRS)
 
 def get_import_library(env_var_name, subdir_name):
-    return Imports(
-        get_python_path(
-            env_var_name,
-            [d/subdir_name for d in global_config_dirs],
-            recurse=True))
+    files = get_python_path(
+        env_var_name,
+        [d/subdir_name for d in global_config_dirs],
+        recurse=True)
+    remove_files, add_files = partition(
+        files, lambda f: f.base == '__remove__.py')
+    imports = Imports(add_files)
+    if remove_files:
+        imports = imports.without_imports(Imports(remove_files))
+    return imports
 
 
 @memoize

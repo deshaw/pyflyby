@@ -510,6 +510,8 @@ class Imports(object):
         @rtype:
           L{Imports}
         """
+        if isinstance(import_exclusions, Imports):
+            import_exclusions = import_exclusions.imports
         import_exclusions = set(Import(imp) for imp in import_exclusions)
         new_imports = []
         for imp in self.orig_imports:

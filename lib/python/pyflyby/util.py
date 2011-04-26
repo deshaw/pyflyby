@@ -82,4 +82,21 @@ def prefixes(parts):
     for i in range(1, len(parts)+1):
         yield parts[:i]
 
+
+def partition(iterable, predicate):
+    """
+      >>> partition('12321233221', lambda c: int(c) % 2 == 0)
+      (['2', '2', '2', '2', '2'], ['1', '3', '1', '3', '3', '1'])
+
+    """
+    falses = []
+    trues = []
+    for item in iterable:
+        if predicate(item):
+            trues.append(item)
+        else:
+            falses.append(item)
+    return trues, falses
+
+
 Inf = float('Inf')
