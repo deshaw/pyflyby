@@ -11,14 +11,28 @@ given symbol.  An import library file is simply a .py source file containing
 'import' (or 'from ... import ...') lines.  These can be generated
 automatically with collect-imports.
 
-The PYFLYBY_PATH environment variable is used to determine which library files
-to read.  This is a colon-separate list of filenames or directory names.
-Earlier entries take precedence in case of conflicting imports.  The default
-path is ~/.pyflyby/import_library, $PYFLYBY_DIR/share/pyflyby/import_library.
-Use '-' in $PYFLYBY_PATH to include the default.
+The PYFLYBY_KNOWN_IMPORTS_PATH environment variable is used to determine which
+library files to read.  This is a colon-separate list of filenames or
+directory names.  Earlier entries take precedence in case of conflicting
+imports.  The default path is ~/.pyflyby/import_library,
+$PYFLYBY_DIR/share/pyflyby/import_library.  Use '-' in
+$PYFLYBY_KNOWN_IMPORTS_PATH to include the default.
 
 Example:
-  PYFLYBY_PATH=~/myproject/myimports.py:-
+  PYFLYBY_KNOWN_IMPORTS_PATH=~/myproject/myimports.py:-
+
+$PYFLYBY_KNOWN_IMPORTS_PATH is searched recursively.  Filenames or
+subdirectories beginning with '.' are ignored.
+
+Files named __remove__.py contain imports to *remove* from the database.  This
+is useful if you want to use a set of imports maintained by someone else
+except for a few particular imports.
+
+
+PYFLYBY_MANDATORY_IMPORTS_PATH lists directories containing imports that
+tidy-imports adds to every file (unless --no-add-mandatory).  This will
+generally contain __future__ imports that one wishes to standardize across a
+codebase.
 
 
 Author: Karl Chen <Karl.Chen@quarl.org>
