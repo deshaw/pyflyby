@@ -155,7 +155,9 @@ from stat                import ST_MTIME
 from subprocess          import PIPE, Popen
 from sys                 import exit, stderr, stdout
 from tempfile            import mkdtemp, mkstemp, mktemp
-from threading           import Condition, Thread, currentThread, current_thread
+from textwrap            import dedent
+from threading           import (Condition, Thread, currentThread,
+                                 current_thread)
 from time                import gmtime, mktime, sleep, strftime
 from types               import FunctionType
 from weakref             import WeakKeyDictionary
