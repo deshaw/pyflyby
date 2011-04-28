@@ -1,12 +1,10 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import errno
 import os
 import re
 import sys
 
-from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute
 
 class UnsafeFilenameError(ValueError):

@@ -3,4 +3,4 @@
 source $(dirname $0)/_fn
 
 export PYFLYBY_KNOWN_IMPORTS_PATH=$imports_file:-
-tidy-imports --debug --uniform ${source_files[@]}
+tidy-imports --debug --Replace --uniform ${source_files[@]}

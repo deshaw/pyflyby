@@ -1,16 +1,17 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import errno
 import optparse
 import os
 import sys
 from   textwrap                 import dedent
-import errno
 
-from   pyflyby.file             import Filename, STDIO_PIPE, read_file, FileContents, atomic_write_file
+from   pyflyby.file             import (FileContents, Filename, STDIO_PIPE,
+                                        atomic_write_file, read_file)
 from   pyflyby.importstmt       import ImportFormatParams
 from   pyflyby.log              import logger
-from pyflyby.util import cached_attribute
+from   pyflyby.util             import cached_attribute
 
 def hfmt(s):
     return dedent(s).strip()

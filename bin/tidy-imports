@@ -18,7 +18,7 @@ Only top-level import statements are touched.
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import filename_args, parse_args, hfmt
+from   pyflyby.cmdline          import filename_args, hfmt, parse_args
 from   pyflyby.imports2s        import fix_unused_and_missing_imports
 
 def main():
