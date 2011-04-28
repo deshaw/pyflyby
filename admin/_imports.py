@@ -6,15 +6,18 @@ from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
                                         RoutineDoc, UNKNOWN, VariableDoc)
 from   epydoc.docbuilder        import build_doc_index
 from   epydoc.markup.plaintext  import ParsedPlaintextDocstring
+import errno
+import fileinput
 from   itertools                import groupby
 import logging
 import operator
 import optparse
 import os
-from   pyflyby.cmdline          import filename_args, parse_args, syntax
+from   pyflyby.cmdline          import filename_args, hfmt, parse_args, syntax
 from   pyflyby.docxref          import find_bad_doc_cross_references
 from   pyflyby.file             import (FileContents, FileLines, Filename,
-                                        STDIO_PIPE, modify_file, read_file)
+                                        STDIO_PIPE, atomic_write_file,
+                                        read_file)
 from   pyflyby.format           import FormatParams, pyfill
 from   pyflyby.importdb         import (global_known_imports,
                                         global_mandatory_imports)
@@ -28,7 +31,7 @@ from   pyflyby.parse            import (PythonBlock, PythonFileLines,
                                         PythonStatement)
 from   pyflyby.util             import (Inf, cached_attribute,
                                         longest_common_prefix, memoize,
-                                        prefixes, stable_unique, union_dicts)
+                                        partition, prefixes, stable_unique)
 import re
 import sys
 from   textwrap                 import dedent
