@@ -118,6 +118,10 @@ class PythonFileLines(FileLines):
                 # Note that this only affects top-level compound statements.
                 raise NotImplementedError(
                     "Not implemented: parsing of top-level compound statements")
+            if node.col_offset != 0:
+                raise AssertionError(
+                    "Shouldn't see col_offset != 0 for top-level "
+                    "non-compound statements")
             assert 1 <= start_lineno < end_lineno
             while is_comment_or_blank(self[end_lineno-1]):
                 end_lineno -= 1
