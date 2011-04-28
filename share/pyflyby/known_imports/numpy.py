@@ -1,4 +1,3 @@
-
 import matplotlib
 from   matplotlib               import (cm, scale as mscale,
                                         transforms as mtransforms)
