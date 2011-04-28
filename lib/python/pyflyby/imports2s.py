@@ -374,6 +374,10 @@ def fix_unused_and_missing_imports(codeblock,
             except NoSuchImportError:
                 logger.error(
                     "%s: couldn't remove import %r", filename, import_as,)
+            except LineNumberNotFoundError as e:
+                logger.error(
+                    "%s: unused import %r on line %d not global",
+                    filename, import_as, e.args[0])
             else:
                 # TODO: remove entire Import removed
                 logger.info("%s: removed unused import %r",
