@@ -29,10 +29,12 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         return callback
 
     parser.add_option("--debug", "--verbose", action="callback",
-                      callback=log_level_callbacker("debug"))
+                      callback=log_level_callbacker("debug"),
+                      help="Be noisy.")
 
     parser.add_option("--quiet", action="callback",
-                      callback=log_level_callbacker("error"))
+                      callback=log_level_callbacker("error"),
+                      help="Be quiet.")
 
     if modify_action_params:
         group = optparse.OptionGroup(parser, "Action options")
@@ -122,7 +124,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
-        group.add_option('--align-imports', '--align', type='int', default=0,
+        group.add_option('--align-imports', '--align', type='int', default=32,
                          metavar='N',
                          help=hfmt('''
                              Whether and how to align the 'import' keyword in
@@ -131,25 +133,30 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                              within each block of imports.  If an integer > 1,
                              then align at that column, wrapping with a
                              backslash if necessary.'''))
-        group.add_option('--from-spaces', type='int', default=1, metavar='N',
+        group.add_option('--from-spaces', type='int', default=3, metavar='N',
                          help=hfmt('''
                              The number of spaces after the 'from' keyword.
-                             (Must be at least 1.)'''))
+                             (Must be at least 1; default is 3.)'''))
         group.add_option('--separate-from-imports', action='store_true',
-                         default=True,
+                         default=False,
                          help=hfmt('''
-                             (Default) Separate 'from ... import ...'
+                             Separate 'from ... import ...'
                              statements from 'import ...' statements.'''))
         group.add_option('--no-separate-from-imports', action='store_false',
                          dest='separate_from_imports',
                          help=hfmt('''
-                            Don't separate 'from ... import ...' statements
-                            from 'import ...' statements.'''))
+                            (Default) Don't separate 'from ... import ...'
+                            statements from 'import ...' statements.'''))
         group.add_option('--align-future', action='store_true',
                          default=False,
                          help=hfmt('''
                              Align the 'from __future__ import ...' statement
                              like others.'''))
+        group.add_option('--no-align-future', action='store_false',
+                         dest='align_future',
+                         help=hfmt('''
+                             (Default) Don't align the 'from __future__ import
+                             ...' statement.'''))
         group.add_option('--width', type='int', default=79, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
@@ -161,7 +168,17 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                          callback=uniform_callback,
                          help=hfmt('''
                              Shortcut for --no-separate-from-imports
-                             --from-spaces=3 --align-imports=32.'''))
+                             --from-spaces=3 --align-imports=32 (default).'''))
+        def unaligned_callback(option, opt_str, value, parser):
+            parser.values.separate_from_imports = True
+            parser.values.from_spaces           = 1
+            parser.values.align_imports         = 0
+        group.add_option('--unaligned', '-n', action="callback",
+                         callback=unaligned_callback,
+                         help=hfmt('''
+                             Shortcut for --separate-from-imports
+                             --from-spaces=1 --align-imports=0.'''))
+
         parser.add_option_group(group)
     if addopts is not None:
         addopts(parser)
