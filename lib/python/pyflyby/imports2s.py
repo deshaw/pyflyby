@@ -160,7 +160,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         blocks = [SourceToSourceTransformationBase(block) for block in blocks]
         fblock = self.blocks[0].input
         for idx, statement in enumerate(fblock):
-            if not statement.is_comment_or_blank:
+            if not statement.is_comment_or_blank_or_string_literal:
                 if idx == 0:
                     # First block starts with a noncomment, so insert before
                     # it.

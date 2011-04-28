@@ -225,6 +225,11 @@ class PythonStatement(object):
         return self.ast_node is None
 
     @property
+    def is_comment_or_blank_or_string_literal(self):
+        return (self.is_comment_or_blank
+                or _ast_str_literal_value(self.ast_node) is not None)
+
+    @property
     def is_import(self):
         return isinstance(self.ast_node, (ast.Import, ast.ImportFrom))
 
