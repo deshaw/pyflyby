@@ -16,9 +16,8 @@ from   sqlalchemy.databases.mssql \
 import sqlalchemy.engine.base
 import sqlalchemy.engine.url
 import sqlalchemy.exc
-from   sqlalchemy.exc           import (
-    DBAPIError, DataError, IntegrityError, ProgrammingError,
-    ProgrammingError as SqlalchemyProgrammingError)
+from   sqlalchemy.exc           import (DBAPIError, DataError, IntegrityError,
+                                        ProgrammingError)
 import sqlalchemy.exceptions
 from   sqlalchemy.ext.associationproxy \
                                 import association_proxy
@@ -48,6 +47,6 @@ from   sqlalchemy.sql           import and_, functions, select
 import sqlalchemy.sql.expression
 from   sqlalchemy.sql.expression \
                                 import case, text
-from   sqlalchemy.sql.functions import current_date as getdate
+from   sqlalchemy.sql.functions import current_date
 from   sqlalchemy.types         import (Binary, Boolean, Float, NCHAR, Numeric,
                                         SmallInteger, TIMESTAMP, Text, Time)
