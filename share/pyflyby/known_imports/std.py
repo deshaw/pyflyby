@@ -1,4 +1,3 @@
-
 import ConfigParser
 from   Crypto.Cipher            import AES
 import Queue
