@@ -10,15 +10,16 @@ Reformats the top-level 'import' blocks within the python module/script.
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby.cmdline          import filename_args, parse_args
-from   pyflyby.file             import modify_file
 from   pyflyby.imports2s        import reformat_import_statements
 
 def main():
-    options, args = parse_args(import_format_params=True)
-    def modifier(x):
+    options, args = parse_args(
+        import_format_params=True, modify_action_params=True)
+    @options.action
+    def modify(x):
         return reformat_import_statements(x, params=options.params)
     for filename in filename_args(args):
-        modify_file(filename, modifier)
+        modify(filename)
 
 
 if __name__ == '__main__':

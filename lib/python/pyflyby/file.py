@@ -254,35 +254,3 @@ def atomic_write_file(filename, data):
     except OSError:
         pass
     os.rename(str(temp_filename), str(filename))
-
-def modify_file(filename, modifier):
-    """
-    Modify C{filename} using C{modifier}.
-
-    @param modifier:
-      Function that takes a L{FileContents} and returns a L{FileContents}.
-    """
-    if filename is STDIO_PIPE:
-        original = read_file(filename)
-        modified = FileContents(modifier(original))
-        try:
-            sys.stdout.write(modified)
-            # Explicitly (try to) close here, so that we can catch EPIPE
-            # here.  Otherwise we get an ugly error message at system exit.
-            sys.stdout.close()
-        except IOError as e:
-            # Quietly exit if pipe closed.
-            if e.errno == errno.EPIPE:
-                raise SystemExit(1)
-            raise
-        return
-    filename = Filename(filename)
-    original = read_file(filename)
-    modified = FileContents(modifier(original))
-    if modified != original:
-        logger.info("%s: *** modified ***", filename)
-        atomic_write_file(filename, modified)
-        return True
-    else:
-        logger.debug("%s: (unchanged)", filename)
-        return False

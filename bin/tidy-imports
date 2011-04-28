@@ -19,7 +19,6 @@ Only top-level import statements are touched.
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby.cmdline          import filename_args, parse_args, hfmt
-from   pyflyby.file             import modify_file
 from   pyflyby.imports2s        import fix_unused_and_missing_imports
 
 def main():
@@ -56,8 +55,10 @@ def main():
                           help=hfmt('''
                               Equivalent to --no-add-missing
                               --no-add-mandatory.'''))
-    options, args = parse_args(addopts, import_format_params=True)
-    def modifier(x):
+    options, args = parse_args(
+        addopts, import_format_params=True, modify_action_params=True)
+    @options.action
+    def modify(x):
         return fix_unused_and_missing_imports(
             x, params=options.params,
             add_missing=options.add_missing,
@@ -65,7 +66,7 @@ def main():
             add_mandatory=options.add_mandatory,
             )
     for filename in filename_args(args):
-        modify_file(filename, modifier)
+        modify(filename)
 
 
 if __name__ == '__main__':

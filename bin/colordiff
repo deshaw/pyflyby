@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+if [[ -t 1 ]]; then
+    diff -u "$@" | diff-colorize
+else
+    diff -u "$@"
+fi
+
