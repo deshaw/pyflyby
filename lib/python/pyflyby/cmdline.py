@@ -104,7 +104,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             callback=action_callbacker([action_ifchanged, action_replace]),
             help=hfmt('''Equivalent to --action=IFCHANGED,REPLACE'''))
         group.add_option(
-            "--Replace", "-R", action='callback',
+            "--diff-replace", "-R", action='callback',
             callback=action_callbacker([action_ifchanged, action_diff, action_replace]),
             help=hfmt('''Equivalent to --action=IFCHANGED,DIFF,REPLACE'''))
         actions_interactive = [
@@ -167,8 +167,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option('--uniform', '-u', action="callback",
                          callback=uniform_callback,
                          help=hfmt('''
-                             Shortcut for --no-separate-from-imports
-                             --from-spaces=3 --align-imports=32 (default).'''))
+                             (Default) Shortcut for --no-separate-from-imports
+                             --from-spaces=3 --align-imports=32.'''))
         def unaligned_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = True
             parser.values.from_spaces           = 1
