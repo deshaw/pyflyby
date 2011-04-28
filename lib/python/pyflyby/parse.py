@@ -26,6 +26,16 @@ def is_comment_or_blank(line):
 class MoreThanOneAstNodeError(Exception):
     pass
 
+
+def _ast_str_literal_value(node):
+    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+        return node.value.s
+    else:
+        return None
+
+class _DummyAst_Node(object):
+    pass
+
 class PythonFileLines(FileLines):
     @cached_attribute
     def ast_nodes(self):
@@ -37,6 +47,79 @@ class PythonFileLines(FileLines):
             # otherwise).
             text += "\n"
         return compile(text, filename, "exec", ast.PyCF_ONLY_AST, 0).body
+
+    @cached_attribute
+    def annotated_ast_nodes(self):
+        """
+        Return C{self.ast_nodes} where each node has added attributes
+        C{start_lineno} and C{end_lineno}.  end_lineno is 1 after the last
+        line number whose source comprises a given node.
+        """
+        nodes = self.ast_nodes
+        # First, find the start_lineno of each node.  For non-strings it's
+        # simply the lineno.  For string literals, for some crazy reason
+        # lineno contains the last line.  We only know that the starting line
+        # number is somewhere between the previous node's lineno and this one.
+        # Iterate over each node.  We create a dummy sentinel to serve as the
+        # "prev node" of the last first node.
+        start_sentinel = _DummyAst_Node()
+        start_sentinel.lineno = 0
+        for prev_node, node in zip([start_sentinel] + nodes[:-1], nodes):
+            s = _ast_str_literal_value(node)
+            if s is None:
+                # Not a string literal.  Easy.
+                node.start_lineno = node.lineno
+                continue
+            # Node is a string literal expression.  The starting line number
+            # of this string could be anywhere between the end of the previous
+            # expression (exclusive since assuming no compound statements) and
+            # C{lineno}.  Try line by line until we parse it correctly.  Try
+            # from the end because we don't want initial comments/etc.
+            for start_lineno in xrange(node.lineno, prev_node.lineno, -1):
+                sublines = self[start_lineno:node.lineno+1]
+                try:
+                    nnodes = sublines.ast_nodes
+                except SyntaxError:
+                    continue
+                if len(nnodes) != 1 or _ast_str_literal_value(nnodes[0]) != s:
+                    continue
+                node.start_lineno = start_lineno
+                break
+            else:
+                raise Exception(
+                    "Couldn't find starting line number of string for %r"
+                    % (ast.dump(node)))
+        # Now that we have correct starting line numbers we can use this to
+        # find ending line numbers.  We create a dummy sentinel node to serve
+        # as the "next node" of the last node.
+        end_sentinel = _DummyAst_Node()
+        end_sentinel.start_lineno = self.end_linenumber
+        for node, next_node in zip(nodes, nodes[1:] + [end_sentinel]):
+            start_lineno = node.start_lineno
+            end_lineno = next_node.start_lineno
+            if start_lineno == end_lineno:
+                # Implementing compound statements (two or more statements
+                # separated by ";") is tricky because we'll have to
+                # re-architect PythonFileLines.  We'll have to allow "lines"
+                # that don't end in a newline, and we'll no longer be able to
+                # index/slice by line number.  There's also the question of
+                # how to pretty-print this: presumably we'd want to just add
+                # newlines before and after import blocks, but not touch
+                # non-import blocks.  The strategy for splitting could be to
+                # split naively on ';', but check that parsing the parts with
+                # C{compile} matches, and if it doesn't (because the ';' is in
+                # a string or something), then try the next one.  Since
+                # compound statements are rarely used, we punt for now.
+                # Note that this only affects top-level compound statements.
+                raise NotImplementedError(
+                    "Not implemented: parsing of top-level compound statements")
+            assert 1 <= start_lineno < end_lineno
+            while is_comment_or_blank(self[end_lineno-1]):
+                end_lineno -= 1
+            assert 1 <= start_lineno < end_lineno
+            node.end_lineno = end_lineno
+        return nodes
+
 
     def __attach_ast_nodes(self, ast_nodes):
         # Used internally to attach C{nodes} as an optimization when we've
@@ -55,55 +138,38 @@ class PythonFileLines(FileLines):
         raise MoreThanOneAstNodeError()
 
     def split(self):
-        """
+        r"""
         Partition this L{PythonFileLines} into smaller L{PythonFileLines}
-        instances where each one contains at most 1 ast node.  Returned
-        L{PythonFileLines} instances can contain no ast nodes if they are
-        entirely composed of comments.
+        instances where each one contains at most 1 top-level ast node.
+        Returned L{PythonFileLines} instances can contain no ast nodes if they
+        are entirely composed of comments.
+
+          >>> s = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
+          >>> for l in PythonFileLines(s).split(): print l
+          PythonFileLines.from_text('# multiline\n# comment\n', linenumber=1)
+          PythonFileLines.from_text("'''multiline\nstring'''\n", linenumber=3)
+          PythonFileLines.from_text('blah\n', linenumber=5)
 
         @rtype:
           Generator that yields L{PythonFileLines} instances.
         """
-        ast_nodes = self.ast_nodes
+        ast_nodes = self.annotated_ast_nodes
         if not ast_nodes:
             # Entirely comments/blanks.
             yield self
             return
-        if ast_nodes[0].lineno > 1:
+        if ast_nodes[0].start_lineno > 1:
             # Starting comments/blanks
-            yield self[1:ast_nodes[0].lineno].__attach_ast_nodes([])
-        # Iterate over each ast ast_node.  We create a dummy sentinel ast_node to
-        # serve as the "next ast_node" of the last ast_node.
-        class DummyAst_Node(object):
-            pass
-        sentinel = DummyAst_Node()
-        sentinel.lineno = self.end_linenumber
+            yield self[1:ast_nodes[0].start_lineno].__attach_ast_nodes([])
+        # Iterate over each ast ast_node.  We create a dummy sentinel ast_node
+        # to serve as the "next ast_node" of the last ast_node.
+        sentinel = _DummyAst_Node()
+        sentinel.start_lineno = self.end_linenumber
         for node, next_node in zip(ast_nodes, ast_nodes[1:] + [sentinel]):
-            linenumber = node.lineno
-            end_linenumber = next_node.lineno
-            if linenumber == end_linenumber:
-                # Implementing compound statements (two or more statements
-                # separated by ";") is tricky because we'll have to
-                # re-architect PythonFileLines.  We'll have to allow "lines"
-                # that don't end in a newline, and we'll no longer be able to
-                # index/slice by line number.  There's also the question of
-                # how to pretty-print this: presumably we'd want to just add
-                # newlines before and after import blocks, but not touch
-                # non-import blocks.  The strategy for splitting could be to
-                # split naively on ';', but check that parsing the parts with
-                # C{compile} matches, and if it doesn't (because the ';' is in
-                # a string or something), then try the next one.  Since
-                # compound statements are rarely used, we punt for now.
-                # Note that this only affects top-level compound statements.
-                raise NotImplementedError(
-                    "Not implemented: parsing of top-level compound statements")
-            assert 1 <= linenumber < end_linenumber
-            while is_comment_or_blank(self[end_linenumber-1]):
-                end_linenumber -= 1
-            assert 1 <= linenumber < end_linenumber
-            yield self[linenumber:end_linenumber].__attach_ast_nodes([node])
-            if end_linenumber != next_node.lineno:
-                yield self[end_linenumber:next_node.lineno] \
+            yield self[node.start_lineno:node.end_lineno] \
+                .__attach_ast_nodes([node])
+            if node.end_lineno != next_node.start_lineno:
+                yield self[node.end_lineno:next_node.start_lineno] \
                     .__attach_ast_nodes([])
 
 
