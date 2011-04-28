@@ -58,10 +58,12 @@ class PythonFileLines(FileLines):
         nodes = self.ast_nodes
         # First, find the start_lineno of each node.  For non-strings it's
         # simply the lineno.  For string literals, for some crazy reason
-        # lineno contains the last line.  We only know that the starting line
-        # number is somewhere between the previous node's lineno and this one.
-        # Iterate over each node.  We create a dummy sentinel to serve as the
-        # "prev node" of the last first node.
+        # lineno contains the last line.  (E.g. "'''foo\nbar'''" would have a
+        # lineno of 2, but "x='''foo\nbar'''" would have a lineno of 1.)  We
+        # only know that the starting line number is somewhere between the
+        # previous node's lineno and this one.  Iterate over each node.  We
+        # create a dummy sentinel to serve as the "prev node" of the last
+        # first node.
         start_sentinel = _DummyAst_Node()
         start_sentinel.lineno = 0
         for prev_node, node in zip([start_sentinel] + nodes[:-1], nodes):
