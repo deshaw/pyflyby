@@ -119,6 +119,7 @@ class PythonFileLines(FileLines):
                 raise NotImplementedError(
                     "Not implemented: parsing of top-level compound statements")
             if node.col_offset > 0:
+                # col_offset can be -1 for a toplevel docstring
                 raise AssertionError(
                     "Shouldn't see col_offset != 0 for top-level "
                     "non-compound statements")
