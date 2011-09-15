@@ -231,7 +231,7 @@ def read_file(filename):
         return FileContents.from_contents(
             sys.stdin.read(), filename="(stdin)")
     filename = Filename(filename)
-    with open(str(filename)) as f:
+    with open(str(filename), 'rU') as f:
         return FileContents.from_contents(f.read(), filename=filename)
 
 def write_file(filename, data):
