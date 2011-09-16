@@ -393,10 +393,9 @@ def fix_unused_and_missing_imports(codeblock,
             try:
                 imports = db[import_as]
             except KeyError:
-                # We may want to log a message here about the unused name with
-                # no known import.  However, this could be a misspelled local,
-                # etc.; the user should run pyflakes normally to see all
-                # messages.
+                logger.warning(
+                    "%s:%s: undefined name %r and no known import for it",
+                    filename, linenumber, import_as)
                 continue
             if len(imports) != 1:
                 logger.error("%s: don't know which of %r to use",
