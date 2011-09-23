@@ -294,7 +294,7 @@ def _pyflakes_checker(codeblock):
         # pyflakes 0.5 uses the 'ast' module.
         return Checker(codeblock.ast)
     else:
-        raise Exception("Unknown version %r" % (version,))
+        raise Exception("Unknown pyflakes version %r" % (version,))
 
 
 
