@@ -278,7 +278,8 @@ def _pyflakes_version():
     import pyflakes
     m = re.match("([0-9]+[.][0-9]+)", pyflakes.__version__)
     if not m:
-        return None
+        raise Exception(
+            "Can't get pyflakes version from %r" % (pyflakes.__version__,))
     return float(m.group(1))
 
 
@@ -287,9 +288,10 @@ def _pyflakes_checker(codeblock):
     codeblock = PythonBlock(codeblock)
     version = _pyflakes_version()
     if version <= 0.4:
-        #  Using 'compiler' module.
+        # pyflakes 0.4 uses the 'compiler' module.
         return Checker(codeblock.parse_tree)
     elif version >= 0.5:
+        # pyflakes 0.5 uses the 'ast' module.
         return Checker(codeblock.ast)
     else:
         raise Exception("Unknown version %r" % (version,))
