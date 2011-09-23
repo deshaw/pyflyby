@@ -274,6 +274,28 @@ def brace_identifiers(text):
         yield match.group(1)
 
 
+def _pyflakes_version():
+    import pyflakes
+    m = re.match("([0-9]+[.][0-9]+)", pyflakes.__version__)
+    if not m:
+        return None
+    return float(m.group(1))
+
+
+def _pyflakes_checker(codeblock):
+    from pyflakes.checker import Checker
+    codeblock = PythonBlock(codeblock)
+    version = _pyflakes_version()
+    if version <= 0.4:
+        #  Using 'compiler' module.
+        return Checker(codeblock.parse_tree)
+    elif version >= 0.5:
+        return Checker(codeblock.ast)
+    else:
+        raise Exception("Unknown version %r" % (version,))
+
+
+
 def find_unused_and_missing_imports(codeblock):
     """
     Find unused imports and missing imports.
@@ -296,10 +318,9 @@ def find_unused_and_missing_imports(codeblock):
       C{(unused_imports, missing_imports)} where C{unused_imports} and
       C{missing_imports} each are sequences of C{(import_as, lineno)} tuples.
     """
-    from pyflakes.checker import Checker
     from pyflakes import messages as M
     codeblock = PythonBlock(codeblock)
-    messages = Checker(codeblock.parse_tree).messages
+    messages = _pyflakes_checker(codeblock).messages
     unused_imports = []
     missing_imports = []
     # Pyflakes doesn't look at docstrings containing references like "L{foo}"

@@ -39,7 +39,7 @@ class _DummyAst_Node(object):
 class PythonFileLines(FileLines):
     @cached_attribute
     def ast_nodes(self):
-        # May also be set internally by L{__attach_nodes}
+        # May also be set internally by L{__attach_ast_nodes}
         filename = str(self.filename) if self.filename else "<unknown>"
         text = self.joined
         if not text.endswith("\n"):
@@ -47,6 +47,10 @@ class PythonFileLines(FileLines):
             # otherwise).
             text += "\n"
         return compile(text, filename, "exec", ast.PyCF_ONLY_AST, 0).body
+
+    @cached_attribute
+    def ast(self):
+        return ast.Module(self.ast_nodes)
 
     @cached_attribute
     def annotated_ast_nodes(self):
@@ -332,9 +336,16 @@ class PythonBlock(tuple):
         """
         # Note that the 'compiler' module is deprecated, which is why we use
         # the C{compile} built-in above.  This is for interfacing with
-        # pyflakes.
+        # pyflakes 0.4 and earlier.
         import compiler
         return compiler.parse(self.lines)
+
+    @cached_attribute
+    def ast(self):
+        """
+        Return an C{AST} as returned by the C{compile} built-in.
+        """
+        return PythonFileLines.from_text(self.lines).ast
 
     def __repr__(self):
         return "%s(%r)" % (type(self).__name__, self.lines)
