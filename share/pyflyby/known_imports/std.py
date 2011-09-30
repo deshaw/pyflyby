@@ -21,7 +21,7 @@ import cStringIO
 from   cStringIO                import StringIO
 import cgi
 import collections
-from   collections              import defaultdict, namedtuple
+from   collections              import defaultdict, deque, namedtuple
 import commands
 import contextlib
 from   contextlib               import closing, contextmanager, nested
