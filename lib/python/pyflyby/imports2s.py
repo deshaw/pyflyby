@@ -1,7 +1,6 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import ast
 import re
 
 from   pyflyby.file             import Filename
@@ -251,8 +250,8 @@ def doctests(text):
     """
     Parse doctests in string.
 
-       >>> list(doctests(" >>> foo(bar\n ...     + baz)\n"))
-       ["foo(bar\n    + baz)\n"]
+       >>> list(doctests(" >>> foo(bar\\n ...     + baz)\\n"))
+       [PythonStatement(PythonFileLines.from_text('foo(bar\\n    + baz)\\n', linenumber=1))]
 
     @rtype:
       L{PythonBlock} or C{None}
@@ -260,8 +259,14 @@ def doctests(text):
     import doctest
     parser = doctest.DocTestParser()
     # TODO: take into account e.lineno.
+    def parse_docstring(text):
+        try:
+            return parser.get_examples(text)
+        except Exception:
+            logger.warning("Can't parse docstring, ignoring: %r", text)
+            return []
     lines = [
-        PythonFileLines.from_text(e.source) for e in parser.get_examples(text) ]
+        PythonFileLines.from_text(e.source) for e in parse_docstring(text) ]
     if lines:
         return PythonBlock(lines)
     else:
