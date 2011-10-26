@@ -363,3 +363,22 @@ class PythonBlock(tuple):
         for pred, stmts in groupby(self, predicate):
             yield pred, type(self)(tuple(stmts))
 
+    def string_literals(self):
+        """
+        Yield all string literals anywhere in C{ast_node}.
+
+          >>> list(PythonBlock("'a' + ('b' + \\n'c')").string_literals())
+          [('a', 1), ('b', 1), ('c', 2)]
+
+        @rtype:
+          Generator that yields (C{str}, C{int}).
+        @return:
+          Iterable of string literals and line numbers.
+        """
+        for statement in self:
+            if not statement.ast_node:
+                continue
+            for node in ast.walk(statement.ast_node):
+                for fieldname, field in ast.iter_fields(node):
+                    if isinstance(field, ast.Str):
+                        yield field.s, field.lineno

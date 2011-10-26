@@ -247,20 +247,25 @@ def reformat_import_statements(codeblock, params=ImportFormatParams()):
     return transformer.pretty_print(params=params)
 
 
-def string_literals(ast_node):
+def doctests(text):
     """
-    Yield all string literals anywhere in C{ast_node}.
+    Parse doctests in string.
 
-      >>> list(string_literals(ast.parse("'a' + ('b' + 'c')")))
-      ['a', 'b', 'c']
+       >>> list(doctests(" >>> foo(bar\n ...     + baz)\n"))
+       ["foo(bar\n    + baz)\n"]
 
     @rtype:
-      Generator that yields C{str}s.
+      L{PythonBlock} or C{None}
     """
-    for node in ast.walk(ast_node):
-        for fieldname, field in ast.iter_fields(node):
-            if isinstance(field, ast.Str):
-                yield field.s
+    import doctest
+    parser = doctest.DocTestParser()
+    # TODO: take into account e.lineno.
+    lines = [
+        PythonFileLines.from_text(e.source) for e in parser.get_examples(text) ]
+    if lines:
+        return PythonBlock(lines)
+    else:
+        return None
 
 
 def brace_identifiers(text):
@@ -297,16 +302,47 @@ def _pyflakes_checker(codeblock):
         raise Exception("Unknown pyflakes version %r" % (version,))
 
 
-
-def find_unused_and_missing_imports(codeblock):
+def _pyflakes_find_unused_and_missing_imports(codeblock):
     """
-    Find unused imports and missing imports.
+    Find unused imports and missing imports, using Pyflakes to statically
+    analyze for unused and missing imports.
 
-    Pyflakes is used to statically analyze for unused and missing imports.
-    Here, 'bar' is unused and 'blah' is undefined:
+    'bar' is unused and 'blah' is undefined:
 
       >>> find_unused_and_missing_imports("import foo as bar\\nblah\\n")
       ([('bar', 1)], [('blah', 2)])
+
+    @type codeblock:
+      L{PythonBlock} or convertible
+    @return:
+      C{(unused_imports, missing_imports)} where C{unused_imports} and
+      C{missing_imports} each are sequences of C{(import_as, lineno)} tuples.
+    """
+    from pyflakes import messages as M
+    codeblock = PythonBlock(codeblock)
+    messages = _pyflakes_checker(codeblock).messages
+    unused_imports = []
+    missing_imports = []
+    for message in messages:
+        if isinstance(message, M.RedefinedWhileUnused):
+            import_as, orig_lineno = message.message_args
+            unused_imports.append( (import_as, orig_lineno) )
+        elif isinstance(message, M.UnusedImport):
+            import_as, = message.message_args
+            unused_imports.append( (import_as, message.lineno) )
+        elif isinstance(message, M.UndefinedName):
+            import_as, = message.message_args
+            missing_imports.append( (import_as, message.lineno) )
+    return unused_imports, missing_imports
+
+
+def find_unused_and_missing_imports(codeblock):
+    """
+    Find unused imports and missing imports, taking docstrings into account.
+
+    Pyflakes is used to statically analyze for unused and missing imports.
+    Doctests in docstrings are analyzed as code and epydoc references in
+    docstrings also prevent removal.
 
     In the following example, 'bar' is not considered unused because there is
     a string that references it in braces:
@@ -320,32 +356,40 @@ def find_unused_and_missing_imports(codeblock):
       C{(unused_imports, missing_imports)} where C{unused_imports} and
       C{missing_imports} each are sequences of C{(import_as, lineno)} tuples.
     """
-    from pyflakes import messages as M
     codeblock = PythonBlock(codeblock)
-    messages = _pyflakes_checker(codeblock).messages
-    unused_imports = []
-    missing_imports = []
-    # Pyflakes doesn't look at docstrings containing references like "L{foo}"
-    # which require an import, nor at C{str.format} strings like
-    # '''"{foo}".format(...)'''.  Don't remove supposedly-unused imports which
-    # match a string literal brace identifier.
+    # Run pyflakes on the main code.
+    unused_imports, missing_imports = (
+        _pyflakes_find_unused_and_missing_imports(codeblock))
+    # Find doctests.
+    doctest_blocks = filter(None, [
+            doctests(literal)
+            for literal, linenumber in codeblock.string_literals() ])
+    if doctest_blocks:
+        # There are doctests.  Re-run pyflakes on main code + doctests.  Don't
+        # report missing imports in doctests, but do treat existing imports as
+        # 'used' if they are used in doctests.
+        wdt_unused_imports, _ = ( # wdt = with doc tests
+            _pyflakes_find_unused_and_missing_imports(
+                [codeblock] + doctest_blocks))
+        wdt_unused_asimports = set(
+            import_as for import_as, linenumber in wdt_unused_imports)
+        # Keep only the intersection of unused imports.
+        unused_imports = [
+            (import_as, linenumber) for import_as, linenumber in unused_imports
+            if import_as in wdt_unused_asimports ]
+    # Find literal brace identifiers like "... L{Foo} ...".
     literal_brace_identifiers = set(
         iden
-        for statement in codeblock if statement.ast_node
-        for literal in string_literals(statement.ast_node)
+        for literal, linenumber in codeblock.string_literals()
         for iden in brace_identifiers(literal))
-    for message in messages:
-        if isinstance(message, M.RedefinedWhileUnused):
-            import_as, orig_lineno = message.message_args
-            if import_as not in literal_brace_identifiers:
-                unused_imports.append( (import_as, orig_lineno) )
-        elif isinstance(message, M.UnusedImport):
-            import_as, = message.message_args
-            if import_as not in literal_brace_identifiers:
-                unused_imports.append( (import_as, message.lineno) )
-        elif isinstance(message, M.UndefinedName):
-            import_as, = message.message_args
-            missing_imports.append( (import_as, message.lineno) )
+    if literal_brace_identifiers:
+        # Pyflakes doesn't look at docstrings containing references like
+        # "L{foo}" which require an import, nor at C{str.format} strings like
+        # '''"{foo}".format(...)'''.  Don't remove supposedly-unused imports
+        # which match a string literal brace identifier.
+        unused_imports = [
+            (import_as, linenumber) for import_as, linenumber in unused_imports
+            if import_as not in literal_brace_identifiers ]
     return unused_imports, missing_imports
 
 
