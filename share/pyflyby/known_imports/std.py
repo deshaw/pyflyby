@@ -156,7 +156,7 @@ import unittest
 import urllib
 import warnings
 import weakref
-from   weakref                  import WeakKeyDictionary
+from   weakref                  import WeakKeyDictionary, WeakValueDictionary
 import xlrd
 from   xml.dom                  import minidom
 import xml.parsers.expat
