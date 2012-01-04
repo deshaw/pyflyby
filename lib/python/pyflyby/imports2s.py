@@ -157,6 +157,12 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
     def insert_new_blocks_after_comments(self, blocks):
         blocks = [SourceToSourceTransformationBase(block) for block in blocks]
+        if isinstance(self.blocks[0], SourceToSourceImportBlockTransformation):
+            # Kludge.  We should add an "output" attribute to
+            # SourceToSourceImportBlockTransformation and enumerate over that,
+            # instead of enumerating over the input below.
+            self.blocks[0:0] = blocks
+            return
         fblock = self.blocks[0].input
         for idx, statement in enumerate(fblock):
             if not statement.is_comment_or_blank_or_string_literal:
