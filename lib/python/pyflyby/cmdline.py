@@ -128,11 +128,11 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                          metavar='N',
                          help=hfmt('''
                              Whether and how to align the 'import' keyword in
-                             'from modulename import aliases...'.  If 0
-                             (default), then don't align.  If 1, then align
-                             within each block of imports.  If an integer > 1,
-                             then align at that column, wrapping with a
-                             backslash if necessary.'''))
+                             'from modulename import aliases...'.  If 0,
+                             then don't align.  If 1, then align within each
+                             block of imports.  If an integer > 1, then align
+                             at that column, wrapping with a backslash if
+                             necessary.'''))
         group.add_option('--from-spaces', type='int', default=3, metavar='N',
                          help=hfmt('''
                              The number of spaces after the 'from' keyword.
