@@ -154,6 +154,8 @@ import types
 from   types                    import FunctionType
 import unittest
 import urllib
+from   urllib                   import urlencode
+from   urllib2                  import urlopen
 import warnings
 import weakref
 from   weakref                  import WeakKeyDictionary, WeakValueDictionary
