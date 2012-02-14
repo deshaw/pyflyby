@@ -1,4 +1,15 @@
 
+(require 'find-func) ;; for find-library-name
+
+(defvar pyflyby-bin-path
+  ;; Try to find the bin path based on where pyflyby.el lives.
+  (let* ((module-path (file-truename (find-library-name "pyflyby")))
+         (binpath (file-truename
+                   (concat (file-name-directory module-path) "../../bin"))))
+    (and (file-directory-p binpath) binpath))
+  "Path containing pyflyby executables.")
+
+
 (defun pyflyby--pipe-to-command (start end program &rest args)
   "Send text from START to END to process running PROGRAM ARGS.
 
@@ -12,6 +23,8 @@ Returns (exit-value stdout stderr)."
                         "pyflyby-log."
                         (or small-temporary-file-directory
                             temporary-file-directory))))
+         (exec-path (if pyflyby-bin-path
+                        (cons pyflyby-bin-path exec-path) exec-path))
          (exit-value (apply 'call-process-region
                             start end program nil
                             (list stdout-buffer stderr-file)
