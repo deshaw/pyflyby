@@ -3,7 +3,11 @@
 
 (defvar pyflyby-bin-path
   ;; Try to find the bin path based on where pyflyby.el lives.
-  (let* ((module-path (file-truename (find-library-name "pyflyby")))
+  (let* ((pyflyby-el-name
+          (or load-file-name
+              (ignore-errors (find-library-name "pyflyby"))
+              "pyflyby.el"))
+         (module-path (file-truename pyflyby-el-name))
          (binpath (file-truename
                    (concat (file-name-directory module-path) "../../bin"))))
     (and (file-directory-p binpath) binpath))
