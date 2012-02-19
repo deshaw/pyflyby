@@ -138,7 +138,8 @@ import symbol
 import sys
 from   sys                      import exit, stderr, stdout
 import tempfile
-from   tempfile                 import mkdtemp, mkstemp, mktemp
+from   tempfile                 import (NamedTemporaryFile, mkdtemp, mkstemp,
+                                        mktemp)
 import termios
 import textwrap
 from   textwrap                 import dedent
