@@ -36,7 +36,7 @@ import decimal
 from   decimal                  import Decimal
 import decorator
 import difflib
-from   difflib                  import context_diff
+from   difflib                  import SequenceMatcher, context_diff
 import dis
 import email
 from   email                    import encoders
