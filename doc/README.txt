@@ -35,4 +35,15 @@ generally contain __future__ imports that one wishes to standardize across a
 codebase.
 
 
+
+Emacs support:
+- To get a `M-x tidy-imports' command in GNU Emacs, add to your ~/.emacs:
+
+    (load "/path/to/pyflyby/lib/emacs/pyflyby.el")
+
+
+- Pyflyby.el doesn't yet work with XEmacs; patches welcome.
+
+
+
 Author: Karl Chen <Karl.Chen@quarl.org>
