@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+"""
+create-imports module1 module2...
+
+Create imports using all non-private members of the given modules, that were
+defined in that module (or a submodule).
+
+Print the result to stdout.
+
+"""
+
+from __future__ import absolute_import, division, with_statement
+
+import sys
+
+from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.file             import read_file
+from   pyflyby.importstmt       import ImportStatement, Imports
+from   pyflyby.modules          import import_module
+
+def main():
+    options, args = parse_args(import_format_params=True)
+    for module_name in args:
+        module = import_module(module_name)
+        try:
+            members = module.__all__
+        except AttributeError:
+            members = dir(module)
+            # Filter by non-private.
+            members = [n for n in members if not n.startswith("_")]
+            # Filter by definition in the module.
+            def from_this_module(name):
+                x = getattr(module, name)
+                m = getattr(x, "__module__", None)
+                if not m:
+                    return False
+                return m == module_name or m.startswith("%s." % (module_name,))
+            members = [n for n in members if from_this_module(n)]
+        imports = Imports(
+            [ ImportStatement.from_parts(module_name, [(n,n) for n in members]) ])
+        sys.stdout.write(imports.pretty_print(
+                allow_conflicts=True, params=options.params))
+
+
+if __name__ == '__main__':
+    main()
