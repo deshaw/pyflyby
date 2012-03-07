@@ -36,6 +36,8 @@ def main():
                     return False
                 return m == module_name or m.startswith("%s." % (module_name,))
             members = [n for n in members if from_this_module(n)]
+        if not members:
+            continue
         imports = Imports(
             [ ImportStatement.from_parts(module_name, members) ])
         sys.stdout.write(imports.pretty_print(
