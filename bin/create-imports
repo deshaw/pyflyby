@@ -37,7 +37,7 @@ def main():
                 return m == module_name or m.startswith("%s." % (module_name,))
             members = [n for n in members if from_this_module(n)]
         imports = Imports(
-            [ ImportStatement.from_parts(module_name, [(n,n) for n in members]) ])
+            [ ImportStatement.from_parts(module_name, members) ])
         sys.stdout.write(imports.pretty_print(
                 allow_conflicts=True, params=options.params))
 
