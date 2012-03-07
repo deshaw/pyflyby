@@ -243,14 +243,19 @@ class ImportStatement(object):
         self.fromname = fromname
         if not len(aliases):
             raise ValueError
-        for alias in aliases:
-            if not len(alias) == 2:
+        def interpret_alias(arg):
+            if isinstance(arg, str):
+                return (arg, None)
+            if not isinstance(arg, tuple):
                 raise TypeError
-            if not isinstance(alias[0], str):
+            if not len(arg) == 2:
                 raise TypeError
-            if alias[1] is not None and not isinstance(alias[1], str):
+            if not isinstance(arg[0], str):
                 raise TypeError
-        self.aliases = tuple(aliases)
+            if not (arg[1] is None or isinstance(arg[1], str)):
+                raise TypeError
+            return arg
+        self.aliases = tuple(interpret_alias(a) for a in aliases)
         return self
 
     @classmethod
@@ -670,4 +675,3 @@ class Imports(object):
         statements = self.get_statements(
             separate_from_imports=params.separate_from_imports)
         return ''.join(pp(statement) for statement in statements)
-
