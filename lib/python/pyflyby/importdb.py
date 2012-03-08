@@ -6,6 +6,7 @@ import os
 from   pyflyby.file             import Filename
 from   pyflyby.importstmt       import Imports
 from   pyflyby.util             import memoize, partition
+from   pyflyby.log              import logger
 
 
 DEFAULT_CONFIG_DIRS = [
@@ -55,6 +56,9 @@ def get_import_library(env_var_name, subdir_name):
         recurse=True)
     remove_files, add_files = partition(
         files, lambda f: f.base == '__remove__.py')
+    logger.debug(
+        "For %s, using import library with %r; removing %r",
+        subdir_name, add_files, remove_files)
     imports = Imports(add_files)
     if remove_files:
         imports = imports.without_imports(Imports(remove_files))
