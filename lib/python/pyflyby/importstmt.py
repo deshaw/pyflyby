@@ -518,16 +518,18 @@ class Imports(object):
         if isinstance(import_exclusions, Imports):
             import_exclusions = import_exclusions.imports
         import_exclusions = set(Import(imp) for imp in import_exclusions)
+        imports_removed = set()
         new_imports = []
         for imp in self.orig_imports:
             if imp in import_exclusions:
-                import_exclusions.remove(imp)
+                imports_removed.add(imp)
                 continue
             new_imports.append(imp)
-        if import_exclusions:
+        imports_not_removed = import_exclusions - imports_removed
+        if imports_not_removed:
             raise NoSuchImportError(
                 "Import database does not contain import(s) %r"
-                % (sorted(import_exclusions),))
+                % (sorted(imports_not_removed),))
         return type(self).from_imports(new_imports)
 
     @cached_attribute
