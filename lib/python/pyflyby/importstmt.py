@@ -526,8 +526,8 @@ class Imports(object):
             new_imports.append(imp)
         if import_exclusions:
             raise NoSuchImportError(
-                "%r does not contain import(s) %r"
-                % (self, sorted(import_exclusions)))
+                "Import database does not contain import(s) %r"
+                % (sorted(import_exclusions),))
         return type(self).from_imports(new_imports)
 
     @cached_attribute
