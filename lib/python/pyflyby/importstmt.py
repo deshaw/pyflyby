@@ -501,7 +501,7 @@ class Imports(object):
         new_imports = tuple(Import(imp) for imp in new_imports)
         return type(self).from_imports(self.orig_imports + new_imports)
 
-    def without_imports(self, import_exclusions):
+    def without_imports(self, import_exclusions, strict=True):
         """
         Return a copy of self without the given imports indexed by
         C{import_as}.
@@ -510,8 +510,12 @@ class Imports(object):
           >>> imports.without_imports(['from m import t3'])
           Imports([ImportStatement('from m import t1, t2, t4')])
 
-        @type import_as_exclusions:
+        @type import_exclusions:
           Sequence of L{Import}
+        @param strict:
+          If C{True}, raise L{NoSuchImportError} if any import in
+          C{import_exclusions} is not in C{self}.  If C{False}, ignore imports
+          in C{import_exclusions} not in C{self}.
         @rtype:
           L{Imports}
         """
@@ -525,11 +529,12 @@ class Imports(object):
                 imports_removed.add(imp)
                 continue
             new_imports.append(imp)
-        imports_not_removed = import_exclusions - imports_removed
-        if imports_not_removed:
-            raise NoSuchImportError(
-                "Import database does not contain import(s) %r"
-                % (sorted(imports_not_removed),))
+        if strict:
+            imports_not_removed = import_exclusions - imports_removed
+            if imports_not_removed:
+                raise NoSuchImportError(
+                    "Import database does not contain import(s) %r"
+                    % (sorted(imports_not_removed),))
         return type(self).from_imports(new_imports)
 
     @cached_attribute
