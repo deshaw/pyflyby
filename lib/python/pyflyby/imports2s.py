@@ -336,6 +336,9 @@ def _pyflakes_find_unused_and_missing_imports(codeblock):
     missing_imports = []
     for message in messages:
         if isinstance(message, M.RedefinedWhileUnused):
+            # Ignore redefinitions in inner scopes.
+            if codeblock.split_lines[message.lineno-1].startswith(" "):
+                continue
             import_as, orig_lineno = message.message_args
             unused_imports.append( (import_as, orig_lineno) )
         elif isinstance(message, M.UnusedImport):

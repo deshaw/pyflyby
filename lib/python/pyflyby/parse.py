@@ -322,6 +322,10 @@ class PythonBlock(tuple):
         return ''.join(stmt.lines.joined for stmt in self)
 
     @cached_attribute
+    def split_lines(self):
+        return self.lines.splitlines()
+
+    @cached_attribute
     def linenumber(self):
         return self[0].lines.linenumber
 
