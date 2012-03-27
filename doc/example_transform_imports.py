@@ -14,7 +14,7 @@ from   pyflyby.importstmt       import Import, Imports
 
 def transform_imports(imports):
     results = []
-    for imp in imports:
+    for imp in imports.imports:
         module_name, member_name, import_as = imp.split
         module_name = re.sub("foo.bar", "bar", module_name)
         results.append(Import.from_split((module_name, member_name, import_as)))
