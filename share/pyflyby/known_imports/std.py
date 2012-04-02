@@ -68,6 +68,7 @@ import hashlib
 from   hashlib                  import md5
 import heapq
 import httplib
+import imp
 import inspect
 from   inspect                  import getargspec
 import io
