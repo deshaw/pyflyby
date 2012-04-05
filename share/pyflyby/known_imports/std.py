@@ -158,6 +158,7 @@ from   types                    import FunctionType
 import unittest
 import urllib
 from   urllib                   import urlencode
+import urllib2
 from   urllib2                  import urlopen
 import warnings
 import weakref
