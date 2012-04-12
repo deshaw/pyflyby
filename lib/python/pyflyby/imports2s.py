@@ -524,8 +524,9 @@ def remove_broken_imports(codeblock,
     for block in transformer.import_blocks:
         broken = []
         for imp in list(block.imports.imports):
+            ns = {}
             try:
-                exec imp.pretty_print()
+                exec imp.pretty_print() in ns
             except Exception as e:
                 logger.info("%s: Could not import %r; removing it: %s: %s",
                             filename, imp.qualified_name, type(e).__name__, e)
