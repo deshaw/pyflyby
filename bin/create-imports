@@ -60,6 +60,11 @@ def main():
                     return False
                 return m == module_name or m.startswith("%s." % (module_name,))
             members = [n for n in members if from_this_module(n)]
+        else:
+            if not all(type(s) == str for s in members):
+                raise Exception(
+                    "Module %r contains non-string entries in __all__"
+                    % (module_name,))
         if not members:
             continue
         imports = Imports(
