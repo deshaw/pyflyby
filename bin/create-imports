@@ -30,7 +30,20 @@ def main():
                           help=hfmt('''
                                 (Default) List all imports, including those
                                 already in the known-imports database.'''))
+        parser.add_option("--expand-known", default=False, action='store_true',
+                          help=hfmt('''
+                                Scan all modules mentioned in known-imports
+                                database.'''))
+        parser.add_option("--no-expand-known", dest="expand_known",
+                          action='store_false',
+                          help=hfmt('''
+                                (Default) Scan only modules listed explicitly
+                                on the command line.'''))
     options, args = parse_args(addopts, import_format_params=True)
+    if options.expand_known:
+        db = global_known_imports()
+        args += sorted(set(
+                filter(None, [i.split.module_name for i in db.imports])))
     for module_name in args:
         module = import_module(module_name)
         try:
