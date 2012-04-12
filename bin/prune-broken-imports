@@ -1,0 +1,33 @@
+#!/usr/bin/env python
+"""
+prune-broken-imports *.py
+prune-broken-imports < foo.py
+
+Removes broken imports.
+
+Note: This actually executes imports.
+
+If filenames are given on the command line, rewrites them.  Otherwise, if
+stdin is not a tty, read from stdin and write to stdout.
+
+Only top-level import statements are touched.
+
+"""
+
+from __future__ import absolute_import, division, with_statement
+
+from   pyflyby.cmdline          import filename_args, hfmt, parse_args
+from   pyflyby.imports2s        import remove_broken_imports
+
+def main():
+    options, args = parse_args(
+        import_format_params=True, modify_action_params=True)
+    @options.action
+    def modify(x):
+        return remove_broken_imports(x, params=options.params)
+    for filename in filename_args(args):
+        modify(filename)
+
+
+if __name__ == '__main__':
+    main()

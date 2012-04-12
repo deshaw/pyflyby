@@ -504,3 +504,31 @@ def fix_unused_and_missing_imports(codeblock,
 
     # Pretty-print the result.
     return transformer.pretty_print(params=params)
+
+
+def remove_broken_imports(codeblock,
+                          params=ImportFormatParams()):
+    """
+    Try to execute each import, and remove the ones that don't work.
+
+    Also formats imports.
+
+    @type codeblock:
+      L{PythonBlock} or convertible (C{str})
+    @rtype:
+      C{str}
+    """
+    codeblock = PythonBlock(codeblock)
+    filename = codeblock[0].lines.filename
+    transformer = SourceToSourceFileImportsTransformation(codeblock)
+    for block in transformer.import_blocks:
+        broken = []
+        for imp in list(block.imports.imports):
+            try:
+                exec imp.pretty_print()
+            except Exception as e:
+                logger.info("%s: Could not import %r; removing it: %s: %s",
+                            filename, imp.qualified_name, type(e).__name__, e)
+                broken.append(imp)
+        block.imports = block.imports.without_imports(broken)
+    return transformer.pretty_print(params=params)
