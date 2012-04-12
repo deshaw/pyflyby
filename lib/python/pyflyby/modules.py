@@ -15,7 +15,9 @@ def import_module(module_name):
     logger.debug("Importing %r", module_name)
     try:
         result = __import__(module_name, fromlist=['dummy'])
-        assert result.__name__ == module_name
+        if result.__name__ != module_name:
+            logger.debug("Note: import_module(%r).__name__ == %r",
+                         module_name, result.__name__)
         return result
     except Exception as e:
         logger.debug("Failed to import %r: %s: %r",
