@@ -16,7 +16,7 @@ import sys
 from   pyflyby.cmdline          import hfmt, parse_args
 from   pyflyby.importdb         import global_known_imports
 from   pyflyby.importstmt       import ImportStatement, Imports
-from   pyflyby.modules          import import_module
+from   pyflyby.modules          import import_module,Module
 
 
 def main():
@@ -45,30 +45,9 @@ def main():
         args += sorted(set(
                 filter(None, [i.split.module_name for i in db.imports])))
     for module_name in args:
-        module = import_module(module_name)
-        try:
-            members = module.__all__
-        except AttributeError:
-            members = dir(module)
-            # Filter by non-private.
-            members = [n for n in members if not n.startswith("_")]
-            # Filter by definition in the module.
-            def from_this_module(name):
-                x = getattr(module, name)
-                m = getattr(x, "__module__", None)
-                if not m:
-                    return False
-                return m == module_name or m.startswith("%s." % (module_name,))
-            members = [n for n in members if from_this_module(n)]
-        else:
-            if not all(type(s) == str for s in members):
-                raise Exception(
-                    "Module %r contains non-string entries in __all__"
-                    % (module_name,))
-        if not members:
+        imports = Module(module_name).exports
+        if not imports:
             continue
-        imports = Imports(
-            [ ImportStatement.from_parts(module_name, members) ])
         if options.ignore_known:
             db = global_known_imports()
             imports = imports.without_imports(db, strict=False)

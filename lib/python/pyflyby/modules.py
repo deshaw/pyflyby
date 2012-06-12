@@ -138,6 +138,45 @@ class Module(object):
     def ast(self):
         return ast.parse(str(self.file_contents), str(self.filename))
 
+    @cached_attribute
+    def exports(self):
+        """
+        Get symbols exported by this module.
+
+        Note that this requires involves actually importing this module, which
+        may have side effects.  (TODO: rewrite to avoid this?)
+
+        @rtype:
+          L{Imports} or C{None}
+        @return:
+          Exports, or C{None} if nothing exported.
+        """
+        from pyflyby.importstmt import ImportStatement, Imports
+        module = self.module
+        try:
+            members = module.__all__
+        except AttributeError:
+            members = dir(module)
+            # Filter by non-private.
+            members = [n for n in members if not n.startswith("_")]
+            # Filter by definition in the module.
+            def from_this_module(name):
+                x = getattr(module, name)
+                m = getattr(x, "__module__", None)
+                if not m:
+                    return False
+                return SymbolName(m).startswith(self.name)
+            members = [n for n in members if from_this_module(n)]
+        else:
+            if not all(type(s) == str for s in members):
+                raise Exception(
+                    "Module %r contains non-string entries in __all__"
+                    % (str(self.name),))
+        if not members:
+            return None
+        return Imports(
+            [ ImportStatement.from_parts(str(self.name), members) ])
+
     def __repr__(self):
         return "%s(%r)" % (type(self).__name__, str(self.name))
 
