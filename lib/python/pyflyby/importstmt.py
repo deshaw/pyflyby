@@ -498,6 +498,8 @@ class Imports(object):
         @rtype:
           L{Imports}
         """
+        if isinstance(new_imports, Imports):
+            new_imports = new_imports.imports
         new_imports = tuple(Import(imp) for imp in new_imports)
         return type(self).from_imports(self.orig_imports + new_imports)
 

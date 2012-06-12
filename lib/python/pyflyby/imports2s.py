@@ -533,3 +533,35 @@ def remove_broken_imports(codeblock,
                 broken.append(imp)
         block.imports = block.imports.without_imports(broken)
     return transformer.pretty_print(params=params)
+
+
+def replace_star_imports(codeblock,
+                         params=ImportFormatParams()):
+    """
+    Replace lines such as::
+      from foo.bar import *
+    with
+      from foo.bar import f1, f2, f3
+
+    Note that this requires involves actually importing C{foo.bar}, which may
+    have side effects.  (TODO: rewrite to avoid this?)
+
+    @type codeblock:
+      L{PythonBlock} or convertible (C{str})
+    @rtype:
+      C{str}
+    """
+    from .modules import Module
+    codeblock = PythonBlock(codeblock)
+    filename = codeblock[0].lines.filename
+    transformer = SourceToSourceFileImportsTransformation(codeblock)
+    for block in transformer.import_blocks:
+        for imp in list(block.imports.imports):
+            if imp.split.member_name != "*":
+                continue
+            exports = Module(imp.split.module_name).exports
+            block.imports = block.imports.without_imports([imp]).with_imports(
+                exports)
+            logger.info("%s: replaced %r with %d imports", filename,
+                        imp.pretty_print().strip(), len(exports.imports))
+    return transformer.pretty_print(params=params)

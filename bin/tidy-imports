@@ -19,7 +19,9 @@ Only top-level import statements are touched.
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby.cmdline          import filename_args, hfmt, parse_args
-from   pyflyby.imports2s        import fix_unused_and_missing_imports
+from   pyflyby.file             import FileContents
+from   pyflyby.imports2s        import (fix_unused_and_missing_imports,
+                                        replace_star_imports)
 
 def main():
     def addopts(parser):
@@ -47,6 +49,17 @@ def main():
                           default=True, action='store_false',
                           help=hfmt('''
                               Don't add mandatory imports.'''))
+        parser.add_option('--replace-star-imports',
+                          default=False, action='store_true',
+                          help=hfmt('''
+                              Replace 'from foo.bar import *' with full list
+                              of imports before removing unused imports.'''))
+        parser.add_option('--no-replace-star-imports',
+                          dest='replace_star_imports',
+                          action='store_false',
+                          help=hfmt('''
+                              (Default) Don't replace 'from foo.bar import
+                              *'.'''))
         def no_add_callback(option, opt_str, value, group):
             group.values.add_missing = False
             group.values.add_mandatory = False
@@ -59,6 +72,10 @@ def main():
         addopts, import_format_params=True, modify_action_params=True)
     @options.action
     def modify(x):
+        if options.replace_star_imports:
+            x = FileContents.from_contents(
+                replace_star_imports(x, params=options.params),
+                filename=x.filename)
         return fix_unused_and_missing_imports(
             x, params=options.params,
             add_missing=options.add_missing,
@@ -71,4 +88,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
