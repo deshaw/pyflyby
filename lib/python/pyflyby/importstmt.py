@@ -667,10 +667,13 @@ class Imports(object):
         if isint(params.align_imports):
             import_column = params.align_imports
         elif params.align_imports and self.statements:
-            import_column = (max(len(statement.fromname or '')
-                                 for statement in self.statements
-                                 if statement.fromname != '__future__') +
-                             from_spaces + 5)
+            statements = [s for s in self.statements
+                          if s.fromname and s.fromname != '__future__']
+            if statements:
+                import_column = (
+                    max(len(s.fromname) for s in statements) + from_spaces + 5)
+            else:
+                import_column = None
         else:
             import_column = None
         def pp(statement):
