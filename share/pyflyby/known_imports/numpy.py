@@ -8,6 +8,7 @@ from   matplotlib.patches       import Rectangle
 from   matplotlib.pyplot        import clf, ioff, legend, title, xlabel, ylabel
 from   matplotlib.ticker        import (Formatter, Locator, NullFormatter,
                                         NullLocator)
+import numexpr
 import numpy as np, numpy
 from   numpy                    import (Inf, NAN, NaN, add, allclose, arange,
                                         argsort, array, asarray, asmatrix,
