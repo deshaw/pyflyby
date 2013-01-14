@@ -109,6 +109,7 @@ import pdb
 import perl
 import pickle
 from   pickle                   import PickleError, UnpicklingError
+import pickletools
 import pkg_resources
 import pprint
 import pstats
