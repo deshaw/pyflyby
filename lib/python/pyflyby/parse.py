@@ -342,7 +342,14 @@ class PythonBlock(tuple):
         # the C{compile} built-in above.  This is for interfacing with
         # pyflakes 0.4 and earlier.
         import compiler
-        return compiler.parse(self.lines)
+        text = self.lines
+        if not text.endswith("\n"):
+            # Ensure that the last line ends with a newline (C{parse} barfs
+            # otherwise).
+            # TODO: instead of appending \n here, make sure the lines end in
+            # \n at construction time.
+            text += "\n"
+        return compiler.parse(text)
 
     @cached_attribute
     def ast(self):
