@@ -64,6 +64,7 @@ from   getpass                  import getuser
 import glob
 import grp
 import gzip
+import h5py
 import hashlib
 from   hashlib                  import md5
 import heapq
