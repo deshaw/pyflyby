@@ -58,7 +58,7 @@ Tries to keep point in the same place."
     ;; since that doesn't work when the whole buffer is replaced,
     ;; destroying markers.  First see if the position matches when
     ;; counting from end of the buffer.
-    (setq p (+ p (buffer-size) (- size)))
+    (setq p (max 0 (+ p (buffer-size) (- size))))
     (goto-char p)
     (unless (search-forward ptext (+ p 1) t)
       ;; Next, try searching for the location based on text near old
