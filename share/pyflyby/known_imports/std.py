@@ -115,6 +115,7 @@ import pkg_resources
 import pprint
 import pstats
 import pwd
+import pyflyby
 import pylab
 import pyodbc
 import pysvn

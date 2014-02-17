@@ -529,7 +529,7 @@ def remove_broken_imports(codeblock,
                 exec imp.pretty_print() in ns
             except Exception as e:
                 logger.info("%s: Could not import %r; removing it: %s: %s",
-                            filename, imp.qualified_name, type(e).__name__, e)
+                            filename, imp.fullname, type(e).__name__, e)
                 broken.append(imp)
         block.imports = block.imports.without_imports(broken)
     return transformer.pretty_print(params=params)

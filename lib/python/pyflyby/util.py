@@ -1,6 +1,10 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import keyword
+import re
+
+
 def memoize(function):
     cache = {}
     def wrapped_fn(*args, **kwargs):
@@ -83,6 +87,33 @@ def prefixes(parts):
         yield parts[:i]
 
 
+def dotted_prefixes(dotted_name, reverse=False):
+    """
+    Return the prefixes of a dotted name.
+
+      >>> dotted_prefixes("aa.bb.cc")
+      ['aa', 'aa.bb', 'aa.bb.cc']
+
+      >>> dotted_prefixes("aa.bb.cc", reverse=True)
+      ['aa.bb.cc', 'aa.bb', 'aa']
+
+    @type dotted_name:
+      C{str}
+    @param reverse:
+      If False (default), return shortest to longest.  If True, return longest
+      to shortest.
+    @rtype:
+      C{list} of C{str}
+    """
+    name_parts = dotted_name.split(".")
+    if reverse:
+        idxes = range(len(name_parts), 0, -1)
+    else:
+        idxes = range(1, len(name_parts)+1)
+    result = ['.'.join(name_parts[:i]) for i in idxes]
+    return result
+
+
 def partition(iterable, predicate):
     """
       >>> partition('12321233221', lambda c: int(c) % 2 == 0)
@@ -97,6 +128,48 @@ def partition(iterable, predicate):
         else:
             falses.append(item)
     return trues, falses
+
+
+_name_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*$")
+_dotted_name_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*$")
+def is_identifier(s, dotted=False):
+    """
+    Return whether C{s} is a valid Python identifier name.
+
+      >>> is_identifier("foo")
+      True
+
+      >>> is_identifier("foo+bar")
+      False
+
+      >>> is_identifier("foo.bar")
+      False
+
+      >>> is_identifier("foo.bar", dotted=True)
+      True
+
+      >>> is_identifier("foo.from", dotted=True)
+      False
+
+    @type s:
+      C{str}
+    @param dotted:
+      If C{False}, then the input must be a single name such as "foo".  If
+      C{True}, then the input can be a single name or a dotted name such as
+      "foo.bar.baz".
+    @rtype:
+      C{bool}
+    """
+    if dotted:
+        # Use a regular expression that works for dotted names.  (As an
+        # alternate implementation, one could imagine calling
+        # all(is_identifier(w) for w in s.split(".")).  We don't do that
+        # because s could be a long text string.)
+        return bool(
+            _dotted_name_re.match(s) and
+            not any(keyword.iskeyword(w) for w in s.split(".")))
+    else:
+        return bool(_name_re.match(s) and not keyword.iskeyword(s))
 
 
 Inf = float('Inf')

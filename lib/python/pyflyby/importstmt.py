@@ -7,7 +7,7 @@ from   collections              import defaultdict, namedtuple
 from   pyflyby.file             import Filename
 from   pyflyby.format           import FormatParams, pyfill
 from   pyflyby.parse            import PythonBlock, PythonStatement
-from   pyflyby.util             import (Inf, cached_attribute,
+from   pyflyby.util             import (Inf, cached_attribute, dotted_prefixes,
                                         longest_common_prefix, stable_unique)
 
 class ImportFormatParams(FormatParams):
@@ -68,7 +68,7 @@ class Import(object):
       >>> Import("from . import foo")
       Import('from . import foo')
 
-      >>> Import("from . import foo").qualified_name
+      >>> Import("from . import foo").fullname
       '.foo'
 
       >>> Import("import   foo . bar")
@@ -88,13 +88,13 @@ class Import(object):
         raise TypeError
 
     @classmethod
-    def from_parts(cls, qualified_name, import_as):
-        if not isinstance(qualified_name, str):
+    def from_parts(cls, fullname, import_as):
+        if not isinstance(fullname, str):
             raise TypeError
         if not isinstance(import_as, str):
             raise TypeError
         self = object.__new__(cls)
-        self.qualified_name = qualified_name
+        self.fullname = fullname
         self.import_as = import_as
         return self
 
@@ -134,10 +134,10 @@ class Import(object):
         @rtype:
           L{ImportSplit}
         """
-        if self.import_as == self.qualified_name:
-            return ImportSplit(None, self.qualified_name, None)
+        if self.import_as == self.fullname:
+            return ImportSplit(None, self.fullname, None)
         level = 0
-        qname = self.qualified_name
+        qname = self.fullname
         for level, char in enumerate(qname):
             if char != '.':
                 break
@@ -170,11 +170,11 @@ class Import(object):
         if module_name is None:
             result = cls.from_parts(member_name, import_as)
         else:
-            qualified_name = "%s%s%s" % (
+            fullname = "%s%s%s" % (
                 module_name,
                 "" if module_name.endswith(".") else ".",
                 member_name)
-            result = cls.from_parts(qualified_name, import_as)
+            result = cls.from_parts(fullname, import_as)
         # result.split will usually be the same as impsplit, but could be
         # different if the input was 'import foo.bar as baz', which we
         # canonicalize to 'from foo import bar as baz'.
@@ -193,13 +193,13 @@ class Import(object):
           C{tuple} of C{str}
         """
         imp = Import(imp)
-        n1 = self.qualified_name.split('.')
-        n2 = imp.qualified_name.split('.')
+        n1 = self.fullname.split('.')
+        n2 = imp.fullname.split('.')
         return tuple(longest_common_prefix(n1, n2))
 
     @property
     def _data(self):
-        return (self.qualified_name, self.import_as)
+        return (self.fullname, self.import_as)
 
     def pretty_print(self, params=FormatParams()):
         return ImportStatement([self]).pretty_print(params)
@@ -620,7 +620,16 @@ class Imports(object):
         """
         d = defaultdict(list)
         for imp in self.orig_imports:
+            # Given an import like "from foo.bar import quux", add the
+            # following entries:
+            #   - "quux"    => "from foo.bar import quux"
+            #   - "foo.bar" => "import foo.bar"
+            #   - "foo"     => "import foo"
+            # We don't add "import foo.bar.quux" because we don't know whether
+            # quux is a module or not.
             d[imp.import_as].append(imp)
+            for prefix in dotted_prefixes(imp.fullname)[:-1]:
+                d[prefix].append(Import.from_parts(prefix, prefix))
         return dict( (k, tuple(stable_unique(v)))
                      for k, v in d.iteritems() )
 
@@ -660,7 +669,7 @@ class Imports(object):
                 "Refusing to pretty-print because of conflicting imports: " +
                 '; '.join(
                     "%r imported as %r" % (
-                        [imp.qualified_name for imp in self.by_import_as[i]], i)
+                        [imp.fullname for imp in self.by_import_as[i]], i)
                     for i in self.conflicting_imports))
         from_spaces = max(1, params.from_spaces)
         def isint(x): return isinstance(x, int) and not isinstance(x, bool)
