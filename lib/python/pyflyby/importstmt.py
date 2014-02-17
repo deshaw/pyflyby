@@ -204,11 +204,11 @@ class Import(object):
     def pretty_print(self, params=FormatParams()):
         return ImportStatement([self]).pretty_print(params)
 
+    def __str__(self):
+        return self.pretty_print(FormatParams(max_line_length=Inf)).rstrip()
+
     def __repr__(self):
-        # return "%s.from_parts%r" % (type(self).__name__, self._data)
-        return "%s(%r)" % (
-            type(self).__name__,
-            self.pretty_print(FormatParams(max_line_length=Inf)).rstrip())
+        return "%s(%r)" % (type(self).__name__, str(self))
 
     def __hash__(self):
         return hash(self._data)
