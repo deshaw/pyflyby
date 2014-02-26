@@ -507,7 +507,7 @@ def get_known_import(fullname):
     # exists, refers to the same foo.)
     for partial_name in dotted_prefixes(fullname, reverse=True):
         try:
-            result = db.by_import_as[partial_name]
+            result = db.by_fullname_or_import_as[partial_name]
             debug("get_known_import(%r): found %r", fullname, result)
             return result
         except KeyError:

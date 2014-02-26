@@ -615,6 +615,28 @@ class Imports(object):
         """
         Map from C{import_as} to L{Import}.
 
+          >>> Imports('from aa.bb import cc as dd').by_import_as
+          {'dd': (Import('from aa.bb import cc as dd'),)}
+
+        @rtype:
+          C{dict} mapping from C{str} to L{Import}
+        """
+        d = defaultdict(list)
+        for imp in self.orig_imports:
+            d[imp.import_as].append(imp)
+        return dict( (k, tuple(stable_unique(v)))
+                     for k, v in d.iteritems() )
+
+    @cached_attribute
+    def by_fullname_or_import_as(self):
+        """
+        Map from C{fullname} and C{import_as} to L{Import}.
+
+          >>> Imports('from aa.bb import cc as dd').by_fullname_or_import_as #doctest:+NORMALIZE_WHITESPACE
+          {'aa': (Import('import aa'),),
+           'aa.bb': (Import('import aa.bb'),),
+           'dd': (Import('from aa.bb import cc as dd'),)}
+
         @rtype:
           C{dict} mapping from C{str} to L{Import}
         """
