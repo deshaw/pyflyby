@@ -251,6 +251,9 @@ from   socket                   import (AF_APPLETALK, AF_ASH, AF_ATMPVC,
                                         htons, inet_aton, inet_ntoa, inet_ntop,
                                         inet_pton, ntohl, ntohs,
                                         setdefaulttimeout, socketpair)
+import sqlalchemy
+import sqlalchemy.orm
+import sqlalchemy.sql
 import sqlite3
 import stat
 from   stat                     import (ST_MTIME, S_IFMT, S_IMODE, S_ISBLK,
