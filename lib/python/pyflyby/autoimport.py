@@ -2,11 +2,21 @@
 Automatic lazy imports.
 
 This module allows your "known imports" to work automatically in your IPython
-interactive session without having to type the 'import' statements.
+interactive session without having to type the 'import' statements (and also
+without having to slow down your Python startup with imports you only use
+occasionally).
 
 To use, add to your IPython startup::
   from pyflyby.autoimport import install_auto_importer
   install_auto_importer()
+
+Example:
+
+  In [1]: gamma(arange(1,10))
+  [AUTOIMPORT] from numpy import arange
+  [AUTOIMPORT] from scipy.special import gamma
+
+  Out[1]: [     1.      1.      2.      6.     24.    120.    720.   5040.  40320.]
 
 """
 
