@@ -1,11 +1,15 @@
 import ConfigParser
 from   Crypto.Cipher            import AES
+import IPython
 import Queue
 import UserDict
 from   UserDict                 import DictMixin
 from   UserList                 import UserList
 import __builtin__
 from   _strptime                import TimeRE
+import abc
+import argparse
+import ast
 import atexit
 import base64
 import binascii
@@ -50,8 +54,30 @@ from   email.Utils              import COMMASPACE, formatdate
 from   email.message            import Message
 from   email.mime.audio         import MIMEAudio
 import errno
+from   errno                    import (E2BIG, EACCES, EADDRINUSE,
+                                        EADDRNOTAVAIL, EAFNOSUPPORT, EAGAIN,
+                                        EALREADY, EBADF, EBADMSG, EBUSY,
+                                        ECHILD, ECONNABORTED, ECONNREFUSED,
+                                        ECONNRESET, EDEADLK, EDESTADDRREQ,
+                                        EDOM, EDQUOT, EEXIST, EFAULT, EFBIG,
+                                        EHOSTDOWN, EHOSTUNREACH, EIDRM, EILSEQ,
+                                        EINPROGRESS, EINTR, EINVAL, EIO,
+                                        EISCONN, EISDIR, ELOOP, EMFILE, EMLINK,
+                                        EMSGSIZE, EMULTIHOP, ENAMETOOLONG,
+                                        ENETDOWN, ENETRESET, ENETUNREACH,
+                                        ENFILE, ENOBUFS, ENODATA, ENODEV,
+                                        ENOENT, ENOEXEC, ENOLCK, ENOLINK,
+                                        ENOMEM, ENOMSG, ENOPROTOOPT, ENOSPC,
+                                        ENOSR, ENOSTR, ENOSYS, ENOTBLK,
+                                        ENOTCONN, ENOTDIR, ENOTEMPTY, ENOTSOCK,
+                                        ENOTSUP, ENOTTY, ENXIO, EOPNOTSUPP,
+                                        EOVERFLOW, EPERM, EPFNOSUPPORT, EPIPE,
+                                        EPROTO, EPROTONOSUPPORT, EPROTOTYPE,
+                                        ERANGE, EREMOTE, EROFS, ESHUTDOWN,
+                                        ESOCKTNOSUPPORT, ESPIPE, ESRCH, ESTALE,
+                                        ETIME, ETIMEDOUT, ETOOMANYREFS,
+                                        ETXTBSY, EUSERS, EWOULDBLOCK, EXDEV)
 import exceptions
-from   exceptions               import AssertionError, IOError
 import fcntl
 import filecmp
 import fileinput
@@ -63,6 +89,7 @@ import getpass
 from   getpass                  import getuser
 import glob
 import grp
+from   grp                      import getgrall, getgrgid, getgrnam
 import gzip
 import h5py
 import hashlib
@@ -84,7 +111,7 @@ import logging
 from   lxml                     import etree
 import marshal
 import math
-from   math                     import cos, exp, log, pi, sin, sqrt
+from   math                     import cos, exp, log, sin, sqrt
 import matplotlib
 import mimetypes
 import misc.double
@@ -99,7 +126,8 @@ import optparse
 from   optparse                 import (BadOptionError, OptParseError,
                                         OptionParser, OptionValueError)
 import os
-from   os                       import (chmod, close, getpid, makedirs, mkdir,
+from   os                       import (chmod, close, getcwd, getenv, geteuid,
+                                        getpid, getuid, makedirs, mkdir,
                                         mkfifo, path, remove, rename, system,
                                         unlink)
 import os.path
@@ -115,6 +143,7 @@ import pkg_resources
 import pprint
 import pstats
 import pwd
+from   pwd                      import getpwall, getpwnam, getpwuid
 import pyflyby
 import pylab
 import pyodbc
@@ -255,6 +284,7 @@ import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql
 import sqlite3
+import ssl
 import stat
 from   stat                     import (ST_MTIME, S_IFMT, S_IMODE, S_ISBLK,
                                         S_ISCHR, S_ISDIR, S_ISFIFO, S_ISLNK,
@@ -265,6 +295,7 @@ import subprocess
 from   subprocess               import (CalledProcessError, PIPE, Popen, call,
                                         check_call)
 import symbol
+import sympy
 import sys
 from   sys                      import exit, getsizeof, stderr, stdout
 import tempfile
@@ -279,8 +310,8 @@ from   threading                import (BoundedSemaphore, Condition, Lock,
                                         RLock, Semaphore, Thread, Timer,
                                         currentThread, current_thread)
 import time
-from   time                     import (ctime, gmtime, localtime, mktime,
-                                        sleep, strftime, strptime)
+from   time                     import (asctime, ctime, gmtime, localtime,
+                                        mktime, sleep, strftime, strptime)
 import timeit
 import token
 import traceback
