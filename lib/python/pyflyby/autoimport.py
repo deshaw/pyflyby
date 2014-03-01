@@ -31,8 +31,8 @@ Example:
   Out[4]: True
 
 
-It works as you expect
-======================
+It just works
+=============
 
 Tab completion works, even on modules that are not yet imported.  In the
 following example, notice that numpy is imported when we need to know its
@@ -52,6 +52,13 @@ if necessary:
   [AUTOIMPORT] from numpy import arange
   ... Docstring: arange([start,] stop[, step,], dtype=None) ...
 
+Other IPython magic commands work as well:
+
+  In [1]: %timeit np.cos(pi)
+  [AUTOIMPORT] import numpy as np
+  [AUTOIMPORT] from numpy import pi
+  100000 loops, best of 3: 2.51 us per loop
+
 
 Implementation details
 ======================
@@ -65,6 +72,14 @@ proxy objects don't work as well, because it is impossible to make proxy
 objects behave perfectly.  For example, instance(x, T) will return the wrong
 answer if either x or T is a proxy object.
 
+
+Compatibility
+=============
+
+Tested with:
+  - Python 2.6, 2.7
+  - IPython 0.12, 0.13, 1.2
+  - IPython (text console), IPython Notebook
 
 """
 

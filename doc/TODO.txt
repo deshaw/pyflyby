@@ -8,3 +8,4 @@
 - Grouping: Teach tidy-imports to canonicalize import groups; need the user to
   configure import groups
 
+- Remove pyflakes dependency - use our own AST parser
