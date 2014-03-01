@@ -1,5 +1,5 @@
 """
-Automatic lazy imports.
+AUTOMATIC IMPORTS - never type "import" again!
 
 This module allows your "known imports" to work automatically in your IPython
 interactive session without having to type the 'import' statements (and also
@@ -12,11 +12,59 @@ To use, add to your IPython startup::
 
 Example:
 
-  In [1]: gamma(arange(1,10))
-  [AUTOIMPORT] from numpy import arange
-  [AUTOIMPORT] from scipy.special import gamma
+  In [1]: re.search("[a-z]+", "....hello...").group(0)
+  [AUTOIMPORT] import re
+  Out[1]: 'hello'
 
-  Out[1]: [     1.      1.      2.      6.     24.    120.    720.   5040.  40320.]
+  In [2]: chisqprob(arange(5), 2)
+  [AUTOIMPORT] from numpy import arange
+  [AUTOIMPORT] from scipy.stats import chisqprob
+  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+
+  In [3]: np.sin(arandom(5))
+  [AUTOIMPORT] from numpy.random import random as arandom
+  [AUTOIMPORT] import numpy as np
+  Out[3]: [ 0.0282  0.0603  0.4653  0.8371  0.3347]
+
+  In [4]: isinstance(42, Number)
+  [AUTOIMPORT] from numbers import Number
+  Out[4]: True
+
+
+It works as you expect
+======================
+
+Tab completion works, even on modules that are not yet imported.  In the
+following example, notice that numpy is imported when we need to know its
+members, and only then:
+
+  In [1]: nump<TAB>
+  In [1]: numpy
+  In [1]: numpy.arang<TAB>
+  [AUTOIMPORT] import numpy
+  In [1]: numpy.arange
+
+
+The IPython "?" magic help (pinfo/pinfo2) automatically imports symbols first
+if necessary:
+
+  In [1]: arange?
+  [AUTOIMPORT] from numpy import arange
+  ... Docstring: arange([start,] stop[, step,], dtype=None) ...
+
+
+Implementation details
+======================
+
+The automatic importing happens at parse time, before code is executed.  The
+namespace never contains entries for names that are not yet imported.
+
+This method of importing at parse time contrasts with previous implementations
+of automatic importing that use proxy objects.  Those implementations using
+proxy objects don't work as well, because it is impossible to make proxy
+objects behave perfectly.  For example, instance(x, T) will return the wrong
+answer if either x or T is a proxy object.
+
 
 """
 
