@@ -12,6 +12,7 @@ import argparse
 import ast
 import atexit
 import base64
+from   base64                   import b64decode, b64encode
 import binascii
 from   binascii                 import hexlify, unhexlify
 import bisect
@@ -93,7 +94,8 @@ from   grp                      import getgrall, getgrgid, getgrnam
 import gzip
 import h5py
 import hashlib
-from   hashlib                  import md5
+from   hashlib                  import (md5, sha1, sha224, sha256, sha384,
+                                        sha512)
 import heapq
 import httplib
 import imp
