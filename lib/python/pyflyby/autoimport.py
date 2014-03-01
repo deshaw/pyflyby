@@ -576,6 +576,11 @@ def get_known_import(fullname):
     return None
 
 
+_IMPORT_FAILED = set()
+"""
+Set of imports we've already attempted and failed.
+"""
+
 def _try_import(imp, namespace):
     """
     Try to execute an import.  Import the result into the namespace
@@ -602,6 +607,9 @@ def _try_import(imp, namespace):
     # first run handle_auto_imports() on the code.
     from pyflyby.importstmt import Import
     imp = Import(imp)
+    if imp in _IMPORT_FAILED:
+        debug("Not attempting previously failed %r", imp)
+        return False
     impas = imp.import_as
     name0 = impas.split(".", 1)[0]
     stmt = str(imp)
@@ -622,6 +630,7 @@ def _try_import(imp, namespace):
         imported = scratch_namespace[name0]
     except Exception as e:
         info("Error attempting to %r: %s: %s", stmt, type(e).__name__, e)
+        _IMPORT_FAILED.add(imp)
         return False
     try:
         preexisting = namespace[name0]
