@@ -130,9 +130,11 @@ def partition(iterable, predicate):
     return trues, falses
 
 
-_name_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*$")
-_dotted_name_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*$")
-def is_identifier(s, dotted=False):
+_name_re               = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*$")
+_dotted_name_re        = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*$")
+_dotted_name_prefix_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*[.]?$")
+
+def is_identifier(s, dotted=False, prefix=False):
     """
     Return whether C{s} is a valid Python identifier name.
 
@@ -142,34 +144,79 @@ def is_identifier(s, dotted=False):
       >>> is_identifier("foo+bar")
       False
 
+      >>> is_identifier("from")
+      False
+
+    By default, we check whether C{s} is a single valid identifier, meaning
+    dots are not allowed.  If C{dotted=True}, then we check each dotted
+    component:
+
       >>> is_identifier("foo.bar")
       False
 
       >>> is_identifier("foo.bar", dotted=True)
       True
 
+      >>> is_identifier("foo..bar", dotted=True)
+      False
+
       >>> is_identifier("foo.from", dotted=True)
       False
+
+    By default, the string must comprise a valid identifier.  If
+    C{prefix=True}, then allow strings that are prefixes of valid identifiers.
+    Prefix=False excludes the empty string, strings with a trailing dot, and
+    strings with a trailing keyword component, but prefix=True does not
+    exclude these.
+
+      >>> is_identifier("foo.bar.", dotted=True)
+      False
+
+      >>> is_identifier("foo.bar.", dotted=True, prefix=True)
+      True
+
+      >>> is_identifier("foo.or", dotted=True)
+      False
+
+      >>> is_identifier("foo.or", dotted=True, prefix=True)
+      True
 
     @type s:
       C{str}
     @param dotted:
-      If C{False}, then the input must be a single name such as "foo".  If
-      C{True}, then the input can be a single name or a dotted name such as
-      "foo.bar.baz".
+      If C{False} (default), then the input must be a single name such as
+      "foo".  If C{True}, then the input can be a single name or a dotted name
+      such as "foo.bar.baz".
+    @param prefix:
+      If C{False} (Default), then the input must be a valid identifier.  If
+      C{True}, then the input can be a valid identifier or the prefix of a
+      valid identifier.
     @rtype:
       C{bool}
     """
-    if dotted:
-        # Use a regular expression that works for dotted names.  (As an
-        # alternate implementation, one could imagine calling
-        # all(is_identifier(w) for w in s.split(".")).  We don't do that
-        # because s could be a long text string.)
-        return bool(
-            _dotted_name_re.match(s) and
-            not any(keyword.iskeyword(w) for w in s.split(".")))
+    if not isinstance(s, basestring):
+        raise TypeError("is_identifier(): expected a string; got a %s"
+                        % (type(s).__name__,))
+    if prefix:
+        if not s:
+            return True
+        if dotted:
+            return bool(
+                _dotted_name_prefix_re.match(s) and
+                not any(keyword.iskeyword(w) for w in s.split(".")[:-1]))
+        else:
+            return bool(_name_re.match(s))
     else:
-        return bool(_name_re.match(s) and not keyword.iskeyword(s))
+        if dotted:
+            # Use a regular expression that works for dotted names.  (As an
+            # alternate implementation, one could imagine calling
+            # all(is_identifier(w) for w in s.split(".")).  We don't do that
+            # because s could be a long text string.)
+            return bool(
+                _dotted_name_re.match(s) and
+                not any(keyword.iskeyword(w) for w in s.split(".")))
+        else:
+            return bool(_name_re.match(s) and not keyword.iskeyword(s))
 
 
 Inf = float('Inf')

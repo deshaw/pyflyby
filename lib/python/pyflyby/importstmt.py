@@ -619,7 +619,7 @@ class Imports(object):
           {'dd': (Import('from aa.bb import cc as dd'),)}
 
         @rtype:
-          C{dict} mapping from C{str} to L{Import}
+          C{dict} mapping from C{str} to tuple of L{Import}s
         """
         d = defaultdict(list)
         for imp in self.orig_imports:
@@ -630,29 +630,62 @@ class Imports(object):
     @cached_attribute
     def by_fullname_or_import_as(self):
         """
-        Map from C{fullname} and C{import_as} to L{Import}.
+        Map from C{fullname} and C{import_as} to L{Import}s.
 
-          >>> Imports('from aa.bb import cc as dd').by_fullname_or_import_as #doctest:+NORMALIZE_WHITESPACE
+          >>> import pprint
+          >>> db = Imports('from aa.bb import cc as dd')
+          >>> pprint.pprint(db.by_fullname_or_import_as)
           {'aa': (Import('import aa'),),
            'aa.bb': (Import('import aa.bb'),),
            'dd': (Import('from aa.bb import cc as dd'),)}
 
         @rtype:
-          C{dict} mapping from C{str} to L{Import}
+          C{dict} mapping from C{str} to tuple of L{Import}s
         """
-        d = defaultdict(list)
+        d = defaultdict(set)
         for imp in self.orig_imports:
-            # Given an import like "from foo.bar import quux", add the
+            # Given an import like "from foo.bar import quux as QUUX", add the
             # following entries:
-            #   - "quux"    => "from foo.bar import quux"
-            #   - "foo.bar" => "import foo.bar"
-            #   - "foo"     => "import foo"
-            # We don't add "import foo.bar.quux" because we don't know whether
-            # quux is a module or not.
-            d[imp.import_as].append(imp)
+            #   - "QUUX"         => "from foo.bar import quux as QUUX"
+            #   - "foo.bar"      => "import foo.bar"
+            #   - "foo"          => "import foo"
+            # We don't include an entry labeled "quux" because the user has
+            # implied he doesn't want to pollute the global namespace with
+            # "quux", only "QUUX".
+            d[imp.import_as].add(imp)
             for prefix in dotted_prefixes(imp.fullname)[:-1]:
-                d[prefix].append(Import.from_parts(prefix, prefix))
-        return dict( (k, tuple(stable_unique(v)))
+                d[prefix].add(Import.from_parts(prefix, prefix))
+        return dict( (k, tuple(sorted(v)))
+                     for k, v in d.iteritems() )
+
+    @cached_attribute
+    def member_names(self):
+        """
+        Map from parent module/package C{fullname} to known member names.
+
+          >>> db = Imports("import numpy.linalg.info\\nfrom sys import exit as EXIT")
+          >>> import pprint
+          >>> pprint.pprint(db.member_names)
+          {'': ('EXIT', 'numpy', 'sys'),
+           'numpy': ('linalg',),
+           'numpy.linalg': ('info',),
+           'sys': ('exit',)}
+
+        This is used by the autoimporter module for implementing tab completion.
+
+        @rtype:
+          C{dict} mapping from C{str} to tuple of C{str}
+        """
+        d = defaultdict(set)
+        for imp in self.orig_imports:
+            if '.' not in imp.import_as:
+                d[""].add(imp.import_as)
+            prefixes = dotted_prefixes(imp.fullname)
+            d[""].add(prefixes[0])
+            for prefix in prefixes[1:]:
+                splt = prefix.rsplit(".", 1)
+                d[splt[0]].add(splt[1])
+        return dict( (k, tuple(sorted(v)))
                      for k, v in d.iteritems() )
 
     @cached_attribute
