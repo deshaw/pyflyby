@@ -421,15 +421,28 @@ class Imports(object):
         raise TypeError
 
     @classmethod
-    def from_imports(cls, imports):
+    def from_imports(cls, imports, exclude_imports=()):
         """
         @type imports:
+          Sequence of L{Imports}
+        @type exclude_imports
           Sequence of L{Imports}
         @rtype:
           L{Imports}
         """
         self = object.__new__(cls)
-        self.orig_imports = tuple(Import(imp) for imp in imports)
+        # Keep track of excluded imports.  The reason we explicitly keep track
+        # of exclusions is for the sake of by_fullname_or_import_as.  For
+        # example, consider the following import statements:
+        #   from foo1 import bar1
+        #   from foo2 import bar2
+        # __remove__:
+        #   import foo2
+        # We want by_fullname_or_import_as to include "import foo1" but not
+        # "foo2".
+        self.exclude_imports = frozenset(Import(imp) for imp in exclude_imports)
+        self.orig_imports = tuple(Import(imp) for imp in imports
+                                  if imp not in self.exclude_imports)
         return self
 
     @classmethod
@@ -501,7 +514,8 @@ class Imports(object):
         if isinstance(new_imports, Imports):
             new_imports = new_imports.imports
         new_imports = tuple(Import(imp) for imp in new_imports)
-        return type(self).from_imports(self.orig_imports + new_imports)
+        return type(self).from_imports(self.orig_imports + new_imports,
+                                       exclude_imports=self.exclude_imports)
 
     def without_imports(self, import_exclusions, strict=True):
         """
@@ -537,7 +551,9 @@ class Imports(object):
                 raise NoSuchImportError(
                     "Import database does not contain import(s) %r"
                     % (sorted(imports_not_removed),))
-        return type(self).from_imports(new_imports)
+        return type(self).from_imports(
+            new_imports,
+            exclude_imports=(self.exclude_imports | import_exclusions))
 
     @cached_attribute
     def _by_module_name(self):
@@ -655,8 +671,8 @@ class Imports(object):
             d[imp.import_as].add(imp)
             for prefix in dotted_prefixes(imp.fullname)[:-1]:
                 d[prefix].add(Import.from_parts(prefix, prefix))
-        return dict( (k, tuple(sorted(v)))
-                     for k, v in d.iteritems() )
+        return dict( (k, tuple(sorted(v - self.exclude_imports)))
+                     for k, v in d.iteritems())
 
     @cached_attribute
     def member_names(self):
