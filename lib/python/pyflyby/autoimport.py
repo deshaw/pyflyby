@@ -99,6 +99,16 @@ from   pyflyby.util             import dotted_prefixes, is_identifier, memoize
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
+# TODO: support autoimport(callable) to disassemble code and find attributes
+# e.g.
+# In [11]: f = lambda: aa.bb.cc.dd
+# In [12]: dis.disassemble(f.func_code)
+#   1           0 LOAD_GLOBAL              0 (aa)
+#               3 LOAD_ATTR                1 (bb)
+#               6 LOAD_ATTR                2 (cc)
+#               9 LOAD_ATTR                3 (dd)
+#              12 RETURN_VALUE
+
 
 debugging_enabled = bool(os.environ.get("PYFLYBY_AUTOIMPORT_DEBUG", ""))
 
