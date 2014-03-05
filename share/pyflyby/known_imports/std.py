@@ -118,6 +118,7 @@ import matplotlib
 import mimetypes
 import misc.double
 import mmap
+import mutagen
 import new
 import numbers
 from   numbers                  import (Complex, Integral, Number, Rational,
