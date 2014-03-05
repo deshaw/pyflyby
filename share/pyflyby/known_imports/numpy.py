@@ -5,7 +5,9 @@ import matplotlib.colors
 from   matplotlib.colors        import ColorConverter
 from   matplotlib.font_manager  import FontProperties
 from   matplotlib.patches       import Rectangle
-from   matplotlib.pyplot        import clf, ioff, legend, title, xlabel, ylabel
+from   matplotlib.pyplot        import (clf, draw, figure, grid, ioff, legend,
+                                        plot, savefig, scatter, show, subplot,
+                                        title, xlabel, ylabel, ylim)
 from   matplotlib.ticker        import (Formatter, Locator, NullFormatter,
                                         NullLocator)
 import numexpr
@@ -136,7 +138,6 @@ import numpy.version
 import pandas, pandas as pd
 from   pandas                   import DataFrame, TimeSeries
 import pylab as pl, pylab
-from   pylab                    import figure, grid, plot, savefig, ylim
 import scipy
 from   scipy                    import integrate, optimize, special, stats
 import scipy.cluster.hierarchy
