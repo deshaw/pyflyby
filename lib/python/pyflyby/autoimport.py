@@ -99,16 +99,6 @@ from   pyflyby.util             import dotted_prefixes, is_identifier, memoize
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
-# TODO: support autoimport(callable) to disassemble code and find attributes
-# e.g.
-# In [11]: f = lambda: aa.bb.cc.dd
-# In [12]: dis.disassemble(f.func_code)
-#   1           0 LOAD_GLOBAL              0 (aa)
-#               3 LOAD_ATTR                1 (bb)
-#               6 LOAD_ATTR                2 (cc)
-#               9 LOAD_ATTR                3 (dd)
-#              12 RETURN_VALUE
-
 
 debugging_enabled = bool(os.environ.get("PYFLYBY_AUTOIMPORT_DEBUG", ""))
 
@@ -244,6 +234,9 @@ def _ipython_namespaces(ip):
              ('Python builtin'      , __builtin__.__dict__),
              ('Alias'               , ip.alias_manager.alias_table),
     ]
+
+
+# TODO class NamespaceList(tuple):
 
 
 def interpret_namespaces(namespaces):
@@ -483,6 +476,234 @@ class _MissingImportFinder(ast.NodeVisitor):
             self.missing_imports.add(fullname)
 
 
+def _find_missing_imports_in_ast(node, namespaces):
+    """
+    Find missing imports in an AST node.
+    Helper function to L{find_missing_imports}.
+
+      >>> node = ast.parse("import numpy; numpy.arange(x) + arange(x)")
+      >>> _find_missing_imports_in_ast(node, [])
+      ['arange', 'x']
+
+    @type node:
+      C{ast.AST}
+    @type namespaces:
+      C{dict} or C{list} of C{dict}
+    @rtype:
+      C{list} of C{str}
+    """
+    if not isinstance(node, ast.AST):
+        raise TypeError
+    # Traverse the abstract syntax tree.
+    if debugging_enabled:
+        debug("ast=%s", ast.dump(node))
+    visitor = _MissingImportFinder(namespaces=namespaces)
+    visitor.visit(node)
+    return sorted(visitor.missing_imports)
+
+# TODO: maybe we should replace _find_missing_imports_in_ast with
+# _find_missing_imports_in_code(compile(node)).  The method of parsing opcodes
+# is simpler, because Python takes care of the scoping issue for us and we
+# don't have to worry about locals.  It does, however, depend on CPython
+# implementation details, whereas the AST is well-defined by the language.
+
+
+def _find_missing_imports_in_code(co, namespaces):
+    """
+    Find missing imports in a code object.
+    Helper function to L{find_missing_imports}.
+
+      >>> f = lambda: numpy.arange(x) + arange(y)
+      >>> _find_missing_imports_in_code(f.func_code, [])
+      ['arange', 'numpy.arange', 'x', 'y']
+
+      >>> f = lambda x: (lambda: x+y)
+      >>> _find_missing_imports_in_code(f.func_code, [])
+      ['y']
+
+    @type co:
+      C{types.CodeType}
+    @type namespaces:
+      C{dict} or C{list} of C{dict}
+    @rtype:
+      C{list} of C{str}
+    """
+    loads_without_stores = set()
+    _find_loads_without_stores_in_code(co, loads_without_stores)
+    missing_imports = [
+        fullname for fullname in sorted(loads_without_stores)
+        if symbol_needs_import(fullname, namespaces)
+        ]
+    return missing_imports
+
+
+def _find_loads_without_stores_in_code(co, loads_without_stores):
+    """
+    Find global LOADs without preceding STOREs by disassembling code.
+    Recursive helper for L{_find_missing_imports_in_code}.
+
+    @type co:
+      C{types.CodeType}
+    @type loads_without_stores:
+      C{set}
+    @param loads_without_stores:
+      Mutable set to which we add loads without stores.
+    @return:
+      C{None}
+    """
+    if not isinstance(co, types.CodeType):
+        raise TypeError
+    # Initialize local constants for fast access.
+    from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
+    LOAD_ATTR    = opmap['LOAD_ATTR']
+    LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
+    LOAD_NAME    = opmap['LOAD_NAME']
+    STORE_ATTR   = opmap['STORE_ATTR']
+    STORE_GLOBAL = opmap['STORE_GLOBAL']
+    STORE_NAME   = opmap['STORE_NAME']
+    # Keep track of the partial name so far that started with a LOAD_GLOBAL.
+    # If C{pending} is not None, then it is a list representing the name
+    # components we've seen so far.
+    pending = None
+    # Disassemble the code.  Look for LOADs and STOREs.  This code is based on
+    # C{dis.disassemble}.
+    #
+    # Scenarios:
+    #
+    #   * Function-level load a toplevel global
+    #         def f():
+    #             aa
+    #         => LOAD_GLOBAL; other (not LOAD_ATTR or STORE_ATTR)
+    #   * Function-level load an attribute of global
+    #         def f():
+    #             aa.bb.cc
+    #         => LOAD_GLOBAL; LOAD_ATTR; LOAD_ATTR; other
+    #   * Function-level store a toplevel global
+    #         def f():
+    #             global aa
+    #             aa = 42
+    #         => STORE_GLOBAL
+    #   * Function-level store an attribute of global
+    #         def f():
+    #             aa.bb.cc = 42
+    #         => LOAD_GLOBAL, LOAD_ATTR, STORE_ATTR
+    #   * Function-level load a local
+    #         def f():
+    #             aa = 42
+    #             return aa
+    #         => LOAD_FAST or LOAD_NAME
+    #   * Function-level store a local
+    #         def f():
+    #             aa = 42
+    #         => STORE_FAST or STORE_NAME
+    #   * Function-level load an attribute of a local
+    #         def f():
+    #             aa = 42
+    #             return aa.bb.cc
+    #         => LOAD_FAST; LOAD_ATTR; LOAD_ATTR
+    #   * Function-level store an attribute of a local
+    #         def f():
+    #             aa == 42
+    #             aa.bb.cc = 99
+    #         => LOAD_FAST; LOAD_ATTR; STORE_ATTR
+    #   * Function-level load an attribute of an expression other than a name
+    #         def f():
+    #             foo().bb.cc
+    #         => [CALL_FUNCTION, etc]; LOAD_ATTR; LOAD_ATTR
+    #   * Function-level store an attribute of an expression other than a name
+    #         def f():
+    #             foo().bb.cc = 42
+    #         => [CALL_FUNCTION, etc]; LOAD_ATTR; STORE_ATTR
+    #   * Function-level import
+    #         def f():
+    #             import aa.bb.cc
+    #         => IMPORT_NAME "aa.bb.cc", STORE_FAST "aa"
+    #   * Module-level load of a top-level global
+    #         aa
+    #         => LOAD_NAME
+    #   * Module-level store of a top-level global
+    #         aa = 42
+    #         => STORE_NAME
+    #   * Module-level load of an attribute of a global
+    #         aa.bb.cc
+    #         => LOAD_NAME, LOAD_ATTR, LOAD_ATTR
+    #   * Module-level store of an attribute of a global
+    #         aa.bb.cc = 42
+    #         => LOAD_NAME, LOAD_ATTR, STORE_ATTR
+    #   * Module-level import
+    #         import aa.bb.cc
+    #         IMPORT_NAME "aa.bb.cc", STORE_NAME "aa"
+    #   * Closure
+    #         def f():
+    #             aa = 42
+    #             return lambda: aa
+    #         f: STORE_DEREF, LOAD_CLOSURE, MAKE_CLOSURE
+    #         g = f(): LOAD_DEREF
+    code = co.co_code
+    n = len(code)
+    i = 0
+    extended_arg = 0
+    stores = set()
+    while i < n:
+        c = code[i]
+        op = ord(c)
+        i += 1
+        if op >= HAVE_ARGUMENT:
+            oparg = ord(code[i]) + ord(code[i+1])*256 + extended_arg
+            extended_arg = 0
+            i = i+2
+            if op == EXTENDED_ARG:
+                extended_arg = oparg*65536L
+                continue
+
+        if pending is not None:
+            if op == STORE_ATTR:
+                # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* {STORE_ATTR}
+                pending.append(co.co_names[oparg])
+                fullname = ".".join(pending)
+                pending = None
+                stores.add(fullname)
+                continue
+            if op == LOAD_ATTR:
+                # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
+                # possibly more LOAD_ATTR/STORE_ATTR will follow
+                pending.append(co.co_names[oparg])
+                continue
+            # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* (and no more
+            # LOAD_ATTR/STORE_ATTR)
+            fullname = ".".join(pending)
+            pending = None
+            # loads.add(fullname)
+            if fullname not in stores:
+                loads_without_stores.add(fullname)
+            # Fall through.
+
+        if op in [LOAD_GLOBAL, LOAD_NAME]:
+            pending = [co.co_names[oparg]]
+            continue
+
+        if op in [STORE_GLOBAL, STORE_NAME]:
+            stores.add(co.co_names[oparg])
+            continue
+
+        # We don't need to worry about: LOAD_FAST, STORE_FAST, LOAD_CLOSURE,
+        # LOAD_DEREF, STORE_DEREF.  LOAD_FAST and STORE_FAST refer to local
+        # variables; LOAD_CLOSURE, LOAD_DEREF, and STORE_DEREF relate to
+        # closure variables.  In both cases we know these are not missing
+        # imports.  It's convenient that these are separate opcodes, because
+        # then we don't need to deal with them manually.
+
+    # The C{pending} variable should have been reset at this point, because a
+    # function should always end with a RETURN_VALUE opcode and therefore not
+    # end in a LOAD_ATTR.
+    assert pending is None
+
+    # Recurse on inner function definitions, lambdas, generators, etc.
+    for arg in co.co_consts:
+        if isinstance(arg, types.CodeType):
+            _find_loads_without_stores_in_code(arg, loads_without_stores)
+
+
 def find_missing_imports(arg, namespaces=None):
     """
     Find symbols in the given code that require import.
@@ -542,10 +763,11 @@ def find_missing_imports(arg, namespaces=None):
       ['a.b.x.y', 'c', 'd']
 
     @type arg:
-      C{str} or C{ast.AST}
+      C{str}, C{ast.AST}, C{callable}, or C{types.CodeType}
     @param arg:
-      Python code text (as simple as a single qualified name, or as complex as
-      an entire module text) or an AST node
+      Python code, either as source text, a parsed AST, or compiled code; can
+      be as simple as a single qualified name, or as complex as an entire
+      module text.
     @type namespaces:
       C{dict} or C{list} of C{dict}
     @param namespaces:
@@ -564,19 +786,19 @@ def find_missing_imports(arg, namespaces=None):
             else:
                 return []
         else:
-            # Parse the string as code.
-            arg = ast.parse(arg) # may raise SyntaxError
-            # Fall through.
-    if not isinstance(arg, ast.AST):
+            # Parse the string into an AST.
+            node = ast.parse(arg) # may raise SyntaxError
+            return _find_missing_imports_in_ast(node, namespaces)
+    elif isinstance(arg, ast.AST):
+        return _find_missing_imports_in_ast(arg, namespaces)
+    elif isinstance(arg, types.CodeType):
+        return _find_missing_imports_in_code(arg, namespaces)
+    elif callable(arg):
+        return _find_missing_imports_in_code(arg.func_code, namespaces)
+    else:
         raise TypeError(
-            "find_missing_imports(): expected a string of AST node; got a %s"
+            "find_missing_imports(): expected a string, AST node, or code object; got a %s"
             % (type(arg).__name__,))
-    # Traverse the abstract syntax tree.
-    if debugging_enabled:
-        debug("ast=%s", ast.dump(arg))
-    visitor = _MissingImportFinder(namespaces=namespaces)
-    visitor.visit(arg)
-    return sorted(visitor.missing_imports)
 
 
 @memoize
@@ -805,10 +1027,11 @@ def auto_import(arg, namespaces=None):
     them.
 
     @type arg:
-      C{str} or C{ast.AST}
+      C{str}, C{ast.AST}, C{callable}, or C{types.CodeType}
     @param arg:
-      Python code text (as simple as a single qualified name, or as complex as
-      an entire module text) or an AST node
+      Python code, either as source text, a parsed AST, or compiled code; can
+      be as simple as a single qualified name, or as complex as an entire
+      module text.
     @type namespaces:
       C{dict} or C{list} of C{dict}
     @param namespaces:
