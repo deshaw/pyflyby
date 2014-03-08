@@ -100,6 +100,7 @@ from   pyflyby.util             import dotted_prefixes, is_identifier, memoize
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
 
+# TODO: change to PYFLYBY_AUTOIMPORT_LOG_LEVEL=(INFO|DEBUG)
 debugging_enabled = bool(os.environ.get("PYFLYBY_AUTOIMPORT_DEBUG", ""))
 
 output_function = print
@@ -189,7 +190,7 @@ def get_ipython_safe():
     try:
         get_ipython = IPython.get_ipython
     except AttributeError:
-        pass
+        pass # not IPython 1.0+
     else:
         return get_ipython()
     # IPython 0.11+: IPython.core.interactiveshell.InteractiveShell._instance.
@@ -199,16 +200,18 @@ def get_ipython_safe():
     try:
         return IPython.core.interactiveshell.InteractiveShell._instance
     except AttributeError:
-        pass
-    # IPython 0.10+: IPython.ipapi.get
+        pass # not IPython 0.11+
+    # IPython 0.10+: IPython.ipapi.get().IP
     try:
         get = IPython.ipapi.get
     except AttributeError:
-        pass
+        pass # not IPython 0.10+
     else:
         ipsh = get()
         if ipsh is not None:
             return ipsh.IP
+        else:
+            return None
     # Couldn't get IPython.
     debug("Couldn't get IPython shell instance (IPython version: %s)",
           IPython.__version__)
@@ -539,11 +542,13 @@ def _find_missing_imports_in_code(co, namespaces):
 
 def _find_loads_without_stores_in_code(co, loads_without_stores):
     """
-    Find global LOADs without preceding STOREs by disassembling code.
+    Find global LOADs without corresponding STOREs, by disassembling code.
     Recursive helper for L{_find_missing_imports_in_code}.
 
     @type co:
       C{types.CodeType}
+    @param co:
+      Code object, e.g. C{function.func_code}
     @type loads_without_stores:
       C{set}
     @param loads_without_stores:
@@ -552,7 +557,9 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
       C{None}
     """
     if not isinstance(co, types.CodeType):
-        raise TypeError
+        raise TypeError(
+            "_find_loads_without_stores_in_code(): expected a CodeType; got a %s"
+            % (type(co).__name__,))
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
     LOAD_ATTR    = opmap['LOAD_ATTR']
@@ -639,17 +646,22 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     #             return lambda: aa
     #         f: STORE_DEREF, LOAD_CLOSURE, MAKE_CLOSURE
     #         g = f(): LOAD_DEREF
-    code = co.co_code
-    n = len(code)
+    bytecode = co.co_code
+    n = len(bytecode)
     i = 0
     extended_arg = 0
     stores = set()
+    loads_after_label = set()
+    loads_before_label_without_stores = set()
+    # Find the earliest target of a backward jump.
+    earliest_backjump_label = _find_earliest_backjump_label(bytecode)
+    # Loop through bytecode.
     while i < n:
-        c = code[i]
+        c = bytecode[i]
         op = ord(c)
         i += 1
         if op >= HAVE_ARGUMENT:
-            oparg = ord(code[i]) + ord(code[i+1])*256 + extended_arg
+            oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256 + extended_arg
             extended_arg = 0
             i = i+2
             if op == EXTENDED_ARG:
@@ -673,9 +685,10 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             # LOAD_ATTR/STORE_ATTR)
             fullname = ".".join(pending)
             pending = None
-            # loads.add(fullname)
-            if fullname not in stores:
-                loads_without_stores.add(fullname)
+            if i >= earliest_backjump_label:
+                loads_after_label.add(fullname)
+            elif fullname not in stores:
+                loads_before_label_without_stores.add(fullname)
             # Fall through.
 
         if op in [LOAD_GLOBAL, LOAD_NAME]:
@@ -693,6 +706,50 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         # imports.  It's convenient that these are separate opcodes, because
         # then we don't need to deal with them manually.
 
+    # Record which variables we saw that were loaded in this module without a
+    # corresponding store.  We handle two cases.
+    #
+    #   1. Load-before-store; no loops (i.e. no backward jumps).
+    #      Example A::
+    #          foo.bar()
+    #          import foo
+    #      In the above example A, "foo" was used before it was imported.  We
+    #      consider it a candidate for auto-import.
+    #      Example B:
+    #          if condition1():         # L1
+    #             import foo1           # L2
+    #          foo1.bar() + foo2.bar()  # L3
+    #          import foo2              # L4
+    #      In the above example B, "foo2" was used before it was imported; the
+    #      fact that there is a jump target at L3 is irrelevant because it is
+    #      the target of a forward jump; there is no way that foo2 can be
+    #      imported (L4) before foo2 is used (L3).
+    #      On the other hand, we don't know whether condition1 will be true,
+    #      so we assume L2 will be executed and therefore don't consider the
+    #      use of "foo1" at L3 to be problematic.
+    #
+    #   2. Load-before-store; with loops (backward jumps).  Example:
+    #         for i in range(10):
+    #            if i > 0:
+    #                print x
+    #            else:
+    #                x = "hello"
+    #       In the above example, "x" is actually always stored before load,
+    #       even though in a linear reading of the bytecode we would see the
+    #       store before any loads.
+    #
+    # It would be impossible to perfectly follow conditional code, because
+    # code could be arbitrarily complicated and would require a flow control
+    # analysis that solves the halting problem.  We do the best we can and
+    # handle case 1 as a common case.
+    #
+    # Case 1: If we haven't seen a label, then we know that any load
+    #         before a preceding store is definitely too early.
+    # Case 2: If we have seen a label, then we consider any preceding
+    #         or subsequent store to potentially match the load.
+    loads_without_stores.update( loads_before_label_without_stores ) # case 1
+    loads_without_stores.update( loads_after_label - stores )        # case 2
+
     # The C{pending} variable should have been reset at this point, because a
     # function should always end with a RETURN_VALUE opcode and therefore not
     # end in a LOAD_ATTR.
@@ -702,6 +759,111 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     for arg in co.co_consts:
         if isinstance(arg, types.CodeType):
             _find_loads_without_stores_in_code(arg, loads_without_stores)
+
+
+def _find_earliest_backjump_label(bytecode):
+    """
+    Find the earliest target of a backward jump.
+
+    These normally represent loops.
+
+    For example, given the source code:
+      >>> def f():
+      ...     if foo1():
+      ...         foo2()
+      ...     else:
+      ...         foo3()
+      ...     foo4()
+      ...     while foo5():  # L7
+      ...         foo6()
+
+    The disassembled bytecode is:
+      >>> import dis
+      >>> dis.dis(f)                           # doctest:+NORMALIZE_WHITESPACE
+        2           0 LOAD_GLOBAL              0 (foo1)
+                    3 CALL_FUNCTION            0
+                    6 JUMP_IF_FALSE           11 (to 20)
+                    9 POP_TOP
+      <BLANKLINE>
+        3          10 LOAD_GLOBAL              1 (foo2)
+                   13 CALL_FUNCTION            0
+                   16 POP_TOP
+                   17 JUMP_FORWARD             8 (to 28)
+              >>   20 POP_TOP
+      <BLANKLINE>
+        5          21 LOAD_GLOBAL              2 (foo3)
+                   24 CALL_FUNCTION            0
+                   27 POP_TOP
+      <BLANKLINE>
+        6     >>   28 LOAD_GLOBAL              3 (foo4)
+                   31 CALL_FUNCTION            0
+                   34 POP_TOP
+      <BLANKLINE>
+        7          35 SETUP_LOOP              22 (to 60)
+              >>   38 LOAD_GLOBAL              4 (foo5)
+                   41 CALL_FUNCTION            0
+                   44 JUMP_IF_FALSE           11 (to 58)
+                   47 POP_TOP
+      <BLANKLINE>
+        8          48 LOAD_GLOBAL              5 (foo6)
+                   51 CALL_FUNCTION            0
+                   54 POP_TOP
+                   55 JUMP_ABSOLUTE           38
+              >>   58 POP_TOP
+                   59 POP_BLOCK
+              >>   60 LOAD_CONST               0 (None)
+                   63 RETURN_VALUE
+
+    The earliest target of a backward jump would be the 'while' loop at L7, at
+    bytecode offset 38.
+      >>> _find_earliest_backjump_label(f.func_code.co_code)
+      38
+
+    Note that in this example there are earlier targets of jumps at bytecode
+    offsets 20 and 28, but those are targets of _forward_ jumps, and the
+    clients of this function care about the earliest _backward_ jump.
+
+    If there are no backward jumps, return an offset that points after the end
+    of the bytecode.
+
+    @type bytecode:
+      C{bytes}
+    @param bytecode:
+      Compiled bytecode, e.g. C{function.func_code.co_code}.
+    @rtype:
+      C{int}
+    @return:
+      The earliest target of a backward jump, as an offset into the bytecode.
+    """
+    # Code based on dis.findlabels().
+    from opcode import HAVE_ARGUMENT, hasjrel, hasjabs
+    if not isinstance(bytecode, bytes):
+        raise TypeError
+    n = len(bytecode)
+    earliest_backjump_label = n
+    i = 0
+    while i < n:
+        c = bytecode[i]
+        op = ord(c)
+        i += 1
+        if op < HAVE_ARGUMENT:
+            continue
+        oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256
+        i += 2
+        label = None
+        if op in hasjrel:
+            label = i+oparg
+        elif op in hasjabs:
+            label = oparg
+        else:
+            # No label
+            continue
+        if label >= i:
+            # Label is a forward jump
+            continue
+        # Found a backjump label.  Keep track of the earliest one.
+        earliest_backjump_label = min(earliest_backjump_label, label)
+    return earliest_backjump_label
 
 
 def find_missing_imports(arg, namespaces=None):
@@ -788,13 +950,25 @@ def find_missing_imports(arg, namespaces=None):
         else:
             # Parse the string into an AST.
             node = ast.parse(arg) # may raise SyntaxError
+            # Get missing imports from AST.
             return _find_missing_imports_in_ast(node, namespaces)
     elif isinstance(arg, ast.AST):
         return _find_missing_imports_in_ast(arg, namespaces)
     elif isinstance(arg, types.CodeType):
         return _find_missing_imports_in_code(arg, namespaces)
     elif callable(arg):
-        return _find_missing_imports_in_code(arg.func_code, namespaces)
+        # Find the code object.
+        try:
+            co = arg.func_code
+        except AttributeError:
+            # User-defined callable
+            try:
+                co = arg.__call__.func_code
+            except AttributeError:
+                # Built-in function; no auto importing needed.
+                return []
+        # Get missing imports from code object.
+        return _find_missing_imports_in_code(co, namespaces)
     else:
         raise TypeError(
             "find_missing_imports(): expected a string, AST node, or code object; got a %s"
@@ -1334,8 +1508,8 @@ def install_auto_importer():
     # (Alternatively, we could have added something to the
     # logical_line_transforms.  The downside of that is that we would need to
     # re-implement all the parsing perfectly matching IPython.  Although
-    # monkey-patching is in general bad, it seems the seems the lesser of the
-    # two evils in this case.)
+    # monkey-patching is in general bad, it seems the lesser of the two evils
+    # in this case.)
     #
     # Since we have two invocations of handle_auto_imports(), case 1 is
     # handled twice.  That's fine because it runs quickly.

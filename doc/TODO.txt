@@ -7,5 +7,8 @@
 - Heuristically guess alignment style from existing code
 - Grouping: Teach tidy-imports to canonicalize import groups; need the user to
   configure import groups
+- Move mandatory imports to known_imports/__mandatory__.py instead of separate
+  env var.  Simplify env var from PYFLYBY_KNOWN_IMPORTS_PATH to
+  PYFLYBY_IMPORTS_PATH (but keep backwards compatibility)
 
 - Remove pyflakes dependency - use our own AST parser
