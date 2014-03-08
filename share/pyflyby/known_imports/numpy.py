@@ -136,7 +136,7 @@ from   numpy.random             import (normal, rand, randint, randn,
 import numpy.testing
 import numpy.version
 import pandas, pandas as pd
-from   pandas                   import DataFrame, TimeSeries
+from   pandas                   import DataFrame, Series, TimeSeries
 import pylab as pl, pylab
 import scipy
 from   scipy                    import integrate, optimize, special, stats
