@@ -113,7 +113,6 @@ import logging
 from   lxml                     import etree
 import marshal
 import math
-from   math                     import cos, exp, log, sin, sqrt
 import matplotlib
 import mimetypes
 import misc.double
