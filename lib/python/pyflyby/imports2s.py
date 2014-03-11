@@ -269,12 +269,22 @@ def doctests(text):
         try:
             return parser.get_examples(text)
         except Exception:
-            logger.warning("Can't parse docstring, ignoring: %r", text)
+            blob = text
+            if len(blob) > 60:
+                blob = blob[:60] + '...'
+            logger.warning("Can't parse docstring, ignoring: %r", blob)
             return []
     lines = [
         PythonFileLines.from_text(e.source) for e in parse_docstring(text) ]
     if lines:
-        return PythonBlock(lines)
+        try:
+            return PythonBlock(lines)
+        except Exception:
+            blob = text
+            if len(blob) > 60:
+                blob = blob[:60] + '...'
+            logger.warning("Can't parse docstring, ignoring: %r", blob)
+            return []
     else:
         return None
 
