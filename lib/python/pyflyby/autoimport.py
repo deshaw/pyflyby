@@ -1506,6 +1506,7 @@ def install_auto_importer():
     #
     # There are a few different places within IPython we can consider hooking:
     #   * ip.input_transformer_manager.logical_line_transforms
+    #   * ip.compiler.ast_parse
     #   * ip.prefilter_manager.checks
     #   * ip.ast_transformers
     #   * ip.hooks['pre_run_code_hook']
@@ -1525,7 +1526,12 @@ def install_auto_importer():
     # monkey-patching _ofind, because by the time the
     # prefilter/ast_transformer is called, it's too late.
     #
-    # To handle case 2, we use an AST transformer or prefilter.
+    # To handle case 2, we use an AST transformer (for IPython > 1.0), or
+    # monkey-patch ip.compile.ast_parse() (for IPython < 1.0).
+    # prefilter_manager.checks() is the "supported" way to add a pre-execution
+    # hook, but it only works for single lines, not for multi-line cells.
+    # (There is no explanation in the IPython source for why prefilter hooks
+    # are seemingly intentionally skipped for multi-line cells).
     #
     # To handle cases 3/4 (pinfo/autocall), we choose to hook _ofind.  This is
     # a private function that is called by both pinfo and autocall code paths.
@@ -1556,6 +1562,15 @@ def install_auto_importer():
     if hasattr(ip, 'ast_transformers'):
         # IPython >= 1.0+: Hook ast_transformers.
         ip.ast_transformers.append(_AutoImporter_ast_transformer())
+    elif hasattr(ip, 'compile') and hasattr(ip.compile, 'ast_parse'):
+        # IPython < 1.0: Hook the AST parse step.
+        orig_ast_parse = ip.compile.ast_parse
+        def wrapped_ast_parse(source, *args, **kwargs):
+            debug("ast_parse %r", source)
+            ast = orig_ast_parse(source, *args, **kwargs)
+            auto_import(ast)
+            return ast
+        ip.compile.ast_parse = wrapped_ast_parse
     elif hasattr(ip, 'prefilter_manager'):
         # IPython < 1.0: Add prefilter manager.
         ip.prefilter_manager.register_checker(_AutoImporter_prefilter_checker())
