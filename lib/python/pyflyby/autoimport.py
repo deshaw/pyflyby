@@ -1298,19 +1298,43 @@ def _list_submodules(module):
     """
     import pkgutil
     if module is None:
-        modlist = pkgutil.iter_modules(None)
+        # Enumerate all top-level packages/modules.
+        # We exclude "." from sys.path while doing so.  Python includes "." in
+        # sys.path by default, but this is undesirable for autoimporting.  If
+        # we autoimported random python scripts in the current directory, we
+        # could accidentally execute code with side effects.  If the current
+        # working directory is /tmp, trying to enumerate modules there also
+        # causes problems, because there are typically directories there not
+        # readable by the current user.
+        with _ExcludeImplicitCwdFromPathCtx():
+            modlist = pkgutil.iter_modules(None)
+            module_names = [t[1] for t in modlist]
     elif isinstance(module, types.ModuleType):
         try:
             path = module.__path__
         except AttributeError:
             return []
         modlist = pkgutil.iter_modules(path)
+        module_names = [t[1] for t in modlist]
     else:
         raise TypeError(
             "_list_submodules(): expected a module but got a %s"
             % (type(module).__name__,))
-    module_names = [t[1] for t in modlist]
     return tuple(sorted(set(module_names)))
+
+
+@contextlib.contextmanager
+def _ExcludeImplicitCwdFromPathCtx():
+    """
+    Context manager that temporarily removes "." from C{sys.path}.
+    """
+    saved_sys_path = sys.path
+    try:
+        sys.path = [p for p in sys.path if p != "."]
+        yield
+    finally:
+        sys.path = saved_sys_path
+
 
 
 def _list_members_for_completion(obj):
