@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+"""
+transform-imports --transform aa.bb=xx.yy *.py
+transform-imports --transform aa.bb=xx.yy < foo.py
+
+Transforms::
+  from aa.bb.cc import dd, ee
+  from aa import bb
+to::
+  from xx.yy.cc import dd, ee
+  from xx import yy as bb
+
+If filenames are given on the command line, rewrites them.  Otherwise, if
+stdin is not a tty, read from stdin and write to stdout.
+
+Only top-level import statements are touched.
+
+"""
+
+from __future__ import absolute_import, division, with_statement
+
+from   pyflyby.cmdline          import filename_args, hfmt, parse_args
+from   pyflyby.imports2s        import transform_imports
+
+def main():
+    transformations = {}
+    def addopts(parser):
+        def callback(option, opt_str, value, group):
+            k, v = value.split("=", 1)
+            transformations[k] = v
+        parser.add_option("--transform", action='callback',
+                          type="string", callback=callback,
+                          metavar="OLD=NEW",
+                          help=hfmt('''
+                                Replace OLD with NEW in imports.
+                                May be specified multiple times.'''))
+    options, args = parse_args(
+        addopts, import_format_params=True, modify_action_params=True)
+    @options.action
+    def modify(x):
+        return transform_imports(x, transformations, params=options.params)
+    for filename in filename_args(args):
+        modify(filename)
+
+
+if __name__ == '__main__':
+    main()

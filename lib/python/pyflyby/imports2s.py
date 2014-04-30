@@ -10,7 +10,8 @@ from   pyflyby.importstmt       import (ImportFormatParams, Imports,
                                         NoSuchImportError)
 from   pyflyby.log              import logger
 from   pyflyby.parse            import PythonBlock, PythonFileLines
-from   pyflyby.util             import Inf
+from   pyflyby.util             import Inf, memoize
+
 
 class SourceToSourceTransformationBase(object):
     def __new__(cls, arg):
@@ -574,4 +575,37 @@ def replace_star_imports(codeblock,
                 exports)
             logger.info("%s: replaced %r with %d imports", filename,
                         imp.pretty_print().strip(), len(exports.imports))
+    return transformer.pretty_print(params=params)
+
+
+def transform_imports(codeblock, transformations,
+                      params=ImportFormatParams()):
+    """
+    Transform imports as specified by C{transformations}.
+
+    This only touches the top-level imports blocks.  It doesn't touch
+    non-global imports or global references.  TODO: handle those.
+
+    @type codeblock:
+      L{PythonBlock} or convertible (C{str})
+    @type transformations:
+      C{dict} from C{str} to C{str}
+    @param transformations:
+      A map of import prefixes to replace, e.g. {"aa.bb": "xx.yy"}
+    @rtype:
+      C{str}
+    """
+    codeblock = PythonBlock(codeblock)
+    transformer = SourceToSourceFileImportsTransformation(codeblock)
+    @memoize
+    def transform_import(imp):
+        # TODO: optimize
+        # TODO: handle transformations containing both a.b=>x and a.b.c=>y
+        for k, v in transformations.iteritems():
+            imp = imp.replace(k, v)
+        return imp
+    for block in transformer.import_blocks:
+        input_imports = block.imports.imports
+        output_imports = [ transform_import(imp) for imp in input_imports ]
+        block.imports = Imports(output_imports)
     return transformer.pretty_print(params=params)

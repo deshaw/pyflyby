@@ -197,6 +197,32 @@ class Import(object):
         n2 = imp.fullname.split('.')
         return tuple(longest_common_prefix(n1, n2))
 
+    def replace(self, prefix, replacement):
+        """
+        Return a new C{Import} that replaces C{prefix} with C{replacement}.
+
+          >>> Import("from aa.bb import cc").replace("aa.bb", "xx.yy")
+          Import('from xx.yy import cc')
+
+          >>> Import("from aa import bb").replace("aa.bb", "xx.yy")
+          Import('from xx import yy as bb')
+
+        @rtype:
+          C{Import}
+        """
+        prefix_parts = prefix.split('.')
+        replacement_parts = replacement.split('.')
+        fullname_parts = self.fullname.split('.')
+        if fullname_parts[:len(prefix_parts)] != prefix_parts:
+            # No prefix match.
+            return self
+        fullname_parts[:len(prefix_parts)] = replacement_parts
+        import_as_parts = self.import_as.split('.')
+        if import_as_parts[:len(prefix_parts)] == prefix_parts:
+            import_as_parts[:len(prefix_parts)] = replacement_parts
+        return self.from_parts('.'.join(fullname_parts),
+                               '.'.join(import_as_parts))
+
     @property
     def _data(self):
         return (self.fullname, self.import_as)
