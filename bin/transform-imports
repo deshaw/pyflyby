@@ -13,8 +13,6 @@ to::
 If filenames are given on the command line, rewrites them.  Otherwise, if
 stdin is not a tty, read from stdin and write to stdout.
 
-Only top-level import statements are touched.
-
 """
 
 from __future__ import absolute_import, division, with_statement

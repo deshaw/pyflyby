@@ -583,8 +583,12 @@ def transform_imports(codeblock, transformations,
     """
     Transform imports as specified by C{transformations}.
 
-    This only touches the top-level imports blocks.  It doesn't touch
-    non-global imports or global references.  TODO: handle those.
+    transform_imports() perfectly replaces all imports in top-level import
+    blocks.
+
+    For the rest of the code body, transform_imports() does a crude textual
+    string replacement.  This is imperfect but handles most cases.  Generally
+    we do want to do replacements even within in strings and comments.
 
     @type codeblock:
       L{PythonBlock} or convertible (C{str})
@@ -599,13 +603,25 @@ def transform_imports(codeblock, transformations,
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     @memoize
     def transform_import(imp):
+        # Transform a block of imports.
         # TODO: optimize
         # TODO: handle transformations containing both a.b=>x and a.b.c=>y
         for k, v in transformations.iteritems():
             imp = imp.replace(k, v)
         return imp
-    for block in transformer.import_blocks:
-        input_imports = block.imports.imports
-        output_imports = [ transform_import(imp) for imp in input_imports ]
-        block.imports = Imports(output_imports)
+    def transform_block(block):
+        # Do a crude string replacement in the PythonBlock.
+        block = PythonBlock(block)
+        s = block.lines
+        for k, v in transformations.iteritems():
+            s = re.sub("\\b%s\\b" % (re.escape(k)), v, s)
+        return PythonBlock(s)
+    # Loop over transformer blocks.
+    for block in transformer.blocks:
+        if isinstance(block, SourceToSourceImportBlockTransformation):
+            input_imports = block.imports.imports
+            output_imports = [ transform_import(imp) for imp in input_imports ]
+            block.imports = Imports(output_imports)
+        else:
+            block.output = transform_block(block.input)
     return transformer.pretty_print(params=params)
