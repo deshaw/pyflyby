@@ -38,7 +38,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
 
     if modify_action_params:
         group = optparse.OptionGroup(parser, "Action options")
-        action_diff = action_external_command('colordiff')
+        action_diff = action_external_command('pyflyby-diff')
         def parse_action(v):
             V = v.strip().upper()
             if V == 'PRINT':
@@ -86,8 +86,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                    the changed file to stdout.  If REPLACE, then modify the
                    file in-place.  If EXECUTE:mycommand, then execute
                    'mycommand oldfile tmpfile'.  If DIFF, then execute
-                   'colordiff'.  If QUERY, then query user to continue.  If
-                   IFCHANGED, then continue actions only if file was
+                   'pyflyby-diff'.  If QUERY, then query user to continue.
+                   If IFCHANGED, then continue actions only if file was
                    changed.'''))
         group.add_option(
             "--print", "-p", action='callback',
