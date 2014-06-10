@@ -1,9 +1,9 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import errno
 import optparse
 import os
+import signal
 import sys
 from   textwrap                 import dedent
 
@@ -20,7 +20,23 @@ def maindoc():
     import __main__
     return (__main__.__doc__ or '').strip()
 
+
+def _sigpipe_handler(*args):
+    # The parent process piped our stdout and closed the pipe before we
+    # finished writing, e.g. "tidy-imports ... | head" or "tidy-imports ... |
+    # less".  Exit quietly - squelch the "close failed in file object
+    # destructor" message would otherwise be raised.
+    raise SystemExit(1)
+
+
 def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+    """
+    Do setup for a top-level script and parse arguments.
+    """
+    ### Setup.
+    # Register a SIGPIPE handler.
+    signal.signal(signal.SIGPIPE, _sigpipe_handler)
+    ### Parse args.
     parser = optparse.OptionParser(usage='\n'+maindoc())
 
     def log_level_callbacker(level):
@@ -285,16 +301,7 @@ def actions_processor(actions):
 
 def action_print(m):
     output_content = m.output_content
-    try:
-        sys.stdout.write(output_content)
-        # Explicitly (try to) close here, so that we can catch EPIPE
-        # here.  Otherwise we get an ugly error message at system exit.
-        sys.stdout.close()
-    except IOError as e:
-        # Quietly exit if pipe closed.
-        if e.errno == errno.EPIPE:
-            raise SystemExit(1)
-        raise
+    sys.stdout.write(output_content)
 
 
 def action_ifchanged(m):
