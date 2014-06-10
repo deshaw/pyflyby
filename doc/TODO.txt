@@ -10,5 +10,19 @@
 - Move mandatory imports to known_imports/__mandatory__.py instead of separate
   env var.  Simplify env var from PYFLYBY_KNOWN_IMPORTS_PATH to
   PYFLYBY_IMPORTS_PATH (but keep backwards compatibility)
-
 - Remove pyflakes dependency - use our own AST parser
+- Fix bug where duplicate imports are all removed including first instance
+  (because pyflakes reports as unused).  Should be fixed by using our own AST
+  parser.
+- Allow comments in a file to specify imports that shouldn't be removed,
+  including "*" to mean don't-remove-any.
+- If filename is __init__.py then by default don't remove unused imports.  Add
+  a new option --stdin-filename for when input is stdin.  (May be unnecessary
+  with comment-based approach.)
+- Allow a comment in the file to specify alignment options.
+- Add a mechanism to allow more easily customizing the alignment options.
+  Maybe a .pyflyby-style file searched in ancestor directories or $HOME; maybe
+  a $PYFLYBY environment variable.  (May be unnecessary with comment-based
+  approach.)
+- Add unit tests.
+- Add setup.py.
