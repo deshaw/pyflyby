@@ -769,27 +769,70 @@ class Imports(object):
                         [imp.fullname for imp in self.by_import_as[i]], i)
                     for i in self.conflicting_imports))
         from_spaces = max(1, params.from_spaces)
-        def isint(x): return isinstance(x, int) and not isinstance(x, bool)
-        if isint(params.align_imports):
-            import_column = params.align_imports
-        elif params.align_imports and self.statements:
-            statements = [s for s in self.statements
-                          if s.fromname and s.fromname != '__future__']
-            if statements:
-                import_column = (
-                    max(len(s.fromname) for s in statements) + from_spaces + 5)
-            else:
-                import_column = None
-        else:
-            import_column = None
-        def pp(statement):
-            if statement.fromname == '__future__' and not params.align_future:
-                return statement.pretty_print(
-                    params=params, import_column=None, from_spaces=1)
-            else:
+        def do_align(statement):
+            return statement.fromname != '__future__' or params.align_future
+        def pp(statement, import_column):
+            if do_align(statement):
                 return statement.pretty_print(
                     params=params, import_column=import_column,
                     from_spaces=from_spaces)
+            else:
+                return statement.pretty_print(
+                    params=params, import_column=None, from_spaces=1)
         statements = self.get_statements(
             separate_from_imports=params.separate_from_imports)
-        return ''.join(pp(statement) for statement in statements)
+        def isint(x): return isinstance(x, int) and not isinstance(x, bool)
+        if not statements:
+            import_column = None
+        elif isinstance(params.align_imports, bool):
+            if params.align_imports:
+                statements = [s for s in self.statements
+                              if s.fromname and do_align(s)]
+                if statements:
+                    import_column = (
+                        max(len(s.fromname) for s in statements) + from_spaces + 5)
+                else:
+                    import_column = None
+            else:
+                import_column = None
+        elif isinstance(params.align_imports, int):
+            import_column = params.align_imports
+        elif isinstance(params.align_imports, (tuple, list, set)):
+            # If given a set of candidate alignment columns, then try each
+            # alignment column and pick the one that yields the fewest number
+            # of output lines.
+            if not all(isinstance(x, int) for x in params.align_imports):
+                raise TypeError("expected set of integers; got %r"
+                                % (params.align_imports,))
+            candidates = sorted(set(params.align_imports))
+            if len(candidates) == 0:
+                raise ValueError("list of zero candidate alignment columns specified")
+            elif len(candidates) == 1:
+                # Optimization.
+                import_column = next(iter(candidates))
+            else:
+                def argmin(map):
+                    items = iter(sorted(map.items()))
+                    min_k, min_v = next(items)
+                    for k, v in items:
+                        if v < min_v:
+                            min_k = k
+                            min_v = v
+                    return min_k
+                def count_lines(import_column):
+                    return sum(
+                        s.pretty_print(
+                            params=params, import_column=import_column,
+                            from_spaces=from_spaces).count("\n")
+                        for s in statements)
+                # Construct a map from alignment column to total number of
+                # lines.
+                col2length = dict((c, count_lines(c)) for c in candidates)
+                # Pick the column that yields the fewest lines.  Break ties by
+                # picking the smaller column.
+                import_column = argmin(col2length)
+        else:
+            raise TypeError(
+                "Imports.pretty_print(): unexpected params.align_imports type %s"
+                % (type(params.align_imports).__name__,))
+        return ''.join(pp(statement, import_column) for statement in statements)

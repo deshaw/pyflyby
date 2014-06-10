@@ -124,15 +124,17 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
-        group.add_option('--align-imports', '--align', type='int', default=32,
+        group.add_option('--align-imports', '--align', type='str', default="32",
                          metavar='N',
                          help=hfmt('''
                              Whether and how to align the 'import' keyword in
-                             'from modulename import aliases...'.  If 0,
-                             then don't align.  If 1, then align within each
-                             block of imports.  If an integer > 1, then align
-                             at that column, wrapping with a backslash if
-                             necessary.'''))
+                             'from modulename import aliases...'.  If 0, then
+                             don't align.  If 1, then align within each block
+                             of imports.  If an integer > 1, then align at
+                             that column, wrapping with a backslash if
+                             necessary.  If a comma-separated list of integers
+                             (tab stops), then pick the column that results in
+                             the fewest number of lines total per block.'''))
         group.add_option('--from-spaces', type='int', default=3, metavar='N',
                          help=hfmt('''
                              The number of spaces after the 'from' keyword.
@@ -163,7 +165,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def uniform_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = False
             parser.values.from_spaces           = 3
-            parser.values.align_imports         = 32
+            parser.values.align_imports         = '32'
         group.add_option('--uniform', '-u', action="callback",
                          callback=uniform_callback,
                          help=hfmt('''
@@ -172,7 +174,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def unaligned_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = True
             parser.values.from_spaces           = 1
-            parser.values.align_imports         = 0
+            parser.values.align_imports         = '0'
         group.add_option('--unaligned', '-n', action="callback",
                          callback=unaligned_callback,
                          help=hfmt('''
@@ -184,18 +186,20 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         addopts(parser)
     options, args = parser.parse_args()
     if import_format_params:
-        if options.align_imports == 1:
+        align_imports_args = [int(x.strip())
+                              for x in options.align_imports.split(",")]
+        if len(align_imports_args) == 1 and align_imports_args[0] == 1:
             align_imports = True
-        elif options.align_imports == 0:
+        elif len(align_imports_args) == 1 and align_imports_args[0] == 0:
             align_imports = False
         else:
-            align_imports = options.align_imports
+            align_imports = tuple(sorted(set(align_imports_args)))
         options.params = ImportFormatParams(
             align_imports         =align_imports,
             from_spaces           =options.from_spaces,
             separate_from_imports =options.separate_from_imports,
             max_line_length       =options.width,
-            align_future          = options.align_future
+            align_future          =options.align_future
             )
     return options, args
 
