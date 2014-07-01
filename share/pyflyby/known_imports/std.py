@@ -109,6 +109,7 @@ import json
 import kerberos
 from   keyword                  import iskeyword
 import linecache
+import locale
 import logging
 from   lxml                     import etree
 import marshal
