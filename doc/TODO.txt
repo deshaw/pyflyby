@@ -8,8 +8,11 @@
 - Grouping: Teach tidy-imports to canonicalize import groups; need the user to
   configure import groups
 - Move mandatory imports to known_imports/__mandatory__.py instead of separate
-  env var.  Simplify env var from PYFLYBY_KNOWN_IMPORTS_PATH to
+  env var.  Or maybe in any file but with a '"@mandatory"' literal preceding
+  it.  Simplify env var from PYFLYBY_KNOWN_IMPORTS_PATH to
   PYFLYBY_IMPORTS_PATH (but keep backwards compatibility)
+- Add mechanism for database to include transforms.  Maybe '"@transform: from
+  old.foo import bar" \n from new.foo import bar'.
 - Remove pyflakes dependency - use our own AST parser
 - Fix bug where duplicate imports are all removed including first instance
   (because pyflakes reports as unused).  Should be fixed by using our own AST
