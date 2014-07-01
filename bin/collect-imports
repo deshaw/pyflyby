@@ -12,18 +12,31 @@ from __future__ import absolute_import, division, with_statement
 
 import sys
 
-from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.cmdline          import filename_args, hfmt, parse_args
 from   pyflyby.file             import read_file
+from   pyflyby.importdb         import global_known_imports
 from   pyflyby.importstmt       import Imports
 
 def main():
-    options, args = parse_args(import_format_params=True)
+    def addopts(parser):
+        parser.add_option("--ignore-known", default=False, action='store_true',
+                          help=hfmt('''
+                                Don't list imports already in the
+                                known-imports database.'''))
+        parser.add_option("--no-ignore-known", dest="ignore_known",
+                          action='store_false',
+                          help=hfmt('''
+                                (Default) List all imports, including those
+                                already in the known-imports database.'''))
+    options, args = parse_args(addopts, import_format_params=True)
     contents = [read_file(fn) for fn in filename_args(args)]
     imports = Imports.from_code(contents, filter_nonimports=True)
+    if options.ignore_known:
+        db = global_known_imports()
+        imports = imports.without_imports(db, strict=False)
     sys.stdout.write(imports.pretty_print(
             allow_conflicts=True, params=options.params))
 
 
 if __name__ == '__main__':
     main()
-
