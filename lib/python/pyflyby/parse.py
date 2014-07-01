@@ -121,7 +121,8 @@ class PythonFileLines(FileLines):
                 # compound statements are rarely used, we punt for now.
                 # Note that this only affects top-level compound statements.
                 raise NotImplementedError(
-                    "Not implemented: parsing of top-level compound statements")
+                    "Not implemented: parsing of top-level compound statements: "
+                    "line %r: %s" % (start_lineno, self[start_lineno]))
             if node.col_offset > 0:
                 # col_offset can be -1 for a toplevel docstring
                 raise AssertionError(
