@@ -231,11 +231,13 @@ def _ipython_namespaces(ip):
     @return:
       List of (name, namespace_dict) tuples.
     """
-    # This list is copied from IPython 1.2's InteractiveShell._ofind().
+    # This list is copied from IPython 2.2's InteractiveShell._ofind().
+    # Earlier versions of IPython (back to 1.x) also include
+    # ip.alias_manager.alias_table at the end.  This doesn't work in IPython
+    # 2.2 and isn't necessary anyway in earlier versions of IPython.
     return [ ('Interactive'         , ip.user_ns),
              ('Interactive (global)', ip.user_global_ns),
              ('Python builtin'      , __builtin__.__dict__),
-             ('Alias'               , ip.alias_manager.alias_table),
     ]
 
 
