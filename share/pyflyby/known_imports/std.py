@@ -145,6 +145,7 @@ import pickletools
 import pkg_resources
 import pprint
 import pstats
+import psutil
 import pwd
 from   pwd                      import getpwall, getpwnam, getpwuid
 import pyflyby
