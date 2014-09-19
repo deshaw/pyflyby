@@ -145,6 +145,7 @@ def InterceptPrintsDuringPromptCtx():
             else:
                 # Non-first line
                 prompt = prompt_manager.render("in2")
+            prompt = prompt.replace("\x01", "").replace("\x02", "")
             line = readline.get_line_buffer()[:readline.get_endidx()]
             sys.stdout.write(prompt + line)
             redisplay()
