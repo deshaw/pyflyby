@@ -615,7 +615,7 @@ def transform_imports(codeblock, transformations,
         s = block.lines
         for k, v in transformations.iteritems():
             s = re.sub("\\b%s\\b" % (re.escape(k)), v, s)
-        return PythonBlock(s)
+        return PythonBlock(s, flags=block.flags)
     # Loop over transformer blocks.
     for block in transformer.blocks:
         if isinstance(block, SourceToSourceImportBlockTransformation):

@@ -4,9 +4,11 @@ from __future__ import absolute_import, division, with_statement
 import ast
 from   collections              import defaultdict, namedtuple
 
+import operator
 from   pyflyby.file             import Filename
 from   pyflyby.format           import FormatParams, pyfill
 from   pyflyby.parse            import PythonBlock, PythonStatement
+from   pyflyby.flags            import CompilerFlags
 from   pyflyby.util             import (Inf, cached_attribute, dotted_prefixes,
                                         longest_common_prefix, stable_unique)
 
@@ -223,6 +225,17 @@ class Import(object):
         return self.from_parts('.'.join(fullname_parts),
                                '.'.join(import_as_parts))
 
+    @cached_attribute
+    def flags(self):
+        """
+        If this is a __future__ import, then the compiler_flag associated with
+        it.  Otherwise, 0.
+        """
+        if self.split.module_name == "__future__":
+            return CompilerFlags(self.split.member_name)
+        else:
+            return CompilerFlags(0)
+
     @property
     def _data(self):
         return (self.fullname, self.import_as)
@@ -365,6 +378,14 @@ class ImportStatement(object):
         return tuple(
             Import.from_split((self.fromname, alias[0], alias[1]))
             for alias in self.aliases)
+
+    @cached_attribute
+    def flags(self):
+        """
+        If this is a __future__ import, then the bitwise-ORed of the
+        compiler_flag values associated with the features.  Otherwise, 0.
+        """
+        return CompilerFlags(*[imp.flags for imp in self.imports])
 
     def pretty_print(self, params=FormatParams(),
                      import_column=None, from_spaces=1):
@@ -748,6 +769,15 @@ class Imports(object):
             k
             for k, v in self.by_import_as.iteritems()
             if len(v) > 1)
+
+    @cached_attribute
+    def flags(self):
+        """
+        If this contains __future__ imports, then the bitwise-ORed of the
+        compiler_flag values associated with the features.  Otherwise, 0.
+        """
+        imports = self._by_module_name[0].get("__future__", [])
+        return CompilerFlags(*[imp.flags for imp in imports])
 
     def __repr__(self):
         return "%s(%r)" % (type(self).__name__, list(self.statements))

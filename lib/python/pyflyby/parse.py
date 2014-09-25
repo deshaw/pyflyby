@@ -2,12 +2,14 @@
 from __future__ import absolute_import, division, with_statement
 
 import ast
+import copy
 import operator
 import re
 
 from   itertools                import groupby
 
 from   pyflyby.file             import FileContents, FileLines, Filename
+from   pyflyby.flags            import CompilerFlags
 from   pyflyby.util             import cached_attribute
 
 def is_comment_or_blank(line):
@@ -37,6 +39,36 @@ class _DummyAst_Node(object):
     pass
 
 class PythonFileLines(FileLines):
+
+    def __new__(cls, arg, flags=0):
+        result = FileLines.__new__(cls, arg)
+        flags = CompilerFlags(flags)
+        return result.with_flags(flags)
+
+    @classmethod
+    def from_lines(cls, lines, filename=None, linenumber=1, flags=0):
+        self = super(cls, PythonFileLines).from_lines(
+            lines, filename=filename, linenumber=linenumber)
+        self.flags = CompilerFlags(flags)
+        return self
+
+    @classmethod
+    def from_text(cls, text, linenumber=1, flags=0):
+        self = super(cls, PythonFileLines).from_text(
+            text, linenumber=linenumber)
+        self.flags = CompilerFlags(flags)
+        return self
+
+    def with_flags(self, flags):
+        if flags == 0:
+            return self
+        flags = self.flags | CompilerFlags(flags)
+        if flags == self.flags:
+            return self
+        return type(self).from_lines(
+            self.lines, filename=self.filename, linenumber=self.linenumber,
+            flags=flags)
+
     @cached_attribute
     def ast_nodes(self):
         # May also be set internally by L{__attach_ast_nodes}
@@ -46,7 +78,8 @@ class PythonFileLines(FileLines):
             # Ensure that the last line ends with a newline (C{ast} barfs
             # otherwise).
             text += "\n"
-        return compile(text, filename, "exec", ast.PyCF_ONLY_AST, 0).body
+        flags = ast.PyCF_ONLY_AST | int(self.flags)
+        return compile(text, filename, "exec", flags=flags, dont_inherit=1).body
 
     @cached_attribute
     def ast(self):
@@ -192,19 +225,34 @@ class PythonStatement(object):
     """
     Representation of a top-level Python statement or consecutive
     comments/blank lines.
+
+    A statement has a C{flags} attribute that gives the compiler_flags
+    associated with the __future__ features in which the statement should be
+    interpreted.
     """
 
-    def __new__(cls, arg):
+    def __new__(cls, arg, flags=0):
         if isinstance(arg, cls):
-            return arg
+            return arg.with_flags(flags)
         if isinstance(arg, PythonFileLines):
-            return cls.from_lines(arg)
+            return cls.from_lines(arg, flags=flags)
         if isinstance(arg, (FileContents, str)):
-            return cls.from_source_code(arg)
+            return cls.from_source_code(arg, flags=flags)
         raise TypeError
 
+    def with_flags(self, flags):
+        if flags == 0:
+            return self
+        flags = CompilerFlags(flags, self.flags)
+        if flags == self.flags:
+            return self
+        result = object.__new__(type(self))
+        result.lines = self.lines
+        result.flags = flags
+        return result
+
     @classmethod
-    def from_lines(cls, lines):
+    def from_lines(cls, lines, flags=0):
         """
         @type lines:
           L{PythonFileLines}
@@ -219,17 +267,18 @@ class PythonStatement(object):
         lines.ast_node
         self = object.__new__(cls)
         self.lines = lines
+        self.flags = self.source_flags | flags
         return self
 
     @classmethod
-    def from_source_code(cls, source_code):
+    def from_source_code(cls, source_code, flags=0):
         statements = PythonBlock(source_code)
         if len(statements) != 1:
             raise ValueError(
                 "Code contains %d statements instead of exactly 1: %r"
                 % (len(statements), source_code))
         assert isinstance(statements[0], cls)
-        return statements[0]
+        return statements[0].with_flags(flags)
 
     @property
     def ast_node(self):
@@ -248,8 +297,30 @@ class PythonStatement(object):
     def is_import(self):
         return isinstance(self.ast_node, (ast.Import, ast.ImportFrom))
 
+    @cached_attribute
+    def source_flags(self):
+        """
+        If this is a __future__ import, then the compiler_flags associated
+        with it.  Otherwise, 0.
+
+        The difference between C{source_flags} and C{flags} is that C{flags}
+        may be set by the caller based on a previous __future__ import,
+        whereas C{source_flags} is only nonzero if this statement itself is a
+        __future__ import.
+
+        @rtype:
+          L{CompilerFlags}
+        """
+        node = self.ast_node
+        if not isinstance(node, ast.ImportFrom):
+            return CompilerFlags(0)
+        if not node.module == "__future__":
+            return CompilerFlags(0)
+        names = [n.name for n in node.names]
+        return CompilerFlags(names)
+
     def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, self.lines)
+        return "%s(%r, flags=%s)" % (type(self).__name__, self.lines, self.flags)
 
 
 class PythonBlock(tuple):
@@ -270,40 +341,60 @@ class PythonBlock(tuple):
 
     """
 
-    def __new__(cls, arg):
+    def __new__(cls, arg, flags=0):
         if isinstance(arg, cls):
-            return arg
+            return arg.with_flags(flags)
         if isinstance(arg, PythonStatement):
-            return cls.from_statements([arg])
+            return cls.from_statements([arg], flags=flags)
         if isinstance(arg, (PythonFileLines, FileContents, Filename, str)):
-            return cls.from_lines(arg)
+            return cls.from_lines(arg, flags=flags)
         if isinstance(arg, (list, tuple)) and arg:
             if isinstance(arg[0], PythonStatement):
-                return cls.from_statements(arg)
-            return cls.from_multiple(arg)
+                return cls.from_statements(arg, flags=flags)
+            return cls.from_multiple(arg, flags=flags)
         raise TypeError
 
+    def with_flags(self, flags):
+        if flags == 0:
+            return self
+        flags = CompilerFlags(flags, self.flags)
+        if flags == self.flags:
+            return self
+        return self.from_statements(self, flags=flags)
+
     @classmethod
-    def from_statements(cls, statements):
+    def from_statements(cls, statements, flags=0):
+        """
+        @rtype:
+          L{PythonBlock}
+        """
+        # Canonicalize statements.
         statements = tuple(PythonStatement(stmt) for stmt in statements)
+        # Get the combined compiler_flags at the end of the block.
+        flags = CompilerFlags(flags, *[s.flags for s in statements])
+        # Make sure all statements have the proper flags attached.
+        if flags:
+            statements = tuple(stmt.with_flags(flags) for stmt in statements)
+        # Construct new object.
         self = tuple.__new__(cls, statements)
+        self.flags = flags
         return self
 
     @classmethod
-    def from_lines(cls, lines):
+    def from_lines(cls, lines, flags=0):
         """
         @type lines:
           L{PythonFileLines} or convertible
         @rtype:
           L{PythonBlock}
         """
-        lines = PythonFileLines(lines)
+        lines = PythonFileLines(lines, flags=flags)
         return cls.from_statements(
-            [PythonStatement.from_lines(sublines)
+            [PythonStatement.from_lines(sublines, flags=flags)
              for sublines in lines.split()])
 
     @classmethod
-    def from_multiple(cls, blocks):
+    def from_multiple(cls, blocks, flags=0):
         """
         Concatenate a bunch of blocks into one block.
 
@@ -316,7 +407,8 @@ class PythonBlock(tuple):
         if len(blocks) == 1:
             return blocks[0]
         statements = reduce(operator.add, blocks, ())
-        return cls.from_statements(statements)
+        flags = CompilerFlags(flags, *[b.flags for b in blocks])
+        return cls.from_statements(statements, flags=flags)
 
     @cached_attribute
     def lines(self):
@@ -360,7 +452,7 @@ class PythonBlock(tuple):
         return PythonFileLines.from_text(self.lines).ast
 
     def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, self.lines)
+        return "%s(%r, flags=%s)" % (type(self).__name__, self.lines, self.flags)
 
     def groupby(self, predicate):
         """
