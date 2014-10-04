@@ -15,8 +15,7 @@ import sys
 
 from   pyflyby.cmdline          import hfmt, parse_args
 from   pyflyby.importdb         import global_known_imports
-from   pyflyby.importstmt       import ImportStatement, Imports
-from   pyflyby.modules          import import_module,Module
+from   pyflyby.modules          import Module
 
 
 def main():

@@ -5,8 +5,8 @@ import os
 
 from   pyflyby.file             import Filename
 from   pyflyby.importstmt       import Imports
-from   pyflyby.util             import memoize, partition
 from   pyflyby.log              import logger
+from   pyflyby.util             import memoize, partition
 
 
 DEFAULT_CONFIG_DIRS = [

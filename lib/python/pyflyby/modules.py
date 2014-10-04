@@ -5,7 +5,7 @@ import ast
 import re
 import types
 
-from   pyflyby.file             import FileLines, Filename, read_file
+from   pyflyby.file             import Filename, read_file
 from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute, memoize, prefixes
 
@@ -127,16 +127,15 @@ class Module(object):
         return Filename(pyc_to_py(self.module.__file__))
 
     @cached_attribute
-    def file_contents(self):
+    def text(self):
         return read_file(self.filename)
 
-    @cached_attribute
-    def file_lines(self):
-        return FileLines(self.file_contents)
+    def __text__(self):
+        return self.text
 
     @cached_attribute
     def ast(self):
-        return ast.parse(str(self.file_contents), str(self.filename))
+        return ast.parse(self.text.joined, str(self.filename))
 
     @cached_attribute
     def exports(self):

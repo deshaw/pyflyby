@@ -26,6 +26,8 @@ class Filename(object):
         if not isinstance(filename, basestring):
             raise TypeError
         filename = str(filename)
+        if not filename:
+            raise UnsafeFilenameError("(empty string)")
         if re.search("[^a-zA-Z0-9_=+{}/.,~-]", filename):
             raise UnsafeFilenameError(filename)
         if re.search("(^|/)~", filename):
@@ -44,7 +46,8 @@ class Filename(object):
         return type(self)(os.path.join(self._filename, x))
 
     def __cmp__(self, o):
-        o = type(self)(o)
+        if not isinstance(o, Filename):
+            return NotImplemented
         return cmp(self._filename, o._filename)
 
     @cached_attribute
@@ -100,149 +103,284 @@ class Filename(object):
                     yield rchild
         # Could be broken symlink, special, etc.
 
-STDIO_PIPE = object() # Singleton token
 
-class FileContents(str):
-    def __new__(cls, arg):
-        if isinstance(arg, cls):
-            return arg
-        if isinstance(arg, str):
-            return cls.from_contents(arg)
-        if isinstance(arg, Filename):
-            return read_file(arg)
-        raise TypeError
-
-    @classmethod
-    def from_contents(cls, text, filename=None):
-        if not isinstance(text, str):
-            raise TypeError
-        self = str.__new__(cls, text)
-        self.filename = filename
-        return self
-
-    def __repr__(self):
-        s = "%s.from_contents(%r" % (type(self).__name__, str(self))
-        if self.filename is not None:
-            s += ", %r" % (self.filename,)
-        s += ")"
-        return s
+Filename.STDIN = Filename("/dev/stdin")
 
 
-class FileLines(object):
+class FileText(object):
     """
     Represents a contiguous sequence of lines from a file.
     """
 
-    def __new__(cls, arg):
-        if isinstance(arg, cls):
-            return arg
-        if isinstance(arg, (Filename, FileContents, str)):
-            return cls.from_text(arg)
-        raise TypeError
-
-    @classmethod
-    def from_lines(cls, lines, filename=None, linenumber=1):
+    def __new__(cls, arg, filename=None, lineno=None, colno=None):
         """
-        @type params:
-          Sequence of strings, each of which ends with a newline and has no
-          other newlines.
+        Return a new C{FileText} instance.
+
+        @type arg:
+          C{FileText}, C{Filename}, C{str}, or tuple of C{str}
+        @param arg:
+          If a sequence of lines, then each should end with a newline and have
+          no other newlines.  Otherwise, something that can be interpreted or
+          converted into a sequence of lines.
+        @type filename:
+          L{Filename}
+        @param filename:
+          Filename to attach to this C{FileText}, if not already given by
+          C{arg}.
+        @type lineno:
+          C{int}
+        @param lineno:
+          Value to attach as the line number of the first line in this
+          C{FileText}, if not already given by C{arg}.  1-based.
+        @type colno:
+          C{int}
+        @param colno:
+          Value to attach as the column number of the first line in this
+          C{FileText}, if not already given by C{arg}.  1-based.  Subsequent
+          lines always start at column 1.
         @rtype:
-          L{FileLines}
+          C{FileText}
         """
-        if isinstance(lines, str):
-            raise TypeError
-        self = object.__new__(cls)
-        self.lines = tuple(lines)
+        if isinstance(arg, cls):
+            if filename is lineno is colno is None:
+                return arg
+            return arg.alter(filename=filename, lineno=lineno)
+        elif isinstance(arg, Filename):
+            return cls(read_file(arg), filename=filename, lineno=lineno,
+                       colno=colno)
+        elif hasattr(arg, "__text__"):
+            return FileText(arg.__text__(), filename=filename)
+        if isinstance(arg, (tuple, list)):
+            if not all(isinstance(x, str) for x in arg[:2] + arg[-2:]):
+                raise TypeError("%s: unexpected sequence of %s"
+                                % (cls.__name__, type(arg[0]).__name__))
+            self = object.__new__(cls)
+            self.lines = arg
+        elif isinstance(arg, basestring):
+            self = object.__new__(cls)
+            if not arg.endswith("\n"):
+                arg += "\n"
+            self.joined = arg
+        else:
+            raise TypeError("%s: unexpected %s"
+                            % (cls.__name__, type(arg).__name__))
+        if filename is not None:
+            filename = Filename(filename)
+        if lineno is None:
+            lineno = 1
+        if colno is None:
+            colno = 1
         self.filename = filename
-        self.linenumber = linenumber
-        return self
-
-    @classmethod
-    def from_text(cls, text, linenumber=1):
-        text = FileContents(text)
-        # Split into physical lines.
-        lines = text.splitlines(True)
-        self = cls.from_lines(lines, filename=text.filename, linenumber=linenumber)
-        self.joined = text # optimization
+        self.lineno   = lineno
+        self.colno    = colno
         return self
 
     @cached_attribute
-    def joined(self):
+    def lines(self): # used if only initialized with 'joined'
+        return self.joined.splitlines(True)
+
+    @cached_attribute
+    def joined(self): # used if only initialized with 'lines'
         return ''.join(self.lines)
 
+    @classmethod
+    def from_filename(cls, filename):
+        return cls.from_lines(Filename(filename))
+
+    def alter(self, filename=None, lineno=None, colno=None):
+        if filename is not None:
+            filename = Filename(filename)
+        else:
+            filename = self.filename
+        if lineno is not None:
+            lineno = int(lineno)
+        else:
+            lineno = self.lineno
+        if colno is not None:
+            colno = int(colno)
+        else:
+            colno = self.colno
+        if (filename == self.filename and
+            lineno == self.lineno and
+            colno == self.colno):
+            return self
+        else:
+            result = object.__new__(type(self))
+            result.lines    = self.lines
+            result.joined   = self.joined
+            result.filename = filename
+            result.lineno   = lineno
+            result.colno    = colno
+            return result
+
     @cached_attribute
-    def end_linenumber(self):
+    def end_lineno(self):
         """
         The number of the line after the lines contained in self.
         """
-        return self.linenumber + len(self.lines)
+        return self.lineno + len(self.lines)
 
-    def _linenumber_to_index(self, linenumber):
-        if not self.linenumber <= linenumber <= self.end_linenumber:
+    def _lineno_to_index(self, lineno):
+        lineindex = lineno - self.lineno
+        if not 0 <= lineindex <= len(self.lines):
             raise ValueError(
                 "Line number %d out of range [%d, %d)"
-                % (linenumber, self.linenumber, self.end_linenumber))
-        return linenumber - self.linenumber
+                % (lineno, self.lineno, self.end_lineno))
+        return lineindex
+
+    def _colno_to_index(self, lineindex, colno):
+        coloffset = self.colno if lineindex == 0 else 1
+        colindex = colno - coloffset
+        linelen = len(self.lines[lineindex])
+        if not 0 <= colindex <= linelen:
+            raise ValueError(
+                "Column number %d on line %d out of range [%d, %d)"
+                % (colno, lineindex+self.lineno, coloffset, coloffset+linelen))
+        return colindex
 
     def __getitem__(self, arg):
         """
         Return the line(s) with the given line number(s).
-        If slicing, returns an instance of C{FileLines}.
+        If slicing, returns an instance of C{FileText}.
 
-        Note that line numbers are indexed based on C{self.linenumber}.
+        Note that line numbers are indexed based on C{self.lineno} (which
+        is 1 at the start of the file).
 
-          >>> FileLines("a\\nb\\nc\\nd")[2]
+          >>> FileText("a\\nb\\nc\\nd")[2]
           'b\\n'
 
-          >>> FileLines("a\\nb\\nc\\nd")[2:4]
-          FileLines.from_text('b\\nc\\n', linenumber=2)
+          >>> FileText("a\\nb\\nc\\nd")[2:4]
+          FileText('b\\nc\\n', lineno=2)
 
-          >>> FileLines("a\\nb\\nc\\nd")[0]
+          >>> FileText("a\\nb\\nc\\nd")[0]
           Traceback (most recent call last):
             ...
           ValueError: Line number 0 out of range [1, 5)
 
+        The index argument can also be given as (lineno, colno) tuples.
+        C{colno} is 1-indexed at the start of the file.  For the end of the
+        range, if C{colno} is given, then the C{lineno} is an inclusive value.
+
         @rtype:
-          C{str} or L{FileLines}
+          C{str} or L{FileText}
         """
-        N = self._linenumber_to_index
+        L = self._lineno_to_index
+        C = self._colno_to_index
         if isinstance(arg, slice):
             if arg.step is not None and arg.step != 1:
                 raise ValueError("steps not supported")
-            return type(self).from_lines(
-                self.lines[N(arg.start):N(arg.stop)],
-                self.filename, arg.start)
+            # Interpret start (lineno,colno) into indexes.
+            if arg.start is None:
+                start_lineindex = 0
+                start_colindex = 0
+            elif isinstance(arg.start, int):
+                start_lineindex = L(arg.start)
+                start_colindex = 0
+            else:
+                start_lineno, start_colno = arg.start
+                start_lineno = int(start_lineno)
+                start_colno  = int(start_colno)
+                start_lineindex = L(start_lineno)
+                start_colindex = C(start_lineindex, start_colno)
+            # Interpret stop (lineno,colno) into indexes.
+            if arg.stop is None:
+                stop_lineindex = len(self.lines)
+                stop_colindex = len(self.lines[-1])
+            elif isinstance(arg.stop, int):
+                stop_lineindex = L(arg.stop)
+                stop_colindex = len(self.lines[stop_lineindex-1])
+            else:
+                # Interpret (lineno, colno) end of range.
+                # Unlike the lineno-only case, we interpret the input argument
+                # lineno as an inclusive (closed-ended) endpoint.
+                stop_lineno, stop_colno = arg.stop
+                stop_lineindex = L(stop_lineno) + 1
+                stop_colindex = C(stop_lineindex-1, stop_colno)
+            # {start,stop}_{lineindex,colindex} are now 0-indexed
+            # [open,closed) ranges.  Note that C{FileText} instances have to
+            # have at least one line in them.
+            assert 0 <= start_lineindex < stop_lineindex <= len(self.lines)
+            assert 0 <= start_colindex < len(self.lines[start_lineindex])
+            assert 0 <= stop_colindex <= len(self.lines[stop_lineindex-1])
+            # Optimization: return entire range
+            if (start_lineindex == 0 and stop_lineindex == len(self.lines) and
+                start_colindex == 0 and stop_colindex == len(self.lines[-1])):
+                return self
+            # Get the lines we care about.
+            result_split = self.lines[start_lineindex:stop_lineindex]
+            # Clip the starting and ending strings.  We do the end clip first
+            # in case the result has only one line.
+            result_split[-1] = result_split[-1][:stop_colindex]
+            result_split[0] = result_split[0][start_colindex:]
+            # Compute the new starting line and column numbers.
+            result_lineno = start_lineindex + self.lineno
+            if start_lineindex == 0:
+                result_colno = start_colindex + self.colno
+            else:
+                result_colno = start_colindex + 1
+            return type(self)(result_split, filename=self.filename,
+                              lineno=result_lineno, colno=result_colno)
         elif isinstance(arg, int):
-            return self.lines[N(arg)]
+            # Return a single line.
+            return self.lines[L(arg)]
         else:
             raise TypeError("bad type %r" % (type(arg),))
 
+    @classmethod
+    def concatenate(cls, args):
+        """
+        Concatenate a bunch of L{FileText} arguments.  Uses the C{filename}
+        and C{lineno} from the first argument.
+
+        @rtype:
+          L{FileText}
+        """
+        args = [FileText(x) for x in args]
+        if len(args) == 1:
+            return args[0]
+        return FileText(
+            ''.join([l.joined for l in args]),
+            filename=args[0].filename,
+            lineno=args[0].lineno)
+
     def __repr__(self):
-        if self.filename is None:
-            d = self.joined
-        else:
-            d = FileContents.from_contents(self.joined, self.filename)
-        return "%s.from_text(%r, linenumber=%r)" % (
-            type(self).__name__, d, self.linenumber)
+        r = "%s(%r" % (type(self).__name__, self.joined,)
+        if self.filename is not None:
+            r += ", filename=%r" % (str(self.filename),)
+        if self.lineno != 1:
+            r += ", lineno=%d" % (self.lineno,)
+        r += ")"
+        return r
+
+    def __eq__(self, o):
+        return self.filename == o.filename and self.joined == o.joined
+
+    def __cmp__(self, o):
+        return cmp((self.filename, self.joined),
+                   (o.filename, o.joined))
+
+    def __hash__(self):
+        return hash((self.filename, self.joined))
 
 
 def read_file(filename):
-    if filename is STDIO_PIPE:
-        return FileContents.from_contents(
-            sys.stdin.read(), filename="(stdin)")
     filename = Filename(filename)
-    with open(str(filename), 'rU') as f:
-        return FileContents.from_contents(f.read(), filename=filename)
+    if filename == Filename.STDIN:
+        data = sys.stdin.read()
+    else:
+        with open(str(filename), 'rU') as f:
+            data = f.read()
+    return FileText(data, filename=filename)
 
 def write_file(filename, data):
     filename = Filename(filename)
-    data = FileContents(data)
+    data = FileText(data)
     with open(str(filename), 'w') as f:
-        f.write(data)
+        f.write(data.joined)
 
 def atomic_write_file(filename, data):
     filename = Filename(filename)
-    data = FileContents(data)
+    data = FileText(data)
     temp_filename = Filename("%s.tmp.%s" % (filename, os.getpid(),))
     write_file(temp_filename, data)
     try:

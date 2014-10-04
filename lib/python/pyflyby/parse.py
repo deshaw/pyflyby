@@ -2,287 +2,329 @@
 from __future__ import absolute_import, division, with_statement
 
 import ast
-import copy
-import operator
+from   itertools                import groupby
 import re
 
-from   itertools                import groupby
-
-from   pyflyby.file             import FileContents, FileLines, Filename
+from   pyflyby.file             import FileText, Filename
 from   pyflyby.flags            import CompilerFlags
+from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute
 
-def is_comment_or_blank(line):
+def _is_comment_or_blank(line):
     """
     Returns whether a line of python code contains only a comment is blank.
 
-      >>> is_comment_or_blank("foo\\n")
+      >>> _is_comment_or_blank("foo\\n")
       False
 
-      >>> is_comment_or_blank("  # blah\\n")
+      >>> _is_comment_or_blank("  # blah\\n")
       True
     """
     return re.sub("#.*", "", line).rstrip() == ""
 
 
-class MoreThanOneAstNodeError(Exception):
-    pass
-
-
 def _ast_str_literal_value(node):
+    if isinstance(node, ast.Str):
+        return node.s
     if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
         return node.value.s
     else:
         return None
 
-class _DummyAst_Node(object):
-    pass
 
-class PythonFileLines(FileLines):
+def _compile_ast_nodes(text, flags):
+    """
+    Parse a block of lines into an AST.
 
-    def __new__(cls, arg, flags=0):
-        result = FileLines.__new__(cls, arg)
-        flags = CompilerFlags(flags)
-        return result.with_flags(flags)
+    @type text:
+      C{FileText}
+    @type flags:
+      C{CompilerFlags}
+    @rtype:
+      C{ast.Module}
+    """
+    text = FileText(text)
+    flags = CompilerFlags(flags)
+    filename = str(text.filename) if text.filename else "<unknown>"
+    joined = text.joined
+    if not joined.endswith("\n"):
+        # Ensure that the last line ends with a newline (C{ast} barfs
+        # otherwise).
+        joined += "\n"
+    flags = ast.PyCF_ONLY_AST | int(flags)
+    return compile(joined, filename, "exec", flags=flags, dont_inherit=1)
 
-    @classmethod
-    def from_lines(cls, lines, filename=None, linenumber=1, flags=0):
-        self = super(cls, PythonFileLines).from_lines(
-            lines, filename=filename, linenumber=linenumber)
-        self.flags = CompilerFlags(flags)
-        return self
 
-    @classmethod
-    def from_text(cls, text, linenumber=1, flags=0):
-        self = super(cls, PythonFileLines).from_text(
-            text, linenumber=linenumber)
-        self.flags = CompilerFlags(flags)
-        return self
+def _compile_annotate_ast_nodes(text, flags):
+    """
+    Parse a block of lines into an AST and annotate with start_lineno, end_lineno.
 
-    def with_flags(self, flags):
-        if flags == 0:
-            return self
-        flags = self.flags | CompilerFlags(flags)
-        if flags == self.flags:
-            return self
-        return type(self).from_lines(
-            self.lines, filename=self.filename, linenumber=self.linenumber,
-            flags=flags)
+    @type text:
+      C{FileText}
+    @type flags:
+      C{CompilerFlags}
+    @rtype:
+      C{ast.Module}
+    """
+    text = FileText(text)
+    flags = CompilerFlags(flags)
+    ast_node = _compile_ast_nodes(text, flags)
+    # Annotate starting line numbers.
+    # Walk all nodes/fields of the AST.  We implement this as a custom
+    # depth-first search instead of using ast.walk() or ast.NodeVisitor
+    # so that we can easily keep track of the preceding node's lineno.
+    def visit_annotate(prev_lineno, node):
+        child_prev_lineno = prev_lineno
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST):
+                        clineno = visit_annotate(child_prev_lineno, item)
+                        child_prev_lineno = max(child_prev_lineno, clineno)
+            elif isinstance(value, ast.AST):
+                clineno = visit_annotate(child_prev_lineno, value)
+                child_prev_lineno = max(child_prev_lineno, clineno)
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+            # Optimization: copy the lineno from the Str field instead of
+            # redoing the search.
+            assert node.lineno == node.value.lineno
+            node.start_lineno = node.value.start_lineno
+            node.start_colno = node.value.start_colno
+        else:
+            _annotate_ast_start(node, text, prev_lineno, flags)
+        return max(child_prev_lineno, getattr(node, 'lineno', None))
+    visit_annotate(text.lineno, ast_node)
+    # Now that we have correct starting line numbers we can use this to
+    # find ending line numbers.  We create a dummy sentinel node to serve
+    # as the "next node" of the last node.
+    # We only need this for top-level statements, so only do that for now,
+    # rather than recursively traversing the AST.
+    end_sentinel = _DummyAst_Node()
+    end_sentinel.start_lineno = text.end_lineno
+    nodes = ast_node.body
+    for node, next_node in zip(nodes, nodes[1:] + [end_sentinel]):
+        start_lineno = node.start_lineno
+        end_lineno = next_node.start_lineno
+        if start_lineno == end_lineno:
+            # Implementing compound statements (two or more statements
+            # separated by ";") is tricky; we'll have to refactor.  We'll
+            # have to allow "lines" that don't end in a newline, and we'll
+            # no longer be able to index/slice by line number.  There's
+            # also the question of how to pretty-print this: presumably
+            # we'd want to just add newlines before and after import
+            # blocks, but not touch non-import blocks.  The strategy for
+            # splitting could be to split naively on ';', but check that
+            # parsing the parts with C{compile} matches, and if it doesn't
+            # (because the ';' is in a string or something), then try the
+            # next one.  Since compound statements are not often used, we
+            # punt for now.  Note that this only affects top-level
+            # compound statements.
+            raise NotImplementedError(
+                "Not implemented: parsing of top-level compound statements: "
+                "line %r: %s" % (start_lineno, text[start_lineno]))
+        assert node.start_colno == 1, \
+            "Expected no indentation for top-level (non-compound) statement"
+        assert text.lineno <= start_lineno < end_lineno <= text.end_lineno
+        while _is_comment_or_blank(text[end_lineno-1]):
+            end_lineno -= 1
+        assert start_lineno < end_lineno
+        node.end_lineno = end_lineno
+    return ast_node
 
-    @cached_attribute
-    def ast_nodes(self):
-        # May also be set internally by L{__attach_ast_nodes}
-        filename = str(self.filename) if self.filename else "<unknown>"
-        text = self.joined
-        if not text.endswith("\n"):
-            # Ensure that the last line ends with a newline (C{ast} barfs
-            # otherwise).
-            text += "\n"
-        flags = ast.PyCF_ONLY_AST | int(self.flags)
-        return compile(text, filename, "exec", flags=flags, dont_inherit=1).body
 
-    @cached_attribute
-    def ast(self):
-        return ast.Module(self.ast_nodes)
+def _annotate_ast_start(ast_node, text, min_start_lineno, flags):
+    """
+    Annotate C{ast_node} with the starting line number and column number,
+    assigning C{ast_node.start_lineno} and C{ast_node.start_colno}.
 
-    @cached_attribute
-    def annotated_ast_nodes(self):
-        """
-        Return C{self.ast_nodes} where each node has added attributes
-        C{start_lineno} and C{end_lineno}.  end_lineno is 1 after the last
-        line number whose source comprises a given node.
-        """
-        nodes = self.ast_nodes
-        # For some crazy reason, lineno represents something different for
-        # string literals versus all other statements.  For string literals it
-        # represents the last line; for other statements it represents the
-        # first line.  E.g. "'''foo\nbar'''" would have a lineno of 2, but
-        # "x='''foo\nbar'''" would have a lineno of 1.
-        #
-        # First, find the start_lineno of each node.  For non-strings it's
-        # simply the lineno.  For string literals, we only know that the
-        # starting line number is somewhere between the previous node's lineno
-        # and this one.  Iterate over each node.  We create a dummy sentinel
-        # to serve as the "prev node" of the last first node.
-        start_sentinel = _DummyAst_Node()
-        start_sentinel.lineno = 0
-        for prev_node, node in zip([start_sentinel] + nodes[:-1], nodes):
-            s = _ast_str_literal_value(node)
-            if s is None:
-                # Not a string literal.  Easy.
-                node.start_lineno = node.lineno
-                continue
-            # Node is a string literal expression.  The starting line number
-            # of this string could be anywhere between the end of the previous
-            # expression (exclusive since assuming no compound statements) and
-            # C{lineno}.  Try line by line until we parse it correctly.  Try
-            # from the end because we don't want initial comments/etc.
-            for start_lineno in xrange(node.lineno, prev_node.lineno, -1):
-                sublines = self[start_lineno:node.lineno+1]
+    For non-string nodes, start_lineno is the same as C{ast_node.lineno}, but
+    taking C{text.lineno} into account).  start_colno is col_offset+1.
+
+    For string nodes, this function works by trying to parse all possible
+    subranges of lines until finding the range that is syntactically valid and
+    matches C{value}.  The candidate range is
+    text[min_start_lineno:lineno+text.lineno+1].
+
+    This function is necessary because of a quirk in the output produced by
+    the Python built-in compiler.  For some crazy reason, the C{lineno}
+    attribute represents something different for string literals versus all
+    other statements.  For string nodes and statements that are just a string
+    expression, the compiler attaches the ending line number as the value of
+    the C{lineno} attribute.  For all other than AST nodes, the compiler
+    attaches the starting line number as the value of the C{lineno} attribute.
+    This means e.g. the statement "'''foo\nbar'''" has a lineno value of 2,
+    but the statement "x='''foo\nbar'''" has a lineno value of 1.
+
+    @type ast_node:
+      C{ast.AST}
+    @type text:
+      C{FileText}
+    @param text:
+      C{FileText} that was used to compile the AST, whose C{lineno} should be
+      used in interpreting C{ast_node.lineno} (which always starts at 1 for
+      the subset that was compiled).
+    @param min_start_lineno:
+      Earliest line number to check, in the number space of C{text}.
+    @type flags:
+      C{CompilerFlags}
+    @param flags:
+      Compiler flags to use when re-compiling code.
+    @return:
+      (start_lineno, start_colno)
+    @raise ValueError:
+      Could not find the starting line number.
+    """
+    # Check whether this is a string node or a lone expression for a string.
+    s = _ast_str_literal_value(ast_node)
+    if s is None:
+        # Not a string literal node or statement.  Easy.
+        if not hasattr(ast_node, 'lineno'):
+            # No lineno, so skip.
+            # This should only happen for nodes we don't care about.
+            return
+        ast_node.start_lineno = ast_node.lineno + text.lineno - 1
+        if ast_node.col_offset >= 0:
+            ast_node.start_colno = ast_node.col_offset + 1
+        else:
+            ast_node.start_colno = None
+        return
+    if ast_node.col_offset >= 0:
+        # Not a multiline string literal.  Easy.
+        ast_node.start_lineno = ast_node.lineno + text.lineno - 1
+        ast_node.start_colno = ast_node.col_offset + 1
+        return
+    end_lineno = ast_node.lineno + text.lineno - 1
+    # Node is a multiline string literal expression.  The starting line number
+    # of this string could be anywhere between the end of the previous
+    # expression and C{lineno}.  Try line by line until we parse it correctly.
+    candidate_start_linenos = range(min_start_lineno, end_lineno + 1)
+    # Try from the end because we don't want initial comments/etc.
+    # First, look for the exact character the string ends on (using 1-based
+    # indexing to be consistent with col_offset indexing), in case the line
+    # contains other things (including possibly other strings).
+    end_line = text[end_lineno]
+    end_line_colno = (text.colno if end_lineno==text.lineno else 1)
+    candidate_ends = [(m.group(), m.start()+end_line_colno)
+                      for m in re.finditer("[\"\']", end_line)]
+    assert candidate_ends, "No quote char found on line with supposed string"
+    for quotechar, end_colno in reversed(candidate_ends):
+        for start_lineno in reversed(candidate_start_linenos):
+            start_line = text[start_lineno]
+            start_line_colno = (text.colno if start_lineno==text.lineno else 1)
+            candidate_start_colnos = [
+                m.start()+start_line_colno
+                for m in re.finditer("[bBrRuU]*" + quotechar, start_line)]
+            for start_colno in reversed(candidate_start_colnos):
+                if start_lineno == end_lineno and start_colno == end_colno:
+                    continue
+                subtext = text[
+                    (start_lineno, start_colno) : (end_lineno, end_colno+1) ]
                 try:
-                    nnodes = sublines.ast_nodes
+                    nnodes = _compile_ast_nodes(subtext, flags).body
                 except SyntaxError:
                     continue
                 if len(nnodes) != 1 or _ast_str_literal_value(nnodes[0]) != s:
                     continue
-                node.start_lineno = start_lineno
-                break
-            else:
-                raise Exception(
-                    "Couldn't find starting line number of string for %r"
-                    % (ast.dump(node)))
-        # Now that we have correct starting line numbers we can use this to
-        # find ending line numbers.  We create a dummy sentinel node to serve
-        # as the "next node" of the last node.
-        end_sentinel = _DummyAst_Node()
-        end_sentinel.start_lineno = self.end_linenumber
-        for node, next_node in zip(nodes, nodes[1:] + [end_sentinel]):
-            start_lineno = node.start_lineno
-            end_lineno = next_node.start_lineno
-            if start_lineno == end_lineno:
-                # Implementing compound statements (two or more statements
-                # separated by ";") is tricky because we'll have to
-                # re-architect PythonFileLines.  We'll have to allow "lines"
-                # that don't end in a newline, and we'll no longer be able to
-                # index/slice by line number.  There's also the question of
-                # how to pretty-print this: presumably we'd want to just add
-                # newlines before and after import blocks, but not touch
-                # non-import blocks.  The strategy for splitting could be to
-                # split naively on ';', but check that parsing the parts with
-                # C{compile} matches, and if it doesn't (because the ';' is in
-                # a string or something), then try the next one.  Since
-                # compound statements are rarely used, we punt for now.
-                # Note that this only affects top-level compound statements.
-                raise NotImplementedError(
-                    "Not implemented: parsing of top-level compound statements: "
-                    "line %r: %s" % (start_lineno, self[start_lineno]))
-            if node.col_offset > 0:
-                # col_offset can be -1 for a toplevel docstring
-                raise AssertionError(
-                    "Shouldn't see col_offset != 0 for top-level "
-                    "non-compound statements")
-            assert 1 <= start_lineno < end_lineno
-            while is_comment_or_blank(self[end_lineno-1]):
-                end_lineno -= 1
-            assert 1 <= start_lineno < end_lineno
-            node.end_lineno = end_lineno
-        return nodes
+                # Success!
+                ast_node.start_lineno = start_lineno
+                ast_node.start_colno = start_colno
+                return
+    raise ValueError(
+        "Couldn't find starting line number of string for %r"
+        % (ast.dump(ast_node)))
 
 
-    def __attach_ast_nodes(self, ast_nodes):
-        # Used internally to attach C{nodes} as an optimization when we've
-        # already parsed a superset of this sequence of file lines.
-        assert 'ast_nodes' not in self.__dict__
-        self.ast_nodes = ast_nodes
+
+class _DummyAst_Node(object):
+    pass
+
+
+class PythonStatement(object):
+    r"""
+    Representation of a top-level Python statement or consecutive
+    comments/blank lines.
+
+      >>> PythonStatement('print("x",\n file=None)\n', flags=0x10000)
+      PythonStatement('print("x",\n file=None)\n', flags=0x10000)
+
+    Implemented as a wrapper around a L{PythonBlock} containing at most one
+    top-level AST node.
+    """
+
+    def __new__(cls, arg, filename=None, lineno=None, flags=None):
+        if isinstance(arg, cls):
+            if filename is lineno is flags is None:
+                return arg
+            arg = arg.block
+            # Fall through
+        if isinstance(arg, (PythonBlock, FileText, str)):
+            block = PythonBlock(arg, filename=filename,
+                                lineno=lineno, flags=flags)
+            statements = block.statements
+            if len(statements) != 1:
+                raise ValueError(
+                    "Code contains %d statements instead of exactly 1: %r"
+                    % (len(statements), block))
+            statement, = statements
+            assert isinstance(statement, cls)
+            return statement
+        raise TypeError("PythonStatement: unexpected %s" % (type(arg).__name__,))
+
+    @classmethod
+    def _construct_from_block(cls, block):
+        # Only to be used by PythonBlock.
+        assert isinstance(block, PythonBlock)
+        self = object.__new__(cls)
+        self.block = block
         return self
 
-    @cached_attribute
+    @property
+    def text(self):
+        """
+        @rtype:
+          L{FileText}
+        """
+        return self.block.text
+
+    @property
+    def filename(self):
+        """
+        @rtype:
+          L{Filename}
+        """
+        return self.block.filename
+
+    @property
+    def lineno(self):
+        """
+        @rtype:
+          C{int}
+        """
+        return self.block.lineno
+
+    @property
+    def flags(self):
+        """
+        @rtype:
+          L{CompilerFlags}
+        """
+        return self.block.flags
+
+    @property
     def ast_node(self):
-        ast_nodes = self.ast_nodes
+        """
+        A single AST node representing this statement, or C{None} if this
+        object only represents comments/blanks.
+
+        @rtype:
+          C{ast.AST} or C{NoneType}
+        """
+        ast_nodes = self.block.ast_node.body
         if len(ast_nodes) == 0:
             return None
         if len(ast_nodes) == 1:
             return ast_nodes[0]
-        raise MoreThanOneAstNodeError()
-
-    def split(self):
-        r"""
-        Partition this L{PythonFileLines} into smaller L{PythonFileLines}
-        instances where each one contains at most 1 top-level ast node.
-        Returned L{PythonFileLines} instances can contain no ast nodes if they
-        are entirely composed of comments.
-
-          >>> s = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
-          >>> for l in PythonFileLines(s).split(): print l
-          PythonFileLines.from_text('# multiline\n# comment\n', linenumber=1)
-          PythonFileLines.from_text("'''multiline\nstring'''\n", linenumber=3)
-          PythonFileLines.from_text('blah\n', linenumber=5)
-
-        @rtype:
-          Generator that yields L{PythonFileLines} instances.
-        """
-        ast_nodes = self.annotated_ast_nodes
-        if not ast_nodes:
-            # Entirely comments/blanks.
-            yield self
-            return
-        if ast_nodes[0].start_lineno > 1:
-            # Starting comments/blanks
-            yield self[1:ast_nodes[0].start_lineno].__attach_ast_nodes([])
-        # Iterate over each ast ast_node.  We create a dummy sentinel ast_node
-        # to serve as the "next ast_node" of the last ast_node.
-        sentinel = _DummyAst_Node()
-        sentinel.start_lineno = self.end_linenumber
-        for node, next_node in zip(ast_nodes, ast_nodes[1:] + [sentinel]):
-            yield self[node.start_lineno:node.end_lineno] \
-                .__attach_ast_nodes([node])
-            if node.end_lineno != next_node.start_lineno:
-                yield self[node.end_lineno:next_node.start_lineno] \
-                    .__attach_ast_nodes([])
-
-
-class PythonStatement(object):
-    """
-    Representation of a top-level Python statement or consecutive
-    comments/blank lines.
-
-    A statement has a C{flags} attribute that gives the compiler_flags
-    associated with the __future__ features in which the statement should be
-    interpreted.
-    """
-
-    def __new__(cls, arg, flags=0):
-        if isinstance(arg, cls):
-            return arg.with_flags(flags)
-        if isinstance(arg, PythonFileLines):
-            return cls.from_lines(arg, flags=flags)
-        if isinstance(arg, (FileContents, str)):
-            return cls.from_source_code(arg, flags=flags)
-        raise TypeError
-
-    def with_flags(self, flags):
-        if flags == 0:
-            return self
-        flags = CompilerFlags(flags, self.flags)
-        if flags == self.flags:
-            return self
-        result = object.__new__(type(self))
-        result.lines = self.lines
-        result.flags = flags
-        return result
-
-    @classmethod
-    def from_lines(cls, lines, flags=0):
-        """
-        @type lines:
-          L{PythonFileLines}
-        @param lines:
-          Lines of code as a single string.  Ends with newline.
-        @param node:
-          C{ast} node.  If C{None}, then this is a block of comments/blanks.
-        """
-        lines = PythonFileLines(lines)
-        # This will raise MoreThanOneAstNodeError if lines contains more than
-        # one AST node:
-        lines.ast_node
-        self = object.__new__(cls)
-        self.lines = lines
-        self.flags = self.source_flags | flags
-        return self
-
-    @classmethod
-    def from_source_code(cls, source_code, flags=0):
-        statements = PythonBlock(source_code)
-        if len(statements) != 1:
-            raise ValueError(
-                "Code contains %d statements instead of exactly 1: %r"
-                % (len(statements), source_code))
-        assert isinstance(statements[0], cls)
-        return statements[0].with_flags(flags)
-
-    @property
-    def ast_node(self):
-        return self.lines.ast_node
+        raise AssertionError("More than one AST node in block")
 
     @property
     def is_comment_or_blank(self):
@@ -297,134 +339,217 @@ class PythonStatement(object):
     def is_import(self):
         return isinstance(self.ast_node, (ast.Import, ast.ImportFrom))
 
-    @cached_attribute
-    def source_flags(self):
-        """
-        If this is a __future__ import, then the compiler_flags associated
-        with it.  Otherwise, 0.
-
-        The difference between C{source_flags} and C{flags} is that C{flags}
-        may be set by the caller based on a previous __future__ import,
-        whereas C{source_flags} is only nonzero if this statement itself is a
-        __future__ import.
-
-        @rtype:
-          L{CompilerFlags}
-        """
-        node = self.ast_node
-        if not isinstance(node, ast.ImportFrom):
-            return CompilerFlags(0)
-        if not node.module == "__future__":
-            return CompilerFlags(0)
-        names = [n.name for n in node.names]
-        return CompilerFlags(names)
-
     def __repr__(self):
-        return "%s(%r, flags=%s)" % (type(self).__name__, self.lines, self.flags)
+        r = repr(self.block)
+        assert r.startswith("PythonBlock(")
+        r = "PythonStatement(" + r[12:]
+        return r
 
 
-class PythonBlock(tuple):
-    """
+class PythonBlock(object):
+    r"""
     Representation of a sequence of consecutive top-level
     L{PythonStatement}(s).
 
-      >>> source_code = '# 1\\nprint 2\\n# 3\\n# 4\\nprint 5\\nx=[6,\\n 7]\\n# 8'
+      >>> source_code = '# 1\nprint 2\n# 3\n# 4\nprint 5\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)
-      >>> for stmt in PythonBlock(codeblock):
+      >>> for stmt in PythonBlock(codeblock).statements:
       ...     print stmt
-      PythonStatement(PythonFileLines.from_text('# 1\\n', linenumber=1))
-      PythonStatement(PythonFileLines.from_text('print 2\\n', linenumber=2))
-      PythonStatement(PythonFileLines.from_text('# 3\\n# 4\\n', linenumber=3))
-      PythonStatement(PythonFileLines.from_text('print 5\\n', linenumber=5))
-      PythonStatement(PythonFileLines.from_text('x=[6,\\n 7]\\n', linenumber=6))
-      PythonStatement(PythonFileLines.from_text('# 8', linenumber=8))
+      PythonStatement('# 1\n')
+      PythonStatement('print 2\n', lineno=2)
+      PythonStatement('# 3\n# 4\n', lineno=3)
+      PythonStatement('print 5\n', lineno=5)
+      PythonStatement('x=[6,\n 7]\n', lineno=6)
+      PythonStatement('# 8\n', lineno=8)
+
+    A C{PythonBlock} has a C{flags} attribute that gives the compiler_flags
+    associated with the __future__ features using which the code should be
+    compiled.
 
     """
 
-    def __new__(cls, arg, flags=0):
-        if isinstance(arg, cls):
-            return arg.with_flags(flags)
+    def __new__(cls, arg, filename=None, lineno=None, flags=None):
         if isinstance(arg, PythonStatement):
-            return cls.from_statements([arg], flags=flags)
-        if isinstance(arg, (PythonFileLines, FileContents, Filename, str)):
-            return cls.from_lines(arg, flags=flags)
-        if isinstance(arg, (list, tuple)) and arg:
-            if isinstance(arg[0], PythonStatement):
-                return cls.from_statements(arg, flags=flags)
-            return cls.from_multiple(arg, flags=flags)
-        raise TypeError
-
-    def with_flags(self, flags):
-        if flags == 0:
-            return self
-        flags = CompilerFlags(flags, self.flags)
-        if flags == self.flags:
-            return self
-        return self.from_statements(self, flags=flags)
+            arg = arg.block
+            # Fall through
+        if isinstance(arg, cls):
+            if filename is lineno is flags is None:
+                return arg
+            return cls.from_text(
+                arg.text, filename=filename, lineno=lineno,
+                flags=CompilerFlags(flags, arg.flags))
+        if isinstance(arg, (FileText, Filename, str)):
+            return cls.from_text(arg, filename=filename,
+                                 lineno=lineno, flags=flags)
+        raise TypeError("%s: unexpected %s"
+                        % (cls.__name__, type(arg).__name__,))
 
     @classmethod
-    def from_statements(cls, statements, flags=0):
+    def from_filename(cls, filename):
+        return cls.from_text(Filename(filename))
+
+    @classmethod
+    def from_text(cls, text, filename=None, lineno=None, flags=None):
         """
+        @type text:
+          L{FileText} or convertible
         @rtype:
           L{PythonBlock}
         """
-        # Canonicalize statements.
-        statements = tuple(PythonStatement(stmt) for stmt in statements)
-        # Get the combined compiler_flags at the end of the block.
-        flags = CompilerFlags(flags, *[s.flags for s in statements])
-        # Make sure all statements have the proper flags attached.
-        if flags:
-            statements = tuple(stmt.with_flags(flags) for stmt in statements)
-        # Construct new object.
-        self = tuple.__new__(cls, statements)
-        self.flags = flags
+        text = FileText(text, filename=filename, lineno=lineno)
+        self = object.__new__(cls)
+        self.text = text
+        self._input_flags = CompilerFlags(flags)
         return self
 
     @classmethod
-    def from_lines(cls, lines, flags=0):
-        """
-        @type lines:
-          L{PythonFileLines} or convertible
-        @rtype:
-          L{PythonBlock}
-        """
-        lines = PythonFileLines(lines, flags=flags)
-        return cls.from_statements(
-            [PythonStatement.from_lines(sublines, flags=flags)
-             for sublines in lines.split()])
+    def __construct_from_text_ast(cls, text, ast_node, flags):
+        # Constructor for internal use by _split_by_statement() or
+        # concatenate().
+        self = object.__new__(cls)
+        self.text     = text
+        self.ast_node = ast_node
+        self.flags    = self._input_flags = flags
+        return self
 
     @classmethod
-    def from_multiple(cls, blocks, flags=0):
+    def concatenate(cls, blocks, assume_contiguous=False):
         """
         Concatenate a bunch of blocks into one block.
 
         @type blocks:
-          Sequence of L{PythonBlock}s
-        @rtype:
-          L{PythonBlock}
+          sequence of L{PythonBlock}s
+        @param assume_contiguous:
+          Whether to assume, without checking, that the input blocks were
+          originally all contiguous.  This must be set to True to indicate the
+          caller understands the assumption; False is not implemented.
         """
-        blocks = [cls(block) for block in blocks]
+        if not assume_contiguous:
+            raise NotImplementedError
         if len(blocks) == 1:
             return blocks[0]
-        statements = reduce(operator.add, blocks, ())
-        flags = CompilerFlags(flags, *[b.flags for b in blocks])
-        return cls.from_statements(statements, flags=flags)
+        assert blocks
+        text = FileText.concatenate([b.text for b in blocks])
+        # The contiguous assumption is important here because C{ast_node}
+        # contains line information that would otherwise be wrong.
+        ast_node = ast.Module([n for b in blocks for n in b.ast_node.body])
+        flags = blocks[0].flags
+        return cls.__construct_from_text_ast(text, ast_node, flags)
+
+    @property
+    def filename(self):
+        return self.text.filename
+
+    @property
+    def lineno(self):
+        return self.text.lineno
+
+    @property
+    def end_lineno(self):
+        return self.text.end_lineno
 
     @cached_attribute
-    def lines(self):
-        return ''.join(stmt.lines.joined for stmt in self)
+    def ast_node(self):
+        """
+        Return abstract syntax tree for this block of code.
+
+        The returned object type is the kind of AST as returned by the
+        C{compile} built-in (rather than as returned by the older, deprecated
+        C{compiler} module).
+
+        The nodes are annotated with C{start_lineno} and C{end_lineno}.
+
+        The result is a C{ast.Module} node, even if this block represents only
+        a subset of the entire file.
+
+        @rtype:
+          C{ast.Module}
+        """
+        # ast_node may also be set directly by __construct_from_text_ast(),
+        # in which case this code does not run.
+        return _compile_annotate_ast_nodes(self.text, self._input_flags)
+
+    def _split_by_statement(self):
+        """
+        Partition this C{PythonBlock} into smaller C{PythonBlock}s, each of
+        which represent either one top-level statement or comments/blanks.
+        Each one contains at most 1 top-level ast node.
+
+        @rtype:
+          generator of C{PythonBlock}s
+        """
+        ast_nodes = self.ast_node.body
+        text = self.text
+        if not ast_nodes:
+            # Entirely comments/blanks.
+            yield self
+            return
+        cls = type(self)
+        def build(text, ast_nodes):
+            ast_node = ast.Module(ast_nodes)
+            return cls.__construct_from_text_ast(text, ast_node, self.flags)
+        if ast_nodes[0].start_lineno > text.lineno:
+            # Starting comments/blanks
+            yield build(
+                text[text.lineno:ast_nodes[0].start_lineno], [])
+        # Iterate over each ast ast_node.  We create a dummy sentinel ast_node
+        # to serve as the "next ast_node" of the last ast_node.
+        sentinel = _DummyAst_Node()
+        sentinel.start_lineno = text.end_lineno
+        for node, next_node in zip(ast_nodes, ast_nodes[1:] + [sentinel]):
+            # Yield a regular block
+            yield build(
+                text[node.start_lineno:node.end_lineno], [node])
+            if node.end_lineno != next_node.start_lineno:
+                # Yield a block with comments/blanks
+                yield build(
+                    text[node.end_lineno:next_node.start_lineno], [])
 
     @cached_attribute
-    def split_lines(self):
-        return self.lines.splitlines()
+    def statements(self):
+        r"""
+        Partition of this C{PythonBlock} into individual C{PythonStatement}s.
+        Each one contains at most 1 top-level ast node.  A C{PythonStatement}
+        can contain no ast node to represent comments.
+
+          >>> code = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
+          >>> print PythonBlock(code).statements
+          (PythonStatement('# multiline\n# comment\n'),
+           PythonStatement("'''multiline\nstring'''\n", lineno=3)
+           PythonStatement('blah\n', lineno=5))
+
+        @rtype:
+          C{tuple} of L{PythonStatement}s
+        """
+        return tuple(PythonStatement._construct_from_block(b)
+                     for b in self._split_by_statement())
 
     @cached_attribute
-    def linenumber(self):
-        return self[0].lines.linenumber
+    def source_flags(self):
+        """
+        If the AST contains __future__ imports, then the compiler_flags
+        associated with them.  Otherwise, 0.
+
+        The difference between C{source_flags} and C{flags} is that C{flags}
+        may be set by the caller (e.g. based on an earlier __future__ import),
+        whereas C{source_flags} is only nonzero if this code itself contains
+        __future__ imports.
+
+        @rtype:
+          L{CompilerFlags}
+        """
+        return CompilerFlags.from_ast(self.ast_node)
 
     @cached_attribute
-    def end_linenumber(self):
-        return self[-1].lines.end_linenumber
+    def flags(self):
+        """
+        The compiler flags for this code block, including both the input flags
+        and the source flags.
+
+        @rtype:
+          L{CompilerFlags}
+        """
+        return self._input_flags | self.source_flags
 
     @cached_attribute
     def parse_tree(self):
@@ -435,24 +560,25 @@ class PythonBlock(tuple):
         # the C{compile} built-in above.  This is for interfacing with
         # pyflakes 0.4 and earlier.
         import compiler
-        text = self.lines
-        if not text.endswith("\n"):
+        joined = self.text.joined
+        if not joined.endswith("\n"):
             # Ensure that the last line ends with a newline (C{parse} barfs
             # otherwise).
             # TODO: instead of appending \n here, make sure the lines end in
             # \n at construction time.
-            text += "\n"
-        return compiler.parse(text)
-
-    @cached_attribute
-    def ast(self):
-        """
-        Return an C{AST} as returned by the C{compile} built-in.
-        """
-        return PythonFileLines.from_text(self.lines).ast
+            joined += "\n"
+        return compiler.parse(joined)
 
     def __repr__(self):
-        return "%s(%r, flags=%s)" % (type(self).__name__, self.lines, self.flags)
+        r = "%s(%r" % (type(self).__name__, self.text.joined)
+        if self.filename:
+            r += ", filename=%r" % (str(self.filename),)
+        if self.lineno != 1:
+            r += ", lineno=%r" % (self.lineno,)
+        if self.flags != self.source_flags:
+            r += ", flags=%s" % (self.flags,)
+        r += ")"
+        return r
 
     def groupby(self, predicate):
         """
@@ -464,25 +590,68 @@ class PythonBlock(tuple):
         @return:
           Generator that yields (group, L{PythonBlock}s).
         """
-        for pred, stmts in groupby(self, predicate):
-            yield pred, type(self)(tuple(stmts))
+        cls = type(self)
+        for pred, stmts in groupby(self.statements, predicate):
+            blocks = [s.block for s in stmts]
+            yield pred, cls.concatenate(blocks, assume_contiguous=True)
 
     def string_literals(self):
-        """
-        Yield all string literals anywhere in C{ast_node}.
+        r"""
+        Yield all string literals anywhere in this block.
 
-          >>> list(PythonBlock("'a' + ('b' + \\n'c')").string_literals())
+          >>> [(f.s, f.start_lineno) for f in PythonBlock("'a' + ('b' + \n'c')").string_literals()]
           [('a', 1), ('b', 1), ('c', 2)]
 
-        @rtype:
-          Generator that yields (C{str}, C{int}).
         @return:
-          Iterable of string literals and line numbers.
+          Iterable of C{ast.Str} nodes
         """
-        for statement in self:
-            if not statement.ast_node:
+        for node in ast.walk(self.ast_node):
+            for fieldname, field in ast.iter_fields(node):
+                if isinstance(field, ast.Str):
+                    assert hasattr(field, 'start_lineno')
+                    yield field
+
+    def get_doctests(self):
+        r"""
+        Return doctests in this code.
+
+          >>> PythonBlock("x\n'''\n >>> foo(bar\n ...     + baz)\n'''\n").get_doctests()
+          [PythonBlock('foo(bar\n    + baz)\n', lineno=3)]
+
+        @rtype:
+          C{list} of L{PythonStatement}s
+        """
+        import doctest
+        parser = doctest.DocTestParser()
+        doctest_blocks = []
+        filename = self.filename
+        flags = self.flags
+        for ast_node in self.string_literals():
+            try:
+                examples = parser.get_examples(ast_node.s)
+            except Exception:
+                blob = ast_node.s
+                if len(blob) > 60:
+                    blob = blob[:60] + '...'
+                # TODO: let caller decide how to handle
+                logger.warning("Can't parse docstring; ignoring: %r", blob)
                 continue
-            for node in ast.walk(statement.ast_node):
-                for fieldname, field in ast.iter_fields(node):
-                    if isinstance(field, ast.Str):
-                        yield field.s, field.lineno
+            for example in examples:
+                lineno = ast_node.start_lineno + example.lineno
+                colno = ast_node.start_colno + example.indent # dubious
+                text = FileText(example.source, filename=filename,
+                                lineno=lineno, colno=colno)
+                try:
+                    block = PythonBlock(text, flags=flags)
+                except Exception:
+                    blob = text.joined
+                    if len(blob) > 60:
+                        blob = blob[:60] + '...'
+                    logger.warning("Can't parse doctest; ignoring: %r", blob)
+                    continue
+                doctest_blocks.append(block)
+        return doctest_blocks
+
+
+    def __text__(self):
+        return self.text

@@ -4,11 +4,10 @@ from __future__ import absolute_import, division, with_statement
 import ast
 from   collections              import defaultdict, namedtuple
 
-import operator
 from   pyflyby.file             import Filename
+from   pyflyby.flags            import CompilerFlags
 from   pyflyby.format           import FormatParams, pyfill
 from   pyflyby.parse            import PythonBlock, PythonStatement
-from   pyflyby.flags            import CompilerFlags
 from   pyflyby.util             import (Inf, cached_attribute, dotted_prefixes,
                                         longest_common_prefix, stable_unique)
 
@@ -535,15 +534,19 @@ class Imports(object):
         return cls.from_statements(import_statements)
 
     @classmethod
-    def from_code(cls, codeblock, filter_nonimports=False):
+    def from_code(cls, codeblocks, filter_nonimports=False):
         """
-        @type codeblock:
-          L{PythonBlock} (or convertible such as C{Filename}, C{str})
+        @type codeblocks:
+          sequence of L{PythonBlock}s (or convertibles such as C{Filename},
+          C{str})
         @rtype:
           L{Imports}
         """
-        codeblock = PythonBlock(codeblock)
-        return cls.from_pystatements(codeblock, filter_nonimports)
+        if not isinstance(codeblocks, (tuple, list)):
+            codeblocks = (codeblocks,)
+        codeblocks = [PythonBlock(b) for b in codeblocks]
+        statements = [s for b in codeblocks for s in b.statements]
+        return cls.from_pystatements(statements, filter_nonimports)
 
     def with_imports(self, new_imports):
         """
@@ -816,11 +819,12 @@ class Imports(object):
             import_column = None
         elif isinstance(params.align_imports, bool):
             if params.align_imports:
-                statements = [s for s in self.statements
-                              if s.fromname and do_align(s)]
-                if statements:
+                fromimp_stmts = [
+                    s for s in statements if s.fromname and do_align(s)]
+                if fromimp_stmts:
                     import_column = (
-                        max(len(s.fromname) for s in statements) + from_spaces + 5)
+                        max(len(s.fromname) for s in fromimp_stmts)
+                        + from_spaces + 5)
                 else:
                     import_column = None
             else:

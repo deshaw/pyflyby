@@ -563,9 +563,9 @@ def _find_missing_imports_in_code(co, namespaces):
     Find missing imports in a code object.
     Helper function to L{find_missing_imports}.
 
-      >>> f = lambda: numpy.arange(x) + arange(y)
+      >>> f = lambda: foo.bar(x) + baz(y)
       >>> _find_missing_imports_in_code(f.func_code, [])
-      ['arange', 'numpy.arange', 'x', 'y']
+      ['baz', 'foo.bar', 'x', 'y']
 
       >>> f = lambda x: (lambda: x+y)
       >>> _find_missing_imports_in_code(f.func_code, [])

@@ -7,8 +7,8 @@ import signal
 import sys
 from   textwrap                 import dedent
 
-from   pyflyby.file             import (FileContents, Filename, STDIO_PIPE,
-                                        atomic_write_file, read_file)
+from   pyflyby.file             import (FileText, Filename, atomic_write_file,
+                                        read_file)
 from   pyflyby.importstmt       import ImportFormatParams
 from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute
@@ -227,7 +227,7 @@ def filename_args(args):
                 raise Exception("%s doesn't exist as a file" % (filename,))
         return filenames
     elif not os.isatty(0):
-        return [STDIO_PIPE]
+        return [Filename.STDIN]
     else:
         syntax()
 
@@ -252,7 +252,7 @@ class Modifier(object):
 
     @cached_attribute
     def output_content(self):
-        return FileContents(self.modifier(self.input_content))
+        return FileText(self.modifier(self.input_content), filename=self.filename)
 
     def _tempfile(self):
         from tempfile import NamedTemporaryFile
@@ -264,7 +264,7 @@ class Modifier(object):
     @cached_attribute
     def output_content_filename(self):
         f, fname = self._tempfile()
-        f.write(self.output_content)
+        f.write(self.output_content.joined)
         f.flush()
         return fname
 
@@ -305,12 +305,12 @@ def action_print(m):
 
 
 def action_ifchanged(m):
-    if m.output_content == m.input_content:
+    if m.output_content.joined == m.input_content.joined:
         raise AbortActions
 
 
 def action_replace(m):
-    if m.filename is STDIO_PIPE:
+    if m.filename == Filename.STDIN:
         raise Exception("Can't replace stdio in-place")
     logger.info("%s: *** modified ***", m.filename)
     atomic_write_file(m.filename, m.output_content)

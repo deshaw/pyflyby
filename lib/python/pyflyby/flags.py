@@ -2,12 +2,13 @@
 from __future__ import absolute_import, division, with_statement
 
 import __future__
+import ast
 import operator
 
 from   pyflyby.util             import cached_attribute
 
 
-# Initialize mappings from compiler_flag to name and vice versa.
+# Initialize mappings from compiler_flag to feature name and vice versa.
 _FLAG2NAME = {}
 _NAME2FLAG = {}
 for name in __future__.all_feature_names:
@@ -20,24 +21,26 @@ _ALL_FLAGS = reduce(operator.or_, _FLAG2NAME.keys())
 
 class CompilerFlags(int):
     """
-    Python "compiler flags", i.e. features from __future__.
+    Representation of Python "compiler flags", i.e. features from __future__.
 
-      >>> CompilerFlags(0x18000)
+      >>> print CompilerFlags(0x18000).__interactive_display__()
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> CompilerFlags(0x10000, 0x8000)
+      >>> print CompilerFlags(0x10000, 0x8000).__interactive_display__()
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> CompilerFlags('with_statement', 'print_function')
+      >>> print CompilerFlags('with_statement', 'print_function').__interactive_display__()
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
     This can be used as an argument to the built-in compile() function:
 
       >>> compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1)
+      Traceback (most recent call last):
+        ...
       SyntaxError: invalid syntax
 
-      >>> compile("print('x', file=None)", "?", "exec", flags=CompilerFlags("print_function"), dont_inherit=1)
-      SyntaxError: invalid syntax
+      >>> compile("print('x', file=None)", "?", "exec", flags=CompilerFlags("print_function"), dont_inherit=1) #doctest:+ELLIPSIS
+      <code object ...>
 
     """
 
@@ -57,17 +60,21 @@ class CompilerFlags(int):
             arg, = args
             if isinstance(arg, cls):
                 return arg
+            elif arg is None:
+                return cls._ZERO
             elif isinstance(arg, int):
                 return cls.from_int(arg)
             elif isinstance(arg, basestring):
                 return cls.from_str(arg)
+            elif isinstance(arg, ast.AST):
+                return cls.from_ast(arg)
             elif isinstance(arg, (tuple, list)):
                 return cls(*arg)
             else:
                 raise TypeError("CompilerFlags: unknown type %s"
                                 % (type(arg).__name__,))
         else:
-            flags = [cls(x) for x in args]
+            flags = [int(cls(x)) for x in args]
             return cls.from_int(reduce(operator.or_, flags))
 
     @classmethod
@@ -90,6 +97,33 @@ class CompilerFlags(int):
                 "CompilerFlags: unknown flag %r" % (arg,))
         return cls.from_int(flag)
 
+    @classmethod
+    def from_ast(cls, nodes):
+        """
+        Parse the compiler flags from AST node(s).
+
+        @type nodes:
+          C{ast.AST} or sequence thereof
+        @rtype:
+          C{CompilerFlags}
+        """
+        if isinstance(nodes, ast.Module):
+            nodes = nodes.body
+        elif isinstance(nodes, ast.AST):
+            nodes = [nodes]
+        flags = []
+        for node in nodes:
+            if not isinstance(node, ast.ImportFrom):
+                # Got a non-import; stop looking further.
+                break
+            if not node.module == "__future__":
+                # Got a non-__future__-import; stop looking further.
+                break
+            # Get the feature names.
+            names = [n.name for n in node.names]
+            flags.extend(names)
+        return cls(flags)
+
     @cached_attribute
     def names(self):
         return tuple(
@@ -101,6 +135,8 @@ class CompilerFlags(int):
         if o == 0:
             return self
         o = CompilerFlags(o)
+        if self == 0:
+            return o
         return CompilerFlags(int(self) | int(o))
 
     def __ror__(self, o):

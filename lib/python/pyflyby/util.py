@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, with_statement
 
 import keyword
 import re
+import sys
 
 
 def memoize(function):
@@ -16,6 +17,10 @@ def memoize(function):
             cache[cache_key] = result
             return result
     return wrapped_fn
+
+
+class WrappedAttributeError(Exception):
+    pass
 
 
 class cached_attribute(object):
@@ -36,7 +41,10 @@ class cached_attribute(object):
     def __get__(self, inst, cls):
         if inst is None:
             return self
-        result = self.method(inst)
+        try:
+            result = self.method(inst)
+        except AttributeError as e:
+            raise WrappedAttributeError(str(e)), None, sys.exc_info()[2]
         setattr(inst, self.name, result)
         return result
 
