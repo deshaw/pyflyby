@@ -409,30 +409,74 @@ class _MissingImportFinder(ast.NodeVisitor):
         # Create data structure to hold the result.  Caller will read this.
         self.missing_imports = set()
 
-    def _visit_new_scope(self, node):
-        # Push a new empty namespace onto the stack of namespaces.
+    @contextlib.contextmanager
+    def _NewScopeCtx(self):
+        """
+        Context manager that temporarily pushes a new empty namespace onto the
+        stack of namespaces.
+        """
         this_ns = {}
         self.ns_stack.append(this_ns)
-        self.generic_visit(node)
-        assert self.ns_stack[-1] is this_ns
-        del self.ns_stack[-1]
+        try:
+            yield
+        finally:
+            assert self.ns_stack[-1] is this_ns
+            del self.ns_stack[-1]
 
-    visit_Lambda = _visit_new_scope
-    visit_ListComp = _visit_new_scope
-    visit_GeneratorExp = _visit_new_scope
+    def visit_Lambda(self, node):
+        with self._NewScopeCtx():
+            self.generic_visit(node)
 
     def visit_ClassDef(self, node):
         self._visit_Store(node.name)
-        self._visit_new_scope(node)
+        with self._NewScopeCtx():
+            self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
         self._visit_Store(node.name)
-        self._visit_new_scope(node)
+        with self._NewScopeCtx():
+            self.generic_visit(node)
 
     def visit_arguments(self, node):
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
         self.generic_visit(node)
+
+    def visit_comprehension(self, node):
+        # Visit a "comprehension" node, which is a component of list
+        # comprehensions and generator expressions.
+        self.visit(node.iter)
+        target = node.target
+        if isinstance(target, (ast.Tuple, ast.List)):
+            elts = target.elts
+        else:
+            elts = [target]
+        for elt in elts:
+            assert isinstance(elt, ast.Name)
+            self._visit_Store(elt.id)
+        for n in node.ifs:
+            self.visit(n)
+
+    def visit_ListComp(self, node):
+        # Visit a list comprehension node.
+        # This is basically the same as the generic visit, except that we
+        # visit the comprehension node(s) before the elt node.
+        # (generic_visit() would visit the elt first, because that comes first
+        # in ListComp._fields).
+        # We intentionally don't enter a new scope here, because a list
+        # comprehensive _does_ leak variables out of its scope (unlike
+        # generator expressions).
+        for comprehension in node.generators:
+            self.visit(comprehension)
+        self.visit(node.elt)
+
+    def visit_GeneratorExp(self, node):
+        # Visit a generator expression node.
+        # This is just like a ListComp, except that we enter a new scope,
+        # because a generator expression does _not_ leak variables out of its
+        # scope (unlike list comprehensions).
+        with self._NewScopeCtx():
+            self.visit_ListComp(node)
 
     def visit_alias(self, node):
         # TODO: Currently we treat 'import foo' the same as if the user did
@@ -921,6 +965,14 @@ def find_missing_imports(arg, namespaces=None):
     but this example, C{x} is undefined at global scope:
       >>> find_missing_imports("(lambda x: x*x)(7) + x", [])
       ['x']
+
+    The (unintuitive) rules for generator expressions and list comprehensions
+    are handled correctly:
+      >>> find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [])
+      ['z']
+
+      >>> find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [])
+      ['y', 'z']
 
     Only fully-qualified names starting at top-level are included:
 
