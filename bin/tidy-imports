@@ -20,7 +20,8 @@ from __future__ import absolute_import, division, with_statement
 
 from   pyflyby.cmdline          import filename_args, hfmt, parse_args
 from   pyflyby.imports2s        import (fix_unused_and_missing_imports,
-                                        replace_star_imports)
+                                        replace_star_imports,
+                                        transform_imports)
 
 def main():
     def addopts(parser):
@@ -59,6 +60,16 @@ def main():
                           help=hfmt('''
                               (Default) Don't replace 'from foo.bar import
                               *'.'''))
+        def transform_callback(option, opt_str, value, group):
+            k, v = value.split("=", 1)
+            group.values.transformations[k] = v
+        parser.add_option("--transform", action='callback',
+                          type="string", callback=transform_callback,
+                          metavar="OLD=NEW",
+                          dest="transformations", default={},
+                          help=hfmt('''
+                                Replace OLD with NEW in imports.
+                                May be specified multiple times.'''))
         def no_add_callback(option, opt_str, value, group):
             group.values.add_missing = False
             group.values.add_mandatory = False
@@ -71,6 +82,9 @@ def main():
         addopts, import_format_params=True, modify_action_params=True)
     @options.action
     def modify(x):
+        if options.transformations:
+            x = transform_imports(x, options.transformations,
+                                  params=options.params)
         if options.replace_star_imports:
             x = replace_star_imports(x, params=options.params)
         return fix_unused_and_missing_imports(
