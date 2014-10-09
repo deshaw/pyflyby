@@ -418,7 +418,7 @@ class PythonBlock(object):
         Concatenate a bunch of blocks into one block.
 
         @type blocks:
-          sequence of L{PythonBlock}s
+          sequence of L{PythonBlock}s and/or L{PythonStatement}s
         @param assume_contiguous:
           Whether to assume, without checking, that the input blocks were
           originally all contiguous.  This must be set to True to indicate the
@@ -426,6 +426,7 @@ class PythonBlock(object):
         """
         if not assume_contiguous:
             raise NotImplementedError
+        blocks = [PythonBlock(b) for b in blocks]
         if len(blocks) == 1:
             return blocks[0]
         assert blocks

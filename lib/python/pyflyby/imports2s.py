@@ -19,7 +19,8 @@ class SourceToSourceTransformationBase(object):
             return arg
         if isinstance(arg, (PythonBlock, FileText, Filename, str)):
             return cls.from_source_code(arg)
-        raise TypeError
+        raise TypeError("%s: got unexpected %s"
+                        % (cls.__name__, type(arg).__name__))
 
     @classmethod
     def from_source_code(cls, codeblock):
@@ -176,8 +177,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             # instead of enumerating over the input below.
             self.blocks[0:0] = blocks
             return
-        fblock = self.blocks[0].input
-        for idx, statement in enumerate(fblock.statements):
+        # Get the "statements" in the first block.
+        statements = self.blocks[0].input.statements
+        # Find the insertion point.
+        for idx, statement in enumerate(statements):
             if not statement.is_comment_or_blank_or_string_literal:
                 if idx == 0:
                     # First block starts with a noncomment, so insert before
@@ -187,9 +190,13 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                     # Found a non-comment after comment, so break it up and
                     # insert in the middle.
                     self.blocks[:1] = (
-                        [SourceToSourceTransformation(PythonBlock(fblock[:idx]))] +
+                        [SourceToSourceTransformation(
+                            PythonBlock.concatenate(statements[:idx],
+                                                    assume_contiguous=True))] +
                         blocks +
-                        [SourceToSourceTransformation(PythonBlock(fblock[idx:]))])
+                        [SourceToSourceTransformation(
+                            PythonBlock.concatenate(statements[idx:],
+                                                    assume_contiguous=True))])
                 break
         else:
             # First block is entirely comments, so just insert after it.
