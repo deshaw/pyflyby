@@ -1334,6 +1334,41 @@ def load_symbol(fullname, namespaces=None, autoimport=False):
         raise AttributeError(name0) # not found in any namespace
 
 
+def _my_iter_modules(path, prefix=''):
+    # Modified version of pkgutil.ImpImporter.iter_modules(), patched to
+    # handle inaccessible subdirectories.
+    if path is None:
+        return
+    try:
+        filenames = os.listdir(path)
+    except OSError:
+        return # silently ignore inaccessible paths
+    filenames.sort()  # handle packages before same-named modules
+    yielded = {}
+    import inspect
+    for fn in filenames:
+        modname = inspect.getmodulename(fn)
+        if modname=='__init__' or modname in yielded:
+            continue
+        subpath = os.path.join(path, fn)
+        ispkg = False
+        try:
+            if not modname and os.path.isdir(path) and '.' not in fn:
+                modname = fn
+                for fn in os.listdir(subpath):
+                    subname = inspect.getmodulename(fn)
+                    if subname=='__init__':
+                        ispkg = True
+                        break
+                else:
+                    continue    # not a package
+        except OSError:
+            continue # silently ignore inaccessible subdirectories
+        if modname and '.' not in modname:
+            yielded[modname] = 1
+            yield prefix + modname, ispkg
+
+
 @memoize
 def _list_submodules(module):
     """
@@ -1369,8 +1404,13 @@ def _list_submodules(module):
             path = module.__path__
         except AttributeError:
             return []
-        modlist = pkgutil.iter_modules(path)
-        module_names = [t[1] for t in modlist]
+        # Enumerate the modules at a given path.  Prefer to use C{pkgutil} if
+        # we can.  However, if it fails due to OSError, use our own version
+        # which is robust to that.
+        try:
+            module_names = [t[1] for t in pkgutil.iter_modules(path)]
+        except OSError:
+            module_names = [t[0] for p in path for t in _my_iter_modules(p)]
     else:
         raise TypeError(
             "_list_submodules(): expected a module but got a %s"
