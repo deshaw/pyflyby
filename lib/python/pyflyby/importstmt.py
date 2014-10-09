@@ -771,7 +771,7 @@ class Imports(object):
         return tuple(
             k
             for k, v in self.by_import_as.iteritems()
-            if len(v) > 1)
+            if len(v) > 1 and k != "*")
 
     @cached_attribute
     def flags(self):
