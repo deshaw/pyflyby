@@ -13,6 +13,7 @@ from   pyflyby.importstmt       import ImportFormatParams
 from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute
 
+
 def hfmt(s):
     return dedent(s).strip()
 
@@ -301,7 +302,7 @@ def actions_processor(actions):
 
 def action_print(m):
     output_content = m.output_content
-    sys.stdout.write(output_content)
+    sys.stdout.write(output_content.joined)
 
 
 def action_ifchanged(m):
