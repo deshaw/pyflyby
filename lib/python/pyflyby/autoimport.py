@@ -1,3 +1,7 @@
+# pyflyby/autoimport.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
+
 """
 AUTOMATIC IMPORTS - never type "import" again!
 
@@ -88,12 +92,15 @@ from __future__ import (absolute_import, division, print_function,
 
 import __builtin__
 import ast
+import contextlib
 import os
 import sys
 import types
 
-import contextlib
-from   pyflyby.util             import dotted_prefixes, is_identifier, memoize
+from   pyflyby.idents           import DottedIdentifier, is_identifier
+from   pyflyby.importdb         import ImportDB
+from   pyflyby.modules          import ModuleHandle
+from   pyflyby.util             import memoize
 
 
 # TODO: also support arbitrary code (in the form of a lambda and/or
@@ -151,6 +158,7 @@ def InterceptPrintsDuringPromptCtx():
             redisplay()
 
 
+# TODO: rationalize with logging functionality
 def debug(fmt, *args):
     if debugging_enabled:
         try:
@@ -307,7 +315,7 @@ def symbol_needs_import(fullname, namespaces=None):
     has side effects.
 
     @type fullname:
-      C{str}
+      C{DottedIdentifier}
     @param fullname:
       Fully-qualified symbol name, e.g. "os.path.join".
     @type namespaces:
@@ -320,7 +328,8 @@ def symbol_needs_import(fullname, namespaces=None):
       C{True} if C{fullname} needs import, else C{False}
     """
     namespaces = interpret_namespaces(namespaces)
-    partial_names = dotted_prefixes(fullname, reverse=True)
+    fullname = DottedIdentifier(fullname)
+    partial_names = fullname.prefixes[::-1]
     # Iterate over local scopes.
     for ns_idx, ns in enumerate(namespaces):
         # Iterate over partial names: "foo.bar.baz.quux", "foo.bar.baz", ...
@@ -329,16 +338,16 @@ def symbol_needs_import(fullname, namespaces=None):
             # scope.  In the common case, there will only be one namespace
             # in the namespace stack, i.e. the user globals.
             try:
-                var = ns[partial_name]
+                var = ns[str(partial_name)]
             except KeyError:
                 continue
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
             # the scope vars (most commonly this means it was imported
             # globally).  Let's check if foo.bar already has a "baz".
-            prefix_len = len(partial_name.split("."))
-            suffix_parts = fullname.split(".")[prefix_len:]
-            pname = partial_name
+            prefix_len = len(partial_name.parts)
+            suffix_parts = fullname.parts[prefix_len:]
+            pname = str(partial_name)
             for part in suffix_parts:
                 if not isinstance(var, types.ModuleType):
                     # The variable is not a module.  (If this came from a
@@ -363,7 +372,7 @@ def symbol_needs_import(fullname, namespaces=None):
                 # foo.bar has an attribute "baz", which has an
                 # attribute "quux" - so foo.bar.baz.quux does not need
                 # to be imported.
-                assert pname == fullname
+                assert pname == str(fullname)
                 debug("symbol_needs_import(%r): found it in namespace %d (under %r), so it doesn't need import", fullname, ns_idx, partial_name)
                 return False
     # We didn't find any scope that defined the name.  Therefore it needs
@@ -374,7 +383,7 @@ def symbol_needs_import(fullname, namespaces=None):
 
 class _MissingImportFinder(ast.NodeVisitor):
     """
-    A helper class to be used only by L{find_missing_imports_in_ast}.
+    A helper class to be used only by L{_find_missing_imports_in_ast}.
 
     This class visits every AST node and collects symbols that require
     importing.  A symbol requires importing if it is not already imported or
@@ -824,9 +833,9 @@ def _find_earliest_backjump_label(bytecode):
       ...     while foo5():  # L7
       ...         foo6()
 
-    The disassembled bytecode is:
-      >>> import dis
-      >>> dis.dis(f)                           # doctest:+NORMALIZE_WHITESPACE
+    In python 2.6, the disassembled bytecode is::
+      >> import dis
+      >> dis.dis(f)
         2           0 LOAD_GLOBAL              0 (foo1)
                     3 CALL_FUNCTION            0
                     6 JUMP_IF_FALSE           11 (to 20)
@@ -862,8 +871,8 @@ def _find_earliest_backjump_label(bytecode):
                    63 RETURN_VALUE
 
     The earliest target of a backward jump would be the 'while' loop at L7, at
-    bytecode offset 38.
-      >>> _find_earliest_backjump_label(f.func_code.co_code)
+    bytecode offset 38::
+      >> _find_earliest_backjump_label(f.func_code.co_code)
       38
 
     Note that in this example there are earlier targets of jumps at bytecode
@@ -1030,50 +1039,6 @@ def find_missing_imports(arg, namespaces=None):
             % (type(arg).__name__,))
 
 
-@memoize
-def is_importable(fullname):
-    """
-    Return whether C{fullname} is expected to be an importable module.
-
-      >>> is_importable("pkgutil")
-      True
-
-      >>> is_importable("asdfasdf")
-      False
-
-    The result is cached.
-
-    @type fullname:
-      C{str}
-    @param fullname:
-      Fully-qualified module name, e.g. "sqlalchemy.orm".
-    @rtype:
-      C{bool}
-    """
-    if fullname in sys.modules:
-        # If it's already been imported, then it's obviously importable.
-        return True
-    if '.' in fullname:
-        # First check if prefix component is importable.
-        prefix = fullname.rsplit(".", 1)[0]
-        if not is_importable(prefix):
-            return False
-    import pkgutil
-    if pkgutil.find_loader(fullname) is not None:
-        # If pkgutil finds a loader for it then it's expected to be
-        # importable.
-        return True
-    elif "." in fullname:
-        # pkgutil has false-negatives for non-top-level modules -- it doesn't
-        # find all importable things.  Try to import it.
-        try:
-            __import__(fullname)
-            return True
-        except Exception as e:
-            debug("%r is not importable: %s: %s", fullname, type(e).__name__, e)
-    return False
-
-
 def get_known_import(fullname):
     """
     Get the deepest known import.
@@ -1085,22 +1050,21 @@ def get_known_import(fullname):
     Then we return "import foo.bar".
 
     @type fullname:
-      C{str}
+      L{DottedIdentifier}
     @param fullname:
       Fully-qualified name, such as "scipy.interpolate"
     """
     # Get the global import database.  This loads on first use and is
     # cached thereafter.
-    from pyflyby.importdb import global_known_imports
-    db = global_known_imports()
-
+    db = ImportDB.get_default(".")
+    fullname = DottedIdentifier(fullname)
     # Look for the "deepest" import we know about.  Suppose the user
     # accessed "foo.bar.baz".  If we have an auto-import for "foo.bar",
     # then import that.  (Presumably, the auto-import for "foo", if it
     # exists, refers to the same foo.)
-    for partial_name in dotted_prefixes(fullname, reverse=True):
+    for partial_name in fullname.prefixes[::-1]:
         try:
-            result = db.by_fullname_or_import_as[partial_name]
+            result = db.by_fullname_or_import_as[str(partial_name)]
             debug("get_known_import(%r): found %r", fullname, result)
             return result
         except KeyError:
@@ -1240,14 +1204,14 @@ def auto_import_symbol(fullname, namespaces=None):
     # "foo.bar.baz", and the known imports database only knew about "import
     # foo.bar").  For each component that may need importing, check if the
     # loader thinks it should be importable, and if so import it.
-    for pname in dotted_prefixes(fullname):
-        if not symbol_needs_import(pname, namespaces):
+    for pmodule in ModuleHandle(fullname).ancestors:
+        if not symbol_needs_import(pmodule.name, namespaces):
             continue
-        if not is_importable(pname):
-            debug("auto_import_symbol(%r): %r is not importable", fullname, pname)
+        if not pmodule.module_if_importable:
+            debug("auto_import_symbol(%r): %r is not importable", fullname, pmodule)
             return
-        if not _try_import("import %s" % pname, namespaces[-1]):
-            return
+        result = _try_import("import %s" % pmodule.name, namespaces[-1])
+        assert result
 
 
 def auto_import(arg, namespaces=None):
@@ -1334,104 +1298,6 @@ def load_symbol(fullname, namespaces=None, autoimport=False):
         raise AttributeError(name0) # not found in any namespace
 
 
-def _my_iter_modules(path, prefix=''):
-    # Modified version of pkgutil.ImpImporter.iter_modules(), patched to
-    # handle inaccessible subdirectories.
-    if path is None:
-        return
-    try:
-        filenames = os.listdir(path)
-    except OSError:
-        return # silently ignore inaccessible paths
-    filenames.sort()  # handle packages before same-named modules
-    yielded = {}
-    import inspect
-    for fn in filenames:
-        modname = inspect.getmodulename(fn)
-        if modname=='__init__' or modname in yielded:
-            continue
-        subpath = os.path.join(path, fn)
-        ispkg = False
-        try:
-            if not modname and os.path.isdir(path) and '.' not in fn:
-                modname = fn
-                for fn in os.listdir(subpath):
-                    subname = inspect.getmodulename(fn)
-                    if subname=='__init__':
-                        ispkg = True
-                        break
-                else:
-                    continue    # not a package
-        except OSError:
-            continue # silently ignore inaccessible subdirectories
-        if modname and '.' not in modname:
-            yielded[modname] = 1
-            yield prefix + modname, ispkg
-
-
-@memoize
-def _list_submodules(module):
-    """
-    Enumerate the importable submodules of package C{fullname}.
-
-      >>> import numpy
-      >>> _list_submodules(numpy)                   # doctest:+ELLIPSIS
-      (..., 'random', ..., 'version')
-
-    @type module:
-      C{ModuleType}
-    @param module:
-      Package whose (sub)modules we should enumerate.  If C{None}, enumerate
-      top-level importable modules.
-    @rtype:
-      C{tuple} of C{str}
-    """
-    import pkgutil
-    if module is None:
-        # Enumerate all top-level packages/modules.
-        # We exclude "." from sys.path while doing so.  Python includes "." in
-        # sys.path by default, but this is undesirable for autoimporting.  If
-        # we autoimported random python scripts in the current directory, we
-        # could accidentally execute code with side effects.  If the current
-        # working directory is /tmp, trying to enumerate modules there also
-        # causes problems, because there are typically directories there not
-        # readable by the current user.
-        with _ExcludeImplicitCwdFromPathCtx():
-            modlist = pkgutil.iter_modules(None)
-            module_names = [t[1] for t in modlist]
-    elif isinstance(module, types.ModuleType):
-        try:
-            path = module.__path__
-        except AttributeError:
-            return []
-        # Enumerate the modules at a given path.  Prefer to use C{pkgutil} if
-        # we can.  However, if it fails due to OSError, use our own version
-        # which is robust to that.
-        try:
-            module_names = [t[1] for t in pkgutil.iter_modules(path)]
-        except OSError:
-            module_names = [t[0] for p in path for t in _my_iter_modules(p)]
-    else:
-        raise TypeError(
-            "_list_submodules(): expected a module but got a %s"
-            % (type(module).__name__,))
-    return tuple(sorted(set(module_names)))
-
-
-@contextlib.contextmanager
-def _ExcludeImplicitCwdFromPathCtx():
-    """
-    Context manager that temporarily removes "." from C{sys.path}.
-    """
-    saved_sys_path = sys.path
-    try:
-        sys.path = [p for p in sys.path if p != "."]
-        yield
-    finally:
-        sys.path = saved_sys_path
-
-
-
 def _list_members_for_completion(obj):
     """
     Enumerate the existing member attributes of an object.
@@ -1471,22 +1337,22 @@ def complete_symbol(fullname, namespaces=None):
 
     Includes globals and auto-importable symbols.
 
-      >>> complete_symbol("nump")                   # doctest:+ELLIPSIS
-      [...'numpy'...]
+      >>> complete_symbol("threadi")                # doctest:+ELLIPSIS
+      [...'threading'...]
 
     Completion works on attributes, even on modules not yet imported - modules
     are auto-imported first if not yet imported:
 
       >>> ns = {}
-      >>> complete_symbol("numpy.aran", namespaces=[ns])
-      [AUTOIMPORT] import numpy
-      ['numpy.arange']
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
+      [AUTOIMPORT] import threading
+      ['threading.Thread', 'threading.ThreadError']
 
-      >>> 'numpy' in ns
+      >>> 'threading' in ns
       True
 
-      >>> complete_symbol("numpy.aran", namespaces=[ns])
-      ['numpy.arange']
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
+      ['threading.Thread', 'threading.ThreadError']
 
     We only need to import *parent* modules (packages) of the symbol being
     completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to
@@ -1512,8 +1378,7 @@ def complete_symbol(fullname, namespaces=None):
     if not is_identifier(fullname, dotted=True, prefix=True):
         return []
     # Get the database of known imports.
-    from pyflyby.importdb import global_known_imports
-    db = global_known_imports()
+    known = ImportDB.get_default(".").known_imports
     if '.' not in fullname:
         # Check global names, including global-level known modules and
         # importable modules.
@@ -1522,8 +1387,8 @@ def complete_symbol(fullname, namespaces=None):
             for name in ns:
                 if '.' not in name:
                     results.add(name)
-        results.update(db.member_names.get("", []))
-        results.update(_list_submodules(None))
+        results.update(known.member_names.get("", []))
+        results.update([str(m) for m in ModuleHandle.list()])
         assert all('.' not in r for r in results)
         results = sorted([r for r in results if r.startswith(fullname)])
     else:
@@ -1540,8 +1405,9 @@ def complete_symbol(fullname, namespaces=None):
         results = set()
         results.update(_list_members_for_completion(parent))
         if sys.modules.get(pname, object()) is parent and parent.__name__ == pname:
-            results.update(db.member_names.get(pname, []))
-            results.update(_list_submodules(parent))
+            results.update(known.member_names.get(pname, []))
+            results.update([m.name.parts[-1]
+                            for m in ModuleHandle(parent).submodules])
         results = sorted([r for r in results if r.startswith(attrname)])
         results = ["%s.%s" % (pname, r) for r in results]
     return results

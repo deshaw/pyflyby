@@ -2,5 +2,5 @@
 
 source $(dirname $0)/_fn
 
-export PYFLYBY_KNOWN_IMPORTS_PATH=$imports_file:-
+export PYFLYBY_PATH=$imports_file:-
 tidy-imports --debug --uniform ${source_files[@]}

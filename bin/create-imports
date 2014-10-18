@@ -1,58 +1,10 @@
-#!/usr/bin/env python
-"""
-create-imports module1 module2...
+#!/bin/bash -e
 
-Create imports using all non-private members of the given modules, that were
-defined in that module (or a submodule).
+# pyflyby/create-imports
 
-Print the result to stdout.
+# License for THIS FILE ONLY: CC0 Public Domain Dedication
+# http://creativecommons.org/publicdomain/zero/1.0/
 
-"""
+# Deprecated old name for create-imports.
 
-from __future__ import absolute_import, division, with_statement
-
-import sys
-
-from   pyflyby.cmdline          import hfmt, parse_args
-from   pyflyby.importdb         import global_known_imports
-from   pyflyby.modules          import Module
-
-
-def main():
-    def addopts(parser):
-        parser.add_option("--ignore-known", default=False, action='store_true',
-                          help=hfmt('''
-                                Don't list imports already in the
-                                known-imports database.'''))
-        parser.add_option("--no-ignore-known", dest="ignore_known",
-                          action='store_false',
-                          help=hfmt('''
-                                (Default) List all imports, including those
-                                already in the known-imports database.'''))
-        parser.add_option("--expand-known", default=False, action='store_true',
-                          help=hfmt('''
-                                Scan all modules mentioned in known-imports
-                                database.'''))
-        parser.add_option("--no-expand-known", dest="expand_known",
-                          action='store_false',
-                          help=hfmt('''
-                                (Default) Scan only modules listed explicitly
-                                on the command line.'''))
-    options, args = parse_args(addopts, import_format_params=True)
-    if options.expand_known:
-        db = global_known_imports()
-        args += sorted(set(
-                filter(None, [i.split.module_name for i in db.imports])))
-    for module_name in args:
-        imports = Module(module_name).exports
-        if not imports:
-            continue
-        if options.ignore_known:
-            db = global_known_imports()
-            imports = imports.without_imports(db, strict=False)
-        sys.stdout.write(imports.pretty_print(
-                allow_conflicts=True, params=options.params))
-
-
-if __name__ == '__main__':
-    main()
+exec $(dirname $0)/collect-exports "$@"

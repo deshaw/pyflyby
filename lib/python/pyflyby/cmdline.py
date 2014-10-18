@@ -1,3 +1,6 @@
+# pyflyby/cmdline.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
@@ -6,12 +9,16 @@ import os
 import signal
 import sys
 from   textwrap                 import dedent
+import traceback
 
 from   pyflyby.file             import (FileText, Filename, atomic_write_file,
-                                        read_file)
+                                        expand_py_files_from_args, read_file)
 from   pyflyby.importstmt       import ImportFormatParams
 from   pyflyby.log              import logger
 from   pyflyby.util             import cached_attribute
+
+
+DEBUG = False
 
 
 def hfmt(s):
@@ -45,7 +52,16 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             logger.set_level(level)
         return callback
 
-    parser.add_option("--debug", "--verbose", action="callback",
+    def debug_callback(option, opt_str, value, parser):
+        global DEBUG
+        DEBUG = True
+        logger.set_level("debug")
+
+    parser.add_option("--debug", action="callback",
+                      callback=debug_callback,
+                      help="Debug mode (noisy and fail fast).")
+
+    parser.add_option("--verbose", action="callback",
                       callback=log_level_callbacker("debug"),
                       help="Be noisy.")
 
@@ -80,11 +96,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
 
         def set_actions(actions):
             actions = tuple(actions)
-            action = actions_processor(actions)
-            if parser.values is None:
-                parser.set_default('action', action)
-            else:
-                parser.values.action = action
+            parser.values.actions = actions
 
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
@@ -134,9 +146,10 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                Equivalent to --action=IFCHANGED,DIFF,QUERY,REPLACE (default
                when stdin & stdout are ttys) '''))
         if os.isatty(0) and os.isatty(1):
-            set_actions(actions_interactive)
+            default_actions = actions_interactive
         else:
-            set_actions([action_print])
+            default_actions = [action_print]
+        parser.set_default('actions', tuple(default_actions))
         parser.add_option_group(group)
 
     if import_format_params:
@@ -220,13 +233,19 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             )
     return options, args
 
-def filename_args(args):
+
+def _default_on_error(filename):
+    raise SystemExit("bad filename %s" % (filename,))
+
+def filename_args(args, on_error=_default_on_error):
+    """
+    Return list of filenames given command-line arguments.
+
+    @rtype:
+      C{list} of L{Filename}
+    """
     if args:
-        filenames = [Filename(arg) for arg in args]
-        for filename in filenames:
-            if not filename.isfile:
-                raise Exception("%s doesn't exist as a file" % (filename,))
-        return filenames
+        return expand_py_files_from_args(args, on_error)
     elif not os.isatty(0):
         return [Filename.STDIN]
     else:
@@ -251,6 +270,8 @@ class Modifier(object):
     def input_content(self):
         return read_file(self.filename)
 
+    # TODO: refactor to avoid having these heavy-weight things inside a
+    # cached_attribute, which causes annoyance while debugging.
     @cached_attribute
     def output_content(self):
         return FileText(self.modifier(self.input_content), filename=self.filename)
@@ -286,18 +307,34 @@ class Modifier(object):
             f.close()
 
 
-def actions_processor(actions):
-    def process_actions(modifier):
-        def modify(filename):
-            m = Modifier(modifier, filename)
-            try:
-                for action in actions:
-                    action(m)
-                return True
-            except AbortActions:
-                return False
-        return modify
-    return process_actions
+def process_actions(filenames, actions, modify_function):
+    errors = []
+    def on_error_filename_arg(arg):
+        print >>sys.stderr, "%s: bad filename %s" % (sys.argv[0], arg)
+        errors.append("%s: bad filename" % (arg,))
+    filenames = filename_args(filenames, on_error=on_error_filename_arg)
+    for filename in filenames:
+        try:
+            m = Modifier(modify_function, filename)
+            for action in actions:
+                action(m)
+        except AbortActions:
+            continue
+        except Exception as e:
+            errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
+            if str(filename) not in str(e):
+                e = type(e)("While processing %s: %s" % (filename, e))
+            if DEBUG:
+                raise e, None, sys.exc_info()[2]
+            traceback.print_exception(*sys.exc_info())
+            continue
+    if errors:
+        msg = "\n%s: encountered the following problems:\n" % (sys.argv[0],)
+        for e in errors:
+            lines = e.splitlines()
+            msg += "    " + lines[0] + '\n'.join(
+                ("            %s"%line for line in lines[1:]))
+        raise SystemExit(msg)
 
 
 def action_print(m):
@@ -340,7 +377,8 @@ def action_query(prompt="Proceed?"):
             if raw_input().strip().lower().startswith('y'):
                 return True
         except KeyboardInterrupt:
-            pass
+            print >>sys.stderr, "KeyboardInterrupt"
+            raise SystemExit(1)
         print "Aborted"
         raise AbortActions
     return action

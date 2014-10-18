@@ -1,3 +1,5 @@
+# pyflyby/docxref.py.
+
 # Module for checking Epydoc cross-references.
 
 # Portions of the code below are derived from Epydoc, which is distributed
@@ -25,7 +27,6 @@
 from __future__ import absolute_import, division, with_statement
 
 import __builtin__
-import ast
 import re
 from   textwrap                 import dedent
 
@@ -34,8 +35,10 @@ from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
 from   epydoc.docbuilder        import build_doc_index
 from   epydoc.markup.plaintext  import ParsedPlaintextDocstring
 
+from   pyflyby.file             import Filename
+from   pyflyby.idents           import DottedIdentifier
 from   pyflyby.log              import logger
-from   pyflyby.modules          import Module, SymbolName
+from   pyflyby.modules          import ModuleHandle
 from   pyflyby.util             import cached_attribute, memoize, prefixes
 
 # If someone references numpy.*, just assume it's OK - it's not worth
@@ -52,19 +55,13 @@ def map_strings_to_line_numbers(module):
       C{dict} from C{str} to (C{int}, C{str})
     """
     d = {}
-    for node in ast.walk(module.ast):
-        for fieldname, field in ast.iter_fields(node):
-            if isinstance(field, ast.Str):
-                if not hasattr(field, 'lineno'):
-                    # Not a real string literal - it's something like
-                    # ast._Index.
-                    continue
-                # Dedent because epydoc dedents strings and we need to look up
-                # by those.  But keep track of original version because we
-                # need to count exact line numbers.
-                s = dedent(field.s).strip()
-                start_lineno = field.lineno - len(field.s.splitlines()) + 1
-                d[s] = (start_lineno, field.s)
+    for field in module.block.string_literals():
+        # Dedent because epydoc dedents strings and we need to look up by
+        # those.  But keep track of original version because we need to count
+        # exact line numbers.
+        s = dedent(field.s).strip()
+        start_lineno = field.startpos.lineno
+        d[s] = (start_lineno, field.s)
     return d
 
 
@@ -79,7 +76,7 @@ def get_string_linenos(module, searchstring, within_string):
     [If there's a comment on the same line as a string that also contains the
     searchstring, we'll get confused.]
     """
-    module = Module(module)
+    module = ModuleHandle(module)
     regexp = re.compile(searchstring)
     map = map_strings_to_line_numbers(module)
     results = []
@@ -110,8 +107,8 @@ def get_string_linenos(module, searchstring, within_string):
 
 
 def describe_xref(identifier, container):
-    module = Module(str(container.defining_module.canonical_name))
-    assert module.filename == container.defining_module.filename
+    module = ModuleHandle(str(container.defining_module.canonical_name))
+    assert module.filename == Filename(container.defining_module.filename)
     linenos = get_string_linenos(
         module,
         "(L{|<)%s" % (identifier,),
@@ -141,7 +138,7 @@ class ExpandedDocIndex(object):
     """
     # TODO: this is kludgy and inefficient since it re-reads modules.
     def __init__(self, modules):
-        self.modules = set([Module(m) for m in modules])
+        self.modules = set([ModuleHandle(m) for m in modules])
 
     def add_module(self, module):
         """
@@ -151,8 +148,8 @@ class ExpandedDocIndex(object):
         @return:
           Whether anything was added.
         """
-        module = Module(module)
-        for prefix in prefixes(module):
+        module = ModuleHandle(module)
+        for prefix in module.ancestors:
             if prefix in self.modules:
                 # The module, or a prefix of it, was already added.
                 return False
@@ -329,12 +326,12 @@ class XrefScanner(object):
         # If the user has imported foo.bar.baz as baz and now uses
         # C{baz.quux}, we need to add the module foo.bar.baz.
         for prefix in reversed(list(prefixes(
-                    SymbolName(remove_epydoc_sym_suffix(identifier))))):
+                    DottedIdentifier(remove_epydoc_sym_suffix(identifier))))):
             if check_defining_module(
                 self.docindex.find(str(prefix), container)):
                 return True
         try:
-            module = Module.containing(identifier)
+            module = ModuleHandle.containing(identifier)
         except ImportError:
             pass
         else:

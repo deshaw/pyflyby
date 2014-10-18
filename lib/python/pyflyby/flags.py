@@ -1,3 +1,6 @@
+# pyflyby/flags.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
@@ -82,7 +85,7 @@ class CompilerFlags(int):
         if arg == 0:
             return cls._ZERO # Instance optimization
         self = int.__new__(cls, arg)
-        bad_flags = self & ~_ALL_FLAGS
+        bad_flags = int(self) & ~_ALL_FLAGS
         if bad_flags:
             raise ValueError(
                 "CompilerFlags: unknown flag value(s) %s" % (bin(bad_flags),))
@@ -141,6 +144,13 @@ class CompilerFlags(int):
 
     def __ror__(self, o):
         return self | o
+
+    def __and__(self, o):
+        o = CompilerFlags(o)
+        return CompilerFlags(int(self) & int(o))
+
+    def __rand__(self, o):
+        return self & o
 
     def __repr__(self):
         return "CompilerFlags(%s)" % (hex(self),)

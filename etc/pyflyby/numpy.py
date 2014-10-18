@@ -119,7 +119,6 @@ from   numpy                    import (Inf, NAN, NaN, abs as aabs, absolute,
                                         ushort, vander, var, vdot, vectorize,
                                         void, void0, vsplit, vstack, where,
                                         zeros, zeros_like)
-from   numpy.core               import umath_tests
 from   numpy.core.umath_tests   import inner1d
 from   numpy.fft                import (fft, fft2, fftn, ifft, ifft2, ifftn,
                                         irfft, irfft2, irfftn, rfft, rfft2,

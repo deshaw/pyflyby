@@ -2,4 +2,7 @@
 
 source $(dirname $0)/_fn
 
-collect-imports --uniform ${source_files[@]} > $imports_file
+(
+    echo "# -*- python -*-"
+    collect-imports --include=pyflyby --uniform ${source_files[@]}
+)> $imports_file

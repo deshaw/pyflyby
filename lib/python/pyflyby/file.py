@@ -1,3 +1,6 @@
+# pyflyby/file.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
@@ -10,19 +13,26 @@ from   pyflyby.util             import cached_attribute
 class UnsafeFilenameError(ValueError):
     pass
 
+
+# TODO: statcache
+
 class Filename(object):
     """
     A filename.
+
+      >>> Filename('/etc/passwd')
+      Filename('/etc/passwd')
+
     """
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, basestring):
-            return cls.from_filename(arg)
+            return cls._from_filename(arg)
         raise TypeError
 
     @classmethod
-    def from_filename(cls, filename):
+    def _from_filename(cls, filename):
         if not isinstance(filename, basestring):
             raise TypeError
         filename = str(filename)
@@ -45,7 +55,26 @@ class Filename(object):
     def __truediv__(self, x):
         return type(self)(os.path.join(self._filename, x))
 
+    def __hash__(self):
+        return hash(self._filename)
+
+    def __eq__(self, o):
+        if self is o:
+            return True
+        if not isinstance(o, Filename):
+            return NotImplemented
+        return self._filename == o._filename
+
+    def __ne__(self, o):
+        if self is o:
+            return False
+        if not isinstance(o, Filename):
+            return NotImplemented
+        return self._filename != o._filename
+
     def __cmp__(self, o):
+        if self is o:
+            return 0
         if not isinstance(o, Filename):
             return NotImplemented
         return cmp(self._filename, o._filename)
@@ -88,23 +117,153 @@ class Filename(object):
     def isfile(self):
         return os.path.isfile(self._filename)
 
-    def list(self):
-        return [type(self)(os.path.join(self._filename, f))
-                for f in sorted(os.listdir(self._filename))]
+    def startswith(self, prefix):
+        prefix = Filename(prefix)
+        if self == prefix:
+            return True
+        return self._filename.startswith("%s/" % (prefix,))
 
-    def recursive_iterate(self, ignore_dotfiles=True):
-        if ignore_dotfiles and self.base.startswith('.'):
-            return
-        if self.isfile:
-            yield self
-        elif self.isdir:
-            for child in self.list():
-                for rchild in child.recursive_iterate():
-                    yield rchild
-        # Could be broken symlink, special, etc.
+    def list(self, ignore_unsafe=True):
+        filenames = [os.path.join(self._filename, f)
+                     for f in sorted(os.listdir(self._filename))]
+        result = []
+        for f in filenames:
+            try:
+                f = Filename(f)
+            except UnsafeFilenameError:
+                if ignore_unsafe:
+                    continue
+                else:
+                    raise
+            result.append(f)
+        return result
+
+    @property
+    def ancestors(self):
+        """
+        Return ancestors of self, from self to /.
+
+          >>> Filename("/aa/bb").ancestors
+          (Filename('/aa/bb'), Filename('/aa'), Filename('/'))
+
+        @rtype:
+          C{tuple} of C{Filename}s
+        """
+        result = [self]
+        while True:
+            dir = result[-1].dir
+            if dir == result[-1]:
+                break
+            result.append(dir)
+        return tuple(result)
+
 
 
 Filename.STDIN = Filename("/dev/stdin")
+
+
+class FilePos(object):
+    """
+    A (lineno, colno) position within a L{FileText}.
+    Both lineno and colno are 1-indexed.
+    """
+
+    def __new__(cls, *args):
+        if len(args) == 0:
+            return cls._ONE_ONE
+        if len(args) == 1:
+            arg, = args
+            if isinstance(arg, cls):
+                return arg
+            elif arg is None:
+                return cls._ONE_ONE
+            elif isinstance(arg, tuple):
+                args = arg
+                # Fall through
+            else:
+                raise TypeError
+        lineno, colno = cls._intint(args)
+        if lineno == colno == 1:
+            return cls._ONE_ONE # space optimization
+        if lineno < 1:
+            raise ValueError(
+                "FilePos: invalid lineno=%d; should be >= 1" % lineno,)
+        if colno < 1:
+            raise ValueError(
+                "FilePos: invalid colno=%d; should be >= 1" % colno,)
+        return cls._from_lc(lineno, colno)
+
+    @staticmethod
+    def _intint(args):
+        if (type(args) is tuple and
+            len(args) == 2 and
+            type(args[0]) is type(args[1]) is int):
+            return args
+        else:
+            raise TypeError("Expected (int,int); got %r" % (args,))
+
+    @classmethod
+    def _from_lc(cls, lineno, colno):
+        self = object.__new__(cls)
+        self.lineno = lineno
+        self.colno  = colno
+        return self
+
+    def __add__(self, delta):
+        '''
+        "Add" a coordinate (line,col) delta to this C{FilePos}.
+
+        Note that addition here may be a non-obvious.  If there is any line
+        movement, then the existing column number is ignored, and the new
+        column is the new column delta + 1 (to convert into 1-based numbers).
+
+        @rtype:
+          L{FilePos}
+        '''
+        ldelta, cdelta = self._intint(delta)
+        assert ldelta >= 0 and cdelta >= 0
+        if ldelta == 0:
+            return FilePos(self.lineno, self.colno + cdelta)
+        else:
+            return FilePos(self.lineno + ldelta, 1 + cdelta)
+
+    def __str__(self):
+        return "(%d,%d)" % (self.lineno, self.colno)
+
+    def __repr__(self):
+        return "FilePos%s" % (self,)
+
+    @property
+    def _data(self):
+        return (self.lineno, self.colno)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, FilePos):
+            return NotImplemented
+        return self._data == other._data
+
+    def __ne__(self, other):
+        if self is other:
+            return False
+        if not isinstance(other, FilePos):
+            return NotImplemented
+        return self._data != other._data
+
+    def __cmp__(self, other):
+        if self is other:
+            return 0
+        if not isinstance(other, FilePos):
+            return NotImplemented
+        return cmp(self._data, other._data)
+
+    def __hash__(self):
+        return hash(self._data)
+
+
+
+FilePos._ONE_ONE = FilePos._from_lc(1, 1)
 
 
 class FileText(object):
@@ -112,7 +271,7 @@ class FileText(object):
     Represents a contiguous sequence of lines from a file.
     """
 
-    def __new__(cls, arg, filename=None, lineno=None, colno=None):
+    def __new__(cls, arg, filename=None, startpos=None):
         """
         Return a new C{FileText} instance.
 
@@ -127,115 +286,134 @@ class FileText(object):
         @param filename:
           Filename to attach to this C{FileText}, if not already given by
           C{arg}.
-        @type lineno:
-          C{int}
-        @param lineno:
-          Value to attach as the line number of the first line in this
-          C{FileText}, if not already given by C{arg}.  1-based.
-        @type colno:
-          C{int}
-        @param colno:
-          Value to attach as the column number of the first line in this
-          C{FileText}, if not already given by C{arg}.  1-based.  Subsequent
-          lines always start at column 1.
+        @type startpos:
+          C{FilePos}
+        @param startpos:
+          Starting file position (lineno & colno) of this C{FileText}, if not
+          already given by C{arg}.
         @rtype:
           C{FileText}
         """
         if isinstance(arg, cls):
-            if filename is lineno is colno is None:
+            if filename is startpos is None:
                 return arg
-            return arg.alter(filename=filename, lineno=lineno)
+            return arg.alter(filename=filename, startpos=startpos)
         elif isinstance(arg, Filename):
-            return cls(read_file(arg), filename=filename, lineno=lineno,
-                       colno=colno)
+            return cls(read_file(arg), filename=filename, startpos=startpos)
         elif hasattr(arg, "__text__"):
-            return FileText(arg.__text__(), filename=filename)
-        if isinstance(arg, (tuple, list)):
-            if not all(isinstance(x, str) for x in arg[:2] + arg[-2:]):
-                raise TypeError("%s: unexpected sequence of %s"
-                                % (cls.__name__, type(arg[0]).__name__))
-            self = object.__new__(cls)
-            self.lines = arg
+            return FileText(arg.__text__(), filename=filename, startpos=startpos)
         elif isinstance(arg, basestring):
             self = object.__new__(cls)
-            if not arg.endswith("\n"):
-                arg += "\n"
             self.joined = arg
         else:
             raise TypeError("%s: unexpected %s"
                             % (cls.__name__, type(arg).__name__))
         if filename is not None:
             filename = Filename(filename)
-        if lineno is None:
-            lineno = 1
-        if colno is None:
-            colno = 1
+        startpos = FilePos(startpos)
         self.filename = filename
-        self.lineno   = lineno
-        self.colno    = colno
+        self.startpos = startpos
+        return self
+
+    @classmethod
+    def _from_lines(cls, lines, filename, startpos):
+        assert type(lines) is tuple
+        assert len(lines) > 0
+        assert type(lines[0]) is str
+        assert not lines[-1].endswith("\n")
+        self = object.__new__(cls)
+        self.lines    = lines
+        self.filename = filename
+        self.startpos = startpos
         return self
 
     @cached_attribute
-    def lines(self): # used if only initialized with 'joined'
-        return self.joined.splitlines(True)
+    def lines(self):
+        r"""
+        Lines that have been split by newline.
+
+        These strings do NOT contain '\n'.
+
+        If the input file ended in '\n', then the last item will be the empty
+        string.  This is to avoid having to check lines[-1].endswith('\n')
+        everywhere.
+
+        @rtype:
+          C{tuple} of C{str}
+        """
+        # Used if only initialized with 'joined'.
+        # We use str.split() instead of str.splitlines() because the latter
+        # doesn't distinguish between strings that end in newline or not
+        # (or requires extra work to process if we use splitlines(True)).
+        return tuple(self.joined.split('\n'))
 
     @cached_attribute
     def joined(self): # used if only initialized with 'lines'
-        return ''.join(self.lines)
+        return '\n'.join(self.lines)
 
     @classmethod
     def from_filename(cls, filename):
         return cls.from_lines(Filename(filename))
 
-    def alter(self, filename=None, lineno=None, colno=None):
+    def alter(self, filename=None, startpos=None):
         if filename is not None:
             filename = Filename(filename)
         else:
             filename = self.filename
-        if lineno is not None:
-            lineno = int(lineno)
+        if startpos is not None:
+            startpos = FilePos(startpos)
         else:
-            lineno = self.lineno
-        if colno is not None:
-            colno = int(colno)
-        else:
-            colno = self.colno
-        if (filename == self.filename and
-            lineno == self.lineno and
-            colno == self.colno):
+            startpos = self.startpos
+        if filename == self.filename and startpos == self.startpos:
             return self
         else:
             result = object.__new__(type(self))
             result.lines    = self.lines
             result.joined   = self.joined
             result.filename = filename
-            result.lineno   = lineno
-            result.colno    = colno
+            result.startpos = startpos
             return result
 
     @cached_attribute
-    def end_lineno(self):
+    def endpos(self):
         """
-        The number of the line after the lines contained in self.
+        The position after the last character in the text.
+
+        @rtype:
+          C{FilePos}
         """
-        return self.lineno + len(self.lines)
+        startpos = self.startpos
+        lines    = self.lines
+        lineno   = startpos.lineno + len(lines) - 1
+        if len(lines) == 1:
+            colno = startpos.colno + len(lines[-1])
+        else:
+            colno = 1 + len(lines[-1])
+        return FilePos(lineno, colno)
 
     def _lineno_to_index(self, lineno):
-        lineindex = lineno - self.lineno
-        if not 0 <= lineindex <= len(self.lines):
-            raise ValueError(
+        lineindex = lineno - self.startpos.lineno
+        # Check that the lineindex is in range.  We don't allow pointing at
+        # the line after the last line because we already ensured that
+        # self.lines contains an extra empty string if necessary, to indicate
+        # a trailing newline in the file.
+        if not 0 <= lineindex < len(self.lines):
+            raise IndexError(
                 "Line number %d out of range [%d, %d)"
-                % (lineno, self.lineno, self.end_lineno))
+                % (lineno, self.startpos.lineno, self.endpos.lineno))
         return lineindex
 
     def _colno_to_index(self, lineindex, colno):
-        coloffset = self.colno if lineindex == 0 else 1
+        coloffset = self.startpos.colno if lineindex == 0 else 1
         colindex = colno - coloffset
-        linelen = len(self.lines[lineindex])
-        if not 0 <= colindex <= linelen:
-            raise ValueError(
-                "Column number %d on line %d out of range [%d, %d)"
-                % (colno, lineindex+self.lineno, coloffset, coloffset+linelen))
+        line = self.lines[lineindex]
+        # Check that the colindex is in range.  We do allow pointing at the
+        # character after the last (non-newline) character in the line.
+        if not 0 <= colindex <= len(line):
+            raise IndexError(
+                "Column number %d on line %d out of range [%d, %d]"
+                % (colno, lineindex+self.startpos.lineno,
+                   coloffset, coloffset+len(line)))
         return colindex
 
     def __getitem__(self, arg):
@@ -243,23 +421,26 @@ class FileText(object):
         Return the line(s) with the given line number(s).
         If slicing, returns an instance of C{FileText}.
 
-        Note that line numbers are indexed based on C{self.lineno} (which
-        is 1 at the start of the file).
+        Note that line numbers are indexed based on C{self.startpos.lineno}
+        (which is 1 at the start of the file).
 
           >>> FileText("a\\nb\\nc\\nd")[2]
-          'b\\n'
+          'b'
 
           >>> FileText("a\\nb\\nc\\nd")[2:4]
-          FileText('b\\nc\\n', lineno=2)
+          FileText('b\\nc\\n', startpos=(2,1))
 
           >>> FileText("a\\nb\\nc\\nd")[0]
           Traceback (most recent call last):
             ...
-          ValueError: Line number 0 out of range [1, 5)
+          IndexError: Line number 0 out of range [1, 4)
 
-        The index argument can also be given as (lineno, colno) tuples.
-        C{colno} is 1-indexed at the start of the file.  For the end of the
-        range, if C{colno} is given, then the C{lineno} is an inclusive value.
+        When slicing, the input arguments can also be given as C{FilePos}
+        arguments or (lineno,colno) tuples.  These are 1-indexed at the start
+        of the file.
+
+          >>> FileText("a\\nb\\nc\\nd")[(2,2):4]
+          FileText('\\nc\\n', startpos=(2,2))
 
         @rtype:
           C{str} or L{FileText}
@@ -277,52 +458,52 @@ class FileText(object):
                 start_lineindex = L(arg.start)
                 start_colindex = 0
             else:
-                start_lineno, start_colno = arg.start
-                start_lineno = int(start_lineno)
-                start_colno  = int(start_colno)
-                start_lineindex = L(start_lineno)
-                start_colindex = C(start_lineindex, start_colno)
+                startpos = FilePos(arg.start)
+                start_lineindex = L(startpos.lineno)
+                start_colindex = C(start_lineindex, startpos.colno)
             # Interpret stop (lineno,colno) into indexes.
             if arg.stop is None:
                 stop_lineindex = len(self.lines)
                 stop_colindex = len(self.lines[-1])
             elif isinstance(arg.stop, int):
                 stop_lineindex = L(arg.stop)
-                stop_colindex = len(self.lines[stop_lineindex-1])
+                stop_colindex = 0
             else:
-                # Interpret (lineno, colno) end of range.
-                # Unlike the lineno-only case, we interpret the input argument
-                # lineno as an inclusive (closed-ended) endpoint.
-                stop_lineno, stop_colno = arg.stop
-                stop_lineindex = L(stop_lineno) + 1
-                stop_colindex = C(stop_lineindex-1, stop_colno)
+                stoppos = FilePos(arg.stop)
+                stop_lineindex = L(stoppos.lineno)
+                stop_colindex = C(stop_lineindex, stoppos.colno)
             # {start,stop}_{lineindex,colindex} are now 0-indexed
-            # [open,closed) ranges.  Note that C{FileText} instances have to
-            # have at least one line in them.
-            assert 0 <= start_lineindex < stop_lineindex <= len(self.lines)
-            assert 0 <= start_colindex < len(self.lines[start_lineindex])
-            assert 0 <= stop_colindex <= len(self.lines[stop_lineindex-1])
+            # [open,closed) ranges.
+            assert 0 <= start_lineindex <= stop_lineindex < len(self.lines)
+            assert 0 <= start_colindex <= len(self.lines[start_lineindex])
+            assert 0 <= stop_colindex <= len(self.lines[stop_lineindex])
             # Optimization: return entire range
-            if (start_lineindex == 0 and stop_lineindex == len(self.lines) and
-                start_colindex == 0 and stop_colindex == len(self.lines[-1])):
+            if (start_lineindex == 0 and
+                start_colindex == 0 and
+                stop_lineindex == len(self.lines)-1 and
+                stop_colindex == len(self.lines[-1])):
                 return self
-            # Get the lines we care about.
-            result_split = self.lines[start_lineindex:stop_lineindex]
+            # Get the lines we care about.  We always include an extra entry
+            # at the end which we'll chop to the desired number of characters.
+            result_split = list(self.lines[start_lineindex:stop_lineindex+1])
             # Clip the starting and ending strings.  We do the end clip first
             # in case the result has only one line.
             result_split[-1] = result_split[-1][:stop_colindex]
             result_split[0] = result_split[0][start_colindex:]
             # Compute the new starting line and column numbers.
-            result_lineno = start_lineindex + self.lineno
+            result_lineno = start_lineindex + self.startpos.lineno
             if start_lineindex == 0:
-                result_colno = start_colindex + self.colno
+                result_colno = start_colindex + self.startpos.colno
             else:
                 result_colno = start_colindex + 1
-            return type(self)(result_split, filename=self.filename,
-                              lineno=result_lineno, colno=result_colno)
+            result_startpos = FilePos(result_lineno, result_colno)
+            return FileText._from_lines(tuple(result_split),
+                                        filename=self.filename,
+                                        startpos=result_startpos)
         elif isinstance(arg, int):
             # Return a single line.
-            return self.lines[L(arg)]
+            lineindex = L(arg)
+            return self.lines[lineindex]
         else:
             raise TypeError("bad type %r" % (type(arg),))
 
@@ -330,7 +511,7 @@ class FileText(object):
     def concatenate(cls, args):
         """
         Concatenate a bunch of L{FileText} arguments.  Uses the C{filename}
-        and C{lineno} from the first argument.
+        and C{startpos} from the first argument.
 
         @rtype:
           L{FileText}
@@ -341,26 +522,43 @@ class FileText(object):
         return FileText(
             ''.join([l.joined for l in args]),
             filename=args[0].filename,
-            lineno=args[0].lineno)
+            startpos=args[0].startpos)
 
     def __repr__(self):
         r = "%s(%r" % (type(self).__name__, self.joined,)
         if self.filename is not None:
             r += ", filename=%r" % (str(self.filename),)
-        if self.lineno != 1:
-            r += ", lineno=%d" % (self.lineno,)
+        if self.startpos != FilePos():
+            r += ", startpos=%s" % (self.startpos,)
         r += ")"
         return r
 
     def __eq__(self, o):
-        return self.filename == o.filename and self.joined == o.joined
+        if self is o:
+            return True
+        if not isinstance(o, FileText):
+            return NotImplemented
+        return (self.filename == o.filename and
+                self.joined   == o.joined   and
+                self.startpos == o.startpos)
+
+    def __ne__(self, o):
+        if not isinstance(o, FileText):
+            return NotImplemented
+        return not (self == o)
 
     def __cmp__(self, o):
-        return cmp((self.filename, self.joined),
-                   (o.filename, o.joined))
+        if self is o:
+            return 0
+        if not isinstance(o, FileText):
+            return NotImplemented
+        return cmp((self.filename, self.joined, self.startpos),
+                   (o   .filename, o   .joined, o   .startpos))
 
     def __hash__(self):
-        return hash((self.filename, self.joined))
+        h = hash((self.filename, self.joined, self.startpos))
+        self.__hash__ = lambda: h
+        return h
 
 
 def read_file(filename):
@@ -390,3 +588,60 @@ def atomic_write_file(filename, data):
     except OSError:
         pass
     os.rename(str(temp_filename), str(filename))
+
+def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
+    """
+    Enumerate *.py files, recursively.
+
+    Arguments that are files are always included.
+    Arguments that are directories are recursively searched for *.py files.
+
+    @type pathnames:
+      C{list} of L{Filename}s
+    @type on_error:
+      callable
+    @param on_error:
+      Function that is called for arguments directly specified in C{pathnames}
+      that don't exist or are otherwise inaccessible.
+    @rtype:
+      C{list} of L{Filename}s
+    """
+    if not isinstance(pathnames, (tuple, list)):
+        pathnames = [pathnames]
+    pathnames = [Filename(f) for f in pathnames]
+    result = []
+    # Check for problematic arguments.  Note that we intentionally only do
+    # this for directly specified arguments, not for recursively traversed
+    # arguments.
+    stack = []
+    for pathname in reversed(pathnames):
+        if pathname.isfile:
+            stack.append((pathname, True))
+        elif pathname.isdir:
+            stack.append((pathname, False))
+        else:
+            on_error(pathname)
+    while stack:
+        pathname, isfile = stack.pop(-1)
+        if isfile:
+            result.append(pathname)
+            continue
+        for f in reversed(pathname.list()):
+            # Check inclusions/exclusions for recursion.  Note that we
+            # intentionally do this in the recursive step rather than the
+            # base step because if the user specification includes
+            # e.g. .pyflyby, we do want to include it; however, we don't
+            # want to recurse into .pyflyby ourselves.
+            if f.base.startswith("."):
+                continue
+            if f.base == "__pycache__":
+                continue
+            if f.isfile:
+                if f.ext == ".py":
+                    stack.append((f, True))
+            elif f.isdir:
+                stack.append((f, False))
+            else:
+                # Silently ignore non-files/dirs from traversal.
+                pass
+    return result

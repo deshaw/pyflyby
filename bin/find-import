@@ -4,22 +4,26 @@ Usage: find-import names...
 
 Prints how to import given name(s).
 """
+# pyflyby/find-import
+# Copyright (C) 2011, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby.cmdline          import parse_args, syntax
-from   pyflyby.importdb         import global_known_imports
+from   pyflyby.importdb         import ImportDB
 from   pyflyby.log              import logger
 
 def main():
     options, args = parse_args(import_format_params=True)
     if not args:
         syntax()
-    db = global_known_imports().by_import_as
+    db = ImportDB.get_default(".")
+    known = db.known_imports.by_import_as
     errors = 0
     for arg in args:
         try:
-            imports = db[arg]
+            imports = known[arg]
         except KeyError:
             errors += 1
             logger.error("Can't find import for %r", arg)
@@ -32,4 +36,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

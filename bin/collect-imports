@@ -7,15 +7,19 @@ Collect all imports from named files or stdin, and combine them into a single
 block of import statements.  Print the result to stdout.
 
 """
+# pyflyby/collect-imports
+# Copyright (C) 2011, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 import sys
 
 from   pyflyby.cmdline          import filename_args, hfmt, parse_args
-from   pyflyby.file             import read_file
-from   pyflyby.importdb         import global_known_imports
-from   pyflyby.importstmt       import Imports
+from   pyflyby.idents           import DottedIdentifier
+from   pyflyby.importclns       import ImportSet
+from   pyflyby.importdb         import ImportDB
+
 
 def main():
     def addopts(parser):
@@ -28,13 +32,21 @@ def main():
                           help=hfmt('''
                                 (Default) List all imports, including those
                                 already in the known-imports database.'''))
+        parser.add_option("--include",
+                          default=[], action="append",
+                          help=hfmt('''
+                                Include only imports under the given package.'''))
     options, args = parse_args(addopts, import_format_params=True)
-    contents = [read_file(fn) for fn in filename_args(args)]
-    imports = Imports.from_code(contents, filter_nonimports=True)
+    filenames = filename_args(args)
+    importset = ImportSet(filenames, ignore_nonimports=True)
+    if options.include:
+        match = lambda imp: any(DottedIdentifier(imp.fullname).startswith(prefix)
+                                for prefix in options.include)
+        importset = ImportSet([imp for imp in importset if match(imp)])
     if options.ignore_known:
-        db = global_known_imports()
-        imports = imports.without_imports(db, strict=False)
-    sys.stdout.write(imports.pretty_print(
+        db = ImportDB.get_default(".")
+        importset = importset.without_imports(db.known_imports, strict=False)
+    sys.stdout.write(importset.pretty_print(
             allow_conflicts=True, params=options.params))
 
 

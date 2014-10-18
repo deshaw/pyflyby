@@ -10,6 +10,9 @@ Similar to running C{epydoc -v}, but:
   - If a cross-reference is to an external module, its references are included
     automatically.
 """
+# pyflyby/list-bad-xrefs
+# Copyright (C) 2011, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
@@ -29,4 +32,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

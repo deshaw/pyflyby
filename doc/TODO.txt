@@ -1,31 +1,44 @@
 
-- Support compound statements.
-- Support imports at any level, not just top-level.
-- Per-directory import libraries.
+- Support removing imports at any level, not just top-level.
+- Support adding imports inside functions.  Guess that an import should be
+  local if there were any other local imports from the same module.
+- Allow options in .pyflyby files such as __options__ = '--uniform'
+- Allow an option in .pyflyby files that means "stop processing further
+  database files"
 - Pyflakes reports unused "import foo.bar" as "foo" making it hard to remove
   unused "foo.bar" (there could be other imports on the same line).
 - Heuristically guess alignment style from existing code
 - Grouping: Teach tidy-imports to canonicalize import groups; need the user to
-  configure import groups
-- Move mandatory imports to known_imports/__mandatory__.py instead of separate
-  env var.  Or maybe in any file but with a '"@mandatory"' literal preceding
-  it.  Simplify env var from PYFLYBY_KNOWN_IMPORTS_PATH to
-  PYFLYBY_IMPORTS_PATH (but keep backwards compatibility)
-- Add mechanism for database to include transforms.  Maybe '"@transform: from
-  old.foo import bar" \n from new.foo import bar'.
+  configure import groups.  Or do it the Eclipse way: for each top-level
+  package, if there is more than one import statement, then make those a
+  group.
 - Remove pyflakes dependency - use our own AST parser
-- Fix bug where duplicate imports are all removed including first instance
-  (because pyflakes reports as unused).  Should be fixed by using our own AST
-  parser.
 - Allow comments in a file to specify imports that shouldn't be removed,
   including "*" to mean don't-remove-any.
-- If filename is __init__.py then by default don't remove unused imports.  Add
-  a new option --stdin-filename for when input is stdin.  (May be unnecessary
-  with comment-based approach.)
 - Allow a comment in the file to specify alignment options.
-- Add a mechanism to allow more easily customizing the alignment options.
-  Maybe a .pyflyby-style file searched in ancestor directories or $HOME; maybe
-  a $PYFLYBY environment variable.  (May be unnecessary with comment-based
-  approach.)
-- Add unit tests.
-- Add setup.py.
+- Guess the module name for relative imports.
+- Preserve comments on import lines (as much as possible anyway - may need to
+  make them standalone comments).
+- Preserve line ending style (\r\n).
+- If a function is defined twice, pyflakes complains about it (as expected);
+  pyflyby misinterprets this as an unused import.
+- Merge share/pyflyby/*.py into a single file.
+- Make sure etc/pyflyby works for both systemwide installation and virtualenv
+  installation
+- Consider making the default database file more like a sample file that the
+  user is instructed to cp to ~/.pyflyby.  What about existing users of older
+  versions?  Perhaps have an auto-upgrade feature
+- Consider renaming pyflyby.file, etc to pyflyby._file since users shouldn't
+  be accessing them.
+- Consider importing user-facing stuff (install_auto_importer) into pyflyby
+  toplevel namespace.
+- Refactor autoimport.py to share more with rest of pyflyby, esp AST parsing.
+- Consider __mandatory_imports -= [...] instead of __forget_imports__=[...].
+- Packaging:
+    - Make 'install' put etc in /etc outside egg (but inside virtualenv is
+      ok).  Or think about the right way to do config files otherwise.
+    - Avoid compiling etc files to .pyc.
+    - Make bin/tidy-imports work out of the box after sdist+unpack.  Currently
+      sdist doesn't include the bin/pyflyby symlink.
+    - Make zip-safe/PEP308 compliant; use pkg_resources (if possible) instead
+      of __file__.

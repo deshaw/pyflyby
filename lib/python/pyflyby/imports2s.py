@@ -1,16 +1,20 @@
+# pyflyby/imports2s.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 import re
 
-from   pyflyby.file             import Filename
-from   pyflyby.importdb         import (global_known_imports,
-                                        global_mandatory_imports)
-from   pyflyby.importstmt       import (ImportFormatParams, Imports,
-                                        NoSuchImportError)
+from   pyflyby.file             import FileText, Filename
+from   pyflyby.flags            import CompilerFlags
+from   pyflyby.idents           import brace_identifiers
+from   pyflyby.importclns       import ImportSet, NoSuchImportError
+from   pyflyby.importdb         import ImportDB
+from   pyflyby.importstmt       import ImportFormatParams, ImportStatement
 from   pyflyby.log              import logger
-from   pyflyby.parse            import FileText, PythonBlock
-from   pyflyby.util             import Inf, memoize
+from   pyflyby.parse            import PythonBlock
+from   pyflyby.util             import ImportPathCtx, Inf, NullCtx, memoize
 
 
 class SourceToSourceTransformationBase(object):
@@ -18,12 +22,12 @@ class SourceToSourceTransformationBase(object):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, (PythonBlock, FileText, Filename, str)):
-            return cls.from_source_code(arg)
+            return cls._from_source_code(arg)
         raise TypeError("%s: got unexpected %s"
                         % (cls.__name__, type(arg).__name__))
 
     @classmethod
-    def from_source_code(cls, codeblock):
+    def _from_source_code(cls, codeblock):
         self = object.__new__(cls)
         self.input = PythonBlock(codeblock)
         self.preprocess()
@@ -57,12 +61,11 @@ class SourceToSourceTransformation(SourceToSourceTransformationBase):
 
 class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
     def preprocess(self):
-        self.imports = Imports(self.input)
+        self.importset = ImportSet(self.input, ignore_shadowed=True)
 
     def pretty_print(self, params=None):
-        if params is None:
-            params = ImportFormatParams()
-        return self.imports.pretty_print(params)
+        params = ImportFormatParams(params)
+        return self.importset.pretty_print(params)
 
 
 class LineNumberNotFoundError(Exception):
@@ -91,7 +94,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 trans = SourceToSourceTransformation(subblock)
             self.blocks.append(trans)
 
-    def pretty_print(self, params=ImportFormatParams()):
+    def pretty_print(self, params=None):
+        params = ImportFormatParams(params)
         result = [block.pretty_print(params=params) for block in self.blocks]
         return FileText.concatenate(result)
 
@@ -107,7 +111,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         results = [
             b
             for b in self.import_blocks
-            if b.input.lineno <= lineno <= b.input.end_lineno]
+            if b.input.startpos.lineno <= lineno <= b.input.endpos.lineno]
         if len(results) == 0:
             raise LineNumberNotFoundError(lineno)
         if len(results) > 1:
@@ -125,14 +129,14 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         """
         block = self.find_import_block_by_lineno(lineno)
         try:
-            imports = block.imports.by_import_as[import_as]
+            imports = block.importset.by_import_as[import_as]
         except KeyError:
             raise NoSuchImportError
         assert len(imports)
         if len(imports) > 1:
             raise Exception("Multiple imports to remove: %r" % (imports,))
         imp = imports[0]
-        block.imports = block.imports.without_imports([imp])
+        block.importset = block.importset.without_imports([imp])
         return imp
 
     def select_import_block_by_closest_prefix_match(self, imp, max_lineno):
@@ -152,11 +156,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         # we'll sort.
         annotated_blocks = [
             ( (max([0] + [len(imp.prefix_match(oimp))
-                          for oimp in block.imports.imports]),
-               block.input.end_lineno),
+                          for oimp in block.importset.imports]),
+               block.input.endpos.lineno),
               block )
             for block in self.import_blocks
-            if block.input.end_lineno <= max_lineno ]
+            if block.input.endpos.lineno <= max_lineno ]
         if not annotated_blocks:
             raise NoImportBlockError()
         annotated_blocks.sort()
@@ -207,9 +211,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         Adds a new empty imports block.  It is added before the first
         non-comment statement.  Intended to be used when the input contains no
         import blocks (before uses).
-
-        @type imports:
-          L{Imports}
         """
         block = SourceToSourceImportBlockTransformation("")
         sepblock = SourceToSourceTransformation("")
@@ -234,12 +235,12 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 imp, lineno)
         except NoImportBlockError:
             block = self.insert_new_import_block()
-        if imp in block.imports.imports:
+        if imp in block.importset.imports:
             raise ImportAlreadyExistsError(imp)
-        block.imports = block.imports.with_imports([imp])
+        block.importset = block.importset.with_imports([imp])
 
 
-def reformat_import_statements(codeblock, params=ImportFormatParams()):
+def reformat_import_statements(codeblock, params=None):
     r"""
     Reformat each top-level block of import statements within a block of code.
     Blank lines, comments, etc. are left alone and separate blocks of imports.
@@ -268,19 +269,25 @@ def reformat_import_statements(codeblock, params=ImportFormatParams()):
     @rtype:
       L{PythonBlock}
     """
+    params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     return transformer.output(params=params)
 
 
-def brace_identifiers(text):
+def ImportPathForRelativeImportsCtx(codeblock):
     """
-    Parse a string and yield all tokens of the form "{some_token}".
+    Context manager that temporarily modifies C{sys.path} so that relative
+    imports for the given C{codeblock} work as expected.
 
-      >>> list(brace_identifiers("{salutation}, {your_name}."))
-      ['salutation', 'your_name']
+    @type codeblock:
+      L{PythonBlock}
     """
-    for match in re.finditer("{([a-zA-Z_][a-zA-Z0-9_]*)}", text):
-        yield match.group(1)
+    codeblock = PythonBlock(codeblock)
+    if not codeblock.filename:
+        return NullCtx()
+    if codeblock.flags & CompilerFlags("absolute_import"):
+        return NullCtx()
+    return ImportPathCtx(str(codeblock.filename.dir))
 
 
 def _pyflakes_version():
@@ -410,9 +417,10 @@ def find_unused_and_missing_imports(codeblock):
 
 def fix_unused_and_missing_imports(codeblock,
                                    add_missing=True,
-                                   remove_unused=True,
+                                   remove_unused="AUTOMATIC",
                                    add_mandatory=True,
-                                   params=ImportFormatParams()):
+                                   db=None,
+                                   params=None):
     r"""
     Using C{pyflakes}, check for unused and missing imports, and fix them
     automatically.
@@ -436,6 +444,27 @@ def fix_unused_and_missing_imports(codeblock,
       L{PythonBlock}
     """
     codeblock = PythonBlock(codeblock)
+    if remove_unused == "AUTOMATIC":
+        fn = codeblock.filename
+        remove_unused = not (fn and
+                             (fn.base == "__init__.py"
+                              or ".pyflyby" in str(fn).split("/")))
+    elif remove_unused is True or remove_unused is False:
+        pass
+    else:
+        raise ValueError("Invalid remove_unused=%r" % (remove_unused,))
+    params = ImportFormatParams(params)
+    db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
+    # Do a first pass reformatting the imports to get rid of repeated or
+    # shadowed imports.  This is a kludge to deal with pyflakes complaining
+    # about L1 here:
+    #   import foo  # L1
+    #   import foo  # L2
+    #   foo         # L3
+    # TODO: use our own AST parser which will have many benefits including
+    # avoiding this kludge.
+    codeblock = reformat_import_statements(codeblock, params=params)
+
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     unused_imports, missing_imports = find_unused_and_missing_imports(codeblock)
@@ -461,19 +490,17 @@ def fix_unused_and_missing_imports(codeblock,
                     "%s: unused import %r on line %d not global",
                     filename, import_as, e.args[0])
             else:
-                # TODO: remove entire Import removed
-                logger.info("%s: removed unused import %r",
-                            filename, imp.pretty_print().strip())
+                logger.info("%s: removed unused '%s'", filename, imp)
 
     if add_missing and missing_imports:
-        db = global_known_imports().by_import_as
+        known = db.known_imports.by_import_as
         # Decide on where to put each import to be added.  Find the import
         # block with the longest common prefix.  Tie-break by preferring later
         # blocks.
         added_imports = set()
         for import_as, lineno in missing_imports:
             try:
-                imports = db[import_as]
+                imports = known[import_as]
             except KeyError:
                 logger.warning(
                     "%s:%s: undefined name %r and no known import for it",
@@ -493,8 +520,8 @@ def fix_unused_and_missing_imports(codeblock,
 
     if add_mandatory:
         # Todo: allow not adding to empty __init__ files?
-        db = global_mandatory_imports()
-        for imp in db.imports:
+        mandatory = db.mandatory_imports.imports
+        for imp in mandatory:
             try:
                 transformer.add_import(imp)
             except ImportAlreadyExistsError:
@@ -506,8 +533,7 @@ def fix_unused_and_missing_imports(codeblock,
     return transformer.output(params=params)
 
 
-def remove_broken_imports(codeblock,
-                          params=ImportFormatParams()):
+def remove_broken_imports(codeblock, params=None):
     """
     Try to execute each import, and remove the ones that don't work.
 
@@ -519,11 +545,12 @@ def remove_broken_imports(codeblock,
       L{PythonBlock}
     """
     codeblock = PythonBlock(codeblock)
+    params = ImportFormatParams(params)
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
         broken = []
-        for imp in list(block.imports.imports):
+        for imp in list(block.importset.imports):
             ns = {}
             try:
                 exec imp.pretty_print() in ns
@@ -531,13 +558,12 @@ def remove_broken_imports(codeblock,
                 logger.info("%s: Could not import %r; removing it: %s: %s",
                             filename, imp.fullname, type(e).__name__, e)
                 broken.append(imp)
-        block.imports = block.imports.without_imports(broken)
+        block.importset = block.importset.without_imports(broken)
     return transformer.output(params=params)
 
 
-def replace_star_imports(codeblock,
-                         params=ImportFormatParams()):
-    """
+def replace_star_imports(codeblock, params=None):
+    r"""
     Replace lines such as::
       from foo.bar import *
     with
@@ -546,29 +572,90 @@ def replace_star_imports(codeblock,
     Note that this requires involves actually importing C{foo.bar}, which may
     have side effects.  (TODO: rewrite to avoid this?)
 
+      >>> result = replace_star_imports('''
+      ...    from foo1  import MIMEAudio
+      ...    from email import *
+      ...    from foo2  import MIMEImage
+      ... ''')
+
+    The result includes all imports from the C{email} module.  The result
+    excludes shadowed imports.  In this example:
+      1. The original C{MIMEAudio} import is shadowed, so it is removed.
+      2. The C{MIMEImage} import in the C{email} module is shadowed by a
+         subsequent import, so it is omitted.
+
+      >>> print result.text.joined.strip()          # doctest:+ELLIPSIS
+      from email import ..., MIMEMessage, ...
+      from foo2  import MIMEImage
+
+    Usually you'll want to remove unused imports after replacing star imports.
+
     @type codeblock:
       L{PythonBlock} or convertible (C{str})
     @rtype:
       L{PythonBlock}
     """
-    from .modules import Module
+    from pyflyby.modules import ModuleHandle
+    params = ImportFormatParams(params)
     codeblock = PythonBlock(codeblock)
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
-        for imp in list(block.imports.imports):
+        # Iterate over the import statements in C{block.input}.  We do this
+        # instead of using C{block.importset} because the latter doesn't
+        # preserve the order of inputs.  The order is important for
+        # determining what's shadowed.
+        imports = [
+            imp
+            for s in block.input.statements
+            for imp in ImportStatement(s).imports
+        ]
+        # Process "from ... import *" statements.
+        new_imports = []
+        for imp in imports:
             if imp.split.member_name != "*":
-                continue
-            exports = Module(imp.split.module_name).exports
-            block.imports = block.imports.without_imports([imp]).with_imports(
-                exports)
-            logger.info("%s: replaced %r with %d imports", filename,
-                        imp.pretty_print().strip(), len(exports.imports))
+                new_imports.append(imp)
+            elif imp.split.module_name.startswith("."):
+                # The source contains e.g. "from .foo import *".  Right now we
+                # don't have a good way to figure out the absolute module
+                # name, so we can't get at foo.  That said, there's a decent
+                # chance that this is inside an __init__ anyway, which is one
+                # of the few justifiable use cases for star imports in library
+                # code.
+                logger.warning("%s: can't replace star imports in relative import: %s",
+                               filename, imp.pretty_print().strip())
+                new_imports.append(imp)
+            else:
+                module = ModuleHandle(imp.split.module_name)
+                try:
+                    with ImportPathForRelativeImportsCtx(codeblock):
+                        exports = module.exports
+                except Exception as e:
+                    logger.warning(
+                        "%s: couldn't import '%s' to enumerate exports, "
+                        "leaving unchanged: '%s'.  %s: %s",
+                        filename, module.name, imp, type(e).__name__, e)
+                    new_imports.append(imp)
+                    continue
+                if not exports:
+                    # We found nothing in the target module.  This probably
+                    # means that module itself is just importing things from
+                    # other modules.  Currently we intentionally exclude those
+                    # imports since usually we don't want them.  TODO: do
+                    # something better here.
+                    logger.warning("%s: found nothing to import from %s, ",
+                                   "leaving unchanged: '%s'",
+                                   filename, module, imp)
+                    new_imports.append(imp)
+                else:
+                    new_imports.extend(exports)
+                    logger.info("%s: replaced %r with %d imports", filename,
+                                imp.pretty_print().strip(), len(exports))
+        block.importset = ImportSet(new_imports, ignore_shadowed=True)
     return transformer.output(params=params)
 
 
-def transform_imports(codeblock, transformations,
-                      params=ImportFormatParams()):
+def transform_imports(codeblock, transformations, params=None):
     """
     Transform imports as specified by C{transformations}.
 
@@ -576,8 +663,13 @@ def transform_imports(codeblock, transformations,
     blocks.
 
     For the rest of the code body, transform_imports() does a crude textual
-    string replacement.  This is imperfect but handles most cases.  Generally
-    we do want to do replacements even within in strings and comments.
+    string replacement.  This is imperfect but handles most cases.  There may
+    be some false positives, but this is difficult to avoid.  Generally we do
+    want to do replacements even within in strings and comments.
+
+      >>> result = transform_imports("from m import x", {"m.x": "m.y.z"})
+      >>> print result.text.joined.strip()
+      from m.y import z as x
 
     @type codeblock:
       L{PythonBlock} or convertible (C{str})
@@ -589,6 +681,7 @@ def transform_imports(codeblock, transformations,
       L{PythonBlock}
     """
     codeblock = PythonBlock(codeblock)
+    params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     @memoize
     def transform_import(imp):
@@ -608,9 +701,25 @@ def transform_imports(codeblock, transformations,
     # Loop over transformer blocks.
     for block in transformer.blocks:
         if isinstance(block, SourceToSourceImportBlockTransformation):
-            input_imports = block.imports.imports
+            input_imports = block.importset.imports
             output_imports = [ transform_import(imp) for imp in input_imports ]
-            block.imports = Imports(output_imports)
+            block.importset = ImportSet(output_imports, ignore_shadowed=True)
         else:
             block.output = transform_block(block.input)
     return transformer.output(params=params)
+
+
+def canonicalize_imports(codeblock, params=None, db=None):
+    """
+    Transform C{codeblock} as specified by C{__canonical_imports__} in the
+    global import library.
+
+    @type codeblock:
+      L{PythonBlock} or convertible (C{str})
+    @rtype:
+      L{PythonBlock}
+    """
+    params = ImportFormatParams(params)
+    db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
+    transformations = db.canonical_imports
+    return transform_imports(codeblock, transformations, params=params)

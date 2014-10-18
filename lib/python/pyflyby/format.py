@@ -1,3 +1,6 @@
+# pyflyby/format.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
@@ -6,24 +9,40 @@ class FormatParams(object):
     wrap_paren = True
     indent = 4
 
-    def __init__(self, **kwargs):
-        for key, value in kwargs.iteritems():
-            if hasattr(self, key):
-                setattr(self, key, value)
+    def __new__(cls, *args, **kwargs):
+        if not kwargs and len(args) == 1 and isinstance(args[0], cls):
+            return args[0]
+        self = object.__new__(cls)
+        # TODO: be more careful here
+        dicts = []
+        for arg in args:
+            if arg is None:
+                pass
+            elif isinstance(arg, cls):
+                dicts.append(arg.__dict__)
             else:
-                raise ValueError("bad kwarg %r" % (key,))
+                raise TypeError
+        if kwargs:
+            dicts.append(kwargs)
+        for kwargs in dicts:
+            for key, value in kwargs.iteritems():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+                else:
+                    raise ValueError("bad kwarg %r" % (key,))
+        return self
 
 
 def fill(tokens, sep=(", ", ""), prefix="", suffix="", newline="\n",
          max_line_length=80):
-    """
+    r"""
     Given a sequences of strings, fill them into a single string with up to
     C{max_line_length} characters each.
 
       >>> fill(["'hello world'", "'hello two'"],
-      ...            prefix=("print ", "      "), suffix=(" \\\\", ""),
+      ...            prefix=("print ", "      "), suffix=(" \\", ""),
       ...            max_line_length=25)
-      "print 'hello world', \\\\\\n      'hello two'\\n"
+      "print 'hello world', \\\n      'hello two'\n"
 
     @param tokens:
       Sequence of strings to fill.  There must be at least one token.

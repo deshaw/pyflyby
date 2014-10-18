@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+"""
+collect-exports module1 module2...
+
+Collect all exports in the specified modules and generate "from foo import
+..." lines for public members defined in those modules.
+
+Print the result to stdout.
+
+"""
+
+# pyflyby/collect-exports
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
+
+
+from __future__ import absolute_import, division, with_statement
+
+import sys
+
+from   pyflyby.cmdline          import hfmt, parse_args
+from   pyflyby.importdb         import ImportDB
+from   pyflyby.log              import logger
+from   pyflyby.modules          import ModuleHandle
+
+
+def main():
+    def addopts(parser):
+        parser.add_option("--ignore-known", default=False, action='store_true',
+                          help=hfmt('''
+                                Don't list imports already in the
+                                known-imports database.'''))
+        parser.add_option("--no-ignore-known", dest="ignore_known",
+                          action='store_false',
+                          help=hfmt('''
+                                (Default) List all imports, including those
+                                already in the known-imports database.'''))
+        parser.add_option("--expand-known", default=False, action='store_true',
+                          help=hfmt('''
+                                Scan all modules mentioned in known-imports
+                                database.'''))
+        parser.add_option("--no-expand-known", dest="expand_known",
+                          action='store_false',
+                          help=hfmt('''
+                                (Default) Scan only modules listed explicitly
+                                on the command line.'''))
+    options, args = parse_args(addopts, import_format_params=True)
+    if options.expand_known:
+        db = ImportDB.get_default(".")
+        known = db.known_imports.imports
+        args += sorted(set(
+                filter(None, [i.split.module_name for i in known])))
+    bad_module_names = []
+    for module_name in args:
+        module = ModuleHandle(module_name)
+        try:
+            imports = module.exports
+        except Exception as e:
+            logger.warning("couldn't get exports for %s; ignoring: %s: %s",
+                           module, type(e).__name__, e)
+            bad_module_names.append(module_name)
+            continue
+        if not imports:
+            continue
+        if options.ignore_known:
+            db = ImportDB.get_default(module.__file__)
+            imports = imports.without_imports(db, strict=False)
+        sys.stdout.write(imports.pretty_print(
+                allow_conflicts=True, params=options.params))
+    if bad_module_names:
+        print >>sys.stderr, "collect-exports: there were problems with: %s" % (
+            ' '.join(bad_module_names))
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

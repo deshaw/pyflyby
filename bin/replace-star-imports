@@ -16,20 +16,21 @@ stdin is not a tty, read from stdin and write to stdout.
 Only top-level import statements are touched.
 
 """
+# pyflyby/replace-star-imports
+# Copyright (C) 2012, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import filename_args, parse_args
+from   pyflyby.cmdline          import parse_args, process_actions
 from   pyflyby.imports2s        import replace_star_imports
 
 def main():
     options, args = parse_args(
         import_format_params=True, modify_action_params=True)
-    @options.action
     def modify(x):
         return replace_star_imports(x, params=options.params)
-    for filename in filename_args(args):
-        modify(filename)
+    process_actions(args, options.actions, modify)
 
 
 if __name__ == '__main__':

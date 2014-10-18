@@ -1,0 +1,15 @@
+# pyflyby/MANIFEST.in
+
+# License for THIS FILE ONLY: CC0 Public Domain Dedication
+# http://creativecommons.org/publicdomain/zero/1.0/
+
+recursive-include lib *
+recursive-include libexec *
+recursive-include bin *
+recursive-include etc *
+recursive-include doc *
+recursive-include tests *
+include .pyflyby tox.ini MANIFEST.in
+global-exclude .gitignore
+global-exclude .TRASH/* .TRASH/*/* .TRASH/*/*/*
+global-exclude *.pyc

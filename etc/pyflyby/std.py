@@ -1,6 +1,4 @@
 import ConfigParser
-from   Crypto.Cipher            import AES
-import IPython
 import Queue
 import UserDict
 from   UserDict                 import DictMixin
@@ -16,8 +14,6 @@ from   base64                   import b64decode, b64encode
 import binascii
 from   binascii                 import hexlify, unhexlify
 import bisect
-import blist
-from   blist                    import sorteddict
 import bootstrap
 import bz2
 import cPickle
@@ -32,12 +28,9 @@ import contextlib
 from   contextlib               import closing, contextmanager, nested
 import copy
 import copy_reg
-import cssutils
 import csv
 import ctypes
 import datetime
-import dateutil
-import dateutil.parser
 import decimal
 from   decimal                  import Decimal
 import decorator
@@ -106,7 +99,6 @@ import itertools
 from   itertools                import (chain, count, groupby, imap, islice,
                                         izip, product, repeat, tee)
 import json
-import kerberos
 from   keyword                  import iskeyword
 import linecache
 import locale
@@ -118,7 +110,6 @@ import matplotlib
 import mimetypes
 import misc.double
 import mmap
-import mutagen
 import new
 import numbers
 from   numbers                  import (Complex, Integral, Number, Rational,
@@ -138,21 +129,14 @@ from   os.path                  import (abspath, basename, dirname, exists,
                                         getsize, isfile)
 import parser
 import pdb
-import perl
 import pickle
 from   pickle                   import PickleError, UnpicklingError
 import pickletools
 import pkg_resources
 import pprint
-import pstats
 import psutil
 import pwd
 from   pwd                      import getpwall, getpwnam, getpwuid
-import pyflyby
-import pylab
-import pyodbc
-import pysvn
-import pytz
 import random
 from   random                   import shuffle
 import re
@@ -284,9 +268,6 @@ from   socket                   import (AF_APPLETALK, AF_ASH, AF_ATMPVC,
                                         htons, inet_aton, inet_ntoa, inet_ntop,
                                         inet_pton, ntohl, ntohs,
                                         setdefaulttimeout, socketpair)
-import sqlalchemy
-import sqlalchemy.orm
-import sqlalchemy.sql
 import sqlite3
 import ssl
 import stat
@@ -299,7 +280,6 @@ import subprocess
 from   subprocess               import (CalledProcessError, PIPE, Popen, call,
                                         check_call)
 import symbol
-import sympy
 import sys
 from   sys                      import exit, getsizeof, stderr, stdout
 import tempfile
@@ -333,10 +313,6 @@ from   weakref                  import (CallableProxyType, ProxyType,
                                         ReferenceType, WeakKeyDictionary,
                                         WeakValueDictionary, getweakrefcount,
                                         getweakrefs)
-import xlrd
 from   xml.dom                  import minidom
 import xml.parsers.expat
-import yaml
-from   yaml                     import (MarkedYAMLError, YAMLError, YAMLObject,
-                                        load)
 import zlib

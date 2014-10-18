@@ -1,15 +1,19 @@
+# pyflyby/importstmt.py.
+# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 import ast
-from   collections              import defaultdict, namedtuple
+from   collections              import namedtuple
 
-from   pyflyby.file             import Filename
 from   pyflyby.flags            import CompilerFlags
 from   pyflyby.format           import FormatParams, pyfill
-from   pyflyby.parse            import PythonBlock, PythonStatement
-from   pyflyby.util             import (Inf, cached_attribute, dotted_prefixes,
-                                        longest_common_prefix, stable_unique)
+from   pyflyby.idents           import is_identifier
+from   pyflyby.parse            import PythonStatement
+from   pyflyby.util             import (Inf, cached_attribute,
+                                        longest_common_prefix)
+
 
 class ImportFormatParams(FormatParams):
     align_imports = True
@@ -45,9 +49,6 @@ class NonImportStatementError(TypeError):
     Unexpectedly got a statement that wasn't an import.
     """
 
-class ConflictingImportsError(ValueError):
-    pass
-
 ImportSplit = namedtuple("ImportSplit",
                          "module_name member_name import_as")
 """
@@ -78,14 +79,22 @@ class Import(object):
       >>> Import("import   foo . bar  as  baz")
       Import('from foo import bar as baz')
 
+      >>> Import("import   foo . bar  as  bar")
+      Import('from foo import bar')
+
+      >>> Import("foo.bar")
+      Import('from foo import bar')
+
     """
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, ImportSplit):
             return cls.from_split(arg)
-        if isinstance(arg, (ImportStatement, PythonStatement, str)):
-            return cls.from_statement(arg)
+        if isinstance(arg, (ImportStatement, PythonStatement)):
+            return cls._from_statement(arg)
+        if isinstance(arg, str):
+            return cls._from_identifier_or_statement(arg)
         raise TypeError
 
     @classmethod
@@ -100,7 +109,7 @@ class Import(object):
         return self
 
     @classmethod
-    def from_statement(cls, statement):
+    def _from_statement(cls, statement):
         """
         @type statement:
           L{ImportStatement} or convertible (L{PythonStatement}, C{str})
@@ -114,11 +123,34 @@ class Import(object):
                 "Got %d imports instead of 1 in %r" % (len(imports), statement))
         return imports[0]
 
+    @classmethod
+    def _from_identifier_or_statement(cls, arg):
+        """
+        Parse either a raw identifier or a statement.
+
+          >>> Import._from_identifier_or_statement('foo.bar.baz')
+          Import('from foo.bar import baz')
+
+          >>> Import._from_identifier_or_statement('import foo.bar.baz')
+          Import('import foo.bar.baz')
+
+        @rtype:
+          L{Import}
+        """
+        if is_identifier(arg, dotted=True):
+            return cls.from_parts(arg, arg.split('.')[-1])
+        else:
+            return cls._from_statement(arg)
+
     @cached_attribute
     def split(self):
         """
-        Split this L{Import} into C{module_name}, C{member_name},
-        C{import_as}.
+        Split this L{Import} into a C{ImportSplit} which represents the
+        token-level C{module_name}, C{member_name}, C{import_as}.
+
+        Note that at the token level, C{import_as} can be C{None} to represent
+        that the import statement doesn't have an "as ..." clause, whereas the
+        C{import_as} attribute on an C{Import} object is never C{None}.
 
           >>> Import.from_parts(".foo.bar", "bar").split
           ImportSplit(module_name='.foo', member_name='bar', import_as=None)
@@ -252,6 +284,10 @@ class Import(object):
         return hash(self._data)
 
     def __cmp__(self, other):
+        if self is other:
+            return 0
+        if not isinstance(other, Import):
+            return NotImplemented
         return cmp(self._data, other._data)
 
 
@@ -265,14 +301,14 @@ class ImportStatement(object):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, (PythonStatement, str)):
-            return cls.from_statement(arg)
+            return cls._from_statement(arg)
         if isinstance(arg, (ast.ImportFrom, ast.Import)):
-            return cls.from_ast_node(arg)
+            return cls._from_ast_node(arg)
         if isinstance(arg, Import):
-            return cls.from_imports([arg])
+            return cls._from_imports([arg])
         if isinstance(arg, (tuple, list)) and len(arg):
             if isinstance(arg[0], Import):
-                return cls.from_imports(arg)
+                return cls._from_imports(arg)
         raise TypeError
 
     @classmethod
@@ -297,24 +333,24 @@ class ImportStatement(object):
         return self
 
     @classmethod
-    def from_statement(cls, statement):
+    def _from_statement(cls, statement):
         """
-          >>> ImportStatement.from_statement("from foo  import bar, bar2, bar")
+          >>> ImportStatement._from_statement("from foo  import bar, bar2, bar")
           ImportStatement('from foo import bar, bar2, bar')
 
-          >>> ImportStatement.from_statement("from foo  import bar as bar")
+          >>> ImportStatement._from_statement("from foo  import bar as bar")
           ImportStatement('from foo import bar as bar')
 
-          >>> ImportStatement.from_statement("from foo.bar  import baz")
+          >>> ImportStatement._from_statement("from foo.bar  import baz")
           ImportStatement('from foo.bar import baz')
 
-          >>> ImportStatement.from_statement("import  foo.bar")
+          >>> ImportStatement._from_statement("import  foo.bar")
           ImportStatement('import foo.bar')
 
-          >>> ImportStatement.from_statement("from .foo  import bar")
+          >>> ImportStatement._from_statement("from .foo  import bar")
           ImportStatement('from .foo import bar')
 
-          >>> ImportStatement.from_statement("from .  import bar, bar2")
+          >>> ImportStatement._from_statement("from .  import bar, bar2")
           ImportStatement('from . import bar, bar2')
 
         @type statement:
@@ -323,10 +359,10 @@ class ImportStatement(object):
           L{ImportStatement}
         """
         statement = PythonStatement(statement)
-        return cls.from_ast_node(statement.ast_node)
+        return cls._from_ast_node(statement.ast_node)
 
     @classmethod
-    def from_ast_node(cls, node):
+    def _from_ast_node(cls, node):
         """
         Construct an L{ImportStatement} from an L{ast} node.
 
@@ -334,8 +370,16 @@ class ImportStatement(object):
           L{ImportStatement}
         """
         if isinstance(node, ast.ImportFrom):
-            assert isinstance(node.module, str)
-            fromname = '.' * node.level + node.module
+            if isinstance(node.module, str):
+                module = node.module
+            elif node.module is None:
+                # In python2.7, ast.parse("from . import blah") yields
+                # node.module = None.  In python2.6, it's the empty string.
+                module = ''
+            else:
+                raise TypeError("unexpected node.module=%s"
+                                % type(node.module).__name__)
+            fromname = '.' * node.level + module
         elif isinstance(node, ast.Import):
             fromname = None
         else:
@@ -344,7 +388,7 @@ class ImportStatement(object):
         return cls.from_parts(fromname, aliases)
 
     @classmethod
-    def from_imports(cls, imports):
+    def _from_imports(cls, imports):
         """
         Construct an L{ImportStatement} from a sequence of C{Import}s.  They
         must all have the same C{fromname}.
@@ -429,444 +473,18 @@ class ImportStatement(object):
     def _data(self):
         return (self.fromname, self.aliases)
 
+    def __str__(self):
+        return self.pretty_print(FormatParams(max_line_length=Inf)).rstrip()
+
     def __repr__(self):
-        # We could also return "%s.from_parts%r" % (type(self).__name__,
-        # self._data); but returning pretty-printed version is friendlier.
-        return "%s(%r)" % (type(self).__name__, self.pretty_print(
-                FormatParams(max_line_length=Inf)).rstrip())
+        return "%s(%r)" % (type(self).__name__, str(self))
+
+    def __cmp__(self, other):
+        if self is other:
+            return 0
+        if not isinstance(other, ImportStatement):
+            return NotImplemented
+        return cmp(self._data, other._data)
 
     def __hash__(self):
         return hash(self._data)
-
-    def __cmp__(self, other):
-        return cmp(self._data, other._data)
-
-
-class NoSuchImportError(ValueError):
-    pass
-
-class Imports(object):
-    """
-    Representation of a set of imports organized into import statements.
-    """
-
-    def __new__(cls, arg):
-        if isinstance(arg, cls):
-            return arg
-        if isinstance(arg, (PythonBlock, Filename, str)):
-            return cls.from_code(arg)
-        if isinstance(arg, (tuple, list)) and len(arg):
-            if isinstance(arg[0], Import):
-                return cls.from_imports(arg)
-            if isinstance(arg[0], ImportStatement):
-                return cls.from_statements(arg)
-            if isinstance(arg[0], PythonStatement):
-                return cls.from_pystatements(arg)
-            if isinstance(arg[0], (PythonBlock, Filename, str)):
-                return cls.from_code(arg)
-        raise TypeError
-
-    @classmethod
-    def from_imports(cls, imports, exclude_imports=()):
-        """
-        @type imports:
-          Sequence of L{Imports}
-        @type exclude_imports
-          Sequence of L{Imports}
-        @rtype:
-          L{Imports}
-        """
-        self = object.__new__(cls)
-        # Keep track of excluded imports.  The reason we explicitly keep track
-        # of exclusions is for the sake of by_fullname_or_import_as.  For
-        # example, consider the following import statements:
-        #   from foo1 import bar1
-        #   from foo2 import bar2
-        # __remove__:
-        #   import foo2
-        # We want by_fullname_or_import_as to include "import foo1" but not
-        # "foo2".
-        self.exclude_imports = frozenset(Import(imp) for imp in exclude_imports)
-        self.orig_imports = tuple(Import(imp) for imp in imports
-                                  if imp not in self.exclude_imports)
-        return self
-
-    @classmethod
-    def from_statements(cls, statements):
-        """
-        @type statements:
-          Sequence of L{ImportStatement}s
-        @rtype:
-          L{Imports}
-        """
-        # Flatten into a sequence of C{Import}s.  We'll rebuild as
-        # C{ImportStatement}s later after merging canonically.
-        imports = [
-            imp
-            for stmt in statements
-            for imp in stmt.imports]
-        return cls.from_imports(imports)
-
-    @classmethod
-    def from_pystatements(cls, statements, filter_nonimports=False):
-        """
-        @type statements:
-          Sequence of L{PythonStatement}s
-        @rtype:
-          L{Imports}
-        """
-        statements = [PythonStatement(stmt) for stmt in statements]
-        # Ignore comments/blanks.
-        statements = [statement for statement in statements
-                      if not statement.is_comment_or_blank]
-        # Check for non-imports.
-        if filter_nonimports:
-            statements = [statement for statement in statements
-                          if statement.is_import]
-        else:
-            for statement in statements:
-                if not statement.is_import:
-                    raise NonImportStatementError(
-                        "Got non-import statement %r" % (statement,))
-        # Convert to sequence of C{ImportStatement}s.
-        import_statements = [ImportStatement(statement)
-                             for statement in statements]
-        return cls.from_statements(import_statements)
-
-    @classmethod
-    def from_code(cls, codeblocks, filter_nonimports=False):
-        """
-        @type codeblocks:
-          sequence of L{PythonBlock}s (or convertibles such as C{Filename},
-          C{str})
-        @rtype:
-          L{Imports}
-        """
-        if not isinstance(codeblocks, (tuple, list)):
-            codeblocks = (codeblocks,)
-        codeblocks = [PythonBlock(b) for b in codeblocks]
-        statements = [s for b in codeblocks for s in b.statements]
-        return cls.from_pystatements(statements, filter_nonimports)
-
-    def with_imports(self, new_imports):
-        """
-        Return a copy of self with new imports added.
-
-          >>> imp = Import('import m.t2a as t2b')
-          >>> Imports('from m import t1, t2, t3').with_imports([imp])
-          Imports([ImportStatement('from m import t1, t2, t2a as t2b, t3')])
-
-        @type new_imports:
-          Sequence of L{Import} (or convertibles)
-        @rtype:
-          L{Imports}
-        """
-        if isinstance(new_imports, Imports):
-            new_imports = new_imports.imports
-        new_imports = tuple(Import(imp) for imp in new_imports)
-        return type(self).from_imports(self.orig_imports + new_imports,
-                                       exclude_imports=self.exclude_imports)
-
-    def without_imports(self, import_exclusions, strict=True):
-        """
-        Return a copy of self without the given imports indexed by
-        C{import_as}.
-
-          >>> imports = Imports('from m import t1, t2, t3, t4')
-          >>> imports.without_imports(['from m import t3'])
-          Imports([ImportStatement('from m import t1, t2, t4')])
-
-        @type import_exclusions:
-          Sequence of L{Import}
-        @param strict:
-          If C{True}, raise L{NoSuchImportError} if any import in
-          C{import_exclusions} is not in C{self}.  If C{False}, ignore imports
-          in C{import_exclusions} not in C{self}.
-        @rtype:
-          L{Imports}
-        """
-        if isinstance(import_exclusions, Imports):
-            import_exclusions = import_exclusions.imports
-        import_exclusions = set(Import(imp) for imp in import_exclusions)
-        imports_removed = set()
-        new_imports = []
-        for imp in self.orig_imports:
-            if imp in import_exclusions:
-                imports_removed.add(imp)
-                continue
-            new_imports.append(imp)
-        if strict:
-            imports_not_removed = import_exclusions - imports_removed
-            if imports_not_removed:
-                raise NoSuchImportError(
-                    "Import database does not contain import(s) %r"
-                    % (sorted(imports_not_removed),))
-        return type(self).from_imports(
-            new_imports,
-            exclude_imports=(self.exclude_imports | import_exclusions))
-
-    @cached_attribute
-    def _by_module_name(self):
-        """
-        @return:
-          (mapping from name to __future__ imports,
-           mapping from name to non-'from' imports,
-           mapping from name to 'from' imports)
-        """
-        ftr_imports = defaultdict(set)
-        pkg_imports = defaultdict(set)
-        frm_imports = defaultdict(set)
-        for imp in self.orig_imports:
-            module_name, member_name, import_as = imp.split
-            if module_name is None:
-                pkg_imports[member_name].add(imp)
-            elif module_name == '__future__':
-                ftr_imports[module_name].add(imp)
-            else:
-                frm_imports[module_name].add(imp)
-        return tuple(
-            dict( (k, frozenset(v))
-                  for k, v in imports.iteritems())
-            for imports in [ftr_imports, pkg_imports, frm_imports])
-
-    def get_statements(self, separate_from_imports=True):
-        """
-        Canonicalized L{ImportStatement}s.
-        These have been merged by module and sorted.
-
-        @rtype:
-          C{tuple} of L{ImportStatement}s
-        """
-        groups = self._by_module_name
-        if not separate_from_imports:
-            def union_dicts(*dicts):
-                result = {}
-                for label, dict in enumerate(dicts):
-                    for k, v in dict.iteritems():
-                        result[(k, label)] = v
-                return result
-            groups = [groups[0], union_dicts(*groups[1:])]
-        return tuple(
-            ImportStatement(sorted(imports))
-            for importgroup in groups
-            for _, imports in sorted(importgroup.items()))
-
-    @cached_attribute
-    def statements(self):
-        """
-        Canonicalized L{ImportStatement}s.
-        These have been merged by module and sorted.
-
-        @rtype:
-          C{tuple} of L{ImportStatement}s
-        """
-        return self.get_statements(separate_from_imports=True)
-
-    @cached_attribute
-    def imports(self):
-        """
-        Canonicalized imports, in the same order as C{self.statements}.
-
-        @rtype:
-          C{tuple} of L{Import}s
-        """
-        return tuple(
-            imp
-            for importgroup in self._by_module_name
-            for imports in importgroup.values()
-            for imp in sorted(imports))
-
-    @cached_attribute
-    def by_import_as(self):
-        """
-        Map from C{import_as} to L{Import}.
-
-          >>> Imports('from aa.bb import cc as dd').by_import_as
-          {'dd': (Import('from aa.bb import cc as dd'),)}
-
-        @rtype:
-          C{dict} mapping from C{str} to tuple of L{Import}s
-        """
-        d = defaultdict(list)
-        for imp in self.orig_imports:
-            d[imp.import_as].append(imp)
-        return dict( (k, tuple(stable_unique(v)))
-                     for k, v in d.iteritems() )
-
-    @cached_attribute
-    def by_fullname_or_import_as(self):
-        """
-        Map from C{fullname} and C{import_as} to L{Import}s.
-
-          >>> import pprint
-          >>> db = Imports('from aa.bb import cc as dd')
-          >>> pprint.pprint(db.by_fullname_or_import_as)
-          {'aa': (Import('import aa'),),
-           'aa.bb': (Import('import aa.bb'),),
-           'dd': (Import('from aa.bb import cc as dd'),)}
-
-        @rtype:
-          C{dict} mapping from C{str} to tuple of L{Import}s
-        """
-        d = defaultdict(set)
-        for imp in self.orig_imports:
-            # Given an import like "from foo.bar import quux as QUUX", add the
-            # following entries:
-            #   - "QUUX"         => "from foo.bar import quux as QUUX"
-            #   - "foo.bar"      => "import foo.bar"
-            #   - "foo"          => "import foo"
-            # We don't include an entry labeled "quux" because the user has
-            # implied he doesn't want to pollute the global namespace with
-            # "quux", only "QUUX".
-            d[imp.import_as].add(imp)
-            for prefix in dotted_prefixes(imp.fullname)[:-1]:
-                d[prefix].add(Import.from_parts(prefix, prefix))
-        return dict( (k, tuple(sorted(v - self.exclude_imports)))
-                     for k, v in d.iteritems())
-
-    @cached_attribute
-    def member_names(self):
-        """
-        Map from parent module/package C{fullname} to known member names.
-
-          >>> db = Imports("import numpy.linalg.info\\nfrom sys import exit as EXIT")
-          >>> import pprint
-          >>> pprint.pprint(db.member_names)
-          {'': ('EXIT', 'numpy', 'sys'),
-           'numpy': ('linalg',),
-           'numpy.linalg': ('info',),
-           'sys': ('exit',)}
-
-        This is used by the autoimporter module for implementing tab completion.
-
-        @rtype:
-          C{dict} mapping from C{str} to tuple of C{str}
-        """
-        d = defaultdict(set)
-        for imp in self.orig_imports:
-            if '.' not in imp.import_as:
-                d[""].add(imp.import_as)
-            prefixes = dotted_prefixes(imp.fullname)
-            d[""].add(prefixes[0])
-            for prefix in prefixes[1:]:
-                splt = prefix.rsplit(".", 1)
-                d[splt[0]].add(splt[1])
-        return dict( (k, tuple(sorted(v)))
-                     for k, v in d.iteritems() )
-
-    @cached_attribute
-    def conflicting_imports(self):
-        """
-        Returns imports that conflict with each other.
-
-          >>> Imports('import b\\nfrom f import a as b\\n').conflicting_imports
-          ('b',)
-
-          >>> Imports('import b\\nfrom f import a\\n').conflicting_imports
-          ()
-
-        @rtype:
-          C{bool}
-        """
-        return tuple(
-            k
-            for k, v in self.by_import_as.iteritems()
-            if len(v) > 1 and k != "*")
-
-    @cached_attribute
-    def flags(self):
-        """
-        If this contains __future__ imports, then the bitwise-ORed of the
-        compiler_flag values associated with the features.  Otherwise, 0.
-        """
-        imports = self._by_module_name[0].get("__future__", [])
-        return CompilerFlags(*[imp.flags for imp in imports])
-
-    def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, list(self.statements))
-
-    def pretty_print(self, params=ImportFormatParams(), allow_conflicts=False):
-        """
-        Pretty-print a block of import statements into a single string.
-
-        @type params:
-          L{ImportFormatParams}
-        @rtype:
-          C{str}
-        """
-        if not allow_conflicts and self.conflicting_imports:
-            raise ConflictingImportsError(
-                "Refusing to pretty-print because of conflicting imports: " +
-                '; '.join(
-                    "%r imported as %r" % (
-                        [imp.fullname for imp in self.by_import_as[i]], i)
-                    for i in self.conflicting_imports))
-        from_spaces = max(1, params.from_spaces)
-        def do_align(statement):
-            return statement.fromname != '__future__' or params.align_future
-        def pp(statement, import_column):
-            if do_align(statement):
-                return statement.pretty_print(
-                    params=params, import_column=import_column,
-                    from_spaces=from_spaces)
-            else:
-                return statement.pretty_print(
-                    params=params, import_column=None, from_spaces=1)
-        statements = self.get_statements(
-            separate_from_imports=params.separate_from_imports)
-        def isint(x): return isinstance(x, int) and not isinstance(x, bool)
-        if not statements:
-            import_column = None
-        elif isinstance(params.align_imports, bool):
-            if params.align_imports:
-                fromimp_stmts = [
-                    s for s in statements if s.fromname and do_align(s)]
-                if fromimp_stmts:
-                    import_column = (
-                        max(len(s.fromname) for s in fromimp_stmts)
-                        + from_spaces + 5)
-                else:
-                    import_column = None
-            else:
-                import_column = None
-        elif isinstance(params.align_imports, int):
-            import_column = params.align_imports
-        elif isinstance(params.align_imports, (tuple, list, set)):
-            # If given a set of candidate alignment columns, then try each
-            # alignment column and pick the one that yields the fewest number
-            # of output lines.
-            if not all(isinstance(x, int) for x in params.align_imports):
-                raise TypeError("expected set of integers; got %r"
-                                % (params.align_imports,))
-            candidates = sorted(set(params.align_imports))
-            if len(candidates) == 0:
-                raise ValueError("list of zero candidate alignment columns specified")
-            elif len(candidates) == 1:
-                # Optimization.
-                import_column = next(iter(candidates))
-            else:
-                def argmin(map):
-                    items = iter(sorted(map.items()))
-                    min_k, min_v = next(items)
-                    for k, v in items:
-                        if v < min_v:
-                            min_k = k
-                            min_v = v
-                    return min_k
-                def count_lines(import_column):
-                    return sum(
-                        s.pretty_print(
-                            params=params, import_column=import_column,
-                            from_spaces=from_spaces).count("\n")
-                        for s in statements)
-                # Construct a map from alignment column to total number of
-                # lines.
-                col2length = dict((c, count_lines(c)) for c in candidates)
-                # Pick the column that yields the fewest lines.  Break ties by
-                # picking the smaller column.
-                import_column = argmin(col2length)
-        else:
-            raise TypeError(
-                "Imports.pretty_print(): unexpected params.align_imports type %s"
-                % (type(params.align_imports).__name__,))
-        return ''.join(pp(statement, import_column) for statement in statements)

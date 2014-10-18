@@ -1,75 +1,190 @@
-Pyflyby is a set of tools that makes Python programming easier.
-
-For editing python source code:
-  * find-imports prints out how to import a particular symbol.
-  * reformat-imports reformats the 'import' blocks.
-  * tidy-imports adds missing 'import's, removes unused 'import's, and also
-    reformats 'import' blocks.
-  * collect-imports prints out all the imports in a given set of files.
+Pyflyby is a set of Python programming productivity tools.
 
 For IPython interaction:
   * autoimport automatically imports symbols when needed.
 
-Import Libraries
-================
+For editing python source code:
+  * tidy-imports:      adds missing 'import's, removes unused 'import's, and
+                       also reformats 'import' blocks.
+  * find-imports:      prints to stdout how to import a particular symbol.
+  * reformat-imports:  reformats 'import' blocks 
+  * collect-imports:   prints out all the imports in a given set of files.
+  * collect-exports:   prints out definitions in a given set of modules, in the
+                       form of import statements.
+  * transform-imports: renames imported modules/functions.
 
-Quick start:
-  To add known imports, edit ~/.pyflyby/known_imports/my_import_lib.py
-  To add exclusions, edit ~/.pyflyby/known_imports/__remove__.py
+Quick start: Autoimporter
+=========================
 
-Detailed answer:
+To install, add to your IPython startup::
+  from pyflyby.autoimport import install_auto_importer
+  install_auto_importer()
+
+
+Example:
+
+  $ ipython
+
+  In [1]: re.search("[a-z]+", "....hello...").group(0)
+  [AUTOIMPORT] import re
+  Out[1]: 'hello'
+
+  In [2]: chisqprob(arange(5), 2)
+  [AUTOIMPORT] from numpy import arange
+  [AUTOIMPORT] from scipy.stats import chisqprob
+  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+
+
+Quick start: tidy-imports
+=========================
+
+To use tidy-imports, just specify the filename(s) to tidy.
+
+For example:
+
+$ echo 're.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)' > foo.py
+
+$ tidy-imports foo.py
+  --- /tmp/foo.py
+  +++ /tmp/foo.py
+  @@ -1 +1,9 @@
+  +from __future__ import absolute_import, division, with_statement
+  +
+  +from   numpy                    import arange
+  +from   scipy.stats              import chisqprob
+  +import re
+  +
+   re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
+
+  Replace /tmp/foo.py? [y/N]
+
+
+Quick start: import libraries
+=============================
+
+Create a file named .pyflyby with lines such as::
+    from mypackage.mymodule import MyClass, my_function
+    import anotherpackage.anothermodule
+
+You can put this file in your home directory or in the same directory as your
+*.py files.
+
+
+Details: import libraries
+=========================
 
 Pyflyby uses "import libraries" that tell how to import a given symbol.
 
-An import library file is simply a .py source file containing 'import' (or
+An import library file is simply a python source file containing 'import' (or
 'from ... import ...') lines.  These can be generated automatically with
-collect-imports.
+collect-imports and collect-exports.
 
 Known imports
 -------------
 
-Find-imports, tidy-imports, and autoimport consult the "known_imports"
-database to figure out where to get an import.  For example, if the
-known_imports database contains::
+Find-imports, tidy-imports, and autoimport consult the database of known
+imports to figure out where to get an import.  For example, if the
+imports database contains::
     from numpy import arange, NaN
 then when you type the following in IPython::
     print arange(10)
 the autoimporter would automatically execute "from numpy import arange".
 
-The known_imports database comprises multiple files.  This makes it easy to
-have project-specific known_imports along with global and per-user defaults.
+The database can be one file or multiple files.  This makes it easy to have
+project-specific known_imports along with global and per-user defaults.
 
-The PYFLYBY_KNOWN_IMPORTS_PATH environment variable tells which files to read.
+The PYFLYBY_PATH environment variable specifies which files to read.
 This is a colon-separated list of filenames or directory names.  The default
 is:
-  PYFLYBY_KNOWN_IMPORTS_PATH=~/.pyflyby/known_imports:$PYFLYBY_DIR/share/pyflyby/known_imports
+  PYFLYBY_PATH=/etc/pyflyby:~/.pyflyby:.../.pyflyby
 
 If you set
-  PYFLYBY_KNOWN_IMPORTS_PATH=/foo1/bar1:/foo2/bar2
+  PYFLYBY_PATH=/foo1/bar1:/foo2/bar2
 then this replaces the default.
-If you set
-  PYFLYBY_KNOWN_IMPORTS_PATH=/foo1/bar1:/foo2/bar2:-
-then this adds to the default.
 
-$PYFLYBY_KNOWN_IMPORTS_PATH is searched recursively.  Filenames or
-subdirectories beginning with '.' are ignored.
+You can use a hyphen to include the default in the path.  If you set
+  PYFLYBY_PATH=/foo1/bar1:-:/foo2/bar2
+then this reads /foo1/bar1, then the default locations, then /foo2/bar2.
+
+In $PYFLYBY_PATH, ".../.pyflyby" means that all ancestor directories are
+searched for a member named ".pyflyby".
+
+For example, suppose the following files exist:
+  /etc/pyflyby/stuff.py
+  /u/quarl/.pyflyby/blah1.py
+  /u/quarl/.pyflyby/more/blah2.py
+  /proj/share/mypythonstuff/.pyflyby
+  /proj/share/mypythonstuff/foo/bar/.pyflyby/baz.py
+  /.pyflyby
+
+Further, suppose:
+  * /proj is on a separate file system from /.
+  * $HOME=/u/quarl
+
+Then "tidy-imports /proj/share/mypythonstuff/foo/bar/quux/zot.py" will by
+default use the following:
+  /etc/pyflyby/stuff.py
+  /u/quarl/.pyflyby/blah1.py
+  /u/quarl/.pyflyby/more/blah2.py
+  /proj/share/mypythonstuff/foo/bar/.pyflyby/baz.py
+  /proj/share/mypythonstuff/.pyflyby (a file)
+
+Notes:
+  * /.pyflyby is not included, because traversal stops at file system
+    boundaries, and in this example, /proj is on a different file system than
+    /.
+  * .pyflyby (in $HOME or near the target file) can be a file or a directory.
+    If it is a directory, then it is recursively searched for *.py files.
+  * The order usually doesn't matter, but if there are "forget" instructions
+    (see below), then the order matters.  In the default $PYFLYBY_PATH,
+    .../.pyflyby is placed last so that per-directory configuration can
+    override per-user configuration, which can override systemwide
+    configuration.
 
 
-Exclusions
-----------
+Forgetting imports
+------------------
 
-As a special case, files named __remove__.py contain imports to *remove* from
-the import library.  This is useful if you want to use a set of imports
-maintained by someone else except for a few particular imports.
+Occasionally you may have reason to "forget" entries from the database of
+known imports.
+
+You can put the following in any file reachable from $PYFLYBY_PATH:
+
+  __forget_imports__ = ["from numpy import NaN"]
+
+This is useful if you want to use a set of imports maintained by someone else
+except for a few particular imports.
+
+Entries in $PYFLYBY_PATH are processed left-to-right in the order specified,
+so put the files containing these at the end of your $PYFLYBY_PATH.  By
+default, tidy-imports and friends process /etc/pyflyby, then ~/.pyflyby,
+then the per-directory .pyflyby.
 
 
 Mandatory imports
 -----------------
 
-The PYFLYBY_MANDATORY_IMPORTS_PATH environment variable lists directories
-containing imports that tidy-imports adds to every file (unless
---no-add-mandatory).  This will generally contain __future__ imports that one
-wishes to standardize across a codebase.
+Within a certain project you may have a policy to always certain imports.  For
+example, maybe you always want to do "from __future__ import division" in all
+files.
+
+You can put the following in any file reachable from $PYFLYBY_PATH:
+
+  __mandatory_imports__ = ["from __future__ import division"]
+
+To undo mandatory imports inherited from other .pyflyby files, use
+__forget_imports__.
+
+
+Canonicalize imports
+--------------------
+
+Sometimes you want every run of tidy-imports to automatically rename an import
+to a new name.
+
+You can put the following in any file reachable from $PYFLYBY_PATH:
+
+  __canonical_imports__ = {"oldmodule.oldfunction": "newmodule.newfunction"}
 
 
 Emacs support
@@ -86,4 +201,13 @@ Emacs support
 Authorship
 ==========
 
-Pyflyby is written by Karl Chen <Karl.Chen@quarl.org>
+Pyflyby is written by Karl Chen <quarl@8166.clguba.z.quarl.org>
+
+
+License
+=======
+
+Pyflyby is released under a very permissive license, the MIT/X11 license; see
+LICENSE.txt.
+
+
