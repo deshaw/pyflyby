@@ -233,23 +233,46 @@ class ImportDB(object):
         mandatory_imports_filenames = ()
         if "SUPPORT DEPRECATED BEHAVIOR":
             PYFLYBY_PATH = _get_env_var("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH)
-            # If the old deprecated environment variables are set, then heed them.
-            # Note that we still calculate the erstwhile default values, even
-            # though they're no longer the defaults, in order to still allow the
-            # "-" in the variable.
+            # If the old deprecated environment variables are set, then heed
+            # them.
             if os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"):
+                # Use PYFLYBY_PATH as the default for
+                # PYFLYBY_KNOWN_IMPORTS_PATH.  Note that the default is
+                # relevant even though we only enter this code path when the
+                # variable is set to anything, because the env var can
+                # reference "-" to include the default.
+                # Before pyflyby version 0.8, the default value would have
+                # been
+                #   [d/"known_imports" for d in PYFLYBY_PATH]
+                # Instead of using that, we just use PYFLYBY_PATH directly as
+                # the default.  This simplifies things and avoids need for a
+                # "known_imports=>." symlink for backwards compatibility.  It
+                # means that ~/.pyflyby/**/*.py (as opposed to only
+                # ~/.pyflyby/known_imports/**/*.py) would be included.
+                # Although this differs slightly from the old behavior, it
+                # matches the behavior of the newer PYFLYBY_PATH; matching the
+                # new behavior seems higher utility than exactly matching the
+                # old behavior.  Files under ~/.pyflyby/mandatory_imports will
+                # be included in known_imports as well, but that should not
+                # cause any problems.
+                default_path = PYFLYBY_PATH
+                # Expand $PYFLYBY_KNOWN_IMPORTS_PATH.
+                filenames = _get_python_path(
+                    "PYFLYBY_KNOWN_IMPORTS_PATH", default_path, target_dirname)
                 logger.debug(
                     "The environment variable PYFLYBY_KNOWN_IMPORTS_PATH is deprecated.  "
                     "Use PYFLYBY_PATH.")
-                filenames = _get_python_path(
-                    "PYFLYBY_KNOWN_IMPORTS_PATH",
-                    [d/"known_imports" for d in PYFLYBY_PATH],
-                    target_dirname)
             if os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH"):
+                # Compute the "default" path.
+                # Note that we still calculate the erstwhile default value,
+                # even though it's no longer the defaults, in order to still
+                # allow the "-" in the variable.
+                default_path = [
+                    os.path.join(d,"mandatory_imports") for d in PYFLYBY_PATH]
+                # Expand $PYFLYBY_MANDATORY_IMPORTS_PATH.
                 mandatory_imports_filenames = _get_python_path(
                     "PYFLYBY_MANDATORY_IMPORTS_PATH",
-                    [d/"mandatory_imports" for d in PYFLYBY_PATH],
-                    target_dirname)
+                    default_path, target_dirname)
                 logger.debug(
                     "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH is deprecated.  "
                     "Use PYFLYBY_PATH and write __mandatory_imports__=['...'] in your files.")
