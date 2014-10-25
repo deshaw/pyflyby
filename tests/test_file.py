@@ -32,17 +32,17 @@ def test_Filename_eqne_other_1():
 def test_Filename_abspath_1():
     old_cwd = os.getcwd()
     try:
-        os.chdir("/etc")
+        os.chdir("/dev")
         f = Filename("foo")
     finally:
         os.chdir(old_cwd)
-    assert f == Filename("/etc/foo")
+    assert f == Filename("/dev/foo")
 
 
 def test_Filename_normpath_1():
     old_cwd = os.getcwd()
     try:
-        os.chdir("/tmp")
+        os.chdir("/dev")
         f = Filename("../a/b/../c")
     finally:
         os.chdir(old_cwd)
