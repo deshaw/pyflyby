@@ -146,7 +146,7 @@ def ExcludeImplicitCwdFromPathCtx():
     """
     old_path = sys.path
     try:
-        sys.path = [p for p in sys.path if p != "."]
+        sys.path = [p for p in sys.path if p not in (".", "")]
         yield
     finally:
         sys.path[:] = old_path

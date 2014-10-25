@@ -9,7 +9,7 @@ import sys
 import types
 
 from   pyflyby.file             import FileText, Filename
-from   pyflyby.idents           import DottedIdentifier
+from   pyflyby.idents           import DottedIdentifier, is_identifier
 from   pyflyby.log              import logger
 from   pyflyby.util             import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, memoize, prefixes)
@@ -195,6 +195,7 @@ class ModuleHandle(object):
           C{tuple} of L{ModuleHandle}s
         """
         import pkgutil
+        # Get the list of top-level packages/modules using pkgutil.
         # We exclude "." from sys.path while doing so.  Python includes "." in
         # sys.path by default, but this is undesirable for autoimporting.  If
         # we autoimported random python scripts in the current directory, we
@@ -205,6 +206,12 @@ class ModuleHandle(object):
         with ExcludeImplicitCwdFromPathCtx():
             modlist = pkgutil.iter_modules(None)
             module_names = [t[1] for t in modlist]
+        # pkgutil includes all *.py even if the name isn't a legal python
+        # module name, e.g. if a directory in $PYTHONPATH has files named
+        # "try.py" or "123.py", pkgutil will return entries named "try" or
+        # "123".  Filter those out.
+        module_names = [m for m in module_names if is_identifier(m)]
+        # Canonicalize.
         return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
 
 
