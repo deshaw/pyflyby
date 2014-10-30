@@ -78,6 +78,7 @@ Tries to keep point in the same place."
          (exit-value (nth 0 result))
          (newtext (nth 1 result))
          (logtext (nth 2 result))
+         (logtext (replace-regexp-in-string "/dev/stdin: ?" "" logtext nil t))
          (nlogtext (if (= 0 (length logtext)) "" (concat "\n" logtext))))
     (if (= exit-value 0)
         ;; Process exited successfully.
