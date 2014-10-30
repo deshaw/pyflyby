@@ -430,7 +430,7 @@ class ImportDB(object):
                 Filename(f) for f in _mandatory_filenames_deprecated]
             forget_imports_blocks = []
             for filename in filenames:
-                if filename.base == "__remove__":
+                if filename.base == "__remove__.py":
                     forget_imports_blocks.append(filename)
                 elif "mandatory_imports" in str(filename).split("/"):
                     mandatory_imports_blocks.append(filename)
