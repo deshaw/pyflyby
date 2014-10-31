@@ -272,12 +272,7 @@ def interpret_namespaces(namespaces):
       C{list} of C{dict}
     """
     if namespaces is None:
-        ip = get_ipython_safe()
-        if ip:
-            namespaces = [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
-        else:
-            import __main__
-            namespaces = [__builtin__.__dict__, __main__.__dict__]
+        namespaces = get_global_namespaces()
     if isinstance(namespaces, dict):
         namespaces = [namespaces]
     if not isinstance(namespaces, list):
@@ -296,6 +291,21 @@ def interpret_namespaces(namespaces):
         seen.add(id(ns))
         result.append(ns)
     return result
+
+
+def get_global_namespaces():
+    """
+    Get the global interactive namespaces.
+
+    @rtype:
+      C{list} of C{dict}
+    """
+    ip = get_ipython_safe()
+    if ip:
+        return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
+    else:
+        import __main__
+        return [__builtin__.__dict__, __main__.__dict__]
 
 
 def symbol_needs_import(fullname, namespaces=None):
