@@ -1,5 +1,6 @@
 # -*- python -*-
 from   pyflyby._version         import __version__
+from   pyflyby.autoimport       import auto_eval
 from   pyflyby.cmdline          import (filename_args, hfmt, parse_args,
                                         process_actions, syntax)
 from   pyflyby.docxref          import find_bad_doc_cross_references

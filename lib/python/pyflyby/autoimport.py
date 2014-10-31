@@ -1241,6 +1241,107 @@ def auto_import(arg, namespaces=None):
         auto_import_symbol(fullname, namespaces)
 
 
+def auto_eval(arg, filename=None, mode=None,
+              flags=None, globals=None, locals=None):
+    """
+    Evaluate/execute the given code, automatically importing as needed.
+
+    C{auto_eval} will default the compilation C{mode} to "eval" if possible:
+      >>> auto_eval("b64decode('aGVsbG8=')") + "!"
+      [AUTOIMPORT] from base64 import b64decode
+      'hello!'
+
+    C{auto_eval} will default the compilation C{mode} to "exec" if the input
+    is not a single expression:
+      >>> auto_eval("if True: print b64decode('aGVsbG8=')")
+      [AUTOIMPORT] from base64 import b64decode
+      hello
+
+    @type arg:
+      C{str}, C{ast.AST}, C{code}, L{Filename}, L{FileText}, L{PythonBlock}
+    @param arg:
+      Code to evaluate.
+    @type filename:
+      C{str}
+    @param filename:
+      Filename for compilation error messages.  If C{None}, defaults to
+      C{arg.filename} if relevant, else C{"<stdin>"}.
+    @type mode:
+      C{str}
+    @param mode:
+      Compilation mode: "automatic", "exec", "single", or "eval".  "exec",
+      "single", and "eval" work as the built-in C{compile} function do.
+      If C{None}, then default to "eval" if the input is a string with a
+      single expression, else "exec".
+    @type flags:
+      C{CompilerFlags} or convertible (C{int}, C{list} of C{str}, etc.)
+    @param flags:
+      Compilation feature flags, e.g. ["division", "with_statement"].  If
+      C{None}, defaults to no flags.  Does not inherit flags from parent
+      scope.
+    @type globals:
+      C{dict}
+    @param globals:
+      Globals for evaluation.  If C{None}, use an empty dictionary.
+    @type locals:
+      C{dict}
+    @param locals:
+      Locals for evaluation.  If C{None}, use C{globals}.
+    @return:
+      Result of evaluation (for mode="eval")
+    """
+    # TODO: add a verbose=False option.
+    from .flags import CompilerFlags
+    from .file import Filename, FileText
+    from .parse import PythonBlock
+    flags = CompilerFlags(flags)
+    # Parse argument into AST (or code).
+    if isinstance(arg, (basestring, Filename, FileText, PythonBlock)):
+        block = PythonBlock(arg, filename=filename, flags=flags)
+        if block.filename:
+            filename = str(block.filename)
+        else:
+            filename = None
+        if mode is None and isinstance(arg, basestring):
+            # Figure out whether to use mode="exec" or mode="eval".  Parse
+            # it using mode="exec", then convert the result into mode="eval"
+            # if it makes sense to.
+            ast_node = block.parse(mode="exec")
+            if len(ast_node.body) == 1 and isinstance(ast_node.body[0], ast.Expr):
+                arg = ast.Expression(ast_node.body[0].value)
+                mode = "eval"
+            else:
+                arg = ast_node
+                mode = "exec"
+        else:
+            if mode is None:
+                mode = "exec"
+            arg = block.parse(mode=mode)
+    elif isinstance(arg, (ast.AST, types.CodeType)):
+        pass
+    else:
+        raise TypeError(
+            "eval_with_auto_import(): expected some form of code; got a %s"
+            % (type(arg).__name__,))
+    # Canonicalize other args.
+    if filename is None:
+        filename = "<unknown>"
+    if globals is None:
+        globals = {}
+    if locals is None:
+        locals = globals
+    namespaces = [globals, locals]
+    # Import as needed.
+    auto_import(arg, namespaces)
+    # Compile from AST to code object.
+    if isinstance(arg, types.CodeType):
+        code = arg
+    else:
+        code = compile(arg, filename, mode, flags, True)
+    # Evaluate/execute.
+    return eval(code, globals, locals)
+
+
 def load_symbol(fullname, namespaces=None, autoimport=False):
     """
     Load the symbol C{fullname}.

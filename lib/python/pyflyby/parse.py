@@ -114,7 +114,7 @@ def _walk_ast_nodes_in_order(node):
         todo.extend(reversed(list(_iter_child_nodes_in_order(node))))
 
 
-def _compile_ast_nodes(text, flags):
+def _parse_ast_nodes(text, flags, mode):
     """
     Parse a block of lines into an AST.
 
@@ -135,35 +135,29 @@ def _compile_ast_nodes(text, flags):
         # otherwise).
         source += "\n"
     flags = ast.PyCF_ONLY_AST | int(flags)
-    return compile(source, filename, "exec", flags=flags, dont_inherit=1)
+    return compile(source, filename, mode, flags=flags, dont_inherit=1)
 
 
-def _test_compile_string_literal(text, flags):
+def _test_parse_string_literal(text, flags):
     r"""
-    Attempt to compile C{text}.  If it compiles cleanly to a single string
+    Attempt to parse C{text}.  If it parses cleanly to a single string
     literal, return its value.  Otherwise return C{None}.
 
-      >>> _test_compile_string_literal(r'"foo\n" r"\nbar"', 0)
+      >>> _test_parse_string_literal(r'"foo\n" r"\nbar"', 0)
       'foo\n\\nbar'
 
     """
     try:
-        module_node = _compile_ast_nodes(text, flags)
+        module_node = _parse_ast_nodes(text, flags, "eval")
     except SyntaxError:
         return None
     body = module_node.body
-    if len(body) != 1:
+    if not isinstance(body, ast.Str):
         return None
-    node = body[0]
-    if not isinstance(node, ast.Expr):
-        return None
-    exprval = node.value
-    if not isinstance(exprval, ast.Str):
-        return None
-    return exprval.s
+    return body.s
 
 
-def _compile_annotate_ast_nodes(text, flags):
+def _parse_annotate_ast_nodes(text, flags):
     """
     Parse a block of lines into an AST and annotate with startpos and endpos.
 
@@ -176,7 +170,7 @@ def _compile_annotate_ast_nodes(text, flags):
     """
     text = FileText(text)
     flags = CompilerFlags(flags)
-    ast_node = _compile_ast_nodes(text, flags)
+    ast_node = _parse_ast_nodes(text, flags, "exec")
     # Annotate starting line numbers.
     _annotate_ast_startpos(ast_node, text.startpos, text, flags)
     return ast_node
@@ -217,9 +211,9 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
     @type text:
       L{FileText}
     @param text:
-      Source text that was used to compile the AST, whose C{startpos} should be
+      Source text that was used to parse the AST, whose C{startpos} should be
       used in interpreting C{ast_node.lineno} (which always starts at 1 for
-      the subset that was compiled).
+      the subset that was parsed).
     @type flags:
       C{CompilerFlags}
     @param flags:
@@ -381,7 +375,7 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
             # Try to parse the given range and see if it matches the target
             # string literal.
             subtext = text[startpos:endpos]
-            candidate_str = _test_compile_string_literal(subtext, flags)
+            candidate_str = _test_parse_string_literal(subtext, flags)
             if candidate_str is None:
                 continue
             elif target_str == candidate_str:
@@ -666,7 +660,7 @@ class PythonBlock(object):
 
     A C{PythonBlock} has a C{flags} attribute that gives the compiler_flags
     associated with the __future__ features using which the code should be
-    compiled.
+    parsed.
 
     """
 
@@ -754,11 +748,11 @@ class PythonBlock(object):
     @cached_attribute
     def ast_node(self):
         """
-        Return abstract syntax tree for this block of code.
+        Parse this block of code into an abstract syntax tree.
 
         The returned object type is the kind of AST as returned by the
         C{compile} built-in (rather than as returned by the older, deprecated
-        C{compiler} module).
+        C{compiler} module).  The code is parsed using mode="exec".
 
         All nodes are annotated with C{startpos}.
         All top-level nodes are annotated with C{endpos}.
@@ -774,7 +768,7 @@ class PythonBlock(object):
         # ast_node may also be set directly by __construct_from_ast(),
         # in which case this code does not run.
         try:
-            return _compile_annotate_ast_nodes(self.text, self._input_flags)
+            return _parse_annotate_ast_nodes(self.text, self._input_flags)
         except Exception as e:
             # Add the filename to the exception message to be nicer.
             if self.text.filename:
@@ -782,6 +776,19 @@ class PythonBlock(object):
             # Cache the exception to avoid re-attempting while debugging.
             self._failed_compile = e
             raise e, None, sys.exc_info()[2]
+
+    def parse(self, mode):
+        """
+        Parse the source text into an AST.
+
+        @param mode:
+          Compilation mode: "exec", "single", or "eval".  If "exec", consider
+          using C{ast_node} instead, which is cached and annotates line
+          numbers.
+        @rtype:
+          C{ast.AST}
+        """
+        return _parse_ast_nodes(self.text, self._input_flags, mode)
 
     @cached_attribute
     def statements(self):
@@ -938,7 +945,7 @@ class PythonBlock(object):
                                 startpos=(lineno,colno))
                 try:
                     block = PythonBlock(text, flags=flags)
-                    block.ast_node # make sure we can compile
+                    block.ast_node # make sure we can parse
                 except Exception:
                     blob = text.joined
                     if len(blob) > 60:

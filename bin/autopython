@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+"""
+autopython -c "code..."
+autopython filename.py [args...]
+
+autopython runs the specified python code with automatic importing.
+
+Example:
+  $ autopython -c "b64decode('aGVsbG8=')"
+  [AUTOIMPORT] from base64 import b64decode
+  'hello'
+
+This is shorthand for:
+  $ python -c "from base64 import b64decode; print repr(b64decode('aGVsbG8='))"
+  'hello'
+
+Warning: This tool is intended for interactive use only.
+
+For production, you should use tidy-imports to safely ensure your code has the
+proper imports.
+"""
+
+# pyflyby/autopython
+# Copyright (C) 2014 Karl Chen.
+# License: MIT http://opensource.org/licenses/MIT
+
+from __future__ import absolute_import, division, with_statement
+
+import sys
+
+from   pyflyby.autoimport       import auto_eval
+from   pyflyby.cmdline          import syntax
+from   pyflyby.file             import Filename
+
+FLAGS = ["absolute_import", "with_statement", "division"]
+
+
+def cmdline_auto_eval(arg, cmdline_args):
+    sys.argv = cmdline_args
+    result = auto_eval(arg, flags=FLAGS,
+                       globals={"__name__": "__main__"})
+    if result is not None:
+        print repr(result)
+
+
+def main(args):
+    # TODO: parse options to allow quieting [AUTOMPORT] lines or adding
+    # debugging.  (But be careful to emulate regular python in that everything
+    # after -c or arg stops option parsing.)
+    if not args:
+        syntax()
+    if args[0] == '-c':
+        if len(args) < 2:
+            syntax()
+        cmdline_auto_eval(args[1], ['-c'] + args[2:])
+    else:
+        cmdline_auto_eval(Filename(args[0]), args)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -1,0 +1,1 @@
+print sys.argv

@@ -9,7 +9,8 @@ import ast
 import os
 import pytest
 
-from   pyflyby.autoimport       import find_missing_imports, load_symbol
+from   pyflyby.autoimport       import (auto_eval, find_missing_imports,
+                                        load_symbol)
 
 
 def test_find_missing_imports_basic_1():
@@ -177,3 +178,42 @@ def test_load_symbol_missing_1():
 def test_load_symbol_missing_2():
     with pytest.raises(AttributeError):
         load_symbol("os.path.join", {})
+
+
+def test_auto_eval_1():
+    result = auto_eval("b64decode('aGVsbG8=')")
+    assert result == 'hello'
+
+
+def test_auto_eval_locals_import_1():
+    mylocals = {}
+    result = auto_eval("b64decode('aGVsbG8=')", locals=mylocals)
+    assert result == 'hello'
+    assert mylocals["b64decode"] is __import__("base64").b64decode
+
+
+def test_auto_eval_globals_import_1():
+    myglobals = {}
+    result = auto_eval("b64decode('aGVsbG8=')", globals=myglobals)
+    assert result == 'hello'
+    assert myglobals["b64decode"] is __import__("base64").b64decode
+
+
+def test_auto_eval_custom_locals_1():
+    result = auto_eval("b64decode('aGVsbG8=')",
+                                   locals=dict(b64decode=lambda x: "blah"))
+    assert result == 'blah'
+
+
+def test_auto_eval_custom_globals_1():
+    result = auto_eval("b64decode('aGVsbG8=')",
+                                   globals=dict(b64decode=lambda x: "blah"))
+    assert result == 'blah'
+
+
+def test_auto_eval_exec_1():
+    mylocals = dict(x=[])
+    auto_eval("if True: x.append(b64decode('aGVsbG8='))",
+              locals=mylocals)
+    assert mylocals['x'] == ['hello']
+    assert mylocals["b64decode"] is __import__("base64").b64decode

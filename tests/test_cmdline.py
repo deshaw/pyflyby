@@ -173,3 +173,35 @@ def test_find_import_1():
     result = pipe([BIN_DIR+"/find-import", "np"])
     expected = 'import numpy as np'
     assert result == expected
+
+
+def test_autopython_eval_1():
+    result = pipe([BIN_DIR+"/autopython", "-c", "b64decode('aGVsbG8=')"])
+    expected = "[AUTOIMPORT] from base64 import b64decode\n'hello'"
+    assert result == expected
+
+
+def test_autopython_exec_1():
+    result = pipe([BIN_DIR+"/autopython", "-c", "print b64decode('aGVsbG8=')"])
+    expected = "[AUTOIMPORT] from base64 import b64decode\nhello"
+    assert result == expected
+
+
+def test_autopython_name_1():
+    result = pipe([BIN_DIR+"/autopython", "-c", "__name__"])
+    expected = "'__main__'"
+    assert result == expected
+
+
+def test_autopython_argv_1():
+    result = pipe([BIN_DIR+"/autopython", "-c", "sys.argv", "x", "y"])
+    expected = "[AUTOIMPORT] import sys\n['-c', 'x', 'y']"
+    assert result == expected
+
+
+def test_autopython_file_1():
+    fn = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                      "helper_autoeval_foo.py")
+    result = pipe([BIN_DIR+"/autopython", fn, "a", "b"])
+    expected = "[AUTOIMPORT] import sys\n[%r, 'a', 'b']" % (fn,)
+    assert result == expected
