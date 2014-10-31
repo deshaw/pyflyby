@@ -1,4 +1,4 @@
-# pyflyby/file.py.
+# pyflyby/_file.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -8,7 +8,7 @@ import os
 import re
 import sys
 
-from   pyflyby.util             import cached_attribute
+from   pyflyby._util            import cached_attribute
 
 class UnsafeFilenameError(ValueError):
     pass

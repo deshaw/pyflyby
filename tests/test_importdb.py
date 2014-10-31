@@ -7,9 +7,9 @@ from __future__ import absolute_import, division, with_statement
 
 import os
 
-from   pyflyby.importclns       import ImportMap, ImportSet
-from   pyflyby.importdb         import ImportDB
-from   pyflyby.importstmt       import Import
+from   pyflyby._importclns      import ImportMap, ImportSet
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._importstmt      import Import
 
 
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -72,5 +72,5 @@ def test_global_import_db_pyflyby_1():
     db = ImportDB.get_default(pyflyby.__file__)
     assert isinstance(db, ImportDB)
     result = db.by_fullname_or_import_as["FileText"]
-    expected = (Import('from pyflyby.file import FileText'),)
+    expected = (Import('from pyflyby._file import FileText'),)
     assert result == expected

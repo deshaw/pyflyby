@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, with_statement
 import os
 import pytest
 
-from   pyflyby.file             import FilePos, FileText, Filename
+from   pyflyby._file            import FilePos, FileText, Filename
 
 def test_Filename_1():
     f = Filename('/etc/passwd')

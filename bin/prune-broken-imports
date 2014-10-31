@@ -19,8 +19,9 @@ Only top-level import statements are touched.
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import parse_args, process_actions
-from   pyflyby.imports2s        import remove_broken_imports
+from   pyflyby._cmdline         import parse_args, process_actions
+from   pyflyby._imports2s       import remove_broken_imports
+
 
 def main():
     options, args = parse_args(

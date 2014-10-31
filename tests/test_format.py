@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, with_statement
 
 from   textwrap                 import dedent
 
-from   pyflyby.format           import FormatParams, fill, pyfill
+from   pyflyby._format          import FormatParams, fill, pyfill
 
 
 def test_fill_1():

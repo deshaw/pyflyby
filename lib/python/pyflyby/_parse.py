@@ -1,4 +1,4 @@
-# pyflyby/parse.py.
+# pyflyby/_parse.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -11,10 +11,10 @@ import sys
 from   textwrap                 import dedent
 import types
 
-from   pyflyby.file             import FilePos, FileText, Filename
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.log              import logger
-from   pyflyby.util             import cached_attribute
+from   pyflyby._file            import FilePos, FileText, Filename
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._log             import logger
+from   pyflyby._util            import cached_attribute
 
 
 def _is_comment_or_blank(line):
@@ -251,10 +251,10 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
                             ast.dump(cn))
                         for cn in _iter_child_nodes_in_order(ast_node)) +
                     "\n"
-                    "This indicates a bug in pyflyby.\n"
+                    "This indicates a bug in pyflyby._\n"
                     "\n"
                     "pyflyby developer: Check if there's a bug or missing ast node handler in "
-                    "pyflyby.parse._iter_child_nodes_in_order() - "
+                    "pyflyby._parse._iter_child_nodes_in_order() - "
                     "probably the handler for ast.%s." % type(ast_node).__name__)
             child_minpos = child_node.startpos
         is_first_child = False

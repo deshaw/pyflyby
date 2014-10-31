@@ -1,32 +1,32 @@
 # -*- python -*-
-from   pyflyby._version         import __version__
-from   pyflyby.autoimport       import auto_eval
-from   pyflyby.cmdline          import (filename_args, hfmt, parse_args,
+from   pyflyby._autoimport      import auto_eval, install_auto_importer
+from   pyflyby._cmdline         import (filename_args, hfmt, parse_args,
                                         process_actions, syntax)
-from   pyflyby.docxref          import find_bad_doc_cross_references
-from   pyflyby.file             import (FilePos, FileText, Filename,
+from   pyflyby._docxref         import find_bad_doc_cross_references
+from   pyflyby._file            import (FilePos, FileText, Filename,
                                         atomic_write_file,
                                         expand_py_files_from_args, read_file)
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.format           import FormatParams, pyfill
-from   pyflyby.idents           import (DottedIdentifier, brace_identifiers,
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._format          import FormatParams, pyfill
+from   pyflyby._idents          import (DottedIdentifier, brace_identifiers,
                                         dotted_prefixes, is_identifier)
-from   pyflyby.importclns       import ImportMap, ImportSet, NoSuchImportError
-from   pyflyby.importdb         import ImportDB
-from   pyflyby.imports2s        import (canonicalize_imports,
+from   pyflyby._importclns      import ImportMap, ImportSet, NoSuchImportError
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
                                         reformat_import_statements,
                                         remove_broken_imports,
                                         replace_star_imports,
                                         transform_imports)
-from   pyflyby.importstmt       import (Import, ImportFormatParams,
+from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
-from   pyflyby.log              import logger
-from   pyflyby.modules          import ModuleHandle
-from   pyflyby.parse            import PythonBlock, PythonStatement
-from   pyflyby.util             import (ExcludeImplicitCwdFromPathCtx,
+from   pyflyby._log             import logger
+from   pyflyby._modules         import ModuleHandle
+from   pyflyby._parse           import PythonBlock, PythonStatement
+from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         ImportPathCtx, Inf, NullCtx,
                                         cached_attribute,
                                         longest_common_prefix, memoize,
                                         partition, prefixes, stable_unique)
+from   pyflyby._version         import __version__

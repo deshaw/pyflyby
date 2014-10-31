@@ -5,8 +5,8 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.importstmt       import Import, ImportSplit, ImportStatement
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._importstmt      import Import, ImportSplit, ImportStatement
 
 
 def test_Import_from_parts_1():

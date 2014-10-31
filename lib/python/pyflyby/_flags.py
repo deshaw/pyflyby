@@ -1,4 +1,4 @@
-# pyflyby/flags.py.
+# pyflyby/_flags.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -8,7 +8,7 @@ import __future__
 import ast
 import operator
 
-from   pyflyby.util             import cached_attribute
+from   pyflyby._util            import cached_attribute
 
 
 # Initialize mappings from compiler_flag to feature name and vice versa.

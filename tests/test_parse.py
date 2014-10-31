@@ -8,9 +8,9 @@ from __future__ import absolute_import, division, with_statement
 import pytest
 from   textwrap                 import dedent
 
-from   pyflyby.file             import FilePos, FileText, Filename
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.parse            import PythonBlock, PythonStatement
+from   pyflyby._file            import FilePos, FileText, Filename
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._parse           import PythonBlock, PythonStatement
 
 
 def test_PythonBlock_FileText_1():

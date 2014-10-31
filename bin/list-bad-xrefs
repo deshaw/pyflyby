@@ -16,8 +16,9 @@ Similar to running C{epydoc -v}, but:
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import parse_args, syntax
-from   pyflyby.docxref          import find_bad_doc_cross_references
+from   pyflyby._cmdline         import parse_args, syntax
+from   pyflyby._docxref         import find_bad_doc_cross_references
+
 
 def main():
     options, args = parse_args()

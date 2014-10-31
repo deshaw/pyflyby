@@ -5,6 +5,6 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-# Deprecated old name for create-imports.
+# Deprecated old name for collect-exports.
 
 exec $(dirname $0)/collect-exports "$@"

@@ -1,4 +1,4 @@
-# pyflyby/importclns.py.
+# pyflyby/_importclns.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -6,13 +6,13 @@ from __future__ import absolute_import, division, with_statement
 
 from   collections              import defaultdict
 
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.idents           import dotted_prefixes, is_identifier
-from   pyflyby.importstmt       import (Import, ImportFormatParams,
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._idents          import dotted_prefixes, is_identifier
+from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
-from   pyflyby.parse            import PythonBlock
-from   pyflyby.util             import (cached_attribute, partition,
+from   pyflyby._parse           import PythonBlock
+from   pyflyby._util            import (cached_attribute, partition,
                                         stable_unique)
 
 

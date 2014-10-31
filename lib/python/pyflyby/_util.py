@@ -1,4 +1,4 @@
-# pyflyby/util.py.
+# pyflyby/_util.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 

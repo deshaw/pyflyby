@@ -10,9 +10,10 @@ Prints how to import given name(s).
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.cmdline          import parse_args, syntax
-from   pyflyby.importdb         import ImportDB
-from   pyflyby.log              import logger
+from   pyflyby._cmdline         import parse_args, syntax
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._log             import logger
+
 
 def main():
     options, args = parse_args(import_format_params=True)

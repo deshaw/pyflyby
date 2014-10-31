@@ -1,4 +1,4 @@
-# pyflyby/modules.py.
+# pyflyby/_modules.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -8,10 +8,10 @@ import os
 import sys
 import types
 
-from   pyflyby.file             import FileText, Filename
-from   pyflyby.idents           import DottedIdentifier, is_identifier
-from   pyflyby.log              import logger
-from   pyflyby.util             import (ExcludeImplicitCwdFromPathCtx,
+from   pyflyby._file            import FileText, Filename
+from   pyflyby._idents          import DottedIdentifier, is_identifier
+from   pyflyby._log             import logger
+from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, memoize, prefixes)
 
 
@@ -182,7 +182,7 @@ class ModuleHandle(object):
 
     @cached_attribute
     def block(self):
-        from pyflyby.parse import PythonBlock
+        from pyflyby._parse import PythonBlock
         return PythonBlock(self.text)
 
     @staticmethod
@@ -255,7 +255,7 @@ class ModuleHandle(object):
         @return:
           Exports, or C{None} if nothing exported.
         """
-        from pyflyby.importclns import ImportStatement, ImportSet
+        from pyflyby._importclns import ImportStatement, ImportSet
         module = self.module
         try:
             members = module.__all__

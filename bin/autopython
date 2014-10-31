@@ -28,9 +28,9 @@ from __future__ import absolute_import, division, with_statement
 
 import sys
 
-from   pyflyby.autoimport       import auto_eval
-from   pyflyby.cmdline          import syntax
-from   pyflyby.file             import Filename
+from   pyflyby._autoimport      import auto_eval
+from   pyflyby._cmdline         import syntax
+from   pyflyby._file            import Filename
 
 FLAGS = ["absolute_import", "with_statement", "division"]
 

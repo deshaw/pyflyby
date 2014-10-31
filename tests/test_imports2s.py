@@ -9,14 +9,14 @@ import sys
 from   textwrap                 import dedent
 import types
 
-from   pyflyby.importdb         import ImportDB
-from   pyflyby.imports2s        import (canonicalize_imports,
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
                                         reformat_import_statements,
                                         remove_broken_imports,
                                         replace_star_imports,
                                         transform_imports)
-from   pyflyby.parse            import PythonBlock
+from   pyflyby._parse           import PythonBlock
 
 
 def test_reformat_import_statements_1():

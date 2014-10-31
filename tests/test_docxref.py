@@ -5,8 +5,8 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.docxref          import find_bad_doc_cross_references
-from   pyflyby.modules          import ModuleHandle
+from   pyflyby._docxref         import find_bad_doc_cross_references
+from   pyflyby._modules         import ModuleHandle
 
 import xrefs
 

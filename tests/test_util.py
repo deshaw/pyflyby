@@ -5,7 +5,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.util             import (longest_common_prefix, partition,
+from   pyflyby._util            import (longest_common_prefix, partition,
                                         prefixes, stable_unique)
 
 

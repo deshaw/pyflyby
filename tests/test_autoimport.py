@@ -9,7 +9,7 @@ import ast
 import os
 import pytest
 
-from   pyflyby.autoimport       import (auto_eval, find_missing_imports,
+from   pyflyby._autoimport      import (auto_eval, find_missing_imports,
                                         load_symbol)
 
 

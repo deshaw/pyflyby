@@ -5,7 +5,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.idents           import (brace_identifiers, dotted_prefixes,
+from   pyflyby._idents          import (brace_identifiers, dotted_prefixes,
                                         is_identifier)
 
 

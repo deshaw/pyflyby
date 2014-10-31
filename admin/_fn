@@ -5,6 +5,9 @@
 pyflyby=$(readlink -e $(dirname $0)/..)
 PATH=$pyflyby/bin:$PATH
 
-source_files=($pyflyby/lib/python/pyflyby/*.py
-              $(find $pyflyby/bin -maxdepth 1 -type f -exec grep -qs '#!.*python' {} \; -print))
+source_files=(
+    $pyflyby/lib/python/pyflyby/*.py
+    $(find $pyflyby/bin -maxdepth 1 -type f -exec grep -qs '#!.*python' {} \; -print)
+    $pyflyby/tests/*.py
+)
 imports_file=$pyflyby/.pyflyby

@@ -1,4 +1,4 @@
-# pyflyby/docxref.py.
+# pyflyby/_docxref.py.
 
 # Module for checking Epydoc cross-references.
 
@@ -35,11 +35,11 @@ from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
 from   epydoc.docbuilder        import build_doc_index
 from   epydoc.markup.plaintext  import ParsedPlaintextDocstring
 
-from   pyflyby.file             import Filename
-from   pyflyby.idents           import DottedIdentifier
-from   pyflyby.log              import logger
-from   pyflyby.modules          import ModuleHandle
-from   pyflyby.util             import cached_attribute, memoize, prefixes
+from   pyflyby._file            import Filename
+from   pyflyby._idents          import DottedIdentifier
+from   pyflyby._log             import logger
+from   pyflyby._modules         import ModuleHandle
+from   pyflyby._util            import cached_attribute, memoize, prefixes
 
 # If someone references numpy.*, just assume it's OK - it's not worth
 # following into numpy because it's too slow.

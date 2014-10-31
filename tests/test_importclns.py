@@ -5,8 +5,8 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby.importclns       import ImportMap, ImportSet
-from   pyflyby.importstmt       import Import
+from   pyflyby._importclns      import ImportMap, ImportSet
+from   pyflyby._importstmt      import Import
 
 
 def test_ImportSet_1():

@@ -1,4 +1,4 @@
-# pyflyby/imports2s.py.
+# pyflyby/_imports2s.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -6,15 +6,15 @@ from __future__ import absolute_import, division, with_statement
 
 import re
 
-from   pyflyby.file             import FileText, Filename
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.idents           import brace_identifiers
-from   pyflyby.importclns       import ImportSet, NoSuchImportError
-from   pyflyby.importdb         import ImportDB
-from   pyflyby.importstmt       import ImportFormatParams, ImportStatement
-from   pyflyby.log              import logger
-from   pyflyby.parse            import PythonBlock
-from   pyflyby.util             import ImportPathCtx, Inf, NullCtx, memoize
+from   pyflyby._file            import FileText, Filename
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._idents          import brace_identifiers
+from   pyflyby._importclns      import ImportSet, NoSuchImportError
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
+from   pyflyby._log             import logger
+from   pyflyby._parse           import PythonBlock
+from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
 
 
 class SourceToSourceTransformationBase(object):
@@ -595,7 +595,7 @@ def replace_star_imports(codeblock, params=None):
     @rtype:
       L{PythonBlock}
     """
-    from pyflyby.modules import ModuleHandle
+    from pyflyby._modules import ModuleHandle
     params = ImportFormatParams(params)
     codeblock = PythonBlock(codeblock)
     filename = codeblock.filename

@@ -17,7 +17,7 @@ Quick start: Autoimporter
 =========================
 
 To install, add to your IPython startup::
-  from pyflyby.autoimport import install_auto_importer
+  from pyflyby import install_auto_importer
   install_auto_importer()
 
 

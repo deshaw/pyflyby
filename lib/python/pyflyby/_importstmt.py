@@ -1,4 +1,4 @@
-# pyflyby/importstmt.py.
+# pyflyby/_importstmt.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -7,11 +7,11 @@ from __future__ import absolute_import, division, with_statement
 import ast
 from   collections              import namedtuple
 
-from   pyflyby.flags            import CompilerFlags
-from   pyflyby.format           import FormatParams, pyfill
-from   pyflyby.idents           import is_identifier
-from   pyflyby.parse            import PythonStatement
-from   pyflyby.util             import (Inf, cached_attribute,
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._format          import FormatParams, pyfill
+from   pyflyby._idents          import is_identifier
+from   pyflyby._parse           import PythonStatement
+from   pyflyby._util            import (Inf, cached_attribute,
                                         longest_common_prefix)
 
 

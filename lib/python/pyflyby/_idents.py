@@ -1,4 +1,4 @@
-# pyflyby/idents.py.
+# pyflyby/_idents.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, with_statement
 from   keyword                  import iskeyword
 import re
 
-from   pyflyby.util             import cached_attribute
+from   pyflyby._util            import cached_attribute
 
 
 # TODO: use DottedIdentifier.prefixes

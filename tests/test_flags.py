@@ -8,7 +8,8 @@ from __future__ import absolute_import, division, with_statement
 import ast
 import pytest
 
-from   pyflyby.flags            import CompilerFlags
+from   pyflyby._flags           import CompilerFlags
+
 
 def test_CompilerFlags_1():
     assert int(CompilerFlags(0x18000)) == 0x18000

@@ -28,8 +28,6 @@
 - Consider making the default database file more like a sample file that the
   user is instructed to cp to ~/.pyflyby.  What about existing users of older
   versions?  Perhaps have an auto-upgrade feature
-- Consider renaming pyflyby.file, etc to pyflyby._file since users shouldn't
-  be accessing them.
 - Consider importing user-facing stuff (install_auto_importer) into pyflyby
   toplevel namespace.
 - Refactor autoimport.py to share more with rest of pyflyby, esp AST parsing.

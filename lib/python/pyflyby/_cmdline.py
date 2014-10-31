@@ -1,4 +1,4 @@
-# pyflyby/cmdline.py.
+# pyflyby/_cmdline.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -11,11 +11,11 @@ import sys
 from   textwrap                 import dedent
 import traceback
 
-from   pyflyby.file             import (FileText, Filename, atomic_write_file,
+from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
-from   pyflyby.importstmt       import ImportFormatParams
-from   pyflyby.log              import logger
-from   pyflyby.util             import cached_attribute
+from   pyflyby._importstmt      import ImportFormatParams
+from   pyflyby._log             import logger
+from   pyflyby._util            import cached_attribute
 
 
 DEBUG = False
