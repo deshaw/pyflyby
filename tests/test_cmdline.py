@@ -19,13 +19,21 @@ os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
 
 def pipe(command, stdin=""):
     return subprocess.Popen(
-        command, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
     ).communicate(stdin)[0].strip()
 
 
 def test_tidy_imports_stdin_1():
     result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
     expected = dedent('''
+        tidy-imports: /dev/stdin: added 'import os'
+        tidy-imports: /dev/stdin: added 'import sys'
+        tidy-imports: /dev/stdin: added mandatory 'from __future__ import absolute_import'
+        tidy-imports: /dev/stdin: added mandatory 'from __future__ import division'
+        tidy-imports: /dev/stdin: added mandatory 'from __future__ import with_statement'
         from __future__ import absolute_import, division, with_statement
 
         import os
@@ -46,6 +54,11 @@ def test_tidy_imports_filename_action_print_1():
         f.flush()
         result = pipe([BIN_DIR+"/tidy-imports", f.name])
         expected = dedent('''
+            tidy-imports: {f.name}: added 'import os'
+            tidy-imports: {f.name}: added 'import sys'
+            tidy-imports: {f.name}: added mandatory 'from __future__ import absolute_import'
+            tidy-imports: {f.name}: added mandatory 'from __future__ import division'
+            tidy-imports: {f.name}: added mandatory 'from __future__ import with_statement'
             # hello
             from __future__ import absolute_import, division, with_statement
 
@@ -54,7 +67,7 @@ def test_tidy_imports_filename_action_print_1():
 
             def foo():
                 foo() + os + sys
-        ''').strip()
+        ''').strip().format(f=f)
         assert result == expected
 
 
@@ -69,10 +82,19 @@ def test_tidy_imports_filename_action_replace_1():
         ''').lstrip())
         name = f.name
     cmd_output = pipe([BIN_DIR+"/tidy-imports", "-r", name])
-    assert cmd_output == ""
+    expected_cmd_output = dedent('''
+        tidy-imports: {f.name}: removed unused 'import b'
+        tidy-imports: {f.name}: added 'import os'
+        tidy-imports: {f.name}: added 'import sys'
+        tidy-imports: {f.name}: added mandatory 'from __future__ import absolute_import'
+        tidy-imports: {f.name}: added mandatory 'from __future__ import division'
+        tidy-imports: {f.name}: added mandatory 'from __future__ import with_statement'
+        tidy-imports: {f.name}: *** modified ***
+    ''').strip().format(f=f)
+    assert cmd_output == expected_cmd_output
     with open(name) as f:
         result = f.read()
-    expected = dedent('''
+    expected_result = dedent('''
         "hello"
         from __future__ import absolute_import, division, with_statement
 
@@ -85,7 +107,7 @@ def test_tidy_imports_filename_action_replace_1():
         import c
         a, c
     ''').lstrip()
-    assert result == expected
+    assert result == expected_result
     os.unlink(name)
 
 
@@ -175,6 +197,12 @@ def test_find_import_1():
     assert result == expected
 
 
+def test_find_import_bad_1():
+    result = pipe([BIN_DIR+"/find-import", "omg_unknown_4223496"])
+    expected = "find-import: Can't find import for 'omg_unknown_4223496'"
+    assert result == expected
+
+
 def test_autopython_eval_1():
     result = pipe([BIN_DIR+"/autopython", "-c", "b64decode('aGVsbG8=')"])
     expected = "[AUTOIMPORT] from base64 import b64decode\n'hello'"
@@ -200,8 +228,9 @@ def test_autopython_argv_1():
 
 
 def test_autopython_file_1():
-    fn = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                      "helper_autoeval_foo.py")
-    result = pipe([BIN_DIR+"/autopython", fn, "a", "b"])
-    expected = "[AUTOIMPORT] import sys\n[%r, 'a', 'b']" % (fn,)
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write('print sys.argv\n')
+        f.flush()
+        result = pipe([BIN_DIR+"/autopython", f.name, "a", "b"])
+    expected = "[AUTOIMPORT] import sys\n[%r, 'a', 'b']" % (f.name,)
     assert result == expected
