@@ -4,10 +4,17 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   keyword                  import iskeyword
+from   keyword                  import kwlist
 import re
 
 from   pyflyby._util            import cached_attribute
+
+
+# Don't consider "print" a keyword, in order to be compatible with user code
+# that uses "from __future__ import print_function".
+_my_kwlist = list(kwlist)
+_my_kwlist.remove("print")
+_my_iskeyword = frozenset(_my_kwlist).__contains__
 
 
 # TODO: use DottedIdentifier.prefixes
@@ -103,7 +110,6 @@ def is_identifier(s, dotted=False, prefix=False):
     @rtype:
       C{bool}
     """
-    # TODO: don't consider "print" a keyword.
     if not isinstance(s, basestring):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))
@@ -113,7 +119,7 @@ def is_identifier(s, dotted=False, prefix=False):
         if dotted:
             return bool(
                 _dotted_name_prefix_re.match(s) and
-                not any(iskeyword(w) for w in s.split(".")[:-1]))
+                not any(_my_iskeyword(w) for w in s.split(".")[:-1]))
         else:
             return bool(_name_re.match(s))
     else:
@@ -124,9 +130,9 @@ def is_identifier(s, dotted=False, prefix=False):
             # because s could be a long text string.)
             return bool(
                 _dotted_name_re.match(s) and
-                not any(iskeyword(w) for w in s.split(".")))
+                not any(_my_iskeyword(w) for w in s.split(".")))
         else:
-            return bool(_name_re.match(s) and not iskeyword(s))
+            return bool(_name_re.match(s) and not _my_iskeyword(s))
 
 
 def brace_identifiers(text):

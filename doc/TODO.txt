@@ -45,5 +45,4 @@
 - Handle internal exceptions during complete_symbol etc in a friendlier way.
   Hide traceback unless debugging is enabled.  Automatically uninstall the
   interactive stuff if an exception occurs.
-- Make sure everything works when print_function is enabled.
 - Test cases for IPython stuff.  Would require pty probably.

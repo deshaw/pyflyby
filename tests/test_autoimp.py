@@ -104,6 +104,16 @@ def test_find_missing_imports_ast_1():
     assert result == expected
 
 
+def test_find_missing_imports_print_function_1():
+    node = ast.parse(
+        "from __future__ import print_function\n"
+        "print (42, file=sys.stdout)\n"
+    )
+    result   = find_missing_imports(node, [])
+    expected = ['sys.stdout']
+    assert result == expected
+
+
 def test_find_missing_imports_code_1():
     f = lambda: foo.bar(x) + baz(y)
     result   = find_missing_imports(f.func_code, [])

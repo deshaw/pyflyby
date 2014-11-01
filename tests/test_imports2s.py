@@ -528,6 +528,27 @@ def test_fix_unused_and_missing_continutation_1():
     assert output == expected
 
 
+def test_fix_unused_and_missing_print_function_1():
+    input = PythonBlock(dedent(r'''
+        from __future__ import print_function
+        from m1 import print, m1a
+        from m2.print import m2a, m2b
+        m1a, m2a, m3a
+    ''').lstrip())
+    db = ImportDB(
+        "from __future__ import print_function\n"
+        "from print.m3 import m3a, m3b")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent(r'''
+        from __future__ import print_function
+        from m1       import m1a
+        from m2.print import m2a
+        from print.m3 import m3a
+        m1a, m2a, m3a
+    ''').lstrip())
+    assert output == expected
+
+
 def test_last_line_no_trailing_newline_1():
     input = PythonBlock("#x\ny")
     db = ImportDB("from Y import y")

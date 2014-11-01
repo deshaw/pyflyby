@@ -30,6 +30,10 @@ def test_is_identifier_keyword_1():
     assert not is_identifier("from")
 
 
+def test_is_identifier_print_1():
+    assert     is_identifier("print")
+
+
 def test_is_identifier_unwanted_dot_1():
     assert not is_identifier("foo.bar")
 
@@ -44,6 +48,10 @@ def test_is_identifier_bad_dotted_1():
 
 def test_is_identifier_dotted_keyword_1():
     assert not is_identifier("foo.from", dotted=True)
+
+
+def test_is_identifier_dotted_print_1():
+    assert     is_identifier("foo.print.bar", dotted=True)
 
 
 def test_is_identifier_prefix_trailing_dot_1():
