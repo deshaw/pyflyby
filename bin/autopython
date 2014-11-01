@@ -50,15 +50,15 @@ def main(args):
     # '-c' 'code...', but it's hard to do this with optparse.  Todo: use
     # argparse, once we're willing to use it as a hard dependency,
     while args:
-        if args[0] in ['--debug', '--verbose']:
+        if args[0] in ['--debug', '-debug', '--verbose', '-verbose']:
             logger.set_level("DEBUG")
             del args[0]
             continue
-        if args[0] in ['--quiet', '-q']:
+        if args[0] in ['--quiet', '-quiet', '-q']:
             logger.set_level("ERROR")
             del args[0]
             continue
-        if args[0] in ['--help', '-h']:
+        if args[0] in ['--help', '-help', '-h']:
             print maindoc()
             raise SystemExit
         break

@@ -93,7 +93,7 @@ class PyflybyLogger(Logger):
         return self.level <= logging.DEBUG
 
     def HookCtx(self, pre, post):
-        return self.handlers[0]._HookedStreamHandler(pre, post)
+        return self.handlers[0].HookCtx(pre, post)
 
 
 logger = PyflybyLogger('pyflyby', os.getenv("PYFLYBY_LOG_LEVEL") or "INFO")

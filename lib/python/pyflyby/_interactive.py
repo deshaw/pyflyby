@@ -7,18 +7,115 @@ from __future__ import (absolute_import, division, print_function,
 
 import __builtin__
 import contextlib
+import os
+import subprocess
 import sys
 
 from   pyflyby._autoimp         import (auto_import, interpret_namespaces,
                                         load_symbol)
+from   pyflyby._file            import Filename, atomic_write_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._util            import memoize
+from   pyflyby._util            import CwdCtx, memoize
+
 
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
+
+
+def initialize_ipython(argv=None):
+    """
+    Initialize an IPython shell, but don't start it yet.
+
+    @rtype:
+      C{callable}
+    @return:
+      The function that can be called to start the console terminal.
+    """
+    import IPython
+    # The following has been tested on IPython 1.2, 2.1.
+    try:
+        TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
+    except AttributeError:
+        pass
+    else:
+        app = TerminalIPythonApp.instance()
+        app.initialize(argv)
+        return app.start
+    # The following has been tested on IPython 0.13.
+    try:
+        TerminalIPythonApp = IPython.frontend.terminal.ipapp.TerminalIPythonApp
+    except AttributeError:
+        pass
+    else:
+        app = TerminalIPythonApp.instance()
+        app.initialize(argv)
+        return app.start
+    raise RuntimeError(
+        "Couldn't get TerminalIPythonApp class.  "
+        "Is your IPython version too old (or too new)?  "
+        "IPython.__version__=%r" % (IPython.__version__))
+
+
+def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
+    """
+    Try to figure out whether python (when started from scratch) can get the
+    same pyflyby package as the current process.
+    """
+    with CwdCtx("/"):
+        cmd = 'import pyflyby; print pyflyby.__path__[0]'
+        if sys_path_entry is not None:
+            impcmd = "import sys; sys.path.insert(0, %r)\n" % (sys_path_entry,)
+            cmd = impcmd + cmd
+        proc = subprocess.Popen(
+            [sys.executable, '-c', cmd],
+            stdin=open("/dev/null"),
+            stdout=subprocess.PIPE,
+            stderr=open("/dev/null",'w'))
+        result = proc.communicate()[0].strip()
+    if not result:
+        return False
+    try:
+        return os.path.samefile(result, expected_path)
+    except OSError:
+        return False
+
+
+def install_in_ipython_startup_file():
+    """
+    Install the call to 'pyflyby.install_auto_importer()' to the default
+    IPython startup file.
+    """
+    import IPython
+    ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
+    if not ipython_dir.isdir:
+        raise RuntimeError(
+            "Couldn't find IPython config dir.  Tried %s" % (ipython_dir,))
+    startup_dir = ipython_dir / "profile_default" / "startup"
+    if not startup_dir.isdir:
+        raise RuntimeError(
+            "Couldn't find IPython startup dir.  Tried %s" % (startup_dir,))
+    fn = startup_dir / "50-pyflyby.py"
+    if fn.exists:
+        logger.info("Doing nothing, because %s already exists", fn)
+        return
+    contents = (
+        "import pyflyby\n"
+        "pyflyby.install_auto_importer()\n"
+    )
+    import pyflyby
+    pyflyby_path = pyflyby.__path__[0]
+    if not _python_can_import_pyflyby(pyflyby_path):
+        path_entry = os.path.dirname(os.path.realpath(pyflyby_path))
+        assert _python_can_import_pyflyby(pyflyby_path, path_entry)
+        contents = (
+            "import sys\n"
+            "sys.path.insert(0, %r)\n" % (path_entry,)
+        ) + contents
+    logger.info("Writing to %s:\n%s", fn, contents)
+    atomic_write_file(fn, contents)
 
 
 @contextlib.contextmanager

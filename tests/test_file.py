@@ -5,10 +5,10 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import os
 import pytest
 
 from   pyflyby._file            import FilePos, FileText, Filename
+from   pyflyby._util            import CwdCtx
 
 def test_Filename_1():
     f = Filename('/etc/passwd')
@@ -30,22 +30,14 @@ def test_Filename_eqne_other_1():
 
 
 def test_Filename_abspath_1():
-    old_cwd = os.getcwd()
-    try:
-        os.chdir("/dev")
+    with CwdCtx("/dev"):
         f = Filename("foo")
-    finally:
-        os.chdir(old_cwd)
     assert f == Filename("/dev/foo")
 
 
 def test_Filename_normpath_1():
-    old_cwd = os.getcwd()
-    try:
-        os.chdir("/dev")
+    with CwdCtx("/dev"):
         f = Filename("../a/b/../c")
-    finally:
-        os.chdir(old_cwd)
     assert f == Filename("/a/c")
 
 

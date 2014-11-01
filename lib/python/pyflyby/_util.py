@@ -5,6 +5,7 @@
 from __future__ import absolute_import, division, with_statement
 
 from   contextlib               import contextmanager
+import os
 import sys
 
 
@@ -137,6 +138,19 @@ def ImportPathCtx(path_additions):
         yield
     finally:
         sys.path[:] = old_path
+
+
+@contextmanager
+def CwdCtx(path):
+    """
+    Context manager that temporarily enters a new working directory.
+    """
+    old_cwd = os.getcwd()
+    os.chdir(str(path))
+    try:
+        yield
+    finally:
+        os.chdir(old_cwd)
 
 
 @contextmanager

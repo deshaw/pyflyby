@@ -16,23 +16,27 @@ For editing python source code:
 Quick start: Autoimporter
 =========================
 
-To install, add to your IPython startup::
-  from pyflyby import install_auto_importer
-  install_auto_importer()
+To use without installing::
+  $ autoipython
+      In [1]: re.search("[a-z]+", "....hello...").group(0)
+      [PYFLYBY] import re
+      Out[1]: 'hello'
 
+      In [2]: chisqprob(arange(5), 2)
+      [PYFLYBY] from numpy import arange
+      [PYFLYBY] from scipy.stats import chisqprob
+      Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
 
-Example:
+To install into your IPython startup file::
+  $ autoipython --install
+      [PYFLYBY] Writing to ~/.ipython/profile_default/startup/50-pyflyby.py:
+      import pyflyby
+      pyflyby.install_auto_importer()
 
   $ ipython
-
-  In [1]: re.search("[a-z]+", "....hello...").group(0)
-  [PYFLYBY] import re
-  Out[1]: 'hello'
-
-  In [2]: chisqprob(arange(5), 2)
-  [PYFLYBY] from numpy import arange
-  [PYFLYBY] from scipy.stats import chisqprob
-  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+      In [1]: b64decode('aGVsbG8=')
+      [AUTOIMPORT] from base64 import b64decode
+      Out[1]: 'hello'
 
 
 Quick start: tidy-imports
@@ -45,18 +49,18 @@ For example:
 $ echo 're.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)' > foo.py
 
 $ tidy-imports foo.py
-  --- /tmp/foo.py
-  +++ /tmp/foo.py
-  @@ -1 +1,9 @@
-  +from __future__ import absolute_import, division, with_statement
-  +
-  +from   numpy                    import arange
-  +from   scipy.stats              import chisqprob
-  +import re
-  +
-   re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
+    --- /tmp/foo.py
+    +++ /tmp/foo.py
+    @@ -1 +1,9 @@
+    +from __future__ import absolute_import, division, with_statement
+    +
+    +from   numpy                    import arange
+    +from   scipy.stats              import chisqprob
+    +import re
+    +
+     re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
 
-  Replace /tmp/foo.py? [y/N]
+    Replace /tmp/foo.py? [y/N]
 
 
 Quick start: import libraries
@@ -79,10 +83,6 @@ This module allows your "known imports" to work automatically in your IPython
 interactive session without having to type the 'import' statements (and also
 without having to slow down your Python startup with imports you only use
 occasionally).
-
-To use, add to your IPython startup::
-  from pyflyby import install_auto_importer
-  install_auto_importer()
 
 Example:
 
@@ -155,7 +155,7 @@ Compatibility
 
 Tested with:
   - Python 2.6, 2.7
-  - IPython 0.12, 0.13, 1.2
+  - IPython 0.12, 0.13, 1.2, 2.1
   - IPython (text console), IPython Notebook
 
 
@@ -196,8 +196,8 @@ You can use a hyphen to include the default in the path.  If you set
   PYFLYBY_PATH=/foo1/bar1:-:/foo2/bar2
 then this reads /foo1/bar1, then the default locations, then /foo2/bar2.
 
-In $PYFLYBY_PATH, ".../.pyflyby" means that all ancestor directories are
-searched for a member named ".pyflyby".
+In $PYFLYBY_PATH, ".../.pyflyby" (with _three_ dots) means that all ancestor
+directories are searched for a member named ".pyflyby".
 
 For example, suppose the following files exist:
   /etc/pyflyby/stuff.py
@@ -235,8 +235,8 @@ Notes:
 Forgetting imports
 ------------------
 
-Occasionally you may have reason to "forget" entries from the database of
-known imports.
+Occasionally you may have reason to tell pyflyby to "forget" entries from the
+database of known imports.
 
 You can put the following in any file reachable from $PYFLYBY_PATH:
 
@@ -276,11 +276,15 @@ You can put the following in any file reachable from $PYFLYBY_PATH:
 
   __canonical_imports__ = {"oldmodule.oldfunction": "newmodule.newfunction"}
 
+This is equivalent to running:
+  tidy-imports --transform=oldmodule.oldfunction=newmodule.newfunction
+
 
 Soapbox: avoid "star" imports
 =============================
 
-Avoid using "from foopackage import *" in production code.
+When programming in Python, a good software engineering practice is to avoid
+using "from foopackage import *" in production code.
 
 This style is a maintenance nightmare:
 
