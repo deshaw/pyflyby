@@ -533,6 +533,9 @@ class FileText(object):
         r += ")"
         return r
 
+    def __str__(self):
+        return self.joined
+
     def __eq__(self, o):
         if self is o:
             return True

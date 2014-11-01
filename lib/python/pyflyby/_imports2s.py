@@ -431,9 +431,14 @@ def fix_unused_and_missing_imports(codeblock,
     removed.  C{np} was undefined, so an C{import numpy as np} was
     automatically added.
 
-      >>> print fix_unused_and_missing_imports(
+      >>> codeblock = PythonBlock(
       ...     'from foo import m1, m2, m3, m4\n'
-      ...     'm2, m4, np.foo\n', add_mandatory=False).text.joined,
+      ...     'm2, m4, np.foo', filename="/tmp/foo.py")
+
+      >>> print fix_unused_and_missing_imports(codeblock, add_mandatory=False)
+      [PYFLYBY] /tmp/foo.py: removed unused 'from foo import m1'
+      [PYFLYBY] /tmp/foo.py: removed unused 'from foo import m3'
+      [PYFLYBY] /tmp/foo.py: added 'import numpy as np'
       import numpy as np
       from foo import m2, m4
       m2, m4, np.foo
@@ -572,21 +577,18 @@ def replace_star_imports(codeblock, params=None):
     Note that this requires involves actually importing C{foo.bar}, which may
     have side effects.  (TODO: rewrite to avoid this?)
 
-      >>> result = replace_star_imports('''
-      ...    from foo1  import MIMEAudio
-      ...    from email import *
-      ...    from foo2  import MIMEImage
-      ... ''')
-
     The result includes all imports from the C{email} module.  The result
     excludes shadowed imports.  In this example:
       1. The original C{MIMEAudio} import is shadowed, so it is removed.
       2. The C{MIMEImage} import in the C{email} module is shadowed by a
          subsequent import, so it is omitted.
 
-      >>> print result.text.joined.strip()          # doctest:+ELLIPSIS
-      from email import ..., MIMEMessage, ...
-      from foo2  import MIMEImage
+      >>> codeblock = PythonBlock('from keyword import *', filename="/tmp/x.py")
+
+      >>> print replace_star_imports(codeblock)
+      [PYFLYBY] /tmp/x.py: replaced 'from keyword import *' with 2 imports
+      from keyword import iskeyword, kwlist
+      <BLANKLINE>
 
     Usually you'll want to remove unused imports after replacing star imports.
 

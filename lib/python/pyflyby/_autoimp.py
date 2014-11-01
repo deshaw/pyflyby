@@ -1,91 +1,6 @@
-# pyflyby/_autoimport.py.
+# pyflyby/_autoimp.py.
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-
-"""
-AUTOMATIC IMPORTS - never type "import" again!
-
-This module allows your "known imports" to work automatically in your IPython
-interactive session without having to type the 'import' statements (and also
-without having to slow down your Python startup with imports you only use
-occasionally).
-
-To use, add to your IPython startup::
-  from pyflyby import install_auto_importer
-  install_auto_importer()
-
-Example:
-
-  In [1]: re.search("[a-z]+", "....hello...").group(0)
-  [AUTOIMPORT] import re
-  Out[1]: 'hello'
-
-  In [2]: chisqprob(arange(5), 2)
-  [AUTOIMPORT] from numpy import arange
-  [AUTOIMPORT] from scipy.stats import chisqprob
-  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
-
-  In [3]: np.sin(arandom(5))
-  [AUTOIMPORT] from numpy.random import random as arandom
-  [AUTOIMPORT] import numpy as np
-  Out[3]: [ 0.0282  0.0603  0.4653  0.8371  0.3347]
-
-  In [4]: isinstance(42, Number)
-  [AUTOIMPORT] from numbers import Number
-  Out[4]: True
-
-
-It just works
-=============
-
-Tab completion works, even on modules that are not yet imported.  In the
-following example, notice that numpy is imported when we need to know its
-members, and only then:
-
-  In [1]: nump<TAB>
-  In [1]: numpy
-  In [1]: numpy.arang<TAB>
-  [AUTOIMPORT] import numpy
-  In [1]: numpy.arange
-
-
-The IPython "?" magic help (pinfo/pinfo2) automatically imports symbols first
-if necessary:
-
-  In [1]: arange?
-  [AUTOIMPORT] from numpy import arange
-  ... Docstring: arange([start,] stop[, step,], dtype=None) ...
-
-Other IPython magic commands work as well:
-
-  In [1]: %timeit np.cos(pi)
-  [AUTOIMPORT] import numpy as np
-  [AUTOIMPORT] from numpy import pi
-  100000 loops, best of 3: 2.51 us per loop
-
-
-Implementation details
-======================
-
-The automatic importing happens at parse time, before code is executed.  The
-namespace never contains entries for names that are not yet imported.
-
-This method of importing at parse time contrasts with previous implementations
-of automatic importing that use proxy objects.  Those implementations using
-proxy objects don't work as well, because it is impossible to make proxy
-objects behave perfectly.  For example, instance(x, T) will return the wrong
-answer if either x or T is a proxy object.
-
-
-Compatibility
-=============
-
-Tested with:
-  - Python 2.6, 2.7
-  - IPython 0.12, 0.13, 1.2
-  - IPython (text console), IPython Notebook
-
-"""
 
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
@@ -94,173 +9,22 @@ import __builtin__
 import ast
 import contextlib
 import os
-import sys
 import types
 
+from   pyflyby._file            import FileText, Filename
+from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
+from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._util            import memoize
-
-
-# TODO: also support arbitrary code (in the form of a lambda and/or
-# assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
-
-
-# TODO: change to PYFLYBY_AUTOIMPORT_LOG_LEVEL=(INFO|DEBUG)
-debugging_enabled = bool(os.environ.get("PYFLYBY_AUTOIMPORT_DEBUG", ""))
-
-output_function = print
-"""
-Function that prints a single line.
-"""
-
-@contextlib.contextmanager
-def InterceptPrintsDuringPromptCtx():
-    """
-    Hook our local output function so that:
-      1. Before the first print, if any, print an extra newline.
-      2. Upon context exit, if any lines were printed, redisplay the prompt.
-    """
-    global output_function
-    print_count = [0]
-    ip = get_ipython_safe()
-    try:
-        readline       = ip.readline
-        prompt_manager = ip.prompt_manager
-        redisplay      = readline.redisplay
-        input_splitter = ip.input_splitter
-    except AttributeError:
-        yield
-        return
-    def output_during_prompt(line):
-        if not print_count[0]:
-            print()
-        print(line)
-        print_count[0] += 1
-    orig_output_function = output_function
-    output_function = output_during_prompt
-    try:
-        yield
-    finally:
-        output_function = orig_output_function
-        if print_count[0]:
-            # Re-display the current line.
-            if input_splitter.source == "":
-                # First line
-                prompt = ip.separate_in + prompt_manager.render("in")
-            else:
-                # Non-first line
-                prompt = prompt_manager.render("in2")
-            prompt = prompt.replace("\x01", "").replace("\x02", "")
-            line = readline.get_line_buffer()[:readline.get_endidx()]
-            sys.stdout.write(prompt + line)
-            redisplay()
-
-
-# TODO: rationalize with logging functionality
-def debug(fmt, *args):
-    if debugging_enabled:
-        try:
-            msg = fmt % args
-        except Exception as e:
-            msg = "%s  [%s: %s]" % (fmt, type(e).__name__, e)
-        output_function("[AUTOIMPORT DEBUG] %s" % (msg,))
-
-
-def info(fmt, *args):
-    try:
-        msg = fmt % args
-    except Exception as e:
-        msg = "%s  [%s: %s]" % (fmt, type(e).__name__, e)
-    output_function("[AUTOIMPORT] %s" % (msg,))
-
-
-
-@memoize
-def get_ipython_safe():
-    """
-    Get an IPython shell instance, if we are inside an IPython session.
-
-    If we are not inside an IPython session, don't initialize one.
-
-    @rtype:
-      C{IPython.core.interactiveshell.InteractiveShell}
-    """
-    try:
-        IPython = sys.modules['IPython']
-    except KeyError:
-        # The 'IPython' module isn't already loaded, so we're not in an
-        # IPython session.  Don't import it.
-        debug("[IPython not loaded]")
-        return None
-    # IPython 1.0+: use IPython.get_ipython().  This doesn't create an
-    # instance if it doesn't already exist.
-    try:
-        get_ipython = IPython.get_ipython
-    except AttributeError:
-        pass # not IPython 1.0+
-    else:
-        return get_ipython()
-    # IPython 0.11+: IPython.core.interactiveshell.InteractiveShell._instance.
-    # [The public method IPython.core.ipapi.get() also returns this, but we
-    # don't want to call that, because get() creates an IPython shell if it
-    # doesn't already exist, which we don't want.]
-    try:
-        return IPython.core.interactiveshell.InteractiveShell._instance
-    except AttributeError:
-        pass # not IPython 0.11+
-    # IPython 0.10+: IPython.ipapi.get().IP
-    try:
-        get = IPython.ipapi.get
-    except AttributeError:
-        pass # not IPython 0.10+
-    else:
-        ipsh = get()
-        if ipsh is not None:
-            return ipsh.IP
-        else:
-            return None
-    # Couldn't get IPython.
-    debug("Couldn't get IPython shell instance (IPython version: %s)",
-          IPython.__version__)
-    return None
-
-
-def _ipython_namespaces(ip):
-    """
-    Return the (global) namespaces used for IPython.
-
-    The ordering follows IPython convention of most-local to most-global.
-
-    @type ip:
-      C{IPython.core.InteractiveShell}
-    @rtype:
-      C{list}
-    @return:
-      List of (name, namespace_dict) tuples.
-    """
-    # This list is copied from IPython 2.2's InteractiveShell._ofind().
-    # Earlier versions of IPython (back to 1.x) also include
-    # ip.alias_manager.alias_table at the end.  This doesn't work in IPython
-    # 2.2 and isn't necessary anyway in earlier versions of IPython.
-    return [ ('Interactive'         , ip.user_ns),
-             ('Interactive (global)', ip.user_global_ns),
-             ('Python builtin'      , __builtin__.__dict__),
-    ]
-
-
-# TODO class NamespaceList(tuple):
+from   pyflyby._parse           import PythonBlock
 
 
 def interpret_namespaces(namespaces):
     """
     Interpret the input argument as a stack of namespaces.  It is normally
     ordered from most-global to most-local.
-
-    If C{None}, then use get_ipython().user_global_ns for IPython and
-    __main__.__dict__ for regular Python.
 
     Always include builtins.
     Duplicates are removed.
@@ -273,7 +37,9 @@ def interpret_namespaces(namespaces):
       C{list} of C{dict}
     """
     if namespaces is None:
-        namespaces = get_global_namespaces()
+        raise TypeError(
+            "got namespaces=None; did you mean to use "
+            "namespaces=get_global_namespaces()?")
     if isinstance(namespaces, dict):
         namespaces = [namespaces]
     if not isinstance(namespaces, list):
@@ -294,22 +60,7 @@ def interpret_namespaces(namespaces):
     return result
 
 
-def get_global_namespaces():
-    """
-    Get the global interactive namespaces.
-
-    @rtype:
-      C{list} of C{dict}
-    """
-    ip = get_ipython_safe()
-    if ip:
-        return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
-    else:
-        import __main__
-        return [__builtin__.__dict__, __main__.__dict__]
-
-
-def symbol_needs_import(fullname, namespaces=None):
+def symbol_needs_import(fullname, namespaces):
     """
     Return whether C{fullname} is a symbol that needs to be imported, given
     the current namespace scopes.
@@ -366,7 +117,7 @@ def symbol_needs_import(fullname, namespaces=None):
                     # here to indicate we know it was assigned but don't
                     # know about its type.)  Thus nothing under it needs
                     # import.
-                    debug("symbol_needs_import(%r): %s is in namespace %d (under %r) and not a module, so it doesn't need import", fullname, pname, ns_idx, partial_name)
+                    logger.debug("symbol_needs_import(%r): %s is in namespace %d (under %r) and not a module, so it doesn't need import", fullname, pname, ns_idx, partial_name)
                     return False
                 try:
                     var = getattr(var, part)
@@ -375,7 +126,7 @@ def symbol_needs_import(fullname, namespaces=None):
                     # but it does not have a "baz" attribute.  Thus, as we
                     # know so far, foo.bar.baz requires import.  But
                     # continue on to the next scope.
-                    debug("symbol_needs_import(%r): %s is a module in namespace %d (under %r), but has no %r attribute", fullname, pname, ns_idx, partial_name, part)
+                    logger.debug("symbol_needs_import(%r): %s is a module in namespace %d (under %r), but has no %r attribute", fullname, pname, ns_idx, partial_name, part)
                     break # continue outer loop
                 pname = "%s.%s" % (pname, part)
             else:
@@ -384,11 +135,11 @@ def symbol_needs_import(fullname, namespaces=None):
                 # attribute "quux" - so foo.bar.baz.quux does not need
                 # to be imported.
                 assert pname == str(fullname)
-                debug("symbol_needs_import(%r): found it in namespace %d (under %r), so it doesn't need import", fullname, ns_idx, partial_name)
+                logger.debug("symbol_needs_import(%r): found it in namespace %d (under %r), so it doesn't need import", fullname, ns_idx, partial_name)
                 return False
     # We didn't find any scope that defined the name.  Therefore it needs
     # import.
-    debug("symbol_needs_import(%r): no match found in namespaces; it needs import", fullname)
+    logger.debug("symbol_needs_import(%r): no match found in namespaces; it needs import", fullname)
     return True
 
 
@@ -509,11 +260,11 @@ class _MissingImportFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Name(self, node):
-        debug("visit_Name(%r)", node.id)
+        logger.debug("visit_Name(%r)", node.id)
         self._visit_fullname(node.id, node.ctx)
 
     def visit_Attribute(self, node):
-        debug("visit_Attribute(%r)", node.attr)
+        logger.debug("visit_Attribute(%r)", node.attr)
         name_revparts = []
         n = node
         while isinstance(n, ast.Attribute):
@@ -537,14 +288,13 @@ class _MissingImportFinder(ast.NodeVisitor):
             self._visit_Load(fullname)
 
     def _visit_Store(self, fullname):
-        debug("_visit_Store(%r)", fullname)
+        logger.debug("_visit_Store(%r)", fullname)
         self.ns_stack[-1][fullname] = None
 
     def _visit_Load(self, fullname):
-        debug("_visit_Load(%r)", fullname)
+        logger.debug("_visit_Load(%r)", fullname)
         if symbol_needs_import(fullname, self.ns_stack):
             self.missing_imports.add(fullname)
-
 
 def _find_missing_imports_in_ast(node, namespaces):
     """
@@ -565,8 +315,8 @@ def _find_missing_imports_in_ast(node, namespaces):
     if not isinstance(node, ast.AST):
         raise TypeError
     # Traverse the abstract syntax tree.
-    if debugging_enabled:
-        debug("ast=%s", ast.dump(node))
+    if logger.debug_enabled:
+        logger.debug("ast=%s", ast.dump(node))
     visitor = _MissingImportFinder(namespaces=namespaces)
     visitor.visit(node)
     return sorted(visitor.missing_imports)
@@ -933,7 +683,7 @@ def _find_earliest_backjump_label(bytecode):
     return earliest_backjump_label
 
 
-def find_missing_imports(arg, namespaces=None):
+def find_missing_imports(arg, namespaces):
     """
     Find symbols in the given code that require import.
 
@@ -996,7 +746,7 @@ def find_missing_imports(arg, namespaces=None):
 
     Only fully-qualified names starting at top-level are included:
 
-      >>> find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y")
+      >>> find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [])
       ['a.b.x.y', 'c', 'd']
 
     @type arg:
@@ -1050,7 +800,7 @@ def find_missing_imports(arg, namespaces=None):
             % (type(arg).__name__,))
 
 
-def get_known_import(fullname):
+def get_known_import(fullname, db=None):
     """
     Get the deepest known import.
 
@@ -1065,9 +815,8 @@ def get_known_import(fullname):
     @param fullname:
       Fully-qualified name, such as "scipy.interpolate"
     """
-    # Get the global import database.  This loads on first use and is
-    # cached thereafter.
-    db = ImportDB.get_default(".")
+    # Get the import database.
+    db = ImportDB.interpret_arg(db, target_filename=".")
     fullname = DottedIdentifier(fullname)
     # Look for the "deepest" import we know about.  Suppose the user
     # accessed "foo.bar.baz".  If we have an auto-import for "foo.bar",
@@ -1076,12 +825,12 @@ def get_known_import(fullname):
     for partial_name in fullname.prefixes[::-1]:
         try:
             result = db.by_fullname_or_import_as[str(partial_name)]
-            debug("get_known_import(%r): found %r", fullname, result)
+            logger.debug("get_known_import(%r): found %r", fullname, result)
             return result
         except KeyError:
-            debug("get_known_import(%r): no known import for %r", fullname, partial_name)
+            logger.debug("get_known_import(%r): no known import for %r", fullname, partial_name)
             pass
-    debug("get_known_import(%r): found nothing", fullname)
+    logger.debug("get_known_import(%r): found nothing", fullname)
     return None
 
 
@@ -1116,12 +865,12 @@ def _try_import(imp, namespace):
     # first run handle_auto_imports() on the code.
     imp = Import(imp)
     if imp in _IMPORT_FAILED:
-        debug("Not attempting previously failed %r", imp)
+        logger.debug("Not attempting previously failed %r", imp)
         return False
     impas = imp.import_as
     name0 = impas.split(".", 1)[0]
     stmt = str(imp)
-    info(stmt)
+    logger.info(stmt)
     # Do the import in a temporary namespace, then copy it to C{namespace}
     # manually.  We do this instead of just importing directly into
     # C{namespace} for the following reason: Suppose the user wants "foo.bar",
@@ -1137,7 +886,7 @@ def _try_import(imp, namespace):
         exec stmt in scratch_namespace
         imported = scratch_namespace[name0]
     except Exception as e:
-        info("Error attempting to %r: %s: %s", stmt, type(e).__name__, e)
+        logger.info("Error attempting to %r: %s: %s", stmt, type(e).__name__, e)
         _IMPORT_FAILED.add(imp)
         return False
     try:
@@ -1150,13 +899,13 @@ def _try_import(imp, namespace):
         # The top-level symbol already existed in the user's global namespace.
         # Check that it matched.
         if preexisting is not imported:
-            info("  => Failed: pre-existing %r (%r) differs from imported %r",
-                 name0, preexisting, name0)
+            logger.info("  => Failed: pre-existing %r (%r) differs from imported %r",
+                        name0, preexisting, name0)
             return False
     return True
 
 
-def auto_import_symbol(fullname, namespaces=None):
+def auto_import_symbol(fullname, namespaces, db=None):
     """
     Try to auto-import a single name.
 
@@ -1168,6 +917,10 @@ def auto_import_symbol(fullname, namespaces=None):
       C{list} of C{dict}, e.g. [globals()].
     @param namespaces:
       Namespaces to check.  Namespace[-1] is the namespace to import into.
+    @type db:
+      L{ImportDB}
+    @param db:
+      Import database to use.
     """
     namespaces = interpret_namespaces(namespaces)
     if not symbol_needs_import(fullname, namespaces):
@@ -1177,7 +930,7 @@ def auto_import_symbol(fullname, namespaces=None):
     # "import sqlalchemy.orm" will also be handled by this, although it's less
     # important, since we're going to attempt that import anyway if it looks
     # like a "sqlalchemy" package is importable.
-    imports = get_known_import(fullname)
+    imports = get_known_import(fullname, db=db)
     if imports is None:
         # No known imports.
         pass
@@ -1185,9 +938,9 @@ def auto_import_symbol(fullname, namespaces=None):
         assert len(imports) >= 1
         if len(imports) > 1:
             # Doh, multiple imports.
-            info("Multiple candidate imports for %s ; please pick one:", fullname)
+            logger.info("Multiple candidate imports for %s ; please pick one:", fullname)
             for imp in imports:
-                info("  %s", imp)
+                logger.info("  %s", imp)
             return
         imp, = imports
         if symbol_needs_import(imp.import_as, namespaces=namespaces):
@@ -1218,13 +971,13 @@ def auto_import_symbol(fullname, namespaces=None):
         if not symbol_needs_import(pmodule.name, namespaces):
             continue
         if not pmodule.module_if_importable:
-            debug("auto_import_symbol(%r): %r is not importable", fullname, pmodule)
+            logger.debug("auto_import_symbol(%r): %r is not importable", fullname, pmodule)
             return
         result = _try_import("import %s" % pmodule.name, namespaces[-1])
         assert result
 
 
-def auto_import(arg, namespaces=None):
+def auto_import(arg, namespaces, db=None):
     """
     Parse C{arg} for symbols that need to be imported and automatically import
     them.
@@ -1239,33 +992,41 @@ def auto_import(arg, namespaces=None):
       C{dict} or C{list} of C{dict}
     @param namespaces:
       Namespaces to check.  Namespace[-1] is the namespace to import into.
+    @type db:
+      L{ImportDB}
+    @param db:
+      Import database to use.
     """
     namespaces = interpret_namespaces(namespaces)
     try:
         fullnames = find_missing_imports(arg, namespaces)
     except SyntaxError:
-        debug("syntax error parsing %r", arg)
+        logger.debug("syntax error parsing %r", arg)
         return
-    debug("Missing imports: %r", fullnames)
+    logger.debug("Missing imports: %r", fullnames)
     for fullname in fullnames:
-        auto_import_symbol(fullname, namespaces)
+        auto_import_symbol(fullname, namespaces, db)
+
 
 
 def auto_eval(arg, filename=None, mode=None,
-              flags=None, globals=None, locals=None):
+              flags=None, globals=None, locals=None, db=None):
     """
     Evaluate/execute the given code, automatically importing as needed.
 
     C{auto_eval} will default the compilation C{mode} to "eval" if possible:
       >>> auto_eval("b64decode('aGVsbG8=')") + "!"
-      [AUTOIMPORT] from base64 import b64decode
+      [PYFLYBY] from base64 import b64decode
       'hello!'
 
     C{auto_eval} will default the compilation C{mode} to "exec" if the input
     is not a single expression:
       >>> auto_eval("if True: print b64decode('aGVsbG8=')")
-      [AUTOIMPORT] from base64 import b64decode
+      [PYFLYBY] from base64 import b64decode
       hello
+
+    This is roughly equivalent to "auto_import(arg); eval(arg)", but handles
+    details better and more efficiently.
 
     @type arg:
       C{str}, C{ast.AST}, C{code}, L{Filename}, L{FileText}, L{PythonBlock}
@@ -1297,21 +1058,18 @@ def auto_eval(arg, filename=None, mode=None,
       C{dict}
     @param locals:
       Locals for evaluation.  If C{None}, use C{globals}.
+    @type db:
+      L{ImportDB}
+    @param db:
+      Import database to use.
     @return:
       Result of evaluation (for mode="eval")
     """
-    # TODO: add a verbose=False option.
-    from ._flags import CompilerFlags
-    from ._file import Filename, FileText
-    from ._parse import PythonBlock
     flags = CompilerFlags(flags)
     # Parse argument into AST (or code).
     if isinstance(arg, (basestring, Filename, FileText, PythonBlock)):
         block = PythonBlock(arg, filename=filename, flags=flags)
-        if block.filename:
-            filename = str(block.filename)
-        else:
-            filename = None
+        filename = block.filename
         if mode is None and isinstance(arg, basestring):
             # Figure out whether to use mode="exec" or mode="eval".  Parse
             # it using mode="exec", then convert the result into mode="eval"
@@ -1331,28 +1089,31 @@ def auto_eval(arg, filename=None, mode=None,
         pass
     else:
         raise TypeError(
-            "eval_with_auto_import(): expected some form of code; got a %s"
+            "auto_eval(): expected some form of code; got a %s"
             % (type(arg).__name__,))
     # Canonicalize other args.
-    if filename is None:
-        filename = "<unknown>"
+    if filename:
+        filename = Filename(filename)
+    else:
+        filename = None
+    db = ImportDB.interpret_arg(db, target_filename=filename)
     if globals is None:
         globals = {}
     if locals is None:
         locals = globals
     namespaces = [globals, locals]
     # Import as needed.
-    auto_import(arg, namespaces)
+    auto_import(arg, namespaces, db)
     # Compile from AST to code object.
     if isinstance(arg, types.CodeType):
         code = arg
     else:
-        code = compile(arg, filename, mode, flags, True)
+        code = compile(arg, str(filename or "<unknown>"), mode, flags, True)
     # Evaluate/execute.
     return eval(code, globals, locals)
 
 
-def load_symbol(fullname, namespaces=None, autoimport=False):
+def load_symbol(fullname, namespaces, autoimport=False, db=None):
     """
     Load the symbol C{fullname}.
 
@@ -1380,6 +1141,10 @@ def load_symbol(fullname, namespaces=None, autoimport=False):
     @param autoimport:
       If C{False} (default), the symbol must already be imported.
       If C{True}, then auto-import the symbol first.
+    @type db:
+      L{ImportDB}
+    @param db:
+      Import database to use when C{autoimport=True}.
     @return:
       Object.
     @raise AttributeError:
@@ -1393,7 +1158,7 @@ def load_symbol(fullname, namespaces=None, autoimport=False):
         # symbol if possible.  We don't do that because most users of
         # auto_import_symbol() don't need to follow down arbitrary (possibly
         # non-module) attributes.)
-        auto_import_symbol(fullname, namespaces)
+        auto_import_symbol(fullname, namespaces, db)
     name_parts = fullname.split(".")
     name0 = name_parts[0]
     for namespace in namespaces:
@@ -1407,271 +1172,3 @@ def load_symbol(fullname, namespaces=None, autoimport=False):
             return obj
     else:
         raise AttributeError(name0) # not found in any namespace
-
-
-def _list_members_for_completion(obj):
-    """
-    Enumerate the existing member attributes of an object.
-    This emulates the regular Python/IPython completion items.
-
-    It does not include not-yet-imported submodules.
-
-    @param obj:
-      Object whose member attributes to enumerate.
-    @rtype:
-      C{list} of C{str}
-    """
-    ip = get_ipython_safe()
-    if ip is None:
-        words = dir(obj)
-    else:
-        from IPython.utils import generics
-        from IPython.utils.dir2 import dir2
-        from IPython.core.error import TryNext
-        if ip.Completer.limit_to__all__ and hasattr(obj, '__all__'):
-            try:
-                words = getattr(obj, '__all__')
-            except:
-                return []
-        else:
-            words = dir2(obj)
-            try:
-                words = generics.complete_object(obj, words)
-            except TryNext:
-                pass
-    return [w for w in words if isinstance(w, basestring)]
-
-
-def complete_symbol(fullname, namespaces=None):
-    """
-    Enumerate possible completions for C{fullname}.
-
-    Includes globals and auto-importable symbols.
-
-      >>> complete_symbol("threadi")                # doctest:+ELLIPSIS
-      [...'threading'...]
-
-    Completion works on attributes, even on modules not yet imported - modules
-    are auto-imported first if not yet imported:
-
-      >>> ns = {}
-      >>> complete_symbol("threading.Threa", namespaces=[ns])
-      [AUTOIMPORT] import threading
-      ['threading.Thread', 'threading.ThreadError']
-
-      >>> 'threading' in ns
-      True
-
-      >>> complete_symbol("threading.Threa", namespaces=[ns])
-      ['threading.Thread', 'threading.ThreadError']
-
-    We only need to import *parent* modules (packages) of the symbol being
-    completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to
-    import foo.bar, but we don't need to import foo.bar.quux.
-
-    @type fullname:
-      C{str}
-    @param fullname:
-      String to complete.  ("Full" refers to the fact that it should contain
-      dots starting from global level.)
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param namespaces:
-      Namespaces of (already-imported) globals.
-    @rtype:
-      C{list} of C{str}
-    @return:
-      Completion candidates.
-    """
-    namespaces = interpret_namespaces(namespaces)
-    debug("complete_symbol(%r)", fullname)
-    # Require that the input be a prefix of a valid symbol.
-    if not is_identifier(fullname, dotted=True, prefix=True):
-        return []
-    # Get the database of known imports.
-    known = ImportDB.get_default(".").known_imports
-    if '.' not in fullname:
-        # Check global names, including global-level known modules and
-        # importable modules.
-        results = set()
-        for ns in namespaces:
-            for name in ns:
-                if '.' not in name:
-                    results.add(name)
-        results.update(known.member_names.get("", []))
-        results.update([str(m) for m in ModuleHandle.list()])
-        assert all('.' not in r for r in results)
-        results = sorted([r for r in results if r.startswith(fullname)])
-    else:
-        # Check members, including known sub-modules and importable sub-modules.
-        splt = fullname.rsplit(".", 1)
-        pname, attrname = splt
-        try:
-            parent = load_symbol(pname, namespaces, autoimport=True)
-        except AttributeError:
-            # Even after attempting auto-import, the symbol is still
-            # unavailable.  Nothing to complete.
-            debug("complete_symbol(%r): couldn't load symbol %r", fullname, pname)
-            return []
-        results = set()
-        results.update(_list_members_for_completion(parent))
-        if sys.modules.get(pname, object()) is parent and parent.__name__ == pname:
-            results.update(known.member_names.get(pname, []))
-            results.update([m.name.parts[-1]
-                            for m in ModuleHandle(parent).submodules])
-        results = sorted([r for r in results if r.startswith(attrname)])
-        results = ["%s.%s" % (pname, r) for r in results]
-    return results
-
-
-def _complete_symbol_during_prompt(fullname):
-    with InterceptPrintsDuringPromptCtx():
-        return complete_symbol(fullname)
-
-
-
-class _AutoImporter_ast_transformer(object):
-    """
-    A NodeVisitor-like wrapper around C{auto_import_for_ast} for the API that
-    IPython 1.x's C{ast_transformers} needs.
-    """
-
-    def visit(self, node):
-        try:
-            # We don't actually transform the node; we just use the
-            # ast_transformers mechanism instead of the prefilter mechanism as
-            # an optimization to avoid re-parsing the text into an AST.
-            auto_import(node)
-            return node
-        except:
-            import traceback
-            traceback.print_exc()
-            raise
-
-
-class _AutoImporter_prefilter_checker(object):
-    """
-    A prefilter checker for IPython < 1.0.
-    """
-    priority = 1
-    enabled = True
-
-    def check(self, line_info):
-        debug("prefilter %r", line_info.line)
-        auto_import(line_info.line)
-        return None
-
-
-
-@memoize
-def install_auto_importer():
-    """
-    Install the auto-importer into IPython.
-    """
-    ip = get_ipython_safe()
-    if not ip:
-        return
-    import IPython
-    debug("Initializing pyflyby auto importer for IPython version %s", IPython.__version__)
-
-    # Install a pre-code-execution hook.
-    #
-    # There are a few different places within IPython we can consider hooking:
-    #   * ip.input_transformer_manager.logical_line_transforms
-    #   * ip.compiler.ast_parse
-    #   * ip.prefilter_manager.checks
-    #   * ip.ast_transformers
-    #   * ip.hooks['pre_run_code_hook']
-    #   * ip._ofind
-    #
-    # We choose to hook in two places: (1) _ofind and (2) ast_transformers.
-    # The motivation follows.  We want to handle auto-imports for all of these
-    # input cases:
-    #   (1) "foo.bar"
-    #   (2) "arbitrarily_complicated_stuff((lambda: foo.bar)())"
-    #   (3) "foo.bar?", "foo.bar??" (pinfo/pinfo2)
-    #   (4) "foo.bar 1, 2" => "foo.bar(1, 2)" (autocall)
-    #
-    # Case 1 is the easiest and can be handled by nearly any method.  Case 2
-    # must be done either as a prefilter or as an AST transformer.  Cases 3
-    # and 4 must be done either as an input line transformer or by
-    # monkey-patching _ofind, because by the time the
-    # prefilter/ast_transformer is called, it's too late.
-    #
-    # To handle case 2, we use an AST transformer (for IPython > 1.0), or
-    # monkey-patch ip.compile.ast_parse() (for IPython < 1.0).
-    # prefilter_manager.checks() is the "supported" way to add a pre-execution
-    # hook, but it only works for single lines, not for multi-line cells.
-    # (There is no explanation in the IPython source for why prefilter hooks
-    # are seemingly intentionally skipped for multi-line cells).
-    #
-    # To handle cases 3/4 (pinfo/autocall), we choose to hook _ofind.  This is
-    # a private function that is called by both pinfo and autocall code paths.
-    # (Alternatively, we could have added something to the
-    # logical_line_transforms.  The downside of that is that we would need to
-    # re-implement all the parsing perfectly matching IPython.  Although
-    # monkey-patching is in general bad, it seems the lesser of the two evils
-    # in this case.)
-    #
-    # Since we have two invocations of handle_auto_imports(), case 1 is
-    # handled twice.  That's fine because it runs quickly.
-
-    # Hook _ofind.
-    if hasattr(ip, "_ofind"):
-        orig_ofind = ip._ofind
-        def wrapped_ofind(oname, namespaces=None):
-            debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
-            if namespaces is None:
-                namespaces = _ipython_namespaces(ip)
-            if is_identifier(oname, dotted=True):
-                auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
-            result = orig_ofind(oname, namespaces=namespaces)
-            return result
-        ip._ofind = wrapped_ofind
-    else:
-        debug("Couldn't install ofind hook for IPython version %s", IPython.__version__)
-
-    if hasattr(ip, 'ast_transformers'):
-        # IPython >= 1.0+: Hook ast_transformers.
-        ip.ast_transformers.append(_AutoImporter_ast_transformer())
-    elif hasattr(ip, 'compile') and hasattr(ip.compile, 'ast_parse'):
-        # IPython < 1.0: Hook the AST parse step.
-        orig_ast_parse = ip.compile.ast_parse
-        def wrapped_ast_parse(source, *args, **kwargs):
-            debug("ast_parse %r", source)
-            ast = orig_ast_parse(source, *args, **kwargs)
-            auto_import(ast)
-            return ast
-        ip.compile.ast_parse = wrapped_ast_parse
-    elif hasattr(ip, 'prefilter_manager'):
-        # IPython < 1.0: Add prefilter manager.
-        ip.prefilter_manager.register_checker(_AutoImporter_prefilter_checker())
-    else:
-        debug("Couldn't install a line transformer for IPython version %s", IPython.__version__)
-
-    # Install a tab-completion hook.
-    #
-    # There are a few different places within IPython we can consider hooking:
-    #   * ip.completer.custom_completers / ip.set_hook("complete_command")
-    #   * ip.completer.python_matches
-    #   * ip.completer.global_matches
-    #   * ip.completer.attr_matches
-    #   * ip.completer.python_func_kw_matches
-    #
-    # The "custom_completers" list, which set_hook("complete_command")
-    # manages, is not useful because that only works for specific commands.
-    # (A "command" refers to the first word on a line, such as "cd".)
-    #
-    # We choose to hook global_matches() and attr_matches(), which are called
-    # to enumerate global and non-global attribute symbols respectively.
-    # (python_matches() calls these two.  We hook global_matches() and
-    # attr_matches() instead of python_matches() because a few other functions
-    # call global_matches/attr_matches directly.)
-    #
-    if hasattr(ip, "Completer"):
-        completer = ip.Completer
-        completer.global_matches = _complete_symbol_during_prompt
-        completer.attr_matches   = _complete_symbol_during_prompt
-        # TODO: also hook completer.python_func_kw_matches
-    else:
-        debug("Couldn't install completion hook for IPython version %s", IPython.__version__)

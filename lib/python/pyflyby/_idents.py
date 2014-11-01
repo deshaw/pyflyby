@@ -103,6 +103,7 @@ def is_identifier(s, dotted=False, prefix=False):
     @rtype:
       C{bool}
     """
+    # TODO: don't consider "print" a keyword.
     if not isinstance(s, basestring):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))

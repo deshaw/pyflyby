@@ -55,18 +55,18 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     def debug_callback(option, opt_str, value, parser):
         global DEBUG
         DEBUG = True
-        logger.set_level("debug")
+        logger.set_level("DEBUG")
 
     parser.add_option("--debug", action="callback",
                       callback=debug_callback,
                       help="Debug mode (noisy and fail fast).")
 
     parser.add_option("--verbose", action="callback",
-                      callback=log_level_callbacker("debug"),
+                      callback=log_level_callbacker("DEBUG"),
                       help="Be noisy.")
 
     parser.add_option("--quiet", action="callback",
-                      callback=log_level_callbacker("error"),
+                      callback=log_level_callbacker("ERROR"),
                       help="Be quiet.")
 
     if modify_action_params:

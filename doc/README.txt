@@ -7,7 +7,7 @@ For editing python source code:
   * tidy-imports:      adds missing 'import's, removes unused 'import's, and
                        also reformats 'import' blocks.
   * find-imports:      prints to stdout how to import a particular symbol.
-  * reformat-imports:  reformats 'import' blocks 
+  * reformat-imports:  reformats 'import' blocks
   * collect-imports:   prints out all the imports in a given set of files.
   * collect-exports:   prints out definitions in a given set of modules, in the
                        form of import statements.
@@ -26,12 +26,12 @@ Example:
   $ ipython
 
   In [1]: re.search("[a-z]+", "....hello...").group(0)
-  [AUTOIMPORT] import re
+  [PYFLYBY] import re
   Out[1]: 'hello'
 
   In [2]: chisqprob(arange(5), 2)
-  [AUTOIMPORT] from numpy import arange
-  [AUTOIMPORT] from scipy.stats import chisqprob
+  [PYFLYBY] from numpy import arange
+  [PYFLYBY] from scipy.stats import chisqprob
   Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
 
 
@@ -68,6 +68,96 @@ Create a file named .pyflyby with lines such as::
 
 You can put this file in your home directory or in the same directory as your
 *.py files.
+
+
+Details: automatic imports
+==========================
+
+AUTOMATIC IMPORTS - never type "import" again!
+
+This module allows your "known imports" to work automatically in your IPython
+interactive session without having to type the 'import' statements (and also
+without having to slow down your Python startup with imports you only use
+occasionally).
+
+To use, add to your IPython startup::
+  from pyflyby import install_auto_importer
+  install_auto_importer()
+
+Example:
+
+  In [1]: re.search("[a-z]+", "....hello...").group(0)
+  [PYFLYBY] import re
+  Out[1]: 'hello'
+
+  In [2]: chisqprob(arange(5), 2)
+  [PYFLYBY] from numpy import arange
+  [PYFLYBY] from scipy.stats import chisqprob
+  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+
+  In [3]: np.sin(arandom(5))
+  [PYFLYBY] from numpy.random import random as arandom
+  [PYFLYBY] import numpy as np
+  Out[3]: [ 0.0282  0.0603  0.4653  0.8371  0.3347]
+
+  In [4]: isinstance(42, Number)
+  [PYFLYBY] from numbers import Number
+  Out[4]: True
+
+
+It just works
+-------------
+
+Tab completion works, even on modules that are not yet imported.  In the
+following example, notice that numpy is imported when we need to know its
+members, and only then:
+
+  $ ipython
+  In [1]: nump<TAB>
+  In [1]: numpy
+  In [1]: numpy.arang<TAB>
+  [PYFLYBY] import numpy
+  In [1]: numpy.arange
+
+
+The IPython "?" magic help (pinfo/pinfo2) automatically imports symbols first
+if necessary:
+
+  $ ipython
+  In [1]: arange?
+  [PYFLYBY] from numpy import arange
+  ... Docstring: arange([start,] stop[, step,], dtype=None) ...
+
+Other IPython magic commands work as well:
+
+  $ ipython
+  In [1]: %timeit np.cos(pi)
+  [PYFLYBY] import numpy as np
+  [PYFLYBY] from numpy import pi
+  100000 loops, best of 3: 2.51 us per loop
+
+
+Implementation details
+----------------------
+
+The automatic importing happens at parse time, before code is executed.  The
+namespace never contains entries for names that are not yet imported.
+
+This method of importing at parse time contrasts with previous implementations
+of automatic importing that use proxy objects.  Those implementations using
+proxy objects don't work as well, because it is impossible to make proxy
+objects behave perfectly.  For example, instance(x, T) will return the wrong
+answer if either x or T is a proxy object.
+
+
+Compatibility
+-------------
+
+Tested with:
+  - Python 2.6, 2.7
+  - IPython 0.12, 0.13, 1.2
+  - IPython (text console), IPython Notebook
+
 
 
 Details: import libraries
@@ -187,6 +277,29 @@ You can put the following in any file reachable from $PYFLYBY_PATH:
   __canonical_imports__ = {"oldmodule.oldfunction": "newmodule.newfunction"}
 
 
+Soapbox: avoid "star" imports
+=============================
+
+Avoid using "from foopackage import *" in production code.
+
+This style is a maintenance nightmare:
+
+  * It becomes difficult to figure out where various symbols
+    (functions/classes/etc) come from.
+
+  * It's hard to tell what gets shadowed by what.
+
+  * When the package changes in trivial ways, your code will be affected.
+    Consider the following example: Suppose foopackage.py contains "import
+    sys", and myprogram.py contains "from foopackage import *; if
+    some_condition: sys.exit(0)".  If foopackage.py changes so that "import
+    sys" is removed, myprogram.py is now broken because it's missing "import
+    sys".
+
+To fix such code, you can run `tidy-imports --replace-star-imports' to
+automatically replace star imports with the specific needed imports.
+
+
 Emacs support
 =============
 
@@ -209,5 +322,3 @@ License
 
 Pyflyby is released under a very permissive license, the MIT/X11 license; see
 LICENSE.txt.
-
-

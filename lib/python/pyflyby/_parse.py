@@ -869,17 +869,6 @@ class PythonBlock(object):
             joined += "\n"
         return compiler.parse(joined)
 
-    def __repr__(self):
-        r = "%s(%r" % (type(self).__name__, self.text.joined)
-        if self.filename:
-            r += ", filename=%r" % (str(self.filename),)
-        if self.startpos != FilePos():
-            r += ", startpos=%s" % (self.startpos,)
-        if self.flags != self.source_flags:
-            r += ", flags=%s" % (self.flags,)
-        r += ")"
-        return r
-
     def groupby(self, predicate):
         """
         Partition this block of code into smaller blocks of code which
@@ -954,6 +943,20 @@ class PythonBlock(object):
                     continue
                 doctest_blocks.append(block)
         return doctest_blocks
+
+    def __repr__(self):
+        r = "%s(%r" % (type(self).__name__, self.text.joined)
+        if self.filename:
+            r += ", filename=%r" % (str(self.filename),)
+        if self.startpos != FilePos():
+            r += ", startpos=%s" % (self.startpos,)
+        if self.flags != self.source_flags:
+            r += ", flags=%s" % (self.flags,)
+        r += ")"
+        return r
+
+    def __str__(self):
+        return str(self.text)
 
     def __text__(self):
         return self.text

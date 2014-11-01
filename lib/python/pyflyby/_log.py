@@ -4,20 +4,70 @@
 
 from __future__ import absolute_import, division, with_statement
 
+from   contextlib               import contextmanager
 import logging
+from   logging                  import Formatter, Logger, StreamHandler
 import os
-import sys
 
 
-LEVELS = dict( (k, getattr(logging, k.upper()))
-               for k in ['debug', 'info', 'warning', 'error'] )
+class _HookedStreamHandler(StreamHandler):
 
-class PFBLogger(logging.Logger):
+    _pre_log_function = None
+    _logged_anything_during_context = False
+
+    def emit(self, record):
+        if self._pre_log_function is not None:
+            if not self._logged_anything_during_context:
+                self._pre_log_function()
+                self._logged_anything_during_context = True
+        StreamHandler.emit(self, record)
+
+
+    @contextmanager
+    def HookCtx(self, pre, post):
+        """
+        Enter a context where:
+          * C{pre} is called before the first time a log record is emitted
+            during the context, and
+          * C{post} is called at the end of the context, if any log records
+            were emitted during the context.
+
+        @type pre:
+          C{callable}
+        @param pre:
+          Function to call before the first time something is logged during
+          this context.
+        @type post:
+          C{callable}
+        @param post:
+          Function to call before returning from the context, if anything was
+          logged during the context.
+        """
+        assert self._pre_log_function is None
+        self._pre_log_function = pre
+        try:
+            yield
+        finally:
+            if self._logged_anything_during_context:
+                post()
+                self._logged_anything_during_context = False
+            self._pre_log_function = None
+
+
+
+class PyflybyLogger(Logger):
+
+    _LEVELS = dict( (k, getattr(logging, k))
+                    for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR'] )
+
     def __init__(self, name, level):
-        logging.Logger.__init__(self, name)
-        formatter = logging.Formatter(
-            '{0}: %(message)s'.format(os.path.basename(sys.argv[0])))
-        handler = logging.StreamHandler()
+        Logger.__init__(self, name)
+        handler = _HookedStreamHandler()
+        if os.isatty(handler.stream.fileno()):
+            pfx = "\033[0m\033[33m[PYFLYBY]\033[0m"
+        else:
+            pfx = "[PYFLYBY]"
+        formatter = Formatter('{pfx} %(message)s'.format(pfx=pfx))
         handler.setFormatter(formatter)
         self.addHandler(handler)
         self.set_level(level)
@@ -32,8 +82,18 @@ class PFBLogger(logging.Logger):
         if isinstance(level, int):
             level_num = level
         else:
-            level_num = LEVELS.get(level.lower())
-        logging.Logger.setLevel(self, level_num)
+            try:
+                level_num = self._LEVELS[level.upper()]
+            except KeyError:
+                raise ValueError("Bad log level %r" % (level,))
+        Logger.setLevel(self, level_num)
+
+    @property
+    def debug_enabled(self):
+        return self.level <= logging.DEBUG
+
+    def HookCtx(self, pre, post):
+        return self.handlers[0]._HookedStreamHandler(pre, post)
 
 
-logger = PFBLogger('pyflyby', 'info')
+logger = PyflybyLogger('pyflyby', os.getenv("PYFLYBY_LOG_LEVEL") or "INFO")

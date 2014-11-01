@@ -1,4 +1,4 @@
-# pyflyby/test_autoimport.py
+# pyflyby/test_autoimp.py
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
@@ -9,7 +9,7 @@ import ast
 import os
 import pytest
 
-from   pyflyby._autoimport      import (auto_eval, find_missing_imports,
+from   pyflyby._autoimp         import (auto_eval, find_missing_imports,
                                         load_symbol)
 
 
@@ -92,7 +92,7 @@ def test_find_missing_imports_generator_expression_1():
 
 
 def test_find_missing_imports_qualified_1():
-    result   = find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y")
+    result   = find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [])
     expected = ['a.b.x.y', 'c', 'd']
     assert result == expected
 

@@ -12,6 +12,7 @@ from   textwrap                 import dedent
 
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
+os.environ["PYFLYBY_LOG_LEVEL"] = ""
 os.environ["PYFLYBY_PATH"] = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
 os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
 os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
@@ -29,11 +30,11 @@ def pipe(command, stdin=""):
 def test_tidy_imports_stdin_1():
     result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
     expected = dedent('''
-        tidy-imports: /dev/stdin: added 'import os'
-        tidy-imports: /dev/stdin: added 'import sys'
-        tidy-imports: /dev/stdin: added mandatory 'from __future__ import absolute_import'
-        tidy-imports: /dev/stdin: added mandatory 'from __future__ import division'
-        tidy-imports: /dev/stdin: added mandatory 'from __future__ import with_statement'
+        [PYFLYBY] /dev/stdin: added 'import os'
+        [PYFLYBY] /dev/stdin: added 'import sys'
+        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import absolute_import'
+        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import division'
+        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import with_statement'
         from __future__ import absolute_import, division, with_statement
 
         import os
@@ -42,6 +43,36 @@ def test_tidy_imports_stdin_1():
         os, sys
     ''').strip()
     assert result == expected
+
+
+def test_tidy_imports_quiet_1():
+    result = pipe([BIN_DIR+"/tidy-imports", "--quiet"], stdin="os, sys")
+    expected = dedent('''
+        from __future__ import absolute_import, division, with_statement
+
+        import os
+        import sys
+
+        os, sys
+    ''').strip()
+    assert result == expected
+
+
+def test_tidy_imports_log_level_1():
+    try:
+        os.environ["PYFLYBY_LOG_LEVEL"] = "WARNING"
+        result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
+        expected = dedent('''
+            from __future__ import absolute_import, division, with_statement
+
+            import os
+            import sys
+
+            os, sys
+        ''').strip()
+        assert result == expected
+    finally:
+        os.environ["PYFLYBY_LOG_LEVEL"] = ""
 
 
 def test_tidy_imports_filename_action_print_1():
@@ -54,11 +85,11 @@ def test_tidy_imports_filename_action_print_1():
         f.flush()
         result = pipe([BIN_DIR+"/tidy-imports", f.name])
         expected = dedent('''
-            tidy-imports: {f.name}: added 'import os'
-            tidy-imports: {f.name}: added 'import sys'
-            tidy-imports: {f.name}: added mandatory 'from __future__ import absolute_import'
-            tidy-imports: {f.name}: added mandatory 'from __future__ import division'
-            tidy-imports: {f.name}: added mandatory 'from __future__ import with_statement'
+            [PYFLYBY] {f.name}: added 'import os'
+            [PYFLYBY] {f.name}: added 'import sys'
+            [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
+            [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
+            [PYFLYBY] {f.name}: added mandatory 'from __future__ import with_statement'
             # hello
             from __future__ import absolute_import, division, with_statement
 
@@ -83,13 +114,13 @@ def test_tidy_imports_filename_action_replace_1():
         name = f.name
     cmd_output = pipe([BIN_DIR+"/tidy-imports", "-r", name])
     expected_cmd_output = dedent('''
-        tidy-imports: {f.name}: removed unused 'import b'
-        tidy-imports: {f.name}: added 'import os'
-        tidy-imports: {f.name}: added 'import sys'
-        tidy-imports: {f.name}: added mandatory 'from __future__ import absolute_import'
-        tidy-imports: {f.name}: added mandatory 'from __future__ import division'
-        tidy-imports: {f.name}: added mandatory 'from __future__ import with_statement'
-        tidy-imports: {f.name}: *** modified ***
+        [PYFLYBY] {f.name}: removed unused 'import b'
+        [PYFLYBY] {f.name}: added 'import os'
+        [PYFLYBY] {f.name}: added 'import sys'
+        [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
+        [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
+        [PYFLYBY] {f.name}: added mandatory 'from __future__ import with_statement'
+        [PYFLYBY] {f.name}: *** modified ***
     ''').strip().format(f=f)
     assert cmd_output == expected_cmd_output
     with open(name) as f:
@@ -199,19 +230,19 @@ def test_find_import_1():
 
 def test_find_import_bad_1():
     result = pipe([BIN_DIR+"/find-import", "omg_unknown_4223496"])
-    expected = "find-import: Can't find import for 'omg_unknown_4223496'"
+    expected = "[PYFLYBY] Can't find import for 'omg_unknown_4223496'"
     assert result == expected
 
 
 def test_autopython_eval_1():
     result = pipe([BIN_DIR+"/autopython", "-c", "b64decode('aGVsbG8=')"])
-    expected = "[AUTOIMPORT] from base64 import b64decode\n'hello'"
+    expected = "[PYFLYBY] from base64 import b64decode\n'hello'"
     assert result == expected
 
 
 def test_autopython_exec_1():
     result = pipe([BIN_DIR+"/autopython", "-c", "print b64decode('aGVsbG8=')"])
-    expected = "[AUTOIMPORT] from base64 import b64decode\nhello"
+    expected = "[PYFLYBY] from base64 import b64decode\nhello"
     assert result == expected
 
 
@@ -223,7 +254,13 @@ def test_autopython_name_1():
 
 def test_autopython_argv_1():
     result = pipe([BIN_DIR+"/autopython", "-c", "sys.argv", "x", "y"])
-    expected = "[AUTOIMPORT] import sys\n['-c', 'x', 'y']"
+    expected = "[PYFLYBY] import sys\n['-c', 'x', 'y']"
+    assert result == expected
+
+
+def test_autopython_argv_option_1():
+    result = pipe([BIN_DIR+"/autopython", "-csys.argv", "--debug", "-x  x"])
+    expected = "[PYFLYBY] import sys\n['-c', '--debug', '-x  x']"
     assert result == expected
 
 
@@ -232,5 +269,5 @@ def test_autopython_file_1():
         f.write('print sys.argv\n')
         f.flush()
         result = pipe([BIN_DIR+"/autopython", f.name, "a", "b"])
-    expected = "[AUTOIMPORT] import sys\n[%r, 'a', 'b']" % (f.name,)
+    expected = "[PYFLYBY] import sys\n[%r, 'a', 'b']" % (f.name,)
     assert result == expected

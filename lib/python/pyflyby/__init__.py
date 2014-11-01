@@ -4,8 +4,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby._autoimport      import (auto_eval, find_missing_imports,
-                                        install_auto_importer)
+from   pyflyby._autoimp         import auto_eval, find_missing_imports
 from   pyflyby._file            import Filename
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
@@ -15,9 +14,12 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._importstmt      import (Import, ImportStatement,
                                         NonImportStatementError)
+from   pyflyby._interactive     import install_auto_importer
+from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._version         import __version__
 
 
-# Discourage "from pyflyby import *".  Use the autoimporter instead!
+# Discourage "from pyflyby import *".
+# Use the tidy-imports/autoimporter instead!
 __all__ = []

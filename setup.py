@@ -54,7 +54,7 @@ setup(
     author_email = "quarl@8166.clguba.z.quarl.org",
     description = ("pyflyby - Python development productivity tools, in particular automatic import management"),
     license = "MIT",
-    keywords = "automatic imports autoimporter tidy-imports",
+    keywords = "pyflyby productivity automatic imports autoimporter tidy-imports",
     url = "http://packages.python.org/pyflyby",
     package_dir={'': 'lib/python'},
     packages=['pyflyby'],
