@@ -20,6 +20,14 @@ from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._version         import __version__
 
 
+# Promote the function & classes that we've chosen to expose publicly to be
+# known as pyflyby.Foo instead of pyflyby._module.Foo.
+for x in globals().values():
+    if getattr(x, "__module__", "").startswith("pyflyby."):
+        x.__module__ = "pyflyby"
+del x
+
+
 # Discourage "from pyflyby import *".
 # Use the tidy-imports/autoimporter instead!
 __all__ = []

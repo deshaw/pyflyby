@@ -699,6 +699,7 @@ def find_missing_imports(arg, namespaces):
     But if the global namespace already has the "os" module imported, then we
     know that C{os} has a "path" attribute, which has a "join" attribute, so
     nothing needs import:
+      >>> import os
       >>> find_missing_imports("os.path.join", namespaces=[{"os":os}])
       []
 
