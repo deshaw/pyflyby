@@ -484,6 +484,7 @@ def fix_unused_and_missing_imports(codeblock,
         # implemented yet because this isn't necessary for __future__ imports
         # since they aren't reported as unused, and those are the only ones we
         # have by default right now.]
+        unused_imports.sort(key=lambda (import_as, lineno): (lineno, import_as))
         for import_as, lineno in unused_imports:
             try:
                 imp = transformer.remove_import(import_as, lineno)
@@ -498,6 +499,7 @@ def fix_unused_and_missing_imports(codeblock,
                 logger.info("%s: removed unused '%s'", filename, imp)
 
     if add_missing and missing_imports:
+        missing_imports.sort(key=lambda (import_as, lineno): (lineno, import_as))
         known = db.known_imports.by_import_as
         # Decide on where to put each import to be added.  Find the import
         # block with the longest common prefix.  Tie-break by preferring later
