@@ -54,6 +54,17 @@ class _HookedStreamHandler(StreamHandler):
             self._pre_log_function = None
 
 
+def _is_interactive(file):
+    if type(file).__module__.startswith("IPython."):
+        # Inside IPython notebook
+        return True
+    try:
+        fileno = file.fileno()
+    except Exception:
+        return False # dunno
+    return os.isatty(fileno)
+
+
 
 class PyflybyLogger(Logger):
 
@@ -63,7 +74,7 @@ class PyflybyLogger(Logger):
     def __init__(self, name, level):
         Logger.__init__(self, name)
         handler = _HookedStreamHandler()
-        if os.isatty(handler.stream.fileno()):
+        if _is_interactive(handler.stream):
             pfx = "\033[0m\033[33m[PYFLYBY]\033[0m"
         else:
             pfx = "[PYFLYBY]"
