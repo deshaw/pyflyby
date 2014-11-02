@@ -83,11 +83,11 @@ class ModuleHandle(object):
             return arg
         if isinstance(arg, Filename):
             return cls._from_filename(arg)
-        if isinstance(arg, (str, DottedIdentifier)):
+        if isinstance(arg, (basestring, DottedIdentifier)):
             return cls._from_modulename(arg)
         if isinstance(arg, types.ModuleType):
             return cls._from_module(arg)
-        raise TypeError
+        raise TypeError("ModuleHandle: unexpected %s" % (type(arg).__name__,))
 
     _cls_cache = {}
 

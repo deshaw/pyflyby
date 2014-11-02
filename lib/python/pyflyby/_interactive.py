@@ -487,8 +487,16 @@ def install_auto_importer():
             return ast
         ip.compile.ast_parse = wrapped_ast_parse
     elif hasattr(ip, 'prefilter_manager'):
-        # IPython < 1.0: Add prefilter manager.
+        # IPython 0.11 to 1.0: Add prefilter manager.
         ip.prefilter_manager.register_checker(_AutoImporter_prefilter_checker())
+    elif hasattr(ip, 'prefilter'):
+        # IPython 0.10: hook the ip._prefilter method.
+        orig_prefilter = ip.prefilter
+        def wrapped_prefilter(line, continue_prompt):
+            logger.debug("prefilter %r", line)
+            auto_import(line, get_global_namespaces())
+            return orig_prefilter(line, continue_prompt)
+        ip.prefilter = wrapped_prefilter
     else:
         logger.debug("Couldn't install a line transformer for IPython version %s", IPython.__version__)
 

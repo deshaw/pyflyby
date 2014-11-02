@@ -1,5 +1,10 @@
 
 
+from __future__ import absolute_import, division, with_statement
+
+import os
+import sys
+
 _already_ran_setup = False
 
 def pytest_runtest_setup(item):
@@ -33,3 +38,29 @@ def _setup_logger():
     handler = pyflyby.logger.handlers[0]
     handler.stream = TestStream()
     handler.formatter = logging.Formatter("[PYFLYBY] %(message)s")
+
+
+
+# Set $PYFLYBY_PATH to a predictable value.  For other env vars, set to defaults.
+PYFLYBY_HOME = os.path.dirname(os.path.realpath(__file__))
+os.environ["PYFLYBY_PATH"] = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
+os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
+os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
+os.environ["PYFLYBY_LOG_LEVEL"] = ""
+os.environ["PYTHONSTARTUP"] = ""
+
+# Make sure that the virtualenv path is first.
+os.environ["PATH"] = "%s:%s" % (os.path.dirname(sys.executable),
+                                os.environ["PATH"])
+
+
+# The following block is a workaround for IPython 0.11 and earlier versions.
+# These versions of IPython get confused by sys.stdin not being a regular
+# file at import time.
+saved_sys_stdin = sys.stdin
+try:
+    sys.stdin = sys.__stdin__
+    import IPython
+    IPython # pyflakes
+finally:
+    sys.stdin = saved_sys_stdin

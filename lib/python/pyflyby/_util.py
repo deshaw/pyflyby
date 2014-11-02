@@ -154,6 +154,26 @@ def CwdCtx(path):
 
 
 @contextmanager
+def EnvVarCtx(**kwargs):
+    """
+    Context manager that temporarily modifies os.environ.
+    """
+    unset = object()
+    old = {}
+    try:
+        for k, v in kwargs.items():
+            old[k] = os.environ.get(k, unset)
+            os.environ[k] = v
+        yield
+    finally:
+        for k, v in old.items():
+            if v is unset:
+                del os.environ[k]
+            else:
+                os.environ[k] = v
+
+
+@contextmanager
 def ExcludeImplicitCwdFromPathCtx():
     """
     Context manager that temporarily removes "." from C{sys.path}.

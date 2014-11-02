@@ -2,7 +2,6 @@
 from   pyflyby._autoimp         import (auto_eval, auto_import,
                                         find_missing_imports,
                                         interpret_namespaces, load_symbol)
-from   pyflyby._autoimport      import install_auto_importer
 from   pyflyby._cmdline         import (filename_args, hfmt, maindoc,
                                         parse_args, process_actions, syntax)
 from   pyflyby._docxref         import find_bad_doc_cross_references

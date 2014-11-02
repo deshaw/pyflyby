@@ -42,7 +42,7 @@ class PyTest(TestCommand):
     def run_tests(self):
         import pytest
         sys.path.insert(0, PYFLYBY_PYPATH)
-        os.environ["PYTHONPATH"] = ":".join(sys.path)
+        os.environ["PYTHONPATH"] = PYFLYBY_PYPATH
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 

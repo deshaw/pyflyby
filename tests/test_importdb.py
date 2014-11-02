@@ -6,17 +6,14 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
+from   shutil                   import rmtree
+from   tempfile                 import NamedTemporaryFile, mkdtemp
 
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
+from   pyflyby._util            import EnvVarCtx
 
-
-PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
-os.environ["PYFLYBY_PATH"] = ".../.pyflyby:" + os.path.join(PYFLYBY_HOME, "etc/pyflyby")
-os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
-os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
 
 
 def test_ImportDB_from_code_1():
@@ -61,16 +58,107 @@ def test_ImportDB_by_fullname_or_import_as_1():
     assert result == expected
 
 
-def test_global_import_db_1():
+def test_ImportDB_get_default_1():
     db = ImportDB.get_default('.')
     assert isinstance(db, ImportDB)
     assert ImportDB(db) is db
 
 
-def test_global_import_db_pyflyby_1():
-    import pyflyby
-    db = ImportDB.get_default(pyflyby.__file__)
-    assert isinstance(db, ImportDB)
-    result = db.by_fullname_or_import_as["FileText"]
-    expected = (Import('from pyflyby._file import FileText'),)
+def import_ImportDB_memoized_1():
+    db1 = ImportDB.get_default('.')
+    db2 = ImportDB.get_default('.')
+    assert db1 is db2
+
+
+def test_ImportDB_pyflyby_path_filename_1():
+    # Check that PYFLYBY_PATH set to a filename works.
+    with NamedTemporaryFile() as f:
+        f.write("from m4065635 import f78841936, f44111337, f73485346\n")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            db = ImportDB.get_default('/bin')
+        assert isinstance(db, ImportDB)
+        result = db.by_fullname_or_import_as["f44111337"]
+        expected = (Import('from m4065635 import f44111337'),)
+        assert result == expected
+
+
+def test_ImportDB_pyflyby_path_no_default_1():
+    # Check that defaults can be turned off from PYFLYBY_PATH.
+    with NamedTemporaryFile() as f:
+        f.write("from m27056973 import f8855924\n")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            db = ImportDB.get_default('/bin')
+        assert isinstance(db, ImportDB)
+        result = db.by_fullname_or_import_as["f8855924"]
+        expected = (Import('from m27056973 import f8855924'),)
+        assert result == expected
+        assert "defaultdict" not in db.by_fullname_or_import_as
+        expected_bfoia = {
+            "f8855924": (Import("from m27056973 import f8855924"),),
+            "m27056973": (Import("import m27056973"),),
+        }
+        assert db.by_fullname_or_import_as == expected_bfoia
+    # For the default PYFLYBY_PATH (configured in conftest.py), we should have
+    # defaultdict.
+    db2 = ImportDB.get_default('/bin')
+    result = db2.by_fullname_or_import_as["defaultdict"]
+    expected = (Import('from collections import defaultdict'),)
     assert result == expected
+
+
+def test_ImportDB_pyflyby_path_change_1():
+    # Check that memoization takes into account changes in
+    # os.environ["PYFLYBY_PATH"].
+    with NamedTemporaryFile() as f:
+        f.write("from m60309242 import f5781152\n")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            db = ImportDB.get_default('/bin')
+        result = db.by_fullname_or_import_as["f5781152"]
+        expected = (Import('from m60309242 import f5781152'),)
+        assert result == expected
+        db2 = ImportDB.get_default('/bin')
+        assert db2 is not db
+        assert "f5781152" not in db2.by_fullname_or_import_as
+
+
+def test_ImportDB_pyflyby_recurse_dir_1():
+    d = mkdtemp(prefix=".", suffix="_pyflyby")
+    with EnvVarCtx(PYFLYBY_PATH=d):
+        os.mkdir("%s/d1"%d)
+        os.mkdir("%s/d1/d2"%d)
+        os.mkdir("%s/d1/d2/d3"%d)
+        os.mkdir("%s/.d4"%d)
+        with open("%s/d1/d2/d3/f6446612.py"%d, 'w') as f:
+            f.write("from m7540535 import f17684046, f7241844")
+        with open("%s/d1/d2/d3/f91456848"%d, 'w') as f: # missing ".py"
+            f.write("from m5733351 import f17684046, f7241844")
+        with open("%s/.d4/f52247912.py"%d, 'w') as f: # under a dot dir
+            f.write("from m50938634 import f17684046, f7241844")
+        db = ImportDB.get_default("/bin")
+        result = db.by_fullname_or_import_as["f7241844"]
+        expected = (Import("from m7540535 import f7241844"),)
+        assert result == expected
+        rmtree(d)
+
+
+def test_ImportDB_pyflyby_dotdotdot_1():
+    with EnvVarCtx(PYFLYBY_PATH=".../f1198375"):
+        d = mkdtemp("_pyflyby")
+        os.mkdir("%s/d1"%d)
+        os.mkdir("%s/d1/d2"%d)
+        os.mkdir("%s/d1/d2/d3"%d)
+        with open("%s/f1198375"%d, 'w') as f:
+            f.write("from m97722423 import f49463937, f3532073\n")
+        with open("%s/d1/d2/f1198375"%d, 'w') as f:
+            f.write("from m90927291 import f6273971, f49463937\n")
+        db = ImportDB.get_default("%s/d1/d2/d3/f"%d)
+        result = db.by_fullname_or_import_as["f49463937"]
+        expected = (
+            Import("from m90927291 import f49463937"),
+            Import("from m97722423 import f49463937"),
+        )
+        assert result == expected
+        rmtree(d)

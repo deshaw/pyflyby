@@ -10,12 +10,10 @@ import subprocess
 import tempfile
 from   textwrap                 import dedent
 
+from   pyflyby._util            import EnvVarCtx
+
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
-os.environ["PYFLYBY_LOG_LEVEL"] = ""
-os.environ["PYFLYBY_PATH"] = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
-os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
-os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
 
 
 def pipe(command, stdin=""):
@@ -59,8 +57,7 @@ def test_tidy_imports_quiet_1():
 
 
 def test_tidy_imports_log_level_1():
-    try:
-        os.environ["PYFLYBY_LOG_LEVEL"] = "WARNING"
+    with EnvVarCtx(PYFLYBY_LOG_LEVEL="WARNING"):
         result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
         expected = dedent('''
             from __future__ import absolute_import, division, with_statement
@@ -71,8 +68,6 @@ def test_tidy_imports_log_level_1():
             os, sys
         ''').strip()
         assert result == expected
-    finally:
-        os.environ["PYFLYBY_LOG_LEVEL"] = ""
 
 
 def test_tidy_imports_filename_action_print_1():
