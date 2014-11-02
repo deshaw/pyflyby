@@ -17,6 +17,21 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
 
+@memoize
+def _find_etc_dir():
+    dir = Filename(__file__).real.dir
+    while True:
+        candidate = dir / "etc/pyflyby"
+        if candidate.isdir:
+            return candidate
+        parent = dir.dir
+        if parent == dir:
+            break
+        dir = parent
+    return None
+
+
+
 def _get_env_var(env_var_name, default):
     '''
     Get an environment variable and split on ":", replacing C{-} with the
@@ -57,7 +72,7 @@ def _get_python_path(env_var_name, default_path, target_dirname):
     pathnames = stable_unique(pathnames)
     pathnames = expand_py_files_from_args(pathnames)
     if not pathnames:
-        raise Exception(
+        logger.warning(
             "No import libraries found (%s=%r, default=%r)"
             % (env_var_name, os.environ.get(env_var_name), default_path))
     return tuple(pathnames)
@@ -214,11 +229,15 @@ class ImportDB(object):
                 return cls._default_cache[cache_keys[-1]]
             except KeyError:
                 pass
-        DEFAULT_PYFLYBY_PATH = [
-            str(Filename(__file__).real.dir.dir.dir.dir / "etc/pyflyby"),
+        DEFAULT_PYFLYBY_PATH = []
+        etc_dir = _find_etc_dir()
+        if etc_dir:
+            DEFAULT_PYFLYBY_PATH.append(str(etc_dir))
+        DEFAULT_PYFLYBY_PATH += [
             ".../.pyflyby",
             "~/.pyflyby",
             ]
+        logger.debug("DEFAULT_PYFLYBY_PATH=%s", DEFAULT_PYFLYBY_PATH)
         filenames = _get_python_path("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH,
                                      target_dirname)
         mandatory_imports_filenames = ()
