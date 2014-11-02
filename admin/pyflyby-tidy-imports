@@ -1,6 +1,0 @@
-#!/bin/bash -e
-
-source $(dirname $0)/_fn
-
-export PYFLYBY_PATH=$imports_file:-
-tidy-imports --debug --uniform ${source_files[@]}
