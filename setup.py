@@ -5,7 +5,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import glob
 import os
@@ -24,7 +25,7 @@ PYFLYBY_DOT_PYFLYBY = os.path.join(PYFLYBY_HOME, ".pyflyby")
 # Get the pyflyby version from pyflyby.__version__.
 version_vars = {}
 version_fn = os.path.join(PYFLYBY_PYPATH, "pyflyby/_version.py")
-execfile(version_fn, {}, version_vars)
+exec(open(version_fn).read(), {}, version_vars)
 version = version_vars["__version__"]
 
 
@@ -87,16 +88,16 @@ class CollectImports(Command):
 
     def run(self):
         files = list_python_source_files()
-        print "Rewriting", PYFLYBY_DOT_PYFLYBY
+        print("Rewriting", PYFLYBY_DOT_PYFLYBY)
         with open(PYFLYBY_DOT_PYFLYBY, 'w') as f:
-            print >>f, dedent("""
+            print(dedent("""
                 # -*- python -*-
                 #
                 # This is the imports database file for pyflyby itself.
                 #
                 # To regenerate this file, run: setup.py collect_imports
 
-            """).lstrip()
+            """).lstrip(), file=f)
             f.flush()
             subprocess.call(
                 [
