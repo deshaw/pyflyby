@@ -12,6 +12,7 @@ import fcntl
 import os
 import pytest
 import re
+import readline
 from   shutil                   import rmtree
 import subprocess
 import sys
@@ -34,14 +35,16 @@ def _extra_pythonpath_dir():
         return None
     # On Darwin, we need a hack to make sure IPython gets GNU readline instead
     # of libedit.
+    if "GNU readline" in readline.__doc__:
+        return None
     dir = mkdtemp(prefix="pyflyby_", suffix=".tmp")
     atexit.register(lambda: rmtree(dir))
     import site
     sitepackages = os.path.join(os.path.dirname(site.__file__), "site-packages")
-    readline = os.path.join(sitepackages, "readline.so")
-    if not os.path.isfile(readline):
+    readline_fn = os.path.abspath(os.path.join(sitepackages, "readline.so"))
+    if not os.path.isfile(readline_fn):
         raise ValueError("Couldn't find readline")
-    os.symlink(readline, os.path.join(dir, "readline.so"))
+    os.symlink(readline_fn, os.path.join(dir, "readline.so"))
     return dir
 
 
