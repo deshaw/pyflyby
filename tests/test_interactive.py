@@ -80,9 +80,7 @@ def ptypipe(command, stdin="", timeout=300):
         try:
             data = os.read(master, 4096)
         except OSError as e:
-            # On Linux, read would return None if the subprocess exited; but
-            # on Darwin, we get blocking/EWOULDBLOCK behavior.
-            if e.errno != errno.EWOULDBLOCK:
+            if e.errno not in [errno.EWOULDBLOCK, errno.EIO]:
                 raise
             data = None
         if data:
