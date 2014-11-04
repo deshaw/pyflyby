@@ -344,6 +344,7 @@ def action_print(m):
 
 def action_ifchanged(m):
     if m.output_content.joined == m.input_content.joined:
+        logger.debug("unmodified: %s", m.filename)
         raise AbortActions
 
 

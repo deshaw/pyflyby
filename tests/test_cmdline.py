@@ -209,6 +209,52 @@ def test_collect_imports_1():
         assert result == expected
 
 
+def test_collect_imports_include_1():
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(dedent('''
+            from m1.m2 import f3, f4
+            from m3.m4 import f6, f4
+            from m3.m5 import f7, f8
+            import m1.m3
+            from m7 import *
+            from m1 import f9
+            from .m1 import f5
+            from m1x import f6
+            import m1, m1y
+        ''').lstrip())
+        f.flush()
+        result = pipe([BIN_DIR+"/collect-imports", f.name,
+                       "--include=m1",
+                       "--include=m3.m5"])
+        expected = dedent('''
+            import m1
+            from   m1                       import f9
+            from   m1.m2                    import f3, f4
+            import m1.m3
+            from   m3.m5                    import f7, f8
+        ''').strip()
+        assert result == expected
+
+
+def test_collect_imports_include_dot_1():
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(dedent('''
+            from m1.m2 import f3, f4
+            from m3.m4 import f6, f4
+            import m1.m3
+            from m7 import *
+            from m1 import f9
+            from .m1 import f5
+            from m1x import f6
+        ''').lstrip())
+        f.flush()
+        result = pipe([BIN_DIR+"/collect-imports", f.name, "--include=."])
+        expected = dedent('''
+            from   .m1                      import f5
+        ''').strip()
+        assert result == expected
+
+
 def test_collect_exports_1():
     result = pipe([BIN_DIR+"/collect-exports", "fractions"])
     expected = dedent('''
