@@ -169,7 +169,7 @@ class ImportSet(object):
         other = ImportSet(other)
         return type(self)._from_imports(self._importset | other._importset)
 
-    def without_imports(self, removals, strict=True):
+    def without_imports(self, removals):
         """
         Return a copy of self without the given imports.
 
@@ -181,31 +181,27 @@ class ImportSet(object):
 
         @type removals:
           L{ImportSet} (or convertible)
-        @param strict:
-          If C{True}, raise L{NoSuchImportError} if any import in C{removals}
-          is not in C{self}.  If C{False}, ignore imports in C{removals} not
-          in C{self}.
         @rtype:
           L{ImportSet}
         """
-        # TODO: remove the 'strict' parameter and have callers check
-        # themselves?
         removals = ImportSet(removals)
         if not removals:
             return self # Optimization
-        removed = set()
+        # Preprocess star imports to remove.
+        star_module_removals = set(
+            [imp.split.module_name
+             for imp in removals if imp.split.member_name == "*"])
+        # Filter imports.
         new_imports = []
-        for imp in self._importset:
-            if imp in removals._importset:
-                removed.add(imp)
+        for imp in self:
+            if imp in removals:
                 continue
+            if star_module_removals:
+                prefixes = dotted_prefixes(imp.split.module_name)
+                if any(pfx in star_module_removals for pfx in prefixes):
+                    continue
             new_imports.append(imp)
-        if strict:
-            imports_not_removed = removals._importset - removed
-            if imports_not_removed:
-                raise NoSuchImportError(
-                    "Import database does not contain import(s) %r"
-                    % (sorted(imports_not_removed),))
+        # Return.
         if len(new_imports) == len(self):
             return self # Space optimization
         return type(self)._from_imports(new_imports)

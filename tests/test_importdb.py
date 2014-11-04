@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, with_statement
 import os
 from   shutil                   import rmtree
 from   tempfile                 import NamedTemporaryFile, mkdtemp
+from   textwrap                 import dedent
 
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importdb        import ImportDB
@@ -160,5 +161,35 @@ def test_ImportDB_pyflyby_dotdotdot_1():
             Import("from m90927291 import f49463937"),
             Import("from m97722423 import f49463937"),
         )
+        assert result == expected
+        rmtree(d)
+
+
+def test_ImportDB_pyflyby_forget_1():
+    with EnvVarCtx(PYFLYBY_PATH=".../f70301376"):
+        d = mkdtemp("_pyflyby")
+        os.mkdir("%s/d1"%d)
+        os.mkdir("%s/d1/d2"%d)
+        os.mkdir("%s/d1/d2/d3"%d)
+        with open("%s/f70301376"%d, 'w') as f:
+            f.write(dedent("""
+                from m49790901       import f27626336, f96186952
+                from m78687343       import f35156295, f43613649
+                from m78687343.a.b.c import f54583581
+                from m49790901.a     import f27626336, f96186952
+            """))
+        with open("%s/d1/d2/f70301376"%d, 'w') as f:
+            f.write(dedent("""
+                __forget_imports__ = [
+                   'from m49790901 import f27626336',
+                   'from m78687343 import *',
+                ]
+            """))
+        db = ImportDB.get_default("%s/d1/d2/d3/f"%d)
+        result = db.known_imports
+        expected = ImportSet("""
+                from m49790901       import f96186952
+                from m49790901.a     import f27626336, f96186952
+        """)
         assert result == expected
         rmtree(d)

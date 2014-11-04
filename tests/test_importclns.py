@@ -6,7 +6,7 @@
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._importclns      import ImportMap, ImportSet
-from   pyflyby._importstmt      import Import
+from   pyflyby._importstmt      import Import, ImportStatement
 
 
 def test_ImportSet_1():
@@ -26,6 +26,71 @@ def test_ImportSet_1():
     print importset.imports
     assert importset.imports == expected
     assert len(importset) == 5
+
+
+def test_ImportSet_constructor_string_1():
+    importset = ImportSet("from m1 import c, b; from m1 import a as a")
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_importstmt_1():
+    importset = ImportSet(ImportStatement("from m1 import a, b, c"))
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_list_1():
+    importset = ImportSet(["from m1 import c, b; from m1 import a as a"])
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_list_2():
+    importset = ImportSet(["from m1 import c, b", "from m1 import a as a"])
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_list_imports_1():
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    importset = ImportSet(expected)
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_list_importstmt_1():
+    importset = ImportSet([ImportStatement("from m1 import a, b"),
+                           ImportStatement("from m1 import c as c")])
+    expected = [Import("from m1 import a"),
+                Import("from m1 import b"),
+                Import("from m1 import c")]
+    assert list(importset) == expected
+
+
+def test_ImportSet_constructor_idempotent_1():
+    importset = ImportSet("from m1 import c, b, a")
+    result = ImportSet(importset)
+    assert result is importset
+
+
+def test_ImportSet_eqne_1():
+    s1a = ImportSet("from m1 import a, b, a, c")
+    s1b = ImportSet("from m1 import c, b; from m1 import a as a")
+    s2  = ImportSet("import m1.a; import m1.b; import m1.c")
+    assert     (s1a == s1b)
+    assert not (s1a != s1b)
+    assert     (s1a != s2 )
+    assert not (s1a == s2 )
 
 
 def test_ImportSet_ignore_shadowed_1():
@@ -96,6 +161,47 @@ def test_ImportSet_conflicting_imports_2():
     importset = ImportSet('import b\nfrom f import a\n')
     assert importset.conflicting_imports == ()
 
+
+def test_ImportSet_without_imports_1():
+    importset = ImportSet("import a, b, c, d")
+    result = importset.without_imports("import x, d, b, y")
+    expected = ImportSet("import a, c")
+    assert result == expected
+
+
+def test_ImportSet_without_imports_no_action_1():
+    importset = ImportSet("import a, b, c, d")
+    result = importset.without_imports("import x, y")
+    assert result is importset
+
+
+def test_ImportSet_without_imports_from_1():
+    importset = ImportSet(["from m1 import a, b",
+                           "from m2 import b, c",
+                           "from m3 import b, x"])
+    result = importset.without_imports("from m1 import b; from m2 import b")
+    expected = ImportSet(["from m1 import a",
+                          "from m2 import c",
+                          "from m3 import b, x"])
+    assert result == expected
+
+
+def test_ImportSet_without_imports_exact_1():
+    importset = ImportSet(["from m1 import a",
+                           "import m1.a",
+                           "from m1.a import *"])
+    result = importset.without_imports("from m1 import a")
+    expected = ImportSet("import m1.a; from m1.a import *")
+    assert result == expected
+
+
+def test_ImportSet_without_imports_exact_2():
+    importset = ImportSet(["from m1 import a",
+                           "import m1.a",
+                           "from m1.a import *"])
+    result = importset.without_imports("import m1.a")
+    expected = ImportSet("from m1 import a; from m1.a import *")
+    assert result == expected
 
 
 def test_ImportMap_1():

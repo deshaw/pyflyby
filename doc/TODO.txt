@@ -28,8 +28,6 @@
 - Consider making the default database file more like a sample file that the
   user is instructed to cp to ~/.pyflyby.  What about existing users of older
   versions?  Perhaps have an auto-upgrade feature
-- Consider importing user-facing stuff (install_auto_importer) into pyflyby
-  toplevel namespace.
 - Refactor autoimport.py to share more with rest of pyflyby, esp AST parsing.
 - Consider __mandatory_imports -= [...] instead of __forget_imports__=[...].
 - Packaging:
@@ -40,9 +38,6 @@
       sdist doesn't include the bin/pyflyby symlink.
     - Make zip-safe/PEP308 compliant; use pkg_resources (if possible) instead
       of __file__.
-- Unify debugging configuration; allow a PYFLYBY_DEBUG=1 env var to affect
-  both tidy-imports and autoimporter
 - Handle internal exceptions during complete_symbol etc in a friendlier way.
   Hide traceback unless debugging is enabled.  Automatically uninstall the
   interactive stuff if an exception occurs.
-- Test cases for IPython stuff.  Would require pty probably.

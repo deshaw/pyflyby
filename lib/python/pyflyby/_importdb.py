@@ -308,8 +308,8 @@ class ImportDB(object):
                    canonical_imports, forget_imports):
         self = object.__new__(cls)
         self.forget_imports    = ImportSet(forget_imports   )
-        self.known_imports     = ImportSet(known_imports    ).without_imports(forget_imports, strict=False)
-        self.mandatory_imports = ImportSet(mandatory_imports).without_imports(forget_imports, strict=False)
+        self.known_imports     = ImportSet(known_imports    ).without_imports(forget_imports)
+        self.mandatory_imports = ImportSet(mandatory_imports).without_imports(forget_imports)
         # TODO: provide more fine-grained control about canonical_imports.
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
