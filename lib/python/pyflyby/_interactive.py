@@ -126,12 +126,34 @@ def InterceptPrintsDuringPromptCtx():
       2. Upon context exit, if any lines were printed, redisplay the prompt.
     """
     ip = get_ipython_safe()
-    try:
-        readline       = ip.readline
+    if not ip:
+        yield
+        return
+    readline       = ip.readline
+    redisplay      = readline.redisplay
+    input_splitter = ip.input_splitter
+    if hasattr(ip, "prompt_manager"):
+        # IPython >= 0.11 (known to work including up to 1.2, 2.1)
         prompt_manager = ip.prompt_manager
-        redisplay      = readline.redisplay
-        input_splitter = ip.input_splitter
-    except AttributeError:
+        def get_prompt_ipython_011():
+            if input_splitter.source == "":
+                # First line
+                return ip.separate_in + prompt_manager.render("in")
+            else:
+                # Non-first line
+                return prompt_manager.render("in2")
+        get_prompt = get_prompt_ipython_011
+    elif hasattr(ip.hooks, "generate_prompt"):
+        # IPython 0.10
+        generate_prompt = ip.hooks.generate_prompt
+        def get_prompt_ipython_010():
+            if input_splitter.source == "":
+                return generate_prompt(False)
+            else:
+                return generate_prompt(True)
+        get_prompt = get_prompt_ipython_010
+    else:
+        # Too old or too new IPython version?
         yield
         return
     def pre():
@@ -139,12 +161,7 @@ def InterceptPrintsDuringPromptCtx():
         sys.stdout.flush()
     def post():
         # Re-display the current line.
-        if input_splitter.source == "":
-            # First line
-            prompt = ip.separate_in + prompt_manager.render("in")
-        else:
-            # Non-first line
-            prompt = prompt_manager.render("in2")
+        prompt = get_prompt()
         prompt = prompt.replace("\x01", "").replace("\x02", "")
         line = readline.get_line_buffer()[:readline.get_endidx()]
         sys.stdout.write(prompt + line)
@@ -352,7 +369,11 @@ def _list_members_for_completion(obj):
         from IPython.utils import generics
         from IPython.utils.dir2 import dir2
         from IPython.core.error import TryNext
-        if ip.Completer.limit_to__all__ and hasattr(obj, '__all__'):
+        try:
+            limit_to__all__ = ip.Completer.limit_to__all__
+        except AttributeError:
+            limit_to__all__ = False
+        if limit_to__all__ and hasattr(obj, '__all__'):
             try:
                 words = getattr(obj, '__all__')
             except:
