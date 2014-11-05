@@ -41,7 +41,7 @@ def dotted_prefixes(dotted_name, reverse=False):
         idxes = range(len(name_parts), 0, -1)
     else:
         idxes = range(1, len(name_parts)+1)
-    result = ['.'.join(name_parts[:i]) for i in idxes]
+    result = ['.'.join(name_parts[:i]) or '.' for i in idxes]
     return result
 
 

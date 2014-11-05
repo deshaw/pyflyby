@@ -18,6 +18,14 @@ def test_dotted_prefixes_reverse_1():
     assert result == ['aa.bb.cc', 'aa.bb', 'aa']
 
 
+def test_dotted_prefixes_dot_1():
+    assert dotted_prefixes(".aa.bb") == ['.', '.aa', '.aa.bb']
+
+
+def test_dotted_prefixes_dot_reverse_1():
+    assert dotted_prefixes(".aa.bb", reverse=True) == ['.aa.bb', '.aa', '.']
+
+
 def test_is_identifier_basic_1():
     assert     is_identifier("foo")
 

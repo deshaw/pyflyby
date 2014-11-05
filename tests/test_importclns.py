@@ -204,6 +204,40 @@ def test_ImportSet_without_imports_exact_2():
     assert result == expected
 
 
+def test_ImportSet_without_imports_star_1():
+    importset = ImportSet("""
+        from m11321086.a   import f27811501, f04141733
+        from m28630179.a   import f75932565, f54328537
+        from m28630179.a.b import f46586889, f53411856
+        from m28630179.x   import f10642186, f95537624
+        from .m28630179.a  import f38714787, f42847225
+    """)
+    result = importset.without_imports("from m28630179.a import *")
+    expected = ImportSet("""
+        from m11321086.a   import f27811501, f04141733
+        from m28630179.x   import f10642186, f95537624
+        from .m28630179.a  import f38714787, f42847225
+    """)
+    assert result == expected
+
+
+def test_ImportSet_without_imports_star_dot_1():
+    importset = ImportSet("""
+        import m94165726
+        from   m68073152   import f59136817
+        from   .m69396491  import f87639367
+        from   .           import m81881832
+        from   m97513719.a import f42218372
+    """)
+    result = importset.without_imports("from . import *")
+    expected = ImportSet("""
+        import m94165726
+        from   m68073152   import f59136817
+        from   m97513719.a import f42218372
+    """)
+    assert result == expected
+
+
 def test_ImportMap_1():
     importmap = ImportMap({'a.b': 'aa.bb', 'a.b.c': 'aa.bb.cc'})
     assert importmap['a.b'] == 'aa.bb'

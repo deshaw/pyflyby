@@ -196,7 +196,7 @@ class ImportSet(object):
         for imp in self:
             if imp in removals:
                 continue
-            if star_module_removals:
+            if star_module_removals and imp.split.module_name:
                 prefixes = dotted_prefixes(imp.split.module_name)
                 if any(pfx in star_module_removals for pfx in prefixes):
                     continue
