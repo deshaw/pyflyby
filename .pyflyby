@@ -30,15 +30,16 @@ from   pyflyby._imports2s       import (canonicalize_imports,
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportSplit, ImportStatement,
                                         NonImportStatementError)
-from   pyflyby._interactive     import (initialize_ipython,
-                                        install_auto_importer,
+from   pyflyby._interactive     import (disable_auto_importer,
+                                        enable_auto_importer,
+                                        initialize_ipython,
                                         install_in_ipython_startup_file)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import (CwdCtx, EnvVarCtx,
                                         ExcludeImplicitCwdFromPathCtx,
-                                        ImportPathCtx, Inf, NullCtx,
+                                        ImportPathCtx, Inf, NullCtx, advise,
                                         cached_attribute,
                                         longest_common_prefix, memoize,
                                         partition, prefixes, stable_unique)

@@ -5,12 +5,16 @@
 # Deprecated stub for backwards compatibility.
 #
 # Change your old code from:
-#   from pyflyby.autoimport import install_auto_importer
+#   import pyflyby.autoimport
+#   pyflyby.autoimport.install_auto_importer()
 # to:
-#   from pyflyby            import install_auto_importer
+#   import pyflyby
+#   pyflyby.enable_auto_importer()
 
 from __future__ import absolute_import, division, with_statement
 
-from   pyflyby._interactive     import install_auto_importer
+from   pyflyby._interactive     import enable_auto_importer
+
+install_auto_importer = enable_auto_importer
 
 __all__ = [install_auto_importer]

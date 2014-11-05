@@ -15,7 +15,8 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._importstmt      import (Import, ImportStatement,
                                         NonImportStatementError)
-from   pyflyby._interactive     import install_auto_importer
+from   pyflyby._interactive     import (disable_auto_importer,
+                                        enable_auto_importer)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._version         import __version__

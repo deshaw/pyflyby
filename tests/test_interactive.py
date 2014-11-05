@@ -235,7 +235,7 @@ def test_ipython_version_1():
 
 def test_autoimport_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         '@'+b64decode('SGVsbG8=')+'@'
     """).lstrip()
     result = ipython(input)
@@ -265,7 +265,7 @@ def test_no_autoimport_1():
 
 def test_autoimport_statement_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         print b64decode('SGVsbG8=')
     """).lstrip()
     result = ipython(input)
@@ -278,7 +278,7 @@ def test_autoimport_statement_1():
 
 def test_autoimport_pyflyby_path_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         list(product('ab','cd'))
         groupby
     """).lstrip()
@@ -311,7 +311,7 @@ skip_if_ipython_010 = pytest.mark.skipif(
 def test_complete_symbol_basic_1():
     # Check that tab completion works.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         b64deco\t('eHl6enk=')
     """).lstrip()
     result = ipython(input)
@@ -328,7 +328,7 @@ def test_complete_symbol_import_check_1():
     # then b64decode should be imported into the namespace, but base64 should
     # not.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         'base64' in globals()
         'b64decode' in globals()
         b64deco\t('UnViaWNvbg==')
@@ -352,7 +352,7 @@ def test_complete_symbol_instance_identity_1():
     # Check that automatic symbols give the same instance (i.e., no proxy
     # objects involved).
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         f = b64deco\t
         f is __import__('base64').b64decode
     """).lstrip()
@@ -368,7 +368,7 @@ def test_complete_symbol_instance_identity_1():
 def test_complete_symbol_member_1():
     # Check that tab completion in members works.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         base64.b64d\t('bW9udHk=')
     """).lstrip()
     result = ipython(input)
@@ -388,7 +388,7 @@ def test_complete_symbol_member_1():
 @skip_if_ipython_010
 def test_complete_symbol_import_module_as_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         b64.b64d\t('cm9zZWJ1ZA==')
     """).lstrip()
     with NamedTemporaryFile() as f:
@@ -408,7 +408,7 @@ def test_complete_symbol_statement_1():
     # Check that tab completion in statements works.  This requires a more
     # sophisticated code path than test_complete_symbol_basic_1.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         if 1: print b64deco\t('SHVudGVy')
     """).lstrip()
     result = ipython(input)
@@ -426,7 +426,7 @@ def test_complete_symbol_statement_1():
 def test_complete_symbol_autocall_1():
     # Check that tab completion works with autocall.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         str.upper b64deco\t('Q2hld2JhY2Nh')
     """).lstrip()
     result = ipython(input, autocall=True)
@@ -443,7 +443,7 @@ def test_complete_symbol_any_module_1():
     # Check that completion and autoimport works for an arbitrary module in
     # $PYTHONPATH.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         m18908697_\t.f_68421204()
     """).lstrip()
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
@@ -468,7 +468,7 @@ def test_complete_symbol_any_module_member_1():
     # Check that completion on members works for an arbitrary module in
     # $PYTHONPATH.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         m51145108_\t.f_76313558_\t()
     """).lstrip()
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
@@ -492,7 +492,7 @@ def test_complete_symbol_any_module_member_1():
 def test_complete_symbol_bad_1():
     # Check that if we have a bad item in known imports, we complete it still.
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         foo_31221052_\t
     """).lstrip()
     with NamedTemporaryFile() as f:
@@ -514,7 +514,7 @@ def test_complete_symbol_bad_1():
 @skip_if_ipython_010
 def test_complete_symbol_bad_as_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         bar_98073069_\t.asdf
     """).lstrip()
     with NamedTemporaryFile() as f:
@@ -533,9 +533,62 @@ def test_complete_symbol_bad_as_1():
     assert result == expected
 
 
+def test_disable_reenable_autoimport_1():
+    input = dedent("""
+        import pyflyby
+        pyflyby.enable_auto_importer()
+        b64encode('blue')
+        pyflyby.disable_auto_importer()
+        b64decode('cmVk')        # expect NameError since no auto importer
+        b64encode('green')       # should still work because already imported
+        pyflyby.enable_auto_importer()
+        b64decode('eWVsbG93')    # should work now
+    """).lstrip()
+    result = ipython(input)
+    expected = dedent("""
+        [PYFLYBY] from base64 import b64encode
+        Out[3]: 'Ymx1ZQ=='
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64decode' is not defined
+        Out[6]: 'Z3JlZW4='
+        [PYFLYBY] from base64 import b64decode
+        Out[8]: 'yellow'
+    """).lstrip()
+    assert result == expected
+
+
+@skip_if_ipython_010
+def test_disable_reenable_completion_1():
+    input = dedent("""
+        import pyflyby
+        pyflyby.enable_auto_importer()
+        b64enco\t('flower')
+        pyflyby.disable_auto_importer()
+        b64deco\t('Y2xvdWQ=')   # expect NameError since no auto importer
+        b64enco\t('tree')       # should still work because already imported
+        pyflyby.enable_auto_importer()
+        b64deco\t('Y2xvdWQ=')   # should work now
+    """).lstrip()
+    result = ipython(input)
+    expected = dedent("""
+        [PYFLYBY] from base64 import b64encode
+        Out[3]: 'Zmxvd2Vy'
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64deco' is not defined
+        Out[6]: 'dHJlZQ=='
+        [PYFLYBY] from base64 import b64decode
+        Out[8]: 'cloud'
+    """).lstrip()
+    assert result == expected
+
+
 def test_pinfo_1():
     input = dedent("""
-        import pyflyby; pyflyby.install_auto_importer()
+        import pyflyby; pyflyby.enable_auto_importer()
         f34229186?
     """)
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
@@ -543,7 +596,7 @@ def test_pinfo_1():
         with open("%s/m17426814.py"%d, 'w') as f:
             f.write(dedent("""
                 def f34229186():
-                    'hello from 34229186'
+                    'hello from '  '34229186'
             """).lstrip())
         with NamedTemporaryFile() as pf:
             pf.write("from m17426814 import f34229186\n")

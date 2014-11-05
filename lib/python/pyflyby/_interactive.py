@@ -18,11 +18,14 @@ from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._util            import CwdCtx, memoize
+from   pyflyby._util            import CwdCtx, advise, memoize
 
 
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
+
+# TODO: pass the ipython shell parameter ip all the way down.  Then we don't
+# need to memoize get_ipython_safe().
 
 
 def initialize_ipython(argv=None):
@@ -85,7 +88,7 @@ def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
 
 def install_in_ipython_startup_file():
     """
-    Install the call to 'pyflyby.install_auto_importer()' to the default
+    Install the call to 'pyflyby.enable_auto_importer()' to the default
     IPython startup file.
     """
     import IPython
@@ -103,7 +106,7 @@ def install_in_ipython_startup_file():
         return
     contents = (
         "import pyflyby\n"
-        "pyflyby.install_auto_importer()\n"
+        "pyflyby.enable_auto_importer()\n"
     )
     import pyflyby
     pyflyby_path = pyflyby.__path__[0]
@@ -131,10 +134,10 @@ def InterceptPrintsDuringPromptCtx():
         return
     readline       = ip.readline
     redisplay      = readline.redisplay
-    input_splitter = ip.input_splitter
     if hasattr(ip, "prompt_manager"):
         # IPython >= 0.11 (known to work including up to 1.2, 2.1)
         prompt_manager = ip.prompt_manager
+        input_splitter = ip.input_splitter
         def get_prompt_ipython_011():
             if input_splitter.source == "":
                 # First line
@@ -147,10 +150,10 @@ def InterceptPrintsDuringPromptCtx():
         # IPython 0.10
         generate_prompt = ip.hooks.generate_prompt
         def get_prompt_ipython_010():
-            if input_splitter.source == "":
-                return generate_prompt(False)
-            else:
+            if ip.more:
                 return generate_prompt(True)
+            else:
+                return generate_prompt(False)
         get_prompt = get_prompt_ipython_010
     else:
         # Too old or too new IPython version?
@@ -425,125 +428,211 @@ class _AutoImporter_prefilter_checker(object):
         return None
 
 
+class _AutoImporter(object):
 
-@memoize
-def install_auto_importer():
+    def __init__(self):
+        self._uninstallers = []
+        self._enabled = False
+        self._errored = False
+
+    def enable(self):
+        """
+        Turn on the auto-importer in the current IPython session.
+        """
+        if self._enabled or self._errored:
+            return
+        ip = get_ipython_safe()
+        if not ip:
+            return
+        import IPython
+        logger.debug("Enabling pyflyby auto importer for IPython version %s", IPython.__version__)
+        try:
+            self._enable_internal_1(ip)
+        except Exception as e:
+            # Something went wrong.  Don't reattempt to enable later.
+            self._errored = True
+            # Log the error.
+            logger.error(
+                "Error enabling autoimporter: %s: %s" % (type(e).__name__, e))
+            logger.error("Disabling autoimporter.")
+            # Remove all hooks.  If something's broken, chances are other
+            # stuff is broken too.
+            self.disable()
+            raise
+        self._enabled = True
+
+    def _enable_internal_1(self, ip):
+        import IPython
+        uninstallers = self._uninstallers
+
+        # Install hooks to auto_import before code execution.
+        #
+        # There are a few different places within IPython we can consider
+        # hooking/advising:
+        #   * ip.input_transformer_manager.logical_line_transforms
+        #   * ip.compiler.ast_parse
+        #   * ip.prefilter_manager.checks
+        #   * ip.ast_transformers
+        #   * ip.hooks['pre_run_code_hook']
+        #   * ip._ofind
+        #
+        # We choose to hook in two places: (1) _ofind and (2)
+        # ast_transformers.  The motivation follows.  We want to handle
+        # auto-imports for all of these input cases:
+        #   (1) "foo.bar"
+        #   (2) "arbitrarily_complicated_stuff((lambda: foo.bar)())"
+        #   (3) "foo.bar?", "foo.bar??" (pinfo/pinfo2)
+        #   (4) "foo.bar 1, 2" => "foo.bar(1, 2)" (autocall)
+        #
+        # Case 1 is the easiest and can be handled by nearly any method.  Case
+        # 2 must be done either as a prefilter or as an AST transformer.
+        # Cases 3 and 4 must be done either as an input line transformer or by
+        # monkey-patching _ofind, because by the time the
+        # prefilter/ast_transformer is called, it's too late.
+        #
+        # To handle case 2, we use an AST transformer (for IPython > 1.0), or
+        # monkey-patch ip.compile.ast_parse() (for IPython < 1.0).
+        # prefilter_manager.checks() is the "supported" way to add a
+        # pre-execution hook, but it only works for single lines, not for
+        # multi-line cells.  (There is no explanation in the IPython source
+        # for why prefilter hooks are seemingly intentionally skipped for
+        # multi-line cells).
+        #
+        # To handle cases 3/4 (pinfo/autocall), we choose to advise _ofind.
+        # This is a private function that is called by both pinfo and autocall
+        # code paths.  (Alternatively, we could have added something to the
+        # logical_line_transforms.  The downside of that is that we would need
+        # to re-implement all the parsing perfectly matching IPython.
+        # Although monkey-patching is in general bad, it seems the lesser of
+        # the two evils in this case.)
+        #
+        # Since we have two invocations of auto_import(), case 1 is
+        # handled twice.  That's fine, because it runs quickly.
+
+        # Hook _ofind.
+        if hasattr(ip, "_ofind"):
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            @advise(ip._ofind)
+            def ofind_with_autoimport(self_, oname, namespaces=None):
+                logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
+                if namespaces is None:
+                    namespaces = _ipython_namespaces(self_)
+                if is_identifier(oname, dotted=True):
+                    auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
+                result = __original__(self_, oname, namespaces=namespaces)
+                return result
+            uninstallers.append(ofind_with_autoimport.unadvise)
+        else:
+            logger.debug("Couldn't install ofind hook for IPython version %s",
+                         IPython.__version__)
+
+        if hasattr(ip, 'ast_transformers'):
+            # First choice: register an ast_transformer.
+            # Tested with IPython 1.0, 1.2, 2.0, 2.3.
+            self._ast_transformer = t = _AutoImporter_ast_transformer()
+            ip.ast_transformers.append(t)
+            def uninstall_ast_transformer():
+                try:
+                    ip.ast_transformers.remove(t)
+                except ValueError:
+                    logger.debug(
+                        "Couldn't remove ast_transformer hook - already gone?")
+            uninstallers.append(uninstall_ast_transformer)
+        elif hasattr(ip, 'compile') and hasattr(ip.compile, 'ast_parse'):
+            # Second choice: advise the ast_parse method.
+            # Tested with IPython 0.12, 0.13.  Works with later versions too
+            # but less preferred.
+            @advise(ip.compile.ast_parse)
+            def ast_parse_with_autoimport(self_, source, *args, **kwargs):
+                logger.debug("ast_parse %r", source)
+                ast = __original__(self_, source, *args, **kwargs)
+                auto_import(ast, get_global_namespaces())
+                return ast
+            uninstallers.append(ast_parse_with_autoimport.unadvise)
+        elif hasattr(ip, 'prefilter_manager'):
+            # Third choice: Register a prefilter checker.
+            # Tested with IPython 0.11.  Works with later versions too but
+            # less preferred.
+            self._prefilter_checker = c = _AutoImporter_prefilter_checker()
+            ip.prefilter_manager.register_checker(c)
+            def uninstall_prefilter_checker():
+                ip.prefilter_manager.unregister_checker(c)
+            uninstallers.append(uninstall_prefilter_checker)
+        elif hasattr(ip, 'prefilter'):
+            # Fourth choice: Advise the ip.prefilter method.
+            # Tested with IPython 0.10.  Works with later version too but less
+            # preferred.
+            @advise((ip, 'prefilter'))
+            def prefilter_with_autoimport(self_, line, continue_prompt):
+                logger.debug("prefilter %r", line)
+                auto_import(line, get_global_namespaces())
+                return __original__(self_, line, continue_prompt)
+            uninstallers.append(prefilter_with_autoimport.unadvise)
+        else:
+            logger.debug(
+                "Couldn't install a line transformer for IPython version %s",
+                IPython.__version__)
+
+        # Install a tab-completion hook.
+        #
+        # There are a few different places within IPython we can consider
+        # hooking/advising:
+        #   * ip.completer.custom_completers / ip.set_hook("complete_command")
+        #   * ip.completer.python_matches
+        #   * ip.completer.global_matches
+        #   * ip.completer.attr_matches
+        #   * ip.completer.python_func_kw_matches
+        #
+        # The "custom_completers" list, which set_hook("complete_command")
+        # manages, is not useful because that only works for specific commands.
+        # (A "command" refers to the first word on a line, such as "cd".)
+        #
+        # We choose to advise global_matches() and attr_matches(), which are
+        # called to enumerate global and non-global attribute symbols
+        # respectively.  (python_matches() calls these two.  We advise
+        # global_matches() and attr_matches() instead of python_matches()
+        # because a few other functions call global_matches/attr_matches
+        # directly.)
+        #
+        if hasattr(ip, "Completer"):
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            @advise(ip.Completer.global_matches)
+            def global_matches_with_autoimport(self_, fullname):
+                return _complete_symbol_during_prompt(fullname)
+            @advise(ip.Completer.attr_matches)
+            def attr_matches_with_autoimport(self_, fullname):
+                return _complete_symbol_during_prompt(fullname)
+            uninstallers.append(global_matches_with_autoimport.unadvise)
+            uninstallers.append(attr_matches_with_autoimport.unadvise)
+        else:
+            logger.debug(
+                "Couldn't install completion hook for IPython version %s",
+                IPython.__version__)
+
+
+    def disable(self):
+        """
+        Turn off auto-importer in the current IPython session.
+        """
+        while self._uninstallers:
+            f = self._uninstallers.pop(-1)
+            f()
+        self._enabled = False
+
+
+_auto_importer = _AutoImporter()
+
+def enable_auto_importer():
     """
-    Install the auto-importer into IPython.
+    Turn on the auto-importer in the current IPython session.
     """
-    ip = get_ipython_safe()
-    if not ip:
-        return
-    import IPython
-    logger.debug("Initializing pyflyby auto importer for IPython version %s", IPython.__version__)
+    # This is a separate function instead of just an assignment, for the sake
+    # of documentation, introspection, import into package namespace.
+    _auto_importer.enable()
 
-    # Install a pre-code-execution hook.
-    #
-    # There are a few different places within IPython we can consider hooking:
-    #   * ip.input_transformer_manager.logical_line_transforms
-    #   * ip.compiler.ast_parse
-    #   * ip.prefilter_manager.checks
-    #   * ip.ast_transformers
-    #   * ip.hooks['pre_run_code_hook']
-    #   * ip._ofind
-    #
-    # We choose to hook in two places: (1) _ofind and (2) ast_transformers.
-    # The motivation follows.  We want to handle auto-imports for all of these
-    # input cases:
-    #   (1) "foo.bar"
-    #   (2) "arbitrarily_complicated_stuff((lambda: foo.bar)())"
-    #   (3) "foo.bar?", "foo.bar??" (pinfo/pinfo2)
-    #   (4) "foo.bar 1, 2" => "foo.bar(1, 2)" (autocall)
-    #
-    # Case 1 is the easiest and can be handled by nearly any method.  Case 2
-    # must be done either as a prefilter or as an AST transformer.  Cases 3
-    # and 4 must be done either as an input line transformer or by
-    # monkey-patching _ofind, because by the time the
-    # prefilter/ast_transformer is called, it's too late.
-    #
-    # To handle case 2, we use an AST transformer (for IPython > 1.0), or
-    # monkey-patch ip.compile.ast_parse() (for IPython < 1.0).
-    # prefilter_manager.checks() is the "supported" way to add a pre-execution
-    # hook, but it only works for single lines, not for multi-line cells.
-    # (There is no explanation in the IPython source for why prefilter hooks
-    # are seemingly intentionally skipped for multi-line cells).
-    #
-    # To handle cases 3/4 (pinfo/autocall), we choose to hook _ofind.  This is
-    # a private function that is called by both pinfo and autocall code paths.
-    # (Alternatively, we could have added something to the
-    # logical_line_transforms.  The downside of that is that we would need to
-    # re-implement all the parsing perfectly matching IPython.  Although
-    # monkey-patching is in general bad, it seems the lesser of the two evils
-    # in this case.)
-    #
-    # Since we have two invocations of handle_auto_imports(), case 1 is
-    # handled twice.  That's fine because it runs quickly.
 
-    # Hook _ofind.
-    if hasattr(ip, "_ofind"):
-        orig_ofind = ip._ofind
-        def wrapped_ofind(oname, namespaces=None):
-            logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
-            if namespaces is None:
-                namespaces = _ipython_namespaces(ip)
-            if is_identifier(oname, dotted=True):
-                auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
-            result = orig_ofind(oname, namespaces=namespaces)
-            return result
-        ip._ofind = wrapped_ofind
-    else:
-        logger.debug("Couldn't install ofind hook for IPython version %s",
-                     IPython.__version__)
-
-    if hasattr(ip, 'ast_transformers'):
-        # IPython >= 1.0+: Hook ast_transformers.
-        ip.ast_transformers.append(_AutoImporter_ast_transformer())
-    elif hasattr(ip, 'compile') and hasattr(ip.compile, 'ast_parse'):
-        # IPython < 1.0: Hook the AST parse step.
-        orig_ast_parse = ip.compile.ast_parse
-        def wrapped_ast_parse(source, *args, **kwargs):
-            logger.debug("ast_parse %r", source)
-            ast = orig_ast_parse(source, *args, **kwargs)
-            auto_import(ast, get_global_namespaces())
-            return ast
-        ip.compile.ast_parse = wrapped_ast_parse
-    elif hasattr(ip, 'prefilter_manager'):
-        # IPython 0.11 to 1.0: Add prefilter manager.
-        ip.prefilter_manager.register_checker(_AutoImporter_prefilter_checker())
-    elif hasattr(ip, 'prefilter'):
-        # IPython 0.10: hook the ip._prefilter method.
-        orig_prefilter = ip.prefilter
-        def wrapped_prefilter(line, continue_prompt):
-            logger.debug("prefilter %r", line)
-            auto_import(line, get_global_namespaces())
-            return orig_prefilter(line, continue_prompt)
-        ip.prefilter = wrapped_prefilter
-    else:
-        logger.debug("Couldn't install a line transformer for IPython version %s", IPython.__version__)
-
-    # Install a tab-completion hook.
-    #
-    # There are a few different places within IPython we can consider hooking:
-    #   * ip.completer.custom_completers / ip.set_hook("complete_command")
-    #   * ip.completer.python_matches
-    #   * ip.completer.global_matches
-    #   * ip.completer.attr_matches
-    #   * ip.completer.python_func_kw_matches
-    #
-    # The "custom_completers" list, which set_hook("complete_command")
-    # manages, is not useful because that only works for specific commands.
-    # (A "command" refers to the first word on a line, such as "cd".)
-    #
-    # We choose to hook global_matches() and attr_matches(), which are called
-    # to enumerate global and non-global attribute symbols respectively.
-    # (python_matches() calls these two.  We hook global_matches() and
-    # attr_matches() instead of python_matches() because a few other functions
-    # call global_matches/attr_matches directly.)
-    #
-    if hasattr(ip, "Completer"):
-        completer = ip.Completer
-        completer.global_matches = _complete_symbol_during_prompt
-        completer.attr_matches   = _complete_symbol_during_prompt
-        # TODO: also hook completer.python_func_kw_matches
-    else:
-        logger.debug("Couldn't install completion hook for IPython version %s", IPython.__version__)
+def disable_auto_importer():
+    """
+    Turn off the auto-importer in the current IPython session.
+    """
+    _auto_importer.disable()

@@ -31,7 +31,7 @@ To install into your IPython startup file::
   $ autoipython --install
       [PYFLYBY] Writing to ~/.ipython/profile_default/startup/50-pyflyby.py:
       import pyflyby
-      pyflyby.install_auto_importer()
+      pyflyby.enable_auto_importer()
 
   $ ipython
       In [1]: b64decode('aGVsbG8=')

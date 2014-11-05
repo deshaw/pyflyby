@@ -22,9 +22,9 @@ the autoimporter in your IPython startup file:
   $ autoipython --install
   [PYFLYBY] Writing to ~/.ipython/profile_default/startup/50-pyflyby.py:
   import pyflyby
-  pyflyby.install_auto_importer()
+  pyflyby.enable_auto_importer()
 
-Or, you can manually add 'pyflyby.install_auto_importer()' wherever you prefer.
+Or, you can manually add 'pyflyby.enable_auto_importer()' wherever you prefer.
 
 """
 
@@ -37,8 +37,8 @@ from __future__ import absolute_import, division, with_statement
 import sys
 
 from   pyflyby._cmdline         import maindoc
-from   pyflyby._interactive     import (initialize_ipython,
-                                        install_auto_importer,
+from   pyflyby._interactive     import (enable_auto_importer,
+                                        initialize_ipython,
                                         install_in_ipython_startup_file)
 
 
@@ -54,7 +54,7 @@ def main(args):
         install_in_ipython_startup_file()
     else:
         start_ipython = initialize_ipython()
-        install_auto_importer()
+        enable_auto_importer()
         start_ipython()
 
 

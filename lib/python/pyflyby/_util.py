@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, with_statement
 from   contextlib               import contextmanager
 import os
 import sys
-
+import types
 
 def memoize(function):
     cache = {}
@@ -19,6 +19,7 @@ def memoize(function):
             result = function(*args, **kwargs)
             cache[cache_key] = result
             return result
+    wrapped_fn.cache = cache
     return wrapped_fn
 
 
@@ -184,3 +185,108 @@ def ExcludeImplicitCwdFromPathCtx():
         yield
     finally:
         sys.path[:] = old_path
+
+
+
+class Aspect(object):
+    """
+    Monkey-patch a target method (joinpoint) with "around" advice.
+
+    The advice can call "__original__", which will be magically set at run
+    time to the target function.
+
+    Suppose someone else wrote Foo.bar():
+      >>> class Foo(object):
+      ...     def __init__(self, x):
+      ...         self.x = x
+      ...     def bar(self, y):
+      ...         return "bar(self.x=%s,y=%s)" % (self.x,y)
+
+      >>> foo = Foo(42)
+
+    To monkey patch C{foo.bar}, decorate the wrapper with C{"@advise(foo.bar)"}:
+      >>> @advise(foo.bar)
+      ... def addthousand(self, y):
+      ...     return "advised foo.bar(self.x=%s,y=%s): %s" % (self.x, y, __original__(self,y+1000))
+
+      >>> foo.bar(100)
+      'advised foo.bar(self.x=42,y=100): bar(self.x=42,y=1100)'
+
+    You can uninstall the advice and get the original behavior back:
+      >>> addthousand.unadvise()
+
+      >>> foo.bar(100)
+      'bar(self.x=42,y=100)'
+
+    @see:
+      U{http://en.wikipedia.org/wiki/Aspect-oriented_programming}
+    """
+
+    def __init__(self, joinpoint):
+        if isinstance(joinpoint, types.MethodType):
+            self._container = joinpoint.im_self or joinpoint.im_class
+            self._get       = self._container
+            self._name      = joinpoint.im_func.__name__
+            self._original  = joinpoint
+            assert joinpoint == getattr(self._container, self._name)
+        elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
+            container, name = joinpoint
+            self._container = container
+            self._get       = container
+            self._name      = name
+            self._original  = getattr(self._container, self._name)
+        # TODO: FunctionType (for top-level functions)
+        else:
+            raise TypeError("JoinPoint: unexpected %s"
+                            % (type(joinpoint).__name__,))
+        self._wrapped = None
+
+    def _wrap(self, hook):
+        def wrapped_fn(*args, **kwargs):
+            # Temporarily add __original__ to the globals that the hook
+            # function sees.
+            globals = hook.__globals__
+            unset = object()
+            old_original = globals.get("__original__", unset)
+            try:
+                globals["__original__"] = self._original.im_func
+                return hook(*args, **kwargs)
+            finally:
+                if old_original is unset:
+                    del globals["__original__"]
+                else:
+                    globals["__original__"] = old_original
+        wrapped_fn.__name__ = "%s__advised__" % (self._name,)
+        if self._get:
+            wrapped_fn = wrapped_fn.__get__(self._get)
+        return wrapped_fn
+
+    def advise(self, hook):
+        from pyflyby._log import logger
+        logger.debug("advising %s.%s",
+                     self._container.__class__.__name__, self._name)
+        assert getattr(self._container, self._name) == self._original
+        assert self._wrapped is None
+        self._wrapped = self._wrap(hook)
+        setattr(self._container, self._name, self._wrapped)
+        hook._aspect = self
+        hook.unadvise = self.unadvise
+        return hook
+
+    def unadvise(self):
+        if self._wrapped is None:
+            return
+        cur = getattr(self._container, self._name)
+        if cur is self._wrapped:
+            setattr(self._container, self._name, self._original)
+            # TODO: should actually delattr for instancemethods
+        elif cur == self._original:
+            pass
+        else:
+            from pyflyby._log import logger
+            logger.debug("%s seems modified; not unadvising it", self._name)
+
+
+def advise(joinpoint):
+    aspect = Aspect(joinpoint)
+    return aspect.advise
