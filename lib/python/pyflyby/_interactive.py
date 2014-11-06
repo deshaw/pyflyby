@@ -121,57 +121,57 @@ def install_in_ipython_startup_file():
     atomic_write_file(fn, contents)
 
 
-@contextlib.contextmanager
-def InterceptPrintsDuringPromptCtx():
+def InterceptPrintsDuringPrompt(f):
     """
-    Hook our local output function so that:
+    Decorator that hooks our logger so that:
       1. Before the first print, if any, print an extra newline.
       2. Upon context exit, if any lines were printed, redisplay the prompt.
     """
-    ip = get_ipython_safe()
-    if not ip:
-        yield
-        return
-    readline       = ip.readline
-    redisplay      = readline.redisplay
-    if hasattr(ip, "prompt_manager"):
-        # IPython >= 0.11 (known to work including up to 1.2, 2.1)
-        prompt_manager = ip.prompt_manager
-        input_splitter = ip.input_splitter
-        def get_prompt_ipython_011():
-            if input_splitter.source == "":
-                # First line
-                return ip.separate_in + prompt_manager.render("in")
-            else:
-                # Non-first line
-                return prompt_manager.render("in2")
-        get_prompt = get_prompt_ipython_011
-    elif hasattr(ip.hooks, "generate_prompt"):
-        # IPython 0.10
-        generate_prompt = ip.hooks.generate_prompt
-        def get_prompt_ipython_010():
-            if ip.more:
-                return generate_prompt(True)
-            else:
-                return generate_prompt(False)
-        get_prompt = get_prompt_ipython_010
-    else:
-        # Too old or too new IPython version?
-        yield
-        return
-    def pre():
-        print()
-        sys.stdout.flush()
-    def post():
-        # Re-display the current line.
-        prompt = get_prompt()
-        prompt = prompt.replace("\x01", "").replace("\x02", "")
-        line = readline.get_line_buffer()[:readline.get_endidx()]
-        sys.stdout.write(prompt + line)
-        redisplay()
-        sys.stdout.flush()
-    with logger.HookCtx(pre=pre, post=post):
-        yield
+    def wrapped_fn(*args, **kwargs):
+        ip = get_ipython_safe()
+        if not ip:
+            return f(*args, **kwargs)
+        readline       = ip.readline
+        redisplay      = readline.redisplay
+        if hasattr(ip, "prompt_manager"):
+            # IPython >= 0.11 (known to work including up to 1.2, 2.1)
+            prompt_manager = ip.prompt_manager
+            input_splitter = ip.input_splitter
+            def get_prompt_ipython_011():
+                if input_splitter.source == "":
+                    # First line
+                    return ip.separate_in + prompt_manager.render("in")
+                else:
+                    # Non-first line
+                    return prompt_manager.render("in2")
+            get_prompt = get_prompt_ipython_011
+        elif hasattr(ip.hooks, "generate_prompt"):
+            # IPython 0.10
+            generate_prompt = ip.hooks.generate_prompt
+            def get_prompt_ipython_010():
+                if ip.more:
+                    return generate_prompt(True)
+                else:
+                    return generate_prompt(False)
+            get_prompt = get_prompt_ipython_010
+        else:
+            # Too old or too new IPython version?
+            return f(*args, **kwargs)
+        def pre():
+            print()
+            sys.stdout.flush()
+        def post():
+            # Re-display the current line.
+            prompt = get_prompt()
+            prompt = prompt.replace("\x01", "").replace("\x02", "")
+            line = readline.get_line_buffer()[:readline.get_endidx()]
+            sys.stdout.write(prompt + line)
+            redisplay()
+            sys.stdout.flush()
+        with logger.HookCtx(pre=pre, post=post):
+            return f(*args, **kwargs)
+    wrapped_fn.__name__ = f.__name__
+    return wrapped_fn
 
 
 @memoize
@@ -390,44 +390,6 @@ def _list_members_for_completion(obj):
     return [w for w in words if isinstance(w, basestring)]
 
 
-def _complete_symbol_during_prompt(fullname):
-    with InterceptPrintsDuringPromptCtx():
-        return complete_symbol(fullname, get_global_namespaces())
-
-
-
-class _AutoImporter_ast_transformer(object):
-    """
-    A NodeVisitor-like wrapper around C{auto_import_for_ast} for the API that
-    IPython 1.x's C{ast_transformers} needs.
-    """
-
-    def visit(self, node):
-        try:
-            # We don't actually transform the node; we just use the
-            # ast_transformers mechanism instead of the prefilter mechanism as
-            # an optimization to avoid re-parsing the text into an AST.
-            auto_import(node, get_global_namespaces())
-            return node
-        except:
-            import traceback
-            traceback.print_exc()
-            raise
-
-
-class _AutoImporter_prefilter_checker(object):
-    """
-    A prefilter checker for IPython < 1.0.
-    """
-    priority = 1
-    enabled = True
-
-    def check(self, line_info):
-        logger.debug("prefilter %r", line_info.line)
-        auto_import(line_info.line, get_global_namespaces())
-        return None
-
-
 class _AutoImporter(object):
 
     def __init__(self):
@@ -435,34 +397,66 @@ class _AutoImporter(object):
         self._enabled = False
         self._errored = False
 
-    def enable(self):
+    def enable(self, even_if_previously_errored=False):
         """
         Turn on the auto-importer in the current IPython session.
         """
-        if self._enabled or self._errored:
+        if self._enabled:
+            return
+        if self._errored and not even_if_previously_errored:
+            # Be conservative: Once we've had problems, don't try again this
+            # session.  Exceptions in the interactive loop can be annoying to
+            # deal with.
+            logger.warning(
+                "Not reattempting to enable auto importer after earlier error")
             return
         ip = get_ipython_safe()
         if not ip:
             return
-        import IPython
-        logger.debug("Enabling pyflyby auto importer for IPython version %s", IPython.__version__)
-        try:
-            self._enable_internal_1(ip)
-        except Exception as e:
-            # Something went wrong.  Don't reattempt to enable later.
-            self._errored = True
-            # Log the error.
-            logger.error(
-                "Error enabling autoimporter: %s: %s" % (type(e).__name__, e))
-            logger.error("Disabling autoimporter.")
-            # Remove all hooks.  If something's broken, chances are other
-            # stuff is broken too.
-            self.disable()
-            raise
+        # *** Enable ***.
+        self._disable_on_error(self._enable_internal_1)(ip)
         self._enabled = True
+        self._errored = False
+
+    def _handle_exception(self, exception, context):
+        # Something went wrong.  Remember that we've had a problem.
+        self._errored = True
+        logger.error("%s: %s", type(exception).__name__, exception)
+        logger.debug("Context: %s", context)
+        if not logger.debug_enabled:
+            logger.info(
+                "Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.")
+        logger.warning("Disabling pyflyby auto importer.")
+        # Remove all hooks.  If something's broken, chances are
+        # other stuff is broken too.
+        try:
+            self.disable()
+        except Exception as e:
+            logger.error("Error trying to disable: %s: %s",
+                         type(e).__name__, e)
+
+    def _disable_on_error(self, f):
+        def wrapped_fn(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except Exception as e:
+                self._handle_exception(e, f.__name__)
+                if logger.debug_enabled:
+                    raise
+                try:
+                    original = __original__
+                except NameError:
+                    return
+                else:
+                    return original(*args, **kwargs)
+        wrapped_fn.__name__ = f.__name__
+        return wrapped_fn
 
     def _enable_internal_1(self, ip):
         import IPython
+        logger.debug("Enabling pyflyby auto importer for IPython version %s",
+                     IPython.__version__)
+
         uninstallers = self._uninstallers
 
         # Install hooks to auto_import before code execution.
@@ -513,6 +507,7 @@ class _AutoImporter(object):
         if hasattr(ip, "_ofind"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
             @advise(ip._ofind)
+            @self._disable_on_error
             def ofind_with_autoimport(self_, oname, namespaces=None):
                 logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
                 if namespaces is None:
@@ -523,19 +518,42 @@ class _AutoImporter(object):
                 return result
             uninstallers.append(ofind_with_autoimport.unadvise)
         else:
-            logger.debug("Couldn't install ofind hook for IPython version %s",
-                         IPython.__version__)
+            logger.info("Couldn't install ofind hook for IPython version %s",
+                        IPython.__version__)
 
         if hasattr(ip, 'ast_transformers'):
             # First choice: register an ast_transformer.
             # Tested with IPython 1.0, 1.2, 2.0, 2.3.
+            class _AutoImporter_ast_transformer(object):
+                """
+                A NodeVisitor-like wrapper around C{auto_import_for_ast} for
+                the API that IPython 1.x's C{ast_transformers} needs.
+                """
+                def visit(self_, node):
+                    try:
+                        # We don't actually transform the node; we just use
+                        # the ast_transformers mechanism instead of the
+                        # prefilter mechanism as an optimization to avoid
+                        # re-parsing the text into an AST.
+                        auto_import(node, get_global_namespaces())
+                        return node
+                    except Exception as e:
+                        self._handle_exception(e, "ast_transformer")
+                        if logger.debug_enabled:
+                            import traceback
+                            traceback.print_exc()
+                        # We never propagate the exception here.  That would
+                        # cause IPython to try to remove the ast_transformer.
+                        # We've already done that ourselves.
+                        return node
             self._ast_transformer = t = _AutoImporter_ast_transformer()
+            t.visit = self._disable_on_error(t.visit)
             ip.ast_transformers.append(t)
             def uninstall_ast_transformer():
                 try:
                     ip.ast_transformers.remove(t)
                 except ValueError:
-                    logger.debug(
+                    logger.info(
                         "Couldn't remove ast_transformer hook - already gone?")
             uninstallers.append(uninstall_ast_transformer)
         elif hasattr(ip, 'compile') and hasattr(ip.compile, 'ast_parse'):
@@ -543,6 +561,7 @@ class _AutoImporter(object):
             # Tested with IPython 0.12, 0.13.  Works with later versions too
             # but less preferred.
             @advise(ip.compile.ast_parse)
+            @self._disable_on_error
             def ast_parse_with_autoimport(self_, source, *args, **kwargs):
                 logger.debug("ast_parse %r", source)
                 ast = __original__(self_, source, *args, **kwargs)
@@ -553,6 +572,15 @@ class _AutoImporter(object):
             # Third choice: Register a prefilter checker.
             # Tested with IPython 0.11.  Works with later versions too but
             # less preferred.
+            class _AutoImporter_prefilter_checker(object):
+                "A prefilter checker for IPython runs auto_imports."
+                priority = 1
+                enabled = True
+                @self._disable_on_error
+                def check(self_, line_info):
+                    logger.debug("prefilter %r", line_info.line)
+                    auto_import(line_info.line, get_global_namespaces())
+                    return None
             self._prefilter_checker = c = _AutoImporter_prefilter_checker()
             ip.prefilter_manager.register_checker(c)
             def uninstall_prefilter_checker():
@@ -563,13 +591,14 @@ class _AutoImporter(object):
             # Tested with IPython 0.10.  Works with later version too but less
             # preferred.
             @advise((ip, 'prefilter'))
+            @self._disable_on_error
             def prefilter_with_autoimport(self_, line, continue_prompt):
                 logger.debug("prefilter %r", line)
                 auto_import(line, get_global_namespaces())
                 return __original__(self_, line, continue_prompt)
             uninstallers.append(prefilter_with_autoimport.unadvise)
         else:
-            logger.debug(
+            logger.info(
                 "Couldn't install a line transformer for IPython version %s",
                 IPython.__version__)
 
@@ -597,15 +626,19 @@ class _AutoImporter(object):
         if hasattr(ip, "Completer"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
             @advise(ip.Completer.global_matches)
+            @InterceptPrintsDuringPrompt
+            @self._disable_on_error
             def global_matches_with_autoimport(self_, fullname):
-                return _complete_symbol_during_prompt(fullname)
+                return complete_symbol(fullname, get_global_namespaces())
             @advise(ip.Completer.attr_matches)
+            @InterceptPrintsDuringPrompt
+            @self._disable_on_error
             def attr_matches_with_autoimport(self_, fullname):
-                return _complete_symbol_during_prompt(fullname)
+                return complete_symbol(fullname, get_global_namespaces())
             uninstallers.append(global_matches_with_autoimport.unadvise)
             uninstallers.append(attr_matches_with_autoimport.unadvise)
         else:
-            logger.debug(
+            logger.info(
                 "Couldn't install completion hook for IPython version %s",
                 IPython.__version__)
 

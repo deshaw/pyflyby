@@ -18,9 +18,6 @@ from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute
 
 
-DEBUG = False
-
-
 def hfmt(s):
     return dedent(s).strip()
 
@@ -53,8 +50,6 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         return callback
 
     def debug_callback(option, opt_str, value, parser):
-        global DEBUG
-        DEBUG = True
         logger.set_level("DEBUG")
 
     parser.add_option("--debug", action="callback",
@@ -324,7 +319,7 @@ def process_actions(filenames, actions, modify_function):
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             if str(filename) not in str(e):
                 e = type(e)("While processing %s: %s" % (filename, e))
-            if DEBUG:
+            if logger.debug_enabled:
                 raise e, None, sys.exc_info()[2]
             traceback.print_exception(*sys.exc_info())
             continue

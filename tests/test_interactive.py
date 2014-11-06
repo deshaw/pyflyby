@@ -26,6 +26,19 @@ import pyflyby
 from   pyflyby._util            import EnvVarCtx, memoize
 
 
+def assert_match(result, expected):
+    expected = dedent(expected).strip()
+    result = result.strip()
+    regexp = ".*".join(re.escape(s) for s in expected.split("...")) + "$"
+    regexp = re.compile(regexp, re.S)
+    if not regexp.match(result):
+        print "Expected:"
+        print ''.join("     %s\n"%line for line in expected.splitlines())
+        print "Result:"
+        print ''.join("     %s\n"%line for line in result.splitlines())
+        raise AssertionError
+
+
 @memoize
 def _extra_pythonpath_dir():
     """
@@ -63,9 +76,6 @@ def ptypipe(command, stdin="", timeout=300):
     # Write the input.  This assumes that the input is small enough to fit in
     # the buffer size; if that ever is no longer True, we'll need to stuff it
     # in the loop after checking select().
-    if stdin and not stdin.endswith("\n"):
-        stdin += "\n"
-    stdin += "exit()\n"
     os.write(master, stdin)
     # We don't need this anymore.
     os.close(slave)
@@ -133,9 +143,10 @@ def touch(filename):
         pass
 
 
-def ipython(stdin, autocall=False):
+def ipython(input, autocall=False):
     ipython_dir = mkdtemp(
         prefix="pyflyby_test_ipython_", suffix=".tmp")
+    stdin = dedent(input).strip() + "\nexit()\n"
     try:
         pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
         extra = _extra_pythonpath_dir()
@@ -234,68 +245,81 @@ def test_ipython_version_1():
 
 
 def test_autoimport_1():
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         '@'+b64decode('SGVsbG8=')+'@'
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64decode
         Out[2]: '@Hello@'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
     # really a test that our testing infrastructure is OK and not accidentally
     # picking up pyflyby configuration installed in a system or user config.
-    input = dedent("""
+    input = """
         '@'+b64decode('SGVsbG8=')+'@'
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
         NameError: name 'b64decode' is not defined
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
+
+
+def test_autoimport_symbol_1():
+    input = """
+        import pyflyby; pyflyby.enable_auto_importer()
+        b64decode
+    """
+    result = ipython(input)
+    expected = """
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: <function ...b64decode...>
+    """
+    assert_match(result, expected)
 
 
 def test_autoimport_statement_1():
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         print b64decode('SGVsbG8=')
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64decode
         Hello
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 def test_autoimport_pyflyby_path_1():
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         list(product('ab','cd'))
         groupby
-    """).lstrip()
+    """
     with NamedTemporaryFile() as f:
         f.write("from itertools import product\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):
             result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from itertools import product
         Out[2]: [('a', 'c'), ('a', 'd'), ('b', 'c'), ('b', 'd')]
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
         NameError: name 'groupby' is not defined
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 # Skip tab completion tests in IPython 0.10 and earlier.  For IPython 0.10,
@@ -310,16 +334,16 @@ skip_if_ipython_010 = pytest.mark.skipif(
 @skip_if_ipython_010
 def test_complete_symbol_basic_1():
     # Check that tab completion works.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         b64deco\t('eHl6enk=')
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64decode
         Out[2]: 'xyzzy'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
@@ -327,50 +351,50 @@ def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
     # then b64decode should be imported into the namespace, but base64 should
     # not.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         'base64' in globals()
         'b64decode' in globals()
         b64deco\t('UnViaWNvbg==')
         'base64' in globals()
         'b64decode' in globals()
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         Out[2]: False
         Out[3]: False
         [PYFLYBY] from base64 import b64decode
         Out[4]: 'Rubicon'
         Out[5]: False
         Out[6]: True
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_instance_identity_1():
     # Check that automatic symbols give the same instance (i.e., no proxy
     # objects involved).
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         f = b64deco\t
         f is __import__('base64').b64decode
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64decode
         Out[3]: True
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_member_1():
     # Check that tab completion in members works.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         base64.b64d\t('bW9udHk=')
-    """).lstrip()
+    """
     result = ipython(input)
     # We expect "base64.b64d" to be reprinted again after the [PYFLYBY] log
     # line.  (This differs from the "b64deco\t" case: in that case, nothing
@@ -378,45 +402,45 @@ def test_complete_symbol_member_1():
     # line was printed.  OTOH, for an input of "base64.b64deco\t", we need to
     # first do an automatic "import base64", which causes log output during
     # the prompt, which means reprinting the input so far.)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] import base64
         base64.b64dOut[2]: 'monty'
-    """)
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_import_module_as_1():
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         b64.b64d\t('cm9zZWJ1ZA==')
-    """).lstrip()
+    """
     with NamedTemporaryFile() as f:
         f.write("import base64 as b64\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):
             result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] import base64 as b64
         b64.b64dOut[2]: 'rosebud'
-    """)
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_statement_1():
     # Check that tab completion in statements works.  This requires a more
     # sophisticated code path than test_complete_symbol_basic_1.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         if 1: print b64deco\t('SHVudGVy')
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64decode
         Hunter
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
@@ -425,27 +449,27 @@ def test_complete_symbol_statement_1():
     reason="autocall completion doesn't work on IPython < 0.12")
 def test_complete_symbol_autocall_1():
     # Check that tab completion works with autocall.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         str.upper b64deco\t('Q2hld2JhY2Nh')
-    """).lstrip()
+    """
     result = ipython(input, autocall=True)
-    expected = dedent("""
+    expected = """
         ------> str.upper(b64decode('Q2hld2JhY2Nh'))
         [PYFLYBY] from base64 import b64decode
         Out[2]: 'CHEWBACCA'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_any_module_1():
     # Check that completion and autoimport works for an arbitrary module in
     # $PYTHONPATH.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         m18908697_\t.f_68421204()
-    """).lstrip()
+    """
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
     try:
         with open("%s/m18908697_foo.py"%d, 'w') as f:
@@ -456,21 +480,21 @@ def test_complete_symbol_any_module_1():
             result = ipython(input)
     finally:
         rmtree(d)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] import m18908697_foo
         Out[2]: 'good'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_any_module_member_1():
     # Check that completion on members works for an arbitrary module in
     # $PYTHONPATH.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         m51145108_\t.f_76313558_\t()
-    """).lstrip()
+    """
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
     try:
         with open("%s/m51145108_foo.py"%d, 'w') as f:
@@ -481,34 +505,34 @@ def test_complete_symbol_any_module_member_1():
             result = ipython(input)
     finally:
         rmtree(d)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] import m51145108_foo
         m51145108_foo.f_76313558_Out[2]: 'ok'
-    """)
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_complete_symbol_bad_1():
     # Check that if we have a bad item in known imports, we complete it still.
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
-        foo_31221052_\t
-    """).lstrip()
+        foo_31221052_\t # arbitrary comment to avoid stripping trailing tab
+    """
     with NamedTemporaryFile() as f:
         f.write("import foo_31221052_bar\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):
             result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] import foo_31221052_bar
         [PYFLYBY] Error attempting to 'import foo_31221052_bar': ImportError: No module named foo_31221052_bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
         NameError: name 'foo_31221052_bar' is not defined
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
@@ -530,11 +554,11 @@ def test_complete_symbol_bad_as_1():
         <ipython-input> in <module>()
         NameError: name 'bar_98073069_quux' is not defined
     """).lstrip()
-    assert result == expected
+    assert_match(result, expected)
 
 
 def test_disable_reenable_autoimport_1():
-    input = dedent("""
+    input = """
         import pyflyby
         pyflyby.enable_auto_importer()
         b64encode('blue')
@@ -543,9 +567,9 @@ def test_disable_reenable_autoimport_1():
         b64encode('green')       # should still work because already imported
         pyflyby.enable_auto_importer()
         b64decode('eWVsbG93')    # should work now
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64encode
         Out[3]: 'Ymx1ZQ=='
         ---------------------------------------------------------------------------
@@ -555,13 +579,13 @@ def test_disable_reenable_autoimport_1():
         Out[6]: 'Z3JlZW4='
         [PYFLYBY] from base64 import b64decode
         Out[8]: 'yellow'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 @skip_if_ipython_010
 def test_disable_reenable_completion_1():
-    input = dedent("""
+    input = """
         import pyflyby
         pyflyby.enable_auto_importer()
         b64enco\t('flower')
@@ -570,9 +594,9 @@ def test_disable_reenable_completion_1():
         b64enco\t('tree')       # should still work because already imported
         pyflyby.enable_auto_importer()
         b64deco\t('Y2xvdWQ=')   # should work now
-    """).lstrip()
+    """
     result = ipython(input)
-    expected = dedent("""
+    expected = """
         [PYFLYBY] from base64 import b64encode
         Out[3]: 'Zmxvd2Vy'
         ---------------------------------------------------------------------------
@@ -582,22 +606,22 @@ def test_disable_reenable_completion_1():
         Out[6]: 'dHJlZQ=='
         [PYFLYBY] from base64 import b64decode
         Out[8]: 'cloud'
-    """).lstrip()
-    assert result == expected
+    """
+    assert_match(result, expected)
 
 
 def test_pinfo_1():
-    input = dedent("""
+    input = """
         import pyflyby; pyflyby.enable_auto_importer()
         f34229186?
-    """)
+    """
     d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
     try:
         with open("%s/m17426814.py"%d, 'w') as f:
             f.write(dedent("""
                 def f34229186():
                     'hello from '  '34229186'
-            """).lstrip())
+            """))
         with NamedTemporaryFile() as pf:
             pf.write("from m17426814 import f34229186\n")
             pf.flush()
@@ -605,5 +629,104 @@ def test_pinfo_1():
                 result = ipython(input)
     finally:
         rmtree(d)
-    assert "[PYFLYBY] from m17426814 import f34229186" in result
-    assert "hello from 34229186" in result
+    expected = """
+        [PYFLYBY] from m17426814 import f34229186
+        ...
+        Docstring:...hello from 34229186
+    """
+    assert_match(result, expected)
+
+
+def test_error_during_auto_import_symbol_1():
+    with NamedTemporaryFile() as f:
+        f.write("3+")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            input = """
+                import pyflyby
+                pyflyby.enable_auto_importer()
+                6*7
+                unknown_symbol_68470042
+                unknown_symbol_76663387
+            """
+            result = ipython(input)
+    expected = """
+        Out[3]: 42
+        [PYFLYBY] SyntaxError: While parsing ...: invalid syntax (..., line 1)
+        [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
+        [PYFLYBY] Disabling pyflyby auto importer.
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_68470042' is not defined
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_76663387' is not defined
+    """
+    assert_match(result, expected)
+
+
+def test_error_during_auto_import_expression_1():
+    with NamedTemporaryFile() as f:
+        f.write("3+")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            input = """
+                import pyflyby
+                pyflyby.enable_auto_importer()
+                6*7
+                42+unknown_symbol_72161870
+                42+unknown_symbol_48517397
+            """
+            result = ipython(input)
+    expected = """
+        Out[3]: 42
+        [PYFLYBY] SyntaxError: While parsing ...: invalid syntax (..., line 1)
+        [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
+        [PYFLYBY] Disabling pyflyby auto importer.
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_72161870' is not defined
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_48517397' is not defined
+    """
+    assert_match(result, expected)
+
+
+@skip_if_ipython_010
+def test_error_during_completion_1():
+    with NamedTemporaryFile() as f:
+        f.write("3+")
+        f.flush()
+        with EnvVarCtx(PYFLYBY_PATH=f.name):
+            input = """
+                import pyflyby
+                pyflyby.enable_auto_importer()
+                100
+                unknown_symbol_14954304_\tfoo
+                200
+                unknown_symbol_69697066_\tfoo
+                300
+            """
+            result = ipython(input)
+    expected = """
+        Out[3]: 100
+        [PYFLYBY] SyntaxError: While parsing ...: invalid syntax (..., line 1)
+        [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
+        [PYFLYBY] Disabling pyflyby auto importer.
+        unknown_symbol_14954304_---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_14954304_foo' is not defined
+        Out[5]: 200
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'unknown_symbol_69697066_foo' is not defined
+        Out[7]: 300
+    """
+    assert_match(result, expected)

@@ -38,6 +38,3 @@
       sdist doesn't include the bin/pyflyby symlink.
     - Make zip-safe/PEP308 compliant; use pkg_resources (if possible) instead
       of __file__.
-- Handle internal exceptions during complete_symbol etc in a friendlier way.
-  Hide traceback unless debugging is enabled.  Automatically uninstall the
-  interactive stuff if an exception occurs.
