@@ -18,11 +18,12 @@ import sys
 from   textwrap                 import dedent
 
 
-PYFLYBY_HOME        = os.path.dirname(__file__)
+PYFLYBY_HOME        = os.path.abspath(os.path.dirname(__file__))
 PYFLYBY_PYPATH      = os.path.join(PYFLYBY_HOME, "lib/python")
 PYFLYBY_DOT_PYFLYBY = os.path.join(PYFLYBY_HOME, ".pyflyby")
 
 # Get the pyflyby version from pyflyby.__version__.
+# We use exec instead to avoid importing pyflyby here.
 version_vars = {}
 version_fn = os.path.join(PYFLYBY_PYPATH, "pyflyby/_version.py")
 exec(open(version_fn).read(), {}, version_vars)
