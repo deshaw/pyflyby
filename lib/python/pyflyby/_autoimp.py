@@ -1118,6 +1118,7 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None):
     """
     Load the symbol C{fullname}.
 
+      >>> import os
       >>> load_symbol("os.path.join.func_name", {"os": os})
       'join'
 
