@@ -8,6 +8,7 @@ import dateutil.parser
 import kerberos
 import mutagen
 import perl
+import pexpect
 import pstats
 import pyflyby
 import pylab

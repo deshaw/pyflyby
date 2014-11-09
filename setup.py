@@ -171,7 +171,7 @@ setup(
         "Programming Language :: Python",
     ],
     install_requires=['pyflakes'],
-    tests_require=['pytest', 'epydoc'],
+    tests_require=['pexpect', 'pytest', 'epydoc'],
     cmdclass = {
         'test'           : PyTest,
         'collect_imports': CollectImports,

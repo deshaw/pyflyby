@@ -4,9 +4,9 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
+import pytest
 import subprocess
 import sys
-import pytest
 
 import pyflyby
 

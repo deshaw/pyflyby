@@ -188,12 +188,51 @@ def ExcludeImplicitCwdFromPathCtx():
 
 
 
+class _AdvisedFunction(object):
+    """
+    A wrapper around a function that calls some "around advice" hook.  The
+    hook has access to a global named "__original__" as a reference to the
+    original unadvised function.
+
+    This is written as a class with a __call__ method.  We do so rather than
+    using a metafunction, so that we can also implement __getattr_ to look
+    through to the target.
+    """
+
+    def __init__(self, aspect, original, hook, name, doc):
+        self.__aspect__   = aspect
+        self.__original__ = original
+        self.__hook       = hook
+        self.__name__     = name
+        self.__doc__      = doc
+
+    def __call__(self, *args, **kwargs):
+        hook = self.__hook
+        # Temporarily add __original__ to the globals that the hook
+        # function sees.
+        globals = hook.__globals__
+        UNSET = object()
+        old_original = globals.get("__original__", UNSET)
+        try:
+            globals["__original__"] = self.__original__
+            return hook(*args, **kwargs)
+        finally:
+            if old_original is UNSET:
+                del globals["__original__"]
+            else:
+                globals["__original__"] = old_original
+
+    def __getattr__(self, k):
+        return getattr(self.__original__, k)
+
+
+
 class Aspect(object):
     """
     Monkey-patch a target method (joinpoint) with "around" advice.
 
-    The advice can call "__original__", which will be magically set at run
-    time to the target function.
+    The advice can call "__original__(...)".  At run time, a global named
+    "__original__" will magically be available to the wrapped function.
 
     Suppose someone else wrote Foo.bar():
       >>> class Foo(object):
@@ -206,11 +245,11 @@ class Aspect(object):
 
     To monkey patch C{foo.bar}, decorate the wrapper with C{"@advise(foo.bar)"}:
       >>> @advise(foo.bar)
-      ... def addthousand(self, y):
-      ...     return "advised foo.bar(self.x=%s,y=%s): %s" % (self.x, y, __original__(self,y+1000))
+      ... def addthousand(y):
+      ...     return "advised foo.bar(y=%s): %s" % (y, __original__(y+1000))
 
       >>> foo.bar(100)
-      'advised foo.bar(self.x=42,y=100): bar(self.x=42,y=1100)'
+      'advised foo.bar(y=100): bar(self.x=42,y=1100)'
 
     You can uninstall the advice and get the original behavior back:
       >>> addthousand.unadvise()
@@ -225,41 +264,21 @@ class Aspect(object):
     def __init__(self, joinpoint):
         if isinstance(joinpoint, types.MethodType):
             self._container = joinpoint.im_self or joinpoint.im_class
-            self._get       = self._container
             self._name      = joinpoint.im_func.__name__
             self._original  = joinpoint
             assert joinpoint == getattr(self._container, self._name)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
             self._container = container
-            self._get       = container
             self._name      = name
             self._original  = getattr(self._container, self._name)
         # TODO: FunctionType (for top-level functions)
+        # TODO: unbound method
+        # TODO: classmethod
         else:
             raise TypeError("JoinPoint: unexpected %s"
                             % (type(joinpoint).__name__,))
         self._wrapped = None
-
-    def _wrap(self, hook):
-        def wrapped_fn(*args, **kwargs):
-            # Temporarily add __original__ to the globals that the hook
-            # function sees.
-            globals = hook.__globals__
-            unset = object()
-            old_original = globals.get("__original__", unset)
-            try:
-                globals["__original__"] = self._original.im_func
-                return hook(*args, **kwargs)
-            finally:
-                if old_original is unset:
-                    del globals["__original__"]
-                else:
-                    globals["__original__"] = old_original
-        wrapped_fn.__name__ = "%s__advised__" % (self._name,)
-        if self._get:
-            wrapped_fn = wrapped_fn.__get__(self._get)
-        return wrapped_fn
 
     def advise(self, hook):
         from pyflyby._log import logger
@@ -267,11 +286,16 @@ class Aspect(object):
                      self._container.__class__.__name__, self._name)
         assert getattr(self._container, self._name) == self._original
         assert self._wrapped is None
-        self._wrapped = self._wrap(hook)
-        setattr(self._container, self._name, self._wrapped)
-        hook._aspect = self
-        hook.unadvise = self.unadvise
-        return hook
+        # Create the wrapped function.
+        wrapped_name = "%s__advised__%s" % (self._name, hook.__name__)
+        wrapped_doc = "%s.\n\nAdvice %s:\n%s" % (
+            self._original.__doc__, hook.__name__, hook.__doc__)
+        wrapped = _AdvisedFunction(self, self._original, hook,
+                                   wrapped_name, wrapped_doc)
+        self._wrapped = wrapped
+        # Install the wrapped function!
+        setattr(self._container, self._name, wrapped)
+        return self
 
     def unadvise(self):
         if self._wrapped is None:
@@ -288,5 +312,10 @@ class Aspect(object):
 
 
 def advise(joinpoint):
+    """
+    Advise C{joinpoint}.
+
+    See L{Aspect}.
+    """
     aspect = Aspect(joinpoint)
     return aspect.advise

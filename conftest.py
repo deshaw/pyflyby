@@ -22,6 +22,14 @@ def pytest_runtest_setup(item):
     _setup_logger()
 
 
+def pytest_report_header(config):
+    import IPython
+    print "IPython %s" % (IPython.__version__)
+    import pyflyby
+    dir = os.path.dirname(pyflyby.__file__)
+    print "pyflyby %s from %s" % (pyflyby.__version__, dir)
+
+
 def _setup_logger():
     """
     Set up the pyflyby logger to be doctest-friendly.

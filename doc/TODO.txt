@@ -38,3 +38,5 @@
       sdist doesn't include the bin/pyflyby symlink.
     - Make zip-safe/PEP308 compliant; use pkg_resources (if possible) instead
       of __file__.
+- If fail to import something, remove it (and children) from known imports.
+
