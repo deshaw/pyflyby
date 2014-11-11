@@ -1,7 +1,10 @@
 Pyflyby is a set of Python programming productivity tools.
 
 For IPython interaction:
-  * autoimport automatically imports symbols when needed.
+  * autoimport: automatically imports symbols when needed.
+
+For command-line interaction:
+  * autopython: evaluates command-line arguments with automatic importing.
 
 For editing python source code:
   * tidy-imports:      adds missing 'import's, removes unused 'import's, and
@@ -135,6 +138,12 @@ Other IPython magic commands work as well:
   [PYFLYBY] import numpy as np
   [PYFLYBY] from numpy import pi
   100000 loops, best of 3: 2.51 us per loop
+
+  $ echo 'print arange(4)' > foo.py
+  $ ipython
+  In [1]: %run foo.py
+  [PYFLYBY] from numpy import arange
+  [0 1 2 3]
 
 
 Implementation details

@@ -11,6 +11,7 @@ from   cStringIO                import StringIO
 import difflib
 import os
 import pexpect
+import pytest
 import random
 import re
 import readline
@@ -22,7 +23,6 @@ from   textwrap                 import dedent
 
 import pyflyby
 from   pyflyby._util            import EnvVarCtx, memoize
-import pytest
 
 
 # TODO: create a doctest-like wrapper that extracts inputs from the expected
@@ -67,6 +67,43 @@ def assert_match(result, expected):
         msg.extend("   %s"%line for line in difflib.ndiff(expected.splitlines(), result.splitlines()))
         msg = "\n".join(msg)
         pytest.fail(msg)
+
+
+def test_selftest_1():
+    expected = """
+        hello
+        1...2
+        goodbye
+        ....hello
+    """
+    result = dedent("""
+
+      hello
+      14712047602
+      goodbye
+      I don't know why you say goodbye
+      I say hello
+    """)
+    assert_match(result, expected)
+
+
+def test_selftest_2():
+    result = """
+        hello
+        1...2
+        there
+    """
+    expected = """
+
+      hello
+      14712047
+      602
+      there
+
+    """
+    import _pytest
+    with pytest.raises(_pytest.runner.Failed):
+        assert_match(result, expected)
 
 
 def remove_ansi_escapes(s):
@@ -1214,6 +1251,297 @@ def test_syntax_error_in_user_code_1():
     assert_match(result, expected)
 
 
+def test_run_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print 'hello'
+            print b64decode('RXVjbGlk')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64decode
+        hello
+        Euclid
+    """
+    assert_match(result, expected)
+
+
+def test_run_repeat_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('Q2FudG9y')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run {f.name}
+            run {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Cantor
+        In [3]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Cantor
+    """
+    assert_match(result, expected)
+
+
+def test_run_separate_script_namespace_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('UmllbWFubg==')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            print b64decode('Rmlib25hY2Np')
+            run {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: print b64decode('Rmlib25hY2Np')
+        [PYFLYBY] from base64 import b64decode
+        Fibonacci
+        In [3]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Riemann
+    """
+    assert_match(result, expected)
+
+
+def test_run_separate_script_namespace_2():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('SGlsYmVydA==')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            def b64decode(x):
+                return "booger"
+
+            b64decode('x')
+            run {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def b64decode(x):
+           ...:     return "booger"
+           ...:
+        In [3]: b64decode('x')
+        Out[3]: 'booger'
+        In [4]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Hilbert
+    """
+    assert_match(result, expected)
+
+
+def test_run_modify_interactive_namespace_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            x = b64decode('RmVybWF0')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run {f.name}
+            x
+            b64decode('TGFwbGFjZQ==')
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64decode
+        In [3]: x
+        Out[3]: 'Fermat'
+        In [4]: b64decode('TGFwbGFjZQ==')
+        Out[4]: 'Laplace'
+    """
+    assert_match(result, expected)
+
+
+def test_run_i_auto_import_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('RGVzY2FydGVz')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run -i {f.name}
+            print b64decode('R2F1c3M=')
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Descartes
+        In [3]: print b64decode('R2F1c3M=')
+        Gauss
+    """
+    assert_match(result, expected)
+
+
+def test_run_i_already_imported_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode(k)
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            print b64decode('R3JvdGhlbmRpZWNr')
+            k = 'QXJjaGltZWRlcw=='
+            run -i {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: print b64decode('R3JvdGhlbmRpZWNr')
+        [PYFLYBY] from base64 import b64decode
+        Grothendieck
+        In [3]: k = 'QXJjaGltZWRlcw=='
+        In [4]: run ...
+        Archimedes
+    """
+    assert_match(result, expected)
+
+
+def test_run_i_repeated_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('S29sbW9nb3Jvdg==')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run -i {f.name}
+            run -i {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64decode
+        Kolmogorov
+        In [3]: run ...
+        Kolmogorov
+    """
+    assert_match(result, expected)
+
+
+def test_run_i_locally_defined_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64decode('zzz')
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            def b64decode(x):
+                return "Bernoulli"
+
+            run -i {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def b64decode(x):
+           ...:     return "Bernoulli"
+           ...:
+        In [3]: run ...
+        Bernoulli
+    """
+    assert_match(result, expected)
+
+
+def test_run_syntax_error_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print 'hello'
+            print b64decode('UHl0aGFnb3Jhcw==')
+            1 /
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run {f.name}
+            print b64decode('Q29ud2F5')
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        ....
+        SyntaxError: invalid syntax....
+        In [3]: print b64decode('Q29ud2F5')
+        [PYFLYBY] from base64 import b64decode
+        Conway
+    """
+    assert_match(result, expected)
+
+
+def test_run_name_main_1():
+    with NamedTemporaryFile() as f:
+        f.write(dedent("""
+            print b64encode(__name__)
+        """))
+        f.flush()
+        input = """
+            import pyflyby; pyflyby.enable_auto_importer()
+            run {f.name}
+        """.format(f=f)
+        result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64encode
+        X19tYWluX18=
+    """
+    assert_match(result, expected)
+
+
+def test_run_name_not_main_1():
+    d = mkdtemp(prefix="pyflyby_", suffix=".tmp")
+    try:
+        with open("%s/f81564382.py"%d, 'w') as f:
+            f.write(dedent("""
+                print b64encode(__name__)
+            """))
+            f.flush()
+            input = """
+                import pyflyby; pyflyby.enable_auto_importer()
+                run -n {f.name}
+            """.format(f=f)
+            result = ipython(input)
+    finally:
+        rmtree(d)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: run ...
+        [PYFLYBY] from base64 import b64encode
+        ZjgxNTY0Mzgy
+    """
+    assert_match(result, expected)
+
+
+
 def test_error_during_enable_1():
     input = """
         import pyflyby
@@ -1242,3 +1570,6 @@ def test_error_during_enable_1():
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
     """
     assert_match(result, expected)
+
+
+# TODO: test %timeit

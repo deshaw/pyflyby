@@ -18,6 +18,7 @@ from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
+from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import CwdCtx, NullCtx, advise, memoize
 
 
@@ -579,6 +580,7 @@ class _AutoImporter(object):
                 except ValueError:
                     logger.info(
                         "Couldn't remove ast_transformer hook - already gone?")
+                self._ast_transformer = None
             uninstallers.append(uninstall_ast_transformer)
         elif hasattr(ip, "run_ast_nodes"):
             # Second choice: advise the run_ast_nodes() function.  Tested with
@@ -656,6 +658,32 @@ class _AutoImporter(object):
         else:
             logger.info(
                 "Couldn't install completion hook for IPython version %s",
+                IPython.__version__)
+
+        # Advise ip.safe_execfile so that %run will autoimport.
+        if hasattr(ip, "safe_execfile"):
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            @advise(ip.safe_execfile)
+            def safe_execfile_with_autoimport(filename,
+                                              globals=None, locals=None,
+                                              **kwargs):
+                logger.debug("safe_execfile %r", filename)
+                if globals is None:
+                    globals = {}
+                if locals is None:
+                    locals = globals
+                namespaces = [globals, locals]
+                try:
+                    block = PythonBlock(Filename(filename))
+                    ast_node = block.ast_node
+                    self.auto_import(ast_node, namespaces)
+                except Exception as e:
+                    logger.error("%s: %s", type(e).__name__, e)
+                return __original__(filename, *namespaces, **kwargs)
+            uninstallers.append(safe_execfile_with_autoimport.unadvise)
+        else:
+            logger.info(
+                "Couldn't install execfile hook for IPython version %s",
                 IPython.__version__)
 
         # Completed.  (Didn't necessarily succeed, but at least no exceptions.)
