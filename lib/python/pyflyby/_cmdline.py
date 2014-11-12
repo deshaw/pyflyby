@@ -64,6 +64,10 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                       callback=log_level_callbacker("ERROR"),
                       help="Be quiet.")
 
+    parser.add_option("--version", action="callback",
+                      callback=lambda *args: print_version_and_exit(),
+                      help="Print pyflyby version and exit.")
+
     if modify_action_params:
         group = optparse.OptionGroup(parser, "Action options")
         action_diff = action_external_command('pyflyby-diff')
@@ -245,6 +249,19 @@ def filename_args(args, on_error=_default_on_error):
         return [Filename.STDIN]
     else:
         syntax()
+
+
+def print_version_and_exit(extra=None):
+    from pyflyby._version import __version__
+    msg = "pyflyby %s" % (__version__,)
+    progname = os.path.realpath(sys.argv[0])
+    if os.path.exists(progname):
+        msg += " (%s)" % (os.path.basename(progname),)
+    print(msg)
+    if extra:
+        print extra
+    raise SystemExit(0)
+
 
 def syntax():
     print >>sys.stderr, maindoc() + '\n\nFor usage, see: %s --help' % (sys.argv[0],)
