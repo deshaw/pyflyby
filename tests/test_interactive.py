@@ -227,6 +227,24 @@ def _build_ipython_cmd(ipython_dir, autocall=False):
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 PYFLYBY_PATH = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
 
+
+class MySpawn(pexpect.spawn):
+    def setwinsize(self, rows, cols):
+        """
+        Override the window size in the child terminal.
+
+        We need to do this after the forkpty but before the child IPython
+        process is execed.  As of pexpect version 3.3, overriding this method
+        is the only way to do that.
+
+        If we don't change the default from 80 columns, then Readline outputs
+        an annoying extra " \r" after 80 characters of prompt+input.
+
+        https://github.com/pexpect/pexpect/issues/134
+        """
+        super(MySpawn, self).setwinsize(100, 900)
+
+
 def ipython(input, autocall=False, PYTHONPATH=[], PYFLYBY_PATH=PYFLYBY_PATH):
     # Create a temporary directory which we'll use as our IPYTHONDIR.
     ipython_dir = mkdtemp(prefix="pyflyby_test_ipython_", suffix=".tmp")
@@ -240,7 +258,7 @@ def ipython(input, autocall=False, PYTHONPATH=[], PYFLYBY_PATH=PYFLYBY_PATH):
         cmd = _build_ipython_cmd(ipython_dir, autocall=autocall)
         # Spawn IPython.
         with EnvVarCtx(**env):
-            child = pexpect.spawn(cmd[0], cmd[1:], echo=True, timeout=5.0)
+            child = MySpawn(cmd[0], cmd[1:], echo=True, timeout=5.0)
         # Log output to a StringIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
         # commands, since we used echo=True.  (Using logfile=StringIO and
