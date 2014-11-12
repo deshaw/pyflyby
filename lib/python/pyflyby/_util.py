@@ -309,6 +309,7 @@ class Aspect(object):
         else:
             from pyflyby._log import logger
             logger.debug("%s seems modified; not unadvising it", self._name)
+        self._wrapped = None
 
 
 def advise(joinpoint):
