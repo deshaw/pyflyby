@@ -20,7 +20,8 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import CwdCtx, NullCtx, advise, memoize
+from   pyflyby._util            import (CwdCtx, FunctionWithGlobals, NullCtx,
+                                        advise, memoize)
 
 
 # TODO: also support arbitrary code (in the form of a lambda and/or
@@ -425,6 +426,7 @@ class _AutoImporter(object):
         self._enabled = False
         self._errored = False
         self._ip = None
+        self._ast_transformer = None
 
     def enable(self, even_if_previously_errored=False):
         """
@@ -538,6 +540,7 @@ class _AutoImporter(object):
         logger.debug("Enabling IPython shell hooks")
         self._enable_ofind_hook()
         self._enable_ast_hook()
+        self._enable_timeit_hook()
         self._enable_completion_hook()
         self._enable_run_hook()
         self._enable_ipython_bugfixes()
@@ -569,7 +572,7 @@ class _AutoImporter(object):
                 return result
             self._disablers.append(ofind_with_autoimport.unadvise)
         else:
-            logger.info("Couldn't enable ofind hook")
+            logger.debug("Couldn't enable ofind hook")
 
     def _enable_ast_hook(self):
         """
@@ -579,6 +582,7 @@ class _AutoImporter(object):
         ip = self._ip
         # Register an AST transformer.
         if hasattr(ip, 'ast_transformers'):
+            logger.debug("Registering an ast_transformer")
             # First choice: register a formal ast_transformer.
             # Tested with IPython 1.0, 1.2, 2.0, 2.3.
             class _AutoImporter_ast_transformer(object):
@@ -596,6 +600,7 @@ class _AutoImporter(object):
                     # exceptions here.  That would cause IPython to try to
                     # remove the ast_transformer.  On error, we've already
                     # done that ourselves.
+                    logger.debug("_AutoImporter_ast_transformer.visit()")
                     self.auto_import(node, raise_on_error=False)
                     return node
             self._ast_transformer = t = _AutoImporter_ast_transformer()
@@ -646,7 +651,42 @@ class _AutoImporter(object):
                 return result
             self._disablers.append(compile_with_autoimport.unadvise)
         else:
-            logger.info("Couldn't enable parse hook")
+            logger.debug("Couldn't enable parse hook")
+
+    def _enable_timeit_hook(self):
+        """
+        Enable a hook so that %timeit will autoimport.
+        """
+        # For IPython 1.0+, the ast_transformer takes care of it.
+        if self._ast_transformer:
+            return
+        # Otherwise, we advise timeit and "letf"[*] the compile() builtin
+        # within it.
+        # [*] "letf" in Common Lisp roughly means temporarily change one function
+        # within another function
+        ip = self._ip
+        if hasattr(ip, 'magics_manager'):
+            # IPython 0.13.  (IPython 1.0+ also has magics_manager, but for
+            # those versions, ast_transformer takes care of timeit.)
+            line_magics = ip.magics_manager.magics['line']
+            @advise((line_magics, 'timeit'))
+            def timeit_with_autoimport(*args, **kwargs):
+                logger.debug("timeit_with_autoimport()")
+                wrapped = FunctionWithGlobals(
+                    __original__, compile=self.compile_with_autoimport)
+                return wrapped(*args, **kwargs)
+            self._disablers.append(timeit_with_autoimport.unadvise)
+        elif hasattr(ip, 'magic_timeit'):
+            # IPython 0.10, 0.11, 0.12
+            @advise(ip.magic_timeit)
+            def magic_timeit_with_autoimport(*args, **kwargs):
+                logger.debug("timeit_with_autoimport()")
+                wrapped = FunctionWithGlobals(
+                    __original__, compile=self.compile_with_autoimport)
+                return wrapped(*args, **kwargs)
+            self._disablers.append(magic_timeit_with_autoimport.unadvise)
+        else:
+            logger.debug("Couldn't enable timeit hook")
 
     def _enable_completion_hook(self):
         """
@@ -682,7 +722,7 @@ class _AutoImporter(object):
             self._disablers.append(global_matches_with_autoimport.unadvise)
             self._disablers.append(attr_matches_with_autoimport.unadvise)
         else:
-            logger.info("Couldn't enable completion hook")
+            logger.debug("Couldn't enable completion hook")
 
     def _enable_run_hook(self):
         """
@@ -710,7 +750,7 @@ class _AutoImporter(object):
                 return __original__(filename, *namespaces, **kwargs)
             self._disablers.append(safe_execfile_with_autoimport.unadvise)
         else:
-            logger.info("Couldn't enable execfile hook")
+            logger.debug("Couldn't enable execfile hook")
 
     def _enable_ipython_bugfixes(self):
         """
@@ -811,6 +851,16 @@ class _AutoImporter(object):
                 complete_symbol, fullname, namespaces,
                 raise_on_error=raise_on_error, on_error=on_error1)
 
+    def compile_with_autoimport(self, src, filename, mode, flags=0):
+        logger.debug("compile_with_autoimport(%r)", src)
+        ast_node = compile(src, filename, mode, flags|ast.PyCF_ONLY_AST,
+                           dont_inherit=True)
+        self.auto_import(ast_node)
+        if flags & ast.PyCF_ONLY_AST:
+            return ast_node
+        else:
+            return compile(ast_node, filename, mode, flags, dont_inherit=True)
+
 
 _auto_importer = _AutoImporter()
 
@@ -828,3 +878,6 @@ def disable_auto_importer():
     Turn off the auto-importer in the current IPython session.
     """
     _auto_importer.disable()
+
+
+# TODO: hook prun: _run_with_profiler

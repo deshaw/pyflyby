@@ -1559,6 +1559,23 @@ def test_run_name_not_main_1():
     assert_match(result, expected)
 
 
+def test_timeit_1():
+    input = """
+        import pyflyby; pyflyby.enable_auto_importer()
+        %timeit -n 1 -r 1 b64decode('TWljaGVsYW5nZWxv')
+        %timeit -n 1 -r 1 b64decode('RGF2aWQ=')
+    """
+    result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %timeit -n 1 -r 1 b64decode('TWljaGVsYW5nZWxv')
+        [PYFLYBY] from base64 import b64decode
+        1 loops, best of 1: ... per loop
+        In [3]: %timeit -n 1 -r 1 b64decode('RGF2aWQ=')
+        1 loops, best of 1: ... per loop
+    """
+    assert_match(result, expected)
+
 
 def test_error_during_enable_1():
     input = """
@@ -1590,4 +1607,4 @@ def test_error_during_enable_1():
     assert_match(result, expected)
 
 
-# TODO: test %timeit
+# TODO: test %prun
