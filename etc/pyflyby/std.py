@@ -30,6 +30,7 @@ import copy
 import copy_reg
 import csv
 import ctypes
+from   ctypes                   import CDLL
 import datetime
 import decimal
 from   decimal                  import Decimal
@@ -126,7 +127,7 @@ from   os                       import (chmod, close, getcwd, getenv, geteuid,
                                         unlink)
 import os.path
 from   os.path                  import (abspath, basename, dirname, exists,
-                                        getsize, isfile)
+                                        getsize, isfile, normpath, realpath)
 import parser
 import pdb
 import pickle
@@ -300,7 +301,22 @@ import timeit
 import token
 import traceback
 import types
-from   types                    import FunctionType
+from   types                    import (BooleanType, BufferType,
+                                        BuiltinFunctionType, BuiltinMethodType,
+                                        ClassType, CodeType, ComplexType,
+                                        DictProxyType, DictType,
+                                        DictionaryType, EllipsisType, FileType,
+                                        FloatType, FrameType, FunctionType,
+                                        GeneratorType, GetSetDescriptorType,
+                                        InstanceType, IntType, LambdaType,
+                                        ListType, LongType,
+                                        MemberDescriptorType, MethodType,
+                                        ModuleType, NoneType,
+                                        NotImplementedType, ObjectType,
+                                        SliceType, StringType, StringTypes,
+                                        TracebackType, TupleType, TypeType,
+                                        UnboundMethodType, UnicodeType,
+                                        XRangeType)
 import unittest
 import urllib
 from   urllib                   import urlencode
