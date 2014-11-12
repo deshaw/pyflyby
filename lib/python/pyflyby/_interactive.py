@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import __builtin__
 import ast
+import inspect
 import os
 import subprocess
 import sys
@@ -539,6 +540,7 @@ class _AutoImporter(object):
         self._enable_ast_hook()
         self._enable_completion_hook()
         self._enable_run_hook()
+        self._enable_ipython_bugfixes()
         # Completed.  (At least we did what we could, and no exceptions.)
         self._enabled = True
         return True
@@ -709,6 +711,25 @@ class _AutoImporter(object):
             self._disablers.append(safe_execfile_with_autoimport.unadvise)
         else:
             logger.info("Couldn't enable execfile hook")
+
+    def _enable_ipython_bugfixes(self):
+        """
+        Enable some advice that's actually just fixing bugs in IPython.
+        """
+        # IPython 2.x on Python 2.x has a bug where 'run -n' doesn't work
+        # because it uses Unicode for the module name.  This is a bug in
+        # IPython itself ("run -n" is plain broken for ipython-2.x on
+        # python-2.x); we patch it here.
+        ip = get_ipython_safe()
+        if (sys.version_info < (3,) and
+            hasattr(ip, "new_main_mod") and
+            inspect.getargspec(ip.new_main_mod).args == ["self","filename","modname"]):
+            @advise(ip.new_main_mod)
+            def new_main_mod_fix_str(filename, modname):
+                if type(modname) is unicode:
+                    modname = str(modname)
+                return __original__(filename, modname)
+            self._disablers.append(new_main_mod_fix_str.unadvise)
 
     def disable(self):
         """
