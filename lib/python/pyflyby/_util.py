@@ -187,45 +187,51 @@ def ExcludeImplicitCwdFromPathCtx():
         sys.path[:] = old_path
 
 
-
-class _AdvisedFunction(object):
+class FunctionWithGlobals(object):
     """
-    A wrapper around a function that calls some "around advice" hook.  The
-    hook has access to a global named "__original__" as a reference to the
-    original unadvised function.
+    A callable that at runtime adds extra variables to the target function's
+    global namespace.
 
     This is written as a class with a __call__ method.  We do so rather than
     using a metafunction, so that we can also implement __getattr_ to look
     through to the target.
     """
 
-    def __init__(self, aspect, original, hook, name, doc):
-        self.__aspect__   = aspect
-        self.__original__ = original
-        self.__hook       = hook
-        self.__name__     = name
-        self.__doc__      = doc
+    def __init__(self, function, **variables):
+        self.__function = function
+        self.__variables = variables
 
     def __call__(self, *args, **kwargs):
-        hook = self.__hook
-        # Temporarily add __original__ to the globals that the hook
-        # function sees.
-        globals = hook.__globals__
+        function = self.__function
+        variables = self.__variables
+        undecorated = function
+        while True:
+            try:
+                undecorated = undecorated.undecorated
+            except AttributeError:
+                break
+        globals = undecorated.__globals__
         UNSET = object()
-        old_original = globals.get("__original__", UNSET)
+        old = {}
+        for k in variables:
+            old[k] = globals.get(k, UNSET)
         try:
-            globals["__original__"] = self.__original__
-            return hook(*args, **kwargs)
+            for k, v in variables.iteritems():
+                globals[k] = v
+            return function(*args, **kwargs)
         finally:
-            if old_original is UNSET:
-                del globals["__original__"]
-            else:
-                globals["__original__"] = old_original
+            for k, v in old.iteritems():
+                if v is UNSET:
+                    del globals[k]
+                else:
+                    globals[k] = v
 
     def __getattr__(self, k):
         return getattr(self.__original__, k)
 
 
+
+_UNSET = object()
 
 class Aspect(object):
     """
@@ -233,6 +239,7 @@ class Aspect(object):
 
     The advice can call "__original__(...)".  At run time, a global named
     "__original__" will magically be available to the wrapped function.
+    This refers to the original function.
 
     Suppose someone else wrote Foo.bar():
       >>> class Foo(object):
@@ -263,15 +270,29 @@ class Aspect(object):
 
     def __init__(self, joinpoint):
         if isinstance(joinpoint, types.MethodType):
-            self._container = joinpoint.im_self or joinpoint.im_class
+            self._qname     = "%s.%s.%s" % (
+                joinpoint.im_class.__module__,
+                joinpoint.im_class.__name__,
+                joinpoint.im_func.__name__)
+            container_obj = (joinpoint.im_self or joinpoint.im_class)
+            self._container = container_obj.__dict__
             self._name      = joinpoint.im_func.__name__
             self._original  = joinpoint
-            assert joinpoint == getattr(self._container, self._name)
+            assert joinpoint == getattr(container_obj, self._name)
+            assert joinpoint == self._container.get(self._name, joinpoint)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
-            self._container = container
+            if isinstance(container, dict):
+                self._container = container
+                self._qname = name
+            else:
+                self._container = container.__dict__
+                self._qname = "%s.%s.%s" % (
+                    container.__class__.__module__,
+                    container.__class__.__name__,
+                    name)
             self._name      = name
-            self._original  = getattr(self._container, self._name)
+            self._original  = self._container[self._name]
         # TODO: FunctionType (for top-level functions)
         # TODO: unbound method
         # TODO: classmethod
@@ -282,29 +303,32 @@ class Aspect(object):
 
     def advise(self, hook):
         from pyflyby._log import logger
-        logger.debug("advising %s.%s",
-                     self._container.__class__.__name__, self._name)
-        assert getattr(self._container, self._name) == self._original
+        logger.debug("advising %s", self._qname)
+        self._previous = self._container.get(self._name, _UNSET)
+        assert self._previous is _UNSET or self._previous == self._original
         assert self._wrapped is None
         # Create the wrapped function.
-        wrapped_name = "%s__advised__%s" % (self._name, hook.__name__)
-        wrapped_doc = "%s.\n\nAdvice %s:\n%s" % (
+        wrapped = FunctionWithGlobals(hook, __original__=self._original)
+        wrapped.__original__ = self._original
+        wrapped.__name__ = "%s__advised__%s" % (self._name, hook.__name__)
+        wrapped.__doc__ = "%s.\n\nAdvice %s:\n%s" % (
             self._original.__doc__, hook.__name__, hook.__doc__)
-        wrapped = _AdvisedFunction(self, self._original, hook,
-                                   wrapped_name, wrapped_doc)
+        wrapped.__aspect__ = self
         self._wrapped = wrapped
         # Install the wrapped function!
-        setattr(self._container, self._name, wrapped)
+        self._container[self._name] = wrapped
         return self
 
     def unadvise(self):
         if self._wrapped is None:
             return
-        cur = getattr(self._container, self._name)
+        cur = self._container.get(self._name, _UNSET)
         if cur is self._wrapped:
-            setattr(self._container, self._name, self._original)
-            # TODO: should actually delattr for instancemethods
-        elif cur == self._original:
+            if self._previous is _UNSET:
+                del self._container[self._name]
+            else:
+                self._container[self._name] = self._previous
+        elif cur == self._previous:
             pass
         else:
             from pyflyby._log import logger
