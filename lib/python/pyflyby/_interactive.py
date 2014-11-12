@@ -420,30 +420,42 @@ class _AutoImporter(object):
     """
 
     def __init__(self):
-        self._uninstallers = []
+        self._disablers = []
         self._enabled = False
         self._errored = False
-        self._delayed = False
         self._ip = None
 
     def enable(self, even_if_previously_errored=False):
         """
         Turn on the auto-importer in the current IPython session.
         """
+        # Check if already enabled.  If so, silently do nothing.
         if self._enabled:
             return
-        if self._errored and not even_if_previously_errored:
-            # Be conservative: Once we've had problems, don't try again this
-            # session.  Exceptions in the interactive loop can be annoying to
-            # deal with.
-            logger.warning(
-                "Not reattempting to enable auto importer after earlier error")
-            return
+        # Check if previously errored.
+        if self._errored:
+            if even_if_previously_errored:
+                self._errored = False
+            else:
+                # Be conservative: Once we've had problems, don't try again
+                # this session.  Exceptions in the interactive loop can be
+                # annoying to deal with.
+                logger.warning(
+                    "Not reattempting to enable auto importer after earlier "
+                    "error")
+                return
+        self._errored = False
+        import IPython
+        logger.debug("Enabling auto importer for IPython version %s",
+                     IPython.__version__)
+        # TODO: advise IPython.kernel.launcher.make_ipkernel_cmd (even if
+        # get_ipython_safe() returns None)
+        # TODO: if no ipython shell yet then delay until there is, instead of
+        # doing nothing
         ip = get_ipython_safe()
         if not ip:
             return
         self._ip = ip
-        import IPython
         if IPython.__version__.startswith("0.10"):
             # Yuck.  IPython might not be ready to hook yet because we're
             # called from the config phase, and certain stuff (like Completer)
@@ -452,36 +464,30 @@ class _AutoImporter(object):
             # Kludge: post_config_initialization() sets ip.rl_next_input=None,
             # so assume that if it's not set, then post_config_initialization
             # hasn't been run yet.
-            post_config_initialization_ran = hasattr(ip, "rl_next_input")
-            if not post_config_initialization_ran and not self._delayed:
-                logger.debug("Delaying enabling of auto importer "
-                             "until after IPython post-config initialization")
-                self._delayed = True
+            if not hasattr(ip, "rl_next_input"):
+                logger.debug("Postponing remaining steps until after "
+                             "IPython post-config initialization")
                 @advise(ip.post_config_initialization)
-                def post_config_initialization_and_enable_auto_importer():
+                def post_config_enable_auto_importer():
+                    post_config_enable_auto_importer.unadvise()
                     __original__()
-                    self.enable()
-                return False
+                    if not hasattr(ip, "rl_next_input"):
+                        # Post-config initialization failed?
+                        return
+                    self._safe_call(self._enable_shell_hooks)
+                self._disablers.append(post_config_enable_auto_importer.unadvise)
+                return
         # *** Enable ***.
-        if self._safe_call(self._enable_internal_1):
-            self._enabled = True
-            self._errored = False
-            self._delayed = False
-            return True
-        else:
-            assert self._errored == True
-            assert self._enabled == False
-            self._delayed = False
-            return False
+        self._safe_call(self._enable_shell_hooks)
 
-    def _enable_internal_1(self):
-        import IPython
-        logger.debug("Enabling pyflyby auto importer for IPython version %s",
-                     IPython.__version__)
-        ip = self._ip
-        uninstallers = self._uninstallers
-
-        # Install hooks to auto_import before code execution.
+    def _enable_shell_hooks(self):
+        """
+        Enable hooks to run auto_import before code execution.
+        """
+        # Check again in case this was registered delayed
+        if self._enabled or self._errored:
+            return
+        # Notes on why we hook what we hook:
         #
         # There are many different places within IPython we can consider
         # hooking/advising, depending on the version:
@@ -528,7 +534,20 @@ class _AutoImporter(object):
         #
         # Since we have two invocations of auto_import(), case 1 is
         # handled twice.  That's fine, because it runs quickly.
+        logger.debug("Enabling IPython shell hooks")
+        self._enable_ofind_hook()
+        self._enable_ast_hook()
+        self._enable_completion_hook()
+        self._enable_run_hook()
+        # Completed.  (At least we did what we could, and no exceptions.)
+        self._enabled = True
+        return True
 
+    def _enable_ofind_hook(self):
+        """
+        Enable a hook of _ofind(), which is used for pinfo, autocall, etc.
+        """
+        ip = self._ip
         # Advise _ofind.
         if hasattr(ip, "_ofind"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
@@ -546,12 +565,17 @@ class _AutoImporter(object):
                     self.auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
                 result = __original__(oname, namespaces=namespaces)
                 return result
-            uninstallers.append(ofind_with_autoimport.unadvise)
+            self._disablers.append(ofind_with_autoimport.unadvise)
         else:
-            logger.info("Couldn't install ofind hook for IPython version %s",
-                        IPython.__version__)
+            logger.info("Couldn't enable ofind hook")
 
-        # Install an AST transformer.
+    def _enable_ast_hook(self):
+        """
+        Enable a hook somewhere in the source => parsed AST => compiled code
+        pipeline.
+        """
+        ip = self._ip
+        # Register an AST transformer.
         if hasattr(ip, 'ast_transformers'):
             # First choice: register a formal ast_transformer.
             # Tested with IPython 1.0, 1.2, 2.0, 2.3.
@@ -574,14 +598,14 @@ class _AutoImporter(object):
                     return node
             self._ast_transformer = t = _AutoImporter_ast_transformer()
             ip.ast_transformers.append(t)
-            def uninstall_ast_transformer():
+            def unregister_ast_transformer():
                 try:
                     ip.ast_transformers.remove(t)
                 except ValueError:
                     logger.info(
                         "Couldn't remove ast_transformer hook - already gone?")
                 self._ast_transformer = None
-            uninstallers.append(uninstall_ast_transformer)
+            self._disablers.append(unregister_ast_transformer)
         elif hasattr(ip, "run_ast_nodes"):
             # Second choice: advise the run_ast_nodes() function.  Tested with
             # IPython 0.11, 0.12, 0.13.  This is the most robust way available
@@ -595,7 +619,7 @@ class _AutoImporter(object):
                 ast_node = ast.Module(nodelist)
                 self.auto_import(ast_node)
                 return __original__(nodelist, *args, **kwargs)
-            uninstallers.append(run_ast_nodes_with_autoimport.unadvise)
+            self._disablers.append(run_ast_nodes_with_autoimport.unadvise)
         elif hasattr(ip, 'compile'):
             # Third choice: Advise ip.compile.
             # Tested with IPython 0.10.
@@ -618,14 +642,14 @@ class _AutoImporter(object):
                     # Got full code that our caller, runsource, will execute.
                     self.auto_import(source)
                 return result
-            uninstallers.append(compile_with_autoimport.unadvise)
+            self._disablers.append(compile_with_autoimport.unadvise)
         else:
-            logger.info(
-                "Couldn't install a line transformer for IPython version %s",
-                IPython.__version__)
+            logger.info("Couldn't enable parse hook")
 
-        # Install a tab-completion hook.
-        #
+    def _enable_completion_hook(self):
+        """
+        Enable a tab-completion hook.
+        """
         # There are a few different places within IPython we can consider
         # hooking/advising:
         #   * ip.completer.custom_completers / ip.set_hook("complete_command")
@@ -644,7 +668,7 @@ class _AutoImporter(object):
         # global_matches() and attr_matches() instead of python_matches()
         # because a few other functions call global_matches/attr_matches
         # directly.)
-        #
+        ip = self._ip
         if hasattr(ip, "Completer"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
             @advise(ip.Completer.global_matches)
@@ -653,14 +677,16 @@ class _AutoImporter(object):
             @advise(ip.Completer.attr_matches)
             def attr_matches_with_autoimport(fullname):
                 return self.complete_symbol(fullname, on_error=__original__)
-            uninstallers.append(global_matches_with_autoimport.unadvise)
-            uninstallers.append(attr_matches_with_autoimport.unadvise)
+            self._disablers.append(global_matches_with_autoimport.unadvise)
+            self._disablers.append(attr_matches_with_autoimport.unadvise)
         else:
-            logger.info(
-                "Couldn't install completion hook for IPython version %s",
-                IPython.__version__)
+            logger.info("Couldn't enable completion hook")
 
-        # Advise ip.safe_execfile so that %run will autoimport.
+    def _enable_run_hook(self):
+        """
+        Enable a hook so that %run will autoimport.
+        """
+        ip = self._ip
         if hasattr(ip, "safe_execfile"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
             @advise(ip.safe_execfile)
@@ -680,24 +706,18 @@ class _AutoImporter(object):
                 except Exception as e:
                     logger.error("%s: %s", type(e).__name__, e)
                 return __original__(filename, *namespaces, **kwargs)
-            uninstallers.append(safe_execfile_with_autoimport.unadvise)
+            self._disablers.append(safe_execfile_with_autoimport.unadvise)
         else:
-            logger.info(
-                "Couldn't install execfile hook for IPython version %s",
-                IPython.__version__)
-
-        # Completed.  (Didn't necessarily succeed, but at least no exceptions.)
-        return True
+            logger.info("Couldn't enable execfile hook")
 
     def disable(self):
         """
         Turn off auto-importer in the current IPython session.
         """
         self._enabled = False
-        while self._uninstallers:
-            f = self._uninstallers.pop(-1)
+        while self._disablers:
+            f = self._disablers.pop(-1)
             f()
-
 
     def _safe_call(self, function, *args, **kwargs):
         on_error = kwargs.pop("on_error", None)
