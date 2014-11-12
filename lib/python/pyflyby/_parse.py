@@ -777,18 +777,32 @@ class PythonBlock(object):
             self._failed_compile = e
             raise e, None, sys.exc_info()[2]
 
-    def parse(self, mode):
+    def parse(self, mode=None):
         """
         Parse the source text into an AST.
 
         @param mode:
-          Compilation mode: "exec", "single", or "eval".  If "exec", consider
+          Compilation mode: "exec", "single", or "eval".  "exec", "single",
+          and "eval" work as the built-in C{compile} function do.  If C{None},
+          then default to "eval" if the input is a string with a single
+          expression, else "exec".  Instead of C{parse(mode="exec")}, consider
           using C{ast_node} instead, which is cached and annotates line
           numbers.
         @rtype:
           C{ast.AST}
         """
-        return _parse_ast_nodes(self.text, self._input_flags, mode)
+        if mode is None:
+            # Figure out whether to use mode="exec" or mode="eval".  Parse it
+            # using mode="exec", then convert the result into mode="eval" if
+            # it makes sense to.
+            ast_node = _parse_ast_nodes(self.text, self._input_flags, "exec")
+            if len(ast_node.body) == 1 and isinstance(ast_node.body[0], ast.Expr):
+                return ast.Expression(ast_node.body[0].value)
+            else:
+                return ast_node
+        else:
+            return _parse_ast_nodes(self.text, self._input_flags, mode)
+
 
     @cached_attribute
     def statements(self):

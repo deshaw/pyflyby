@@ -1009,7 +1009,6 @@ def auto_import(arg, namespaces, db=None):
         auto_import_symbol(fullname, namespaces, db)
 
 
-
 def auto_eval(arg, filename=None, mode=None,
               flags=None, globals=None, locals=None, db=None):
     """
@@ -1067,25 +1066,18 @@ def auto_eval(arg, filename=None, mode=None,
       Result of evaluation (for mode="eval")
     """
     flags = CompilerFlags(flags)
-    # Parse argument into AST (or code).
     if isinstance(arg, (basestring, Filename, FileText, PythonBlock)):
         block = PythonBlock(arg, filename=filename, flags=flags)
         filename = block.filename
-        if mode is None and isinstance(arg, basestring):
-            # Figure out whether to use mode="exec" or mode="eval".  Parse
-            # it using mode="exec", then convert the result into mode="eval"
-            # if it makes sense to.
-            ast_node = block.parse(mode="exec")
-            if len(ast_node.body) == 1 and isinstance(ast_node.body[0], ast.Expr):
-                arg = ast.Expression(ast_node.body[0].value)
-                mode = "eval"
+        if mode is None:
+            if not isinstance(arg, basestring):
+                # For file contents, etc., if mode is unspecified, default to
+                # "exec".
+                mode = "exec"
             else:
-                arg = ast_node
-                mode = "exec"
-        else:
-            if mode is None:
-                mode = "exec"
-            arg = block.parse(mode=mode)
+                # Let PythonBlock.parse() guess the mode.
+                pass
+        arg = block.parse(mode=mode)
     elif isinstance(arg, (ast.AST, types.CodeType)):
         pass
     else:
@@ -1109,6 +1101,18 @@ def auto_eval(arg, filename=None, mode=None,
     if isinstance(arg, types.CodeType):
         code = arg
     else:
+        # Infer mode from ast object.
+        if isinstance(arg, ast.Module):
+            mode = "exec"
+        elif isinstance(arg, ast.Expression):
+            mode = "eval"
+        elif isinstance(arg, ast.Interactive):
+            mode = "single"
+        else:
+            raise TypeError(
+                "Expected Module/Expression/Interactive ast node; got %s"
+                % (type(arg).__name__))
+        # Compile ast node => code object.
         code = compile(arg, str(filename or "<unknown>"), mode, flags, True)
     # Evaluate/execute.
     return eval(code, globals, locals)
