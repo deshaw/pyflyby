@@ -1577,6 +1577,29 @@ def test_timeit_1():
     assert_match(result, expected)
 
 
+def test_prun_1():
+    input = """
+        import pyflyby; pyflyby.enable_auto_importer()
+        %prun b64decode("RWluc3RlaW4=")
+        b64decode("SGF3a2luZw==")
+        %prun b64decode("TG9yZW50eg==")
+    """
+    result = ipython(input)
+    expected = """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %prun b64decode("RWluc3RlaW4=")
+        [PYFLYBY] from base64 import b64decode
+        ... function calls in ... seconds
+        ....
+        In [3]: b64decode("SGF3a2luZw==")
+        Out[3]: 'Hawking'
+        In [4]: %prun b64decode("TG9yZW50eg==")
+        ... function calls in ... seconds
+        ....
+    """
+    assert_match(result, expected)
+
+
 def test_error_during_enable_1():
     input = """
         import pyflyby
@@ -1605,6 +1628,3 @@ def test_error_during_enable_1():
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
     """
     assert_match(result, expected)
-
-
-# TODO: test %prun

@@ -24,6 +24,10 @@ from   pyflyby._util            import (CwdCtx, FunctionWithGlobals, NullCtx,
                                         advise, memoize)
 
 
+if False:
+    __original__ = None # for pyflakes
+
+
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
@@ -541,6 +545,7 @@ class _AutoImporter(object):
         self._enable_ofind_hook()
         self._enable_ast_hook()
         self._enable_timeit_hook()
+        self._enable_prun_hook()
         self._enable_completion_hook()
         self._enable_run_hook()
         self._enable_ipython_bugfixes()
@@ -666,8 +671,9 @@ class _AutoImporter(object):
         # within another function
         ip = self._ip
         if hasattr(ip, 'magics_manager'):
-            # IPython 0.13.  (IPython 1.0+ also has magics_manager, but for
-            # those versions, ast_transformer takes care of timeit.)
+            # Tested with IPython 0.13.  (IPython 1.0+ also has
+            # magics_manager, but for those versions, ast_transformer takes
+            # care of timeit.)
             line_magics = ip.magics_manager.magics['line']
             @advise((line_magics, 'timeit'))
             def timeit_with_autoimport(*args, **kwargs):
@@ -677,7 +683,7 @@ class _AutoImporter(object):
                 return wrapped(*args, **kwargs)
             self._disablers.append(timeit_with_autoimport.unadvise)
         elif hasattr(ip, 'magic_timeit'):
-            # IPython 0.10, 0.11, 0.12
+            # Tested with IPython 0.10, 0.11, 0.12
             @advise(ip.magic_timeit)
             def magic_timeit_with_autoimport(*args, **kwargs):
                 logger.debug("timeit_with_autoimport()")
@@ -687,6 +693,58 @@ class _AutoImporter(object):
             self._disablers.append(magic_timeit_with_autoimport.unadvise)
         else:
             logger.debug("Couldn't enable timeit hook")
+
+    def _enable_prun_hook(self):
+        ip = self._ip
+        if hasattr(ip, 'magics_manager'):
+            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.
+            line_magics = ip.magics_manager.magics['line']
+            execmgr = line_magics['prun'].im_self
+            if hasattr(execmgr, "_run_with_profiler"):
+                @advise(execmgr._run_with_profiler)
+                def run_with_profiler_with_autoimport(code, opts, namespace):
+                    logger.debug("run_with_profiler_with_autoimport()")
+                    self.auto_import(code, [namespace])
+                    return __original__(code, opts, namespace)
+                self._disablers.append(run_with_profiler_with_autoimport.unadvise)
+            else:
+                # Tested with IPython 0.13.
+                class ProfileFactory_with_autoimport(object):
+                    def Profile(self_, *args):
+                        import profile
+                        p = profile.Profile()
+                        @advise(p.runctx)
+                        def runctx_with_autoimport(cmd, globals, locals):
+                            self.auto_import(cmd, [globals, locals])
+                            return __original__(cmd, globals, locals)
+                        return p
+                @advise((line_magics, 'prun'))
+                def prun_with_autoimport(*args, **kwargs):
+                    logger.debug("prun_with_autoimport()")
+                    wrapped = FunctionWithGlobals(
+                        __original__, profile=ProfileFactory_with_autoimport())
+                    return wrapped(*args, **kwargs)
+                self._disablers.append(prun_with_autoimport.unadvise)
+        elif hasattr(ip, "magic_prun"):
+            # Tested with IPython 0.10, 0.11, 0.12.
+            class ProfileFactory_with_autoimport(object):
+                def Profile(self_, *args):
+                    import profile
+                    p = profile.Profile()
+                    @advise(p.runctx)
+                    def runctx_with_autoimport(cmd, globals, locals):
+                        self.auto_import(cmd, [globals, locals])
+                        return __original__(cmd, globals, locals)
+                    return p
+            @advise(ip.magic_prun)
+            def magic_prun_with_autoimport(*args, **kwargs):
+                logger.debug("magic_prun_with_autoimport()")
+                wrapped = FunctionWithGlobals(
+                    __original__, profile=ProfileFactory_with_autoimport())
+                return wrapped(*args, **kwargs)
+            self._disablers.append(magic_prun_with_autoimport.unadvise)
+        else:
+            logger.debug("Couldn't enable prun hook")
 
     def _enable_completion_hook(self):
         """
@@ -878,6 +936,3 @@ def disable_auto_importer():
     Turn off the auto-importer in the current IPython session.
     """
     _auto_importer.disable()
-
-
-# TODO: hook prun: _run_with_profiler
