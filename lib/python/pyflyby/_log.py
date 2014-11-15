@@ -103,6 +103,10 @@ class PyflybyLogger(Logger):
     def debug_enabled(self):
         return self.level <= logging.DEBUG
 
+    @property
+    def info_enabled(self):
+        return self.level <= logging.INFO
+
     def HookCtx(self, pre, post):
         return self.handlers[0].HookCtx(pre, post)
 
