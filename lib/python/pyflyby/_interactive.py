@@ -544,6 +544,7 @@ class _AutoImporter(object):
         logger.debug("Enabling IPython shell hooks")
         self._enable_ofind_hook()
         self._enable_ast_hook()
+        self._enable_time_hook()
         self._enable_timeit_hook()
         self._enable_prun_hook()
         self._enable_completion_hook()
@@ -658,6 +659,40 @@ class _AutoImporter(object):
         else:
             logger.debug("Couldn't enable parse hook")
 
+    def _enable_time_hook(self):
+        """
+        Enable a hook so that %time will autoimport.
+        """
+        # For IPython 1.0+, the ast_transformer takes care of it.
+        if self._ast_transformer:
+            return
+        # Otherwise, we advise %time to temporarily override the compile()
+        # builtin within it.
+        ip = self._ip
+        if hasattr(ip, 'magics_manager'):
+            # Tested with IPython 0.13.  (IPython 1.0+ also has
+            # magics_manager, but for those versions, ast_transformer takes
+            # care of %time.)
+            line_magics = ip.magics_manager.magics['line']
+            @advise((line_magics, 'time'))
+            def time_with_autoimport(*args, **kwargs):
+                logger.debug("time_with_autoimport()")
+                wrapped = FunctionWithGlobals(
+                    __original__, compile=self.compile_with_autoimport)
+                return wrapped(*args, **kwargs)
+            self._disablers.append(time_with_autoimport.unadvise)
+        elif hasattr(ip, 'magic_time'):
+            # Tested with IPython 0.10, 0.11, 0.12
+            @advise(ip.magic_time)
+            def magic_time_with_autoimport(*args, **kwargs):
+                logger.debug("time_with_autoimport()")
+                wrapped = FunctionWithGlobals(
+                    __original__, compile=self.compile_with_autoimport)
+                return wrapped(*args, **kwargs)
+            self._disablers.append(magic_time_with_autoimport.unadvise)
+        else:
+            logger.debug("Couldn't enable time hook")
+
     def _enable_timeit_hook(self):
         """
         Enable a hook so that %timeit will autoimport.
@@ -665,15 +700,13 @@ class _AutoImporter(object):
         # For IPython 1.0+, the ast_transformer takes care of it.
         if self._ast_transformer:
             return
-        # Otherwise, we advise timeit and "letf"[*] the compile() builtin
-        # within it.
-        # [*] "letf" in Common Lisp roughly means temporarily change one function
-        # within another function
+        # Otherwise, we advise %timeit to temporarily override the compile()
+        # builtin within it.
         ip = self._ip
         if hasattr(ip, 'magics_manager'):
             # Tested with IPython 0.13.  (IPython 1.0+ also has
             # magics_manager, but for those versions, ast_transformer takes
-            # care of timeit.)
+            # care of %timeit.)
             line_magics = ip.magics_manager.magics['line']
             @advise((line_magics, 'timeit'))
             def timeit_with_autoimport(*args, **kwargs):
@@ -695,6 +728,9 @@ class _AutoImporter(object):
             logger.debug("Couldn't enable timeit hook")
 
     def _enable_prun_hook(self):
+        """
+        Enable a hook so that %prun will autoimport.
+        """
         ip = self._ip
         if hasattr(ip, 'magics_manager'):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.

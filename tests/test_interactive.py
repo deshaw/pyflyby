@@ -107,6 +107,14 @@ def assert_match(result, expected):
             regexp_parts.append(re.escape(s))
     regexp_parts.append("$")
     regexp = "".join(regexp_parts)
+
+    if _IPYTHON_VERSION < (0, 11):
+        # IPython 0.10 prompt counts are buggy, e.g. %time increments by 2.
+        # Ignore prompt numbers and extra newlines before the output prompt.
+        regexp = re.sub(re.compile(r"^In\\? \\\[[0-9]+\\\]", re.M),
+                        r"In \[[0-9]+\]", regexp)
+        regexp = re.sub(re.compile(r"^Out\\\[[0-9]+\\\]", re.M),
+                        r"\n?Out\[[0-9]+\]", regexp)
     regexp = re.compile(regexp)
     if not regexp.match(result):
         msg = []
@@ -497,7 +505,7 @@ def ipython(template, **kwargs):
     Run IPython in a pty subprocess.  Send it input and expect output based on
     the template.  Assert that the result matches.
     """
-    # __tracebackhide__ = True
+    __tracebackhide__ = True
     parent_frame = inspect.currentframe().f_back
     parent_globals = parent_frame.f_globals
     parent_locals = parent_frame.f_locals
@@ -505,11 +513,11 @@ def ipython(template, **kwargs):
     template = dedent(template).strip()
     template = template.format(**parent_vars)
     input, expected = parse_template(template)
-    print "Input:"
-    print "".join("    %s\n"%line for line in input.splitlines())
+    # print "Input:"
+    # print "".join("    %s\n"%line for line in input.splitlines())
     result = spawn_ipython(input, **kwargs)
-    print "Output:"
-    print "".join("    %s\n"%line for line in result.splitlines())
+    # print "Output:"
+    # print "".join("    %s\n"%line for line in result.splitlines())
     assert_match(result, expected)
 
 
@@ -613,10 +621,11 @@ def test_ipython_2():
 
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
+    f = pyflyby.__file__.replace(".pyc", ".py")
     ipython("""
         In [1]: import pyflyby
-        In [2]: print pyflyby.__file__
-        {pyflyby.__file__}
+        In [2]: print pyflyby.__file__.replace(".pyc", ".py")
+        {f}
     """)
 
 
@@ -1371,6 +1380,108 @@ def test_timeit_1():
     """)
 
 
+def test_timeit_complete_1():
+    # Verify that tab completion works with %timeit.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %timeit -n 1 -r 1 b64de\tcode('cGlsbG93')
+        [PYFLYBY] from base64 import b64decode
+        1 loops, best of 1: ... per loop
+    """)
+
+
+def test_timeit_complete_menu_1():
+    # Verify that menu tab completion works with %timeit.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: timeit -n 1 -r 1 b64\t
+        b64decode  b64encode
+        In [2]: timeit -n 1 -r 1 b64\x06d\tecode('YmxhbmtldA==')
+        [PYFLYBY] from base64 import b64decode
+        1 loops, best of 1: ... per loop
+    """)
+
+
+def test_timeit_complete_autoimport_member_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: timeit -n 1 -r 1 base64.b6\t
+        [PYFLYBY] import base64
+        In [2]: timeit -n 1 -r 1 base64.b6
+        base64.b64decode  base64.b64encode
+        In [2]: timeit -n 1 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
+        1 loops, best of 1: ... per loop
+    """)
+
+
+def test_time_1():
+    # Verify that %time autoimport works.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %time b64decode("dGVsZXBob25l")
+        [PYFLYBY] from base64 import b64decode
+        CPU times: ...
+        Wall time: ...
+        Out[2]: 'telephone'
+    """)
+
+
+def test_time_repeat_1():
+    # Verify that %time autoimport works.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %time b64decode("dGVsZWdyYXBo")
+        [PYFLYBY] from base64 import b64decode
+        CPU times: ...
+        Wall time: ...
+        Out[2]: 'telegraph'
+        In [3]: %time b64decode("ZW1haWw=")
+        CPU times: ...
+        Wall time: ...
+        Out[3]: 'email'
+    """)
+
+
+def test_time_complete_1():
+    # Verify that tab completion works with %time.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %time b64de\tcode('c2hpcnQ=')
+        [PYFLYBY] from base64 import b64decode
+        CPU times: ...
+        Wall time: ...
+        Out[2]: 'shirt'
+    """)
+
+
+def test_time_complete_menu_1():
+    # Verify that menu tab completion works with %time.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: time b64\t
+        b64decode  b64encode
+        In [2]: time b64\x06d\tecode('cGFudHM=')
+        [PYFLYBY] from base64 import b64decode
+        CPU times: ...
+        Wall time: ...
+        Out[2]: 'pants'
+    """)
+
+
+def test_time_complete_autoimport_member_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: time base64.b6\t
+        [PYFLYBY] import base64
+        In [2]: time base64.b6
+        base64.b64decode  base64.b64encode
+        In [2]: time base64.b64\x06dec\tode('amFja2V0')
+        CPU times: ...
+        Wall time: ...
+        Out[2]: 'jacket'
+    """)
+
+
 def test_prun_1():
     # Verify that %prun works, autoimports the first time, but not the second
     # time.
@@ -1409,6 +1520,5 @@ def test_error_during_enable_1():
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
     """)
 
-# TODO: %time
 # TODO: test multiple possibilities for imports
 # TODO: test/fix multiple possibilities for imports only printed once
