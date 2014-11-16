@@ -269,6 +269,10 @@ class Aspect(object):
     """
 
     def __init__(self, joinpoint):
+        spec = joinpoint
+        while hasattr(joinpoint, "__joinpoint__"):
+            joinpoint = joinpoint.__joinpoint__
+        self._joinpoint = joinpoint
         if isinstance(joinpoint, types.MethodType):
             self._qname     = "%s.%s.%s" % (
                 joinpoint.im_class.__module__,
@@ -277,9 +281,9 @@ class Aspect(object):
             container_obj = (joinpoint.im_self or joinpoint.im_class)
             self._container = container_obj.__dict__
             self._name      = joinpoint.im_func.__name__
-            self._original  = joinpoint
-            assert joinpoint == getattr(container_obj, self._name)
-            assert joinpoint == self._container.get(self._name, joinpoint)
+            self._original  = spec
+            assert spec == getattr(container_obj, self._name)
+            assert spec == self._container.get(self._name, spec)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
             if isinstance(container, dict):
@@ -309,6 +313,7 @@ class Aspect(object):
         assert self._wrapped is None
         # Create the wrapped function.
         wrapped = FunctionWithGlobals(hook, __original__=self._original)
+        wrapped.__joinpoint__ = self._joinpoint
         wrapped.__original__ = self._original
         wrapped.__name__ = "%s__advised__%s" % (self._name, hook.__name__)
         wrapped.__doc__ = "%s.\n\nAdvice %s:\n%s" % (
