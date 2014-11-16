@@ -906,7 +906,7 @@ def _try_import(imp, namespace):
     return True
 
 
-def auto_import_symbol(fullname, namespaces, db=None):
+def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
     """
     Try to auto-import a single name.
 
@@ -926,6 +926,11 @@ def auto_import_symbol(fullname, namespaces, db=None):
     namespaces = interpret_namespaces(namespaces)
     if not symbol_needs_import(fullname, namespaces):
         return
+    if autoimported is None:
+        autoimported = {}
+    if DottedIdentifier(fullname) in autoimported:
+        logger.debug("auto_import_symbol(%r): already attempted", fullname)
+        return
     # See whether there's a known import for this name.  This is mainly
     # important for things like "from numpy import arange".  Imports such as
     # "import sqlalchemy.orm" will also be handled by this, although it's less
@@ -939,9 +944,10 @@ def auto_import_symbol(fullname, namespaces, db=None):
         assert len(imports) >= 1
         if len(imports) > 1:
             # Doh, multiple imports.
-            logger.info("Multiple candidate imports for %s ; please pick one:", fullname)
+            logger.info("Multiple candidate imports for %s.  Please pick one:", fullname)
             for imp in imports:
                 logger.info("  %s", imp)
+            autoimported[DottedIdentifier(fullname)] = False
             return
         imp, = imports
         if symbol_needs_import(imp.import_as, namespaces=namespaces):
@@ -952,8 +958,10 @@ def auto_import_symbol(fullname, namespaces, db=None):
             # TODO: label which known_imports file the autoimport came from
             if not _try_import(imp, namespaces[-1]):
                 # Failed; don't do anything else.
+                autoimported[DottedIdentifier(fullname)] = False
                 return
             # Succeeded.
+            autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
                 # We got what we wanted, so nothing more to do.
                 return
@@ -971,14 +979,24 @@ def auto_import_symbol(fullname, namespaces, db=None):
     for pmodule in ModuleHandle(fullname).ancestors:
         if not symbol_needs_import(pmodule.name, namespaces):
             continue
+        pmodule_name = DottedIdentifier(pmodule.name)
+        if pmodule_name in autoimported:
+            if not autoimported[pmodule_name]:
+                logger.debug("auto_import_symbol(%r): stopping because "
+                             "already previously failed to autoimport %s",
+                             fullname, pmodule_name)
+                return
         if not pmodule.module_if_importable:
-            logger.debug("auto_import_symbol(%r): %r is not importable", fullname, pmodule)
+            logger.debug("auto_import_symbol(%r): %r is not importable",
+                         fullname, pmodule)
+            autoimported[pmodule_name] = False
             return
-        result = _try_import("import %s" % pmodule.name, namespaces[-1])
+        result = _try_import("import %s" % pmodule_name, namespaces[-1])
         assert result
+        autoimported[pmodule_name] = True
 
 
-def auto_import(arg, namespaces, db=None):
+def auto_import(arg, namespaces, db=None, autoimported=None):
     """
     Parse C{arg} for symbols that need to be imported and automatically import
     them.
@@ -997,6 +1015,14 @@ def auto_import(arg, namespaces, db=None):
       L{ImportDB}
     @param db:
       Import database to use.
+    @type autoimported:
+      C{dict}
+    @param autoimported:
+      If not C{None}, then a dictionary of identifiers already attempted.
+      C{auto_import} will not attempt to auto-import symbols already in this
+      dictionary, and will add attempted symbols to this dictionary, with
+      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      did not succeed.
     """
     namespaces = interpret_namespaces(namespaces)
     try:
@@ -1005,8 +1031,10 @@ def auto_import(arg, namespaces, db=None):
         logger.debug("syntax error parsing %r", arg)
         return
     logger.debug("Missing imports: %r", fullnames)
+    if autoimported is None:
+        autoimported = {}
     for fullname in fullnames:
-        auto_import_symbol(fullname, namespaces, db)
+        auto_import_symbol(fullname, namespaces, db, autoimported=autoimported)
 
 
 def auto_eval(arg, filename=None, mode=None,
@@ -1118,7 +1146,8 @@ def auto_eval(arg, filename=None, mode=None,
     return eval(code, globals, locals)
 
 
-def load_symbol(fullname, namespaces, autoimport=False, db=None):
+def load_symbol(fullname, namespaces, autoimport=False, db=None,
+                autoimported=None):
     """
     Load the symbol C{fullname}.
 
@@ -1164,7 +1193,7 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None):
         # symbol if possible.  We don't do that because most users of
         # auto_import_symbol() don't need to follow down arbitrary (possibly
         # non-module) attributes.)
-        auto_import_symbol(fullname, namespaces, db)
+        auto_import_symbol(fullname, namespaces, db, autoimported=autoimported)
     name_parts = fullname.split(".")
     name0 = name_parts[0]
     for namespace in namespaces:

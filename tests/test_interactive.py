@@ -429,7 +429,10 @@ class MySpawn(pexpect.spawn):
         super(MySpawn, self).setwinsize(100, 900)
 
 
-def spawn_ipython(input, autocall=False, PYTHONPATH=[], PYFLYBY_PATH=PYFLYBY_PATH):
+def spawn_ipython(input, autocall=False,
+                  PYTHONPATH=[],
+                  PYFLYBY_PATH=PYFLYBY_PATH,
+                  PYFLYBY_LOG_LEVEL=""):
     """
     Spawn IPython in a pty subprocess.  Send it input and expect output.
     """
@@ -442,9 +445,10 @@ def spawn_ipython(input, autocall=False, PYTHONPATH=[], PYFLYBY_PATH=PYFLYBY_PAT
     try:
         # Prepare environment variables.
         env = {}
-        env["PYFLYBY_PATH"]  = PYFLYBY_PATH
-        env["PYTHONPATH"]    = _build_pythonpath(PYTHONPATH)
-        env["PYTHONSTARTUP"] = ""
+        env["PYFLYBY_PATH"]      = PYFLYBY_PATH
+        env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
+        env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
+        env["PYTHONSTARTUP"]     = ""
         cmd = _build_ipython_cmd(ipython_dir, autocall=autocall)
         # Spawn IPython.
         with EnvVarCtx(**env):
@@ -795,6 +799,163 @@ def test_autoimport_autocall_function_1():
         ------> b64decode('bW91c2U=')
         Out[2]: 'mouse'
     """, autocall=True)
+
+
+def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
+    # Verify that we print out all candidate autoimports, when there are
+    # multiple.
+    writetext(tmp.file, """
+        import foo23596267 as bar
+        import foo50853429 as bar
+        import foo47979882 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar(42)
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo23596267 as bar
+        [PYFLYBY]   import foo47979882 as bar
+        [PYFLYBY]   import foo50853429 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+    """, PYFLYBY_PATH=tmp.file)
+
+
+def test_autoimport_multiple_candidates_repeated_1(tmp):
+    # Verify that we print out the candidate list for another cell.
+    writetext(tmp.file, """
+        import foo70603247 as bar
+        import foo31703722 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar(42)
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo31703722 as bar
+        [PYFLYBY]   import foo70603247 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+        In [3]: bar(42)
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo31703722 as bar
+        [PYFLYBY]   import foo70603247 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+    """, PYFLYBY_PATH=tmp.file)
+
+
+def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
+    # Verify that if an expression contains multiple ambiguous imports, we
+    # report each one.
+    writetext(tmp.file, """
+        import foo85957810 as foo
+        import foo35483918 as foo
+        import bar25290002 as bar
+        import bar36166308 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: foo+bar
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import bar25290002 as bar
+        [PYFLYBY]   import bar36166308 as bar
+        [PYFLYBY] Multiple candidate imports for foo.  Please pick one:
+        [PYFLYBY]   import foo35483918 as foo
+        [PYFLYBY]   import foo85957810 as foo
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'foo' is not defined
+    """, PYFLYBY_PATH=tmp.file)
+
+
+def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
+    # Verify that if an expression contains an ambiguous import twice, we only
+    # report it once.
+    writetext(tmp.file, """
+        import foo83958492 as bar
+        import foo29432668 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar+bar
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo29432668 as bar
+        [PYFLYBY]   import foo83958492 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+    """, PYFLYBY_PATH=tmp.file)
+
+
+def test_autoimport_multiple_candidates_ofind_1(tmp):
+    # Verify that the multi-candidate menu works even with ofind.
+    writetext(tmp.file, """
+        import foo45415553 as bar
+        import foo37472809 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar?
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo37472809 as bar
+        [PYFLYBY]   import foo45415553 as bar
+        Object `bar` not found.
+    """, PYFLYBY_PATH=tmp.file)
+
+
+def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
+    # Verify that the autoimport menu is only printed once, even when multiple
+    # joinpoints apply (autocall=>ofind and ast_importer).
+    writetext(tmp.file, """
+        import foo85223658 as bar
+        import foo10735265 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo10735265 as bar
+        [PYFLYBY]   import foo85223658 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+    """, PYFLYBY_PATH=tmp.file, autocall=True)
+
+
+def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
+    # We should report the multiple candidate issue again if asked again.
+    writetext(tmp.file, """
+        import foo85223658 as bar
+        import foo10735265 as bar
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bar
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo10735265 as bar
+        [PYFLYBY]   import foo85223658 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+        In [3]: bar
+        [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
+        [PYFLYBY]   import foo10735265 as bar
+        [PYFLYBY]   import foo85223658 as bar
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'bar' is not defined
+    """, PYFLYBY_PATH=tmp.file, autocall=True)
 
 
 def test_complete_symbol_basic_1():
@@ -1519,6 +1680,3 @@ def test_error_during_enable_1():
         In [6]: pyflyby.enable_auto_importer()
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
     """)
-
-# TODO: test multiple possibilities for imports
-# TODO: test/fix multiple possibilities for imports only printed once

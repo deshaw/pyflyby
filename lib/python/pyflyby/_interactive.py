@@ -297,7 +297,7 @@ def get_global_namespaces(ip):
         return [__builtin__.__dict__, __main__.__dict__]
 
 
-def complete_symbol(fullname, namespaces, db=None):
+def complete_symbol(fullname, namespaces, db=None, autoimported=None):
     """
     Enumerate possible completions for C{fullname}.
 
@@ -367,7 +367,8 @@ def complete_symbol(fullname, namespaces, db=None):
         splt = fullname.rsplit(".", 1)
         pname, attrname = splt
         try:
-            parent = load_symbol(pname, namespaces, autoimport=True, db=db)
+            parent = load_symbol(pname, namespaces, autoimport=True, db=db,
+                                 autoimported=autoimported)
         except AttributeError:
             # Even after attempting auto-import, the symbol is still
             # unavailable.  Nothing to complete.
@@ -426,11 +427,19 @@ class _AutoImporter(object):
     """
 
     def __init__(self):
+        # Functions to call to disable the auto importer.
         self._disablers = []
+        # Whether we're currently enabled.
         self._enabled = False
+        # Whether there has been an error implying a bug in pyflyby code or a
+        # problem with the import database.
         self._errored = False
+        # A reference to the IPython shell object.
         self._ip = None
+        # The AST transformer, if any (IPython 1.0+).
         self._ast_transformer = None
+        # Dictionary of things we've attempted to autoimport for this cell.
+        self._autoimported_this_cell = {}
 
     def enable(self, even_if_previously_errored=False):
         """
@@ -439,6 +448,7 @@ class _AutoImporter(object):
         # Check if already enabled.  If so, silently do nothing.
         if self._enabled:
             return
+        self.reset_state_new_cell()
         # Check if previously errored.
         if self._errored:
             if even_if_previously_errored:
@@ -542,6 +552,7 @@ class _AutoImporter(object):
         # Since we have two invocations of auto_import(), case 1 is
         # handled twice.  That's fine, because it runs quickly.
         logger.debug("Enabling IPython shell hooks")
+        self._enable_reset_hook()
         self._enable_ofind_hook()
         self._enable_ast_hook()
         self._enable_time_hook()
@@ -553,6 +564,57 @@ class _AutoImporter(object):
         # Completed.  (At least we did what we could, and no exceptions.)
         self._enabled = True
         return True
+
+    def _enable_reset_hook(self):
+        # Register a hook that resets autoimporter state per input cell.
+        # The only per-input-cell state we currently have is the recording of
+        # which autoimports we've attempted but failed.  We keep track of this
+        # to avoid multiple error messages for a single import, in case of
+        # overlapping hooks.
+        # Note: Some of the below approaches (both registering an
+        # input_transformer_manager hook or advising reset()) cause the reset
+        # function to get called twice per cell.  This seems like an
+        # unintentional repeated call in IPython itself.  This is harmless for
+        # us, since doing an extra reset shouldn't hurt.
+        ip = get_ipython_safe()
+        if hasattr(ip, "input_transformer_manager"):
+            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
+            class ResetAutoImporterState(object):
+                def push(self_, line):
+                    return line
+                def reset(self_):
+                    logger.debug("ResetAutoImporterState.reset()")
+                    self.reset_state_new_cell()
+            t = ResetAutoImporterState()
+            transforms = ip.input_transformer_manager.python_line_transforms
+            transforms.append(t)
+            def unregister_input_transformer():
+                try:
+                    transforms.remove(t)
+                except ValueError:
+                    logger.info(
+                        "Couldn't remove python_line_transformer hook")
+            self._disablers.append(unregister_input_transformer)
+        elif hasattr(ip, "input_splitter"):
+            # Tested with IPython 0.13.  Also works with later versions, but
+            # for those versions, we can use a real hook instead of advising.
+            @advise(ip.input_splitter.reset)
+            def reset_input_splitter_and_autoimporter_state():
+                logger.debug("reset_input_splitter_and_autoimporter_state()")
+                self.reset_state_new_cell()
+                return __original__()
+            self._disablers.append(
+                reset_input_splitter_and_autoimporter_state.unadvise)
+        elif hasattr(ip, "resetbuffer"):
+            # Tested with IPython 0.10.
+            @advise(ip.resetbuffer)
+            def resetbuffer_and_autoimporter_state():
+                logger.debug("resetbuffer_and_autoimporter_state")
+                self.reset_state_new_cell()
+                return __original__()
+            self._disablers.append(resetbuffer_and_autoimporter_state.unadvise)
+        else:
+            logger.debug("Couldn't enable reset hook")
 
     def _enable_ofind_hook(self):
         """
@@ -925,12 +987,23 @@ class _AutoImporter(object):
         else:
             return None # just to be explicit
 
+    def reset_state_new_cell(self):
+        # Reset the state for a new cell.
+        if logger.debug_enabled:
+            autoimported = self._autoimported_this_cell
+            logger.debug("reset_state_new_cell(): previously autoimported: "
+                         "succeeded=%s, failed=%s",
+                         sorted([k for k,v in autoimported.items() if v]),
+                         sorted([k for k,v in autoimported.items() if not v]))
+        self._autoimported_this_cell = {}
+
     def auto_import(self, arg, namespaces=None,
                     raise_on_error='if_debug', on_error=None):
         if namespaces is None:
             namespaces = get_global_namespaces(self._ip)
         return self._safe_call(
             auto_import, arg, namespaces,
+            autoimported=self._autoimported_this_cell,
             raise_on_error=raise_on_error, on_error=on_error)
 
     def complete_symbol(self, fullname,
@@ -938,11 +1011,13 @@ class _AutoImporter(object):
         with InterceptPrintsDuringPromptCtx(self._ip):
             namespaces = get_global_namespaces(self._ip)
             if on_error is not None:
-                on_error1 = lambda fullname, namespaces: on_error(fullname)
+                def on_error1(fullname, namespaces, autoimported):
+                    return on_error(fullname)
             else:
                 on_error1 = None
             return self._safe_call(
                 complete_symbol, fullname, namespaces,
+                autoimported=self._autoimported_this_cell,
                 raise_on_error=raise_on_error, on_error=on_error1)
 
     def compile_with_autoimport(self, src, filename, mode, flags=0):
