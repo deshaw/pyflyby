@@ -263,7 +263,9 @@ def print_version_and_exit(extra=None):
     raise SystemExit(0)
 
 
-def syntax():
+def syntax(message=None):
+    if message:
+        logger.error(message)
     print >>sys.stderr, maindoc() + '\n\nFor usage, see: %s --help' % (sys.argv[0],)
     raise SystemExit(1)
 
