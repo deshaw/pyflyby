@@ -9,6 +9,11 @@ import os
 import sys
 import types
 
+
+class Object(object):
+    pass
+
+
 def memoize(function):
     cache = {}
     def wrapped_fn(*args, **kwargs):
