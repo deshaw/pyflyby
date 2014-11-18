@@ -66,6 +66,14 @@ def _get_python_path(env_var_name, default_path, target_dirname):
       C{tuple} of C{Filename}s
     '''
     pathnames = _get_env_var(env_var_name, default_path)
+    for p in pathnames:
+        if re.match("/|[.]/|[.][.][.]/|~/", p):
+            continue
+        raise ValueError(
+            "{env_var_name} components should start with / or ./ or ~/ or .../.  "
+            "Use {env_var_name}=./{p} instead of {env_var_name}={p} if you really "
+            "want to use the current directory."
+            .format(env_var_name=env_var_name, p=p))
     pathnames = [os.path.expanduser(p) for p in pathnames]
     pathnames = _expand_tripledots(pathnames, target_dirname)
     pathnames = [Filename(fn) for fn in pathnames]
