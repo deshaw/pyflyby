@@ -105,7 +105,6 @@ def assert_match(result, expected):
         else:
             regexp_parts.append(".*")
             regexp_parts.append(re.escape(s))
-    regexp_parts.append("$")
     regexp = "".join(regexp_parts)
 
     if _IPYTHON_VERSION < (0, 11):
@@ -115,6 +114,12 @@ def assert_match(result, expected):
                         r"In \[[0-9]+\]", regexp)
         regexp = re.sub(re.compile(r"^Out\\\[[0-9]+\\\]", re.M),
                         r"\n?Out\[[0-9]+\]", regexp)
+    # Ignore the "Compiler time: 0.123 s" which may occasionally appear
+    # depending on runtime.
+    regexp = re.sub(re.compile(r"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
+                    "\\1(?:\nCompiler time: [0-9.]+ s)?\\2", regexp)
+    regexp += "$"
+    # Check for match.
     regexp = re.compile(regexp)
     if not regexp.match(result):
         msg = []
