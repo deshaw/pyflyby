@@ -5,7 +5,7 @@
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._autoimp         import (auto_eval, auto_import,
-                                        find_missing_imports, load_symbol)
+                                        find_missing_imports)
 from   pyflyby._file            import Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importdb        import ImportDB
