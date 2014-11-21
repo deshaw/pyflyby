@@ -1580,6 +1580,21 @@ def test_timeit_complete_autoimport_member_1():
     """)
 
 
+def test_noninteractive_timeit_unaffected_1():
+    # Verify that the regular timeit module is unaffected, i.e. that we only
+    # hooked the IPython wrapper.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: timeit.timeit("base64.b64decode", number=1)
+        [PYFLYBY] import timeit
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        ....
+        NameError: global name 'base64' is not defined
+    """)
+
+
 def test_time_1():
     # Verify that %time autoimport works.
     ipython("""
@@ -1662,6 +1677,21 @@ def test_prun_1():
         In [4]: %prun b64decode("TG9yZW50eg==")
         ... function calls in ... seconds
         ....
+    """)
+
+
+def test_noninteractive_profile_unaffected_1():
+    # Verify that the profile module itself is not affected (i.e. verify that
+    # we only hook the IPython usage of it).
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: profile.Profile().run("base64.b64decode")
+        [PYFLYBY] import profile
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        ....
+        NameError: name 'base64' is not defined
     """)
 
 
