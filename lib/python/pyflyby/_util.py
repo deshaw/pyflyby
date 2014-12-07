@@ -198,13 +198,17 @@ class FunctionWithGlobals(object):
     global namespace.
 
     This is written as a class with a __call__ method.  We do so rather than
-    using a metafunction, so that we can also implement __getattr_ to look
+    using a metafunction, so that we can also implement __getattr__ to look
     through to the target.
     """
 
     def __init__(self, function, **variables):
         self.__function = function
         self.__variables = variables
+        try:
+            self.__original__ = variables["__original__"]
+        except KeyError:
+            pass
 
     def __call__(self, *args, **kwargs):
         function = self.__function
@@ -234,6 +238,40 @@ class FunctionWithGlobals(object):
     def __getattr__(self, k):
         return getattr(self.__original__, k)
 
+
+    def __get__(self, inst, cls=None):
+        return types.MethodType(self, inst, cls)
+
+
+
+class _WritableDictProxy(object):
+    """
+    Writable equivalent of cls.__dict__.
+    """
+
+    # We need to implement __getitem__ differently from __setitem__.  The
+    # reason is because of an asymmetry in the mechanics of classes:
+    #   - getattr(cls, k) does NOT in general do what we want because it
+    #     returns unbound methods.  It's actually equivalent to
+    #     cls.__dict__[k].__get__(cls).
+    #   - setattr(cls, k, v) does do what we want.
+    #   - cls.__dict__[k] does do what we want.
+    #   - cls.__dict__[k] = v does not work, because dictproxy is read-only.
+
+    def __init__(self, cls):
+        self._cls = cls
+
+    def __getitem__(self, k):
+        return self._cls.__dict__[k]
+
+    def get(self, k, default=None):
+        return self._cls.__dict__.get(k, default)
+
+    def __setitem__(self, k, v):
+        setattr(self._cls, k, v)
+
+    def __delitem__(self, k):
+        delattr(self._cls, k)
 
 
 _UNSET = object()
@@ -273,35 +311,67 @@ class Aspect(object):
       U{http://en.wikipedia.org/wiki/Aspect-oriented_programming}
     """
 
+    _wrapper = None
+
     def __init__(self, joinpoint):
         spec = joinpoint
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if isinstance(joinpoint, types.MethodType):
-            self._qname     = "%s.%s.%s" % (
+        if isinstance(joinpoint, types.FunctionType):
+            self._qname = "%s.%s" % (
+                joinpoint.__module__,
+                joinpoint.__name__)
+            self._container = sys.modules[joinpoint.__module__].__dict__
+            self._name      = joinpoint.__name__
+            self._original  = spec
+            assert spec == self._container[self._name]
+        elif isinstance(joinpoint, types.MethodType):
+            self._qname = "%s.%s.%s" % (
                 joinpoint.im_class.__module__,
                 joinpoint.im_class.__name__,
                 joinpoint.im_func.__name__)
-            container_obj = (joinpoint.im_self or joinpoint.im_class)
-            self._container = container_obj.__dict__
             self._name      = joinpoint.im_func.__name__
-            self._original  = spec
+            if joinpoint.im_self is None:
+                # Class method.
+                container_obj   = joinpoint.im_class
+                self._container = _WritableDictProxy(container_obj)
+                self._original  = spec.im_func
+            else:
+                # Instance method.
+                container_obj   = joinpoint.im_self
+                self._container = container_obj.__dict__
+                self._original  = spec
             assert spec == getattr(container_obj, self._name)
-            assert spec == self._container.get(self._name, spec)
+            assert self._original == self._container.get(self._name, self._original)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
             if isinstance(container, dict):
+                self._original  = container[name]
                 self._container = container
                 self._qname = name
+            elif isinstance(container.__dict__, types.DictProxyType):
+                original = getattr(container, name)
+                if hasattr(original, "im_func"):
+                    # TODO: generalize this to work for all cases, not just classmethod
+                    original = original.im_func
+                    self._wrapper = classmethod
+                self._original = original
+                self._container = _WritableDictProxy(container)
+                self._qname = "%s.%s.%s" % (
+                    container.__module__, container.__name__, name)
             else:
+                # Keep track of the original.  We use getattr on the
+                # container, instead of getitem on container.__dict__, so that
+                # it works even if it's a class dict proxy that inherits the
+                # value from a super class.
+                self._original = getattr(container, name)
                 self._container = container.__dict__
                 self._qname = "%s.%s.%s" % (
                     container.__class__.__module__,
                     container.__class__.__name__,
                     name)
             self._name      = name
-            self._original  = self._container[self._name]
         # TODO: FunctionType (for top-level functions)
         # TODO: unbound method
         # TODO: classmethod
@@ -310,10 +380,14 @@ class Aspect(object):
                             % (type(joinpoint).__name__,))
         self._wrapped = None
 
-    def advise(self, hook):
+    def advise(self, hook, once=False):
         from pyflyby._log import logger
-        logger.debug("advising %s", self._qname)
         self._previous = self._container.get(self._name, _UNSET)
+        if once and getattr(self._previous, "__aspect__", None) :
+            # TODO: check that it's the same hook - at least check the name.
+            logger.debug("already advised %s", self._qname)
+            return None
+        logger.debug("advising %s", self._qname)
         assert self._previous is _UNSET or self._previous == self._original
         assert self._wrapped is None
         # Create the wrapped function.
@@ -324,6 +398,8 @@ class Aspect(object):
         wrapped.__doc__ = "%s.\n\nAdvice %s:\n%s" % (
             self._original.__doc__, hook.__name__, hook.__doc__)
         wrapped.__aspect__ = self
+        if self._wrapper is not None:
+            wrapped = self._wrapper(wrapped)
         self._wrapped = wrapped
         # Install the wrapped function!
         self._container[self._name] = wrapped
@@ -334,6 +410,8 @@ class Aspect(object):
             return
         cur = self._container.get(self._name, _UNSET)
         if cur is self._wrapped:
+            from pyflyby._log import logger
+            logger.debug("unadvising %s", self._qname)
             if self._previous is _UNSET:
                 del self._container[self._name]
             else:
