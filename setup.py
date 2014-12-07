@@ -142,6 +142,8 @@ setup(
     package_dir={'': 'lib/python'},
     packages=['pyflyby'],
     scripts=[
+        'bin/autopython',
+        'bin/autoipython',
         'bin/collect-exports',
         'bin/collect-imports',
         'bin/find-import',
