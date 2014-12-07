@@ -9,19 +9,20 @@ import __builtin__
 import ast
 import inspect
 import os
+import re
 import subprocess
 import sys
 
 from   pyflyby._autoimp         import (auto_import, interpret_namespaces,
                                         load_symbol)
-from   pyflyby._file            import Filename, atomic_write_file
+from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (CwdCtx, FunctionWithGlobals, NullCtx,
-                                        advise, memoize)
+from   pyflyby._util            import (Aspect, CwdCtx, FunctionWithGlobals,
+                                        NullCtx, advise)
 
 
 if False:
@@ -31,42 +32,139 @@ if False:
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
-# TODO: pass the ipython shell parameter ip all the way down.  Then we don't
-# need to memoize get_ipython_safe().
 
-
-def initialize_ipython(argv=None):
+def _get_or_create_ipython_terminal_app():
     """
-    Initialize an IPython shell, but don't start it yet.
+    Create/get the singleton IPython terminal application.
 
     @rtype:
-      C{callable}
-    @return:
-      The function that can be called to start the console terminal.
+      C{TerminalIPythonApp}
     """
     import IPython
-    # The following has been tested on IPython 1.2, 2.1.
+    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
     except AttributeError:
         pass
     else:
-        app = TerminalIPythonApp.instance()
-        app.initialize(argv)
-        return app.start
-    # The following has been tested on IPython 0.13.
+        return TerminalIPythonApp.instance()
+    # The following has been tested on IPython 0.11, 0.12, 0.13.
     try:
         TerminalIPythonApp = IPython.frontend.terminal.ipapp.TerminalIPythonApp
     except AttributeError:
         pass
     else:
-        app = TerminalIPythonApp.instance()
-        app.initialize(argv)
-        return app.start
+        return TerminalIPythonApp.instance()
+    # The following has been tested on IPython 0.10.
+    if hasattr(IPython, "ipapi"):
+        return _IPython010TerminalApplication.instance()
     raise RuntimeError(
         "Couldn't get TerminalIPythonApp class.  "
         "Is your IPython version too old (or too new)?  "
         "IPython.__version__=%r" % (IPython.__version__))
+
+
+class _IPython010TerminalApplication(object):
+    """
+    Shim class that mimics IPython 0.11+ application classes, for use in
+    IPython 0.10.
+    """
+
+    # IPython.ipapi.launch_instance() => IPython.Shell.start() creates an
+    # instance of "IPShell".  IPShell has an attribute named "IP" which is an
+    # "InteractiveShell".
+
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is not None:
+            self = cls._instance
+            self.init_shell()
+            return self
+        import IPython
+        if not hasattr(IPython, "ipapi"):
+            raise RuntimeError("Inappropriate version of IPython %r"
+                               % (IPython.__version__,))
+        self = cls._instance = cls()
+        self.init_shell()
+        return self
+
+    def init_shell(self):
+        import IPython
+        ipapi = IPython.ipapi.get()                # IPApi instance
+        if ipapi is not None:
+            self.shell = ipapi.IP                  # InteractiveShell instance
+        else:
+            self.shell = None
+
+    def initialize(self, argv=None):
+        import IPython
+        logger.debug("Creating IPython 0.10 session")
+        self._session = IPython.ipapi.make_session() # IPShell instance
+        self.init_shell()
+        assert self._session is not None
+
+    def start(self):
+        self._session.mainloop()
+
+
+def _get_or_create_ipython_kernel_app():
+    """
+    Create/get the singleton IPython kernel application.
+
+    @rtype:
+      C{callable}
+    @return:
+      The function that can be called to start the kernel application.
+    """
+    import IPython
+    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3
+    try:
+        from IPython.kernel.zmq.kernelapp import IPKernelApp
+    except ImportError:
+        pass
+    else:
+        return IPKernelApp.instance()
+    # The following has been tested on IPython 0.12, 0.13
+    try:
+        from IPython.zmq.ipkernel import IPKernelApp
+    except ImportError:
+        pass
+    else:
+        return IPKernelApp.instance()
+    raise RuntimeError(
+        "Couldn't get IPKernelApp class.  "
+        "Is your IPython version too old (or too new)?  "
+        "IPython.__version__=%r" % (IPython.__version__))
+
+
+def start_ipython_with_autoimporter(argv=None):
+    """
+    Start IPython with autoimporter enabled.
+    """
+    app = _get_or_create_ipython_terminal_app()
+    return _initialize_and_start_app_with_autoimporter(app, argv)
+
+
+def start_ipython_kernel_with_autoimporter(argv=None):
+    """
+    Start IPython kernel with autoimporter enabled.
+    """
+    app = _get_or_create_ipython_kernel_app()
+    return _initialize_and_start_app_with_autoimporter(app, argv)
+
+
+def _initialize_and_start_app_with_autoimporter(app, argv):
+    """
+    Initialize and start an IPython app, with autoimporting enabled.
+
+    @type app:
+      L{BaseIPythonApplication}
+    """
+    AutoImporter(app).enable()
+    app.initialize(argv)
+    return app.start()
 
 
 def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
@@ -97,6 +195,90 @@ def install_in_ipython_startup_file():
     """
     Install the call to 'pyflyby.enable_auto_importer()' to the default
     IPython startup file.
+
+    This makes all "ipython" sessions behave like "autoipython", i.e. start
+    with the autoimporter already enabled.
+    """
+    import IPython
+    # The following has been tested on IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1,
+    # 2.2., 2.3.
+    try:
+        IPython.core.profiledir.ProfileDir.startup_dir
+    except AttributeError:
+        pass
+    else:
+        _install_in_ipython_startup_file_012()
+        return
+    # The following has been tested on IPython 0.11.
+    try:
+        IPython.core.profiledir.ProfileDir
+    except AttributeError:
+        pass
+    else:
+        _install_in_ipython_startup_file_011()
+        return
+    try:
+        IPython.genutils.get_ipython_dir
+    except AttributeError:
+        pass
+    else:
+        _install_in_ipython_startup_file_010()
+        return
+    raise RuntimeError(
+        "Couldn't install pyflyby autoimporter in IPython.  "
+        "Is your IPython version too old (or too new)?  "
+        "IPython.__version__=%r" % (IPython.__version__))
+
+
+def _generate_enabler_code():
+    """
+    Generate code for enabling the auto importer.
+
+    @rtype:
+      C{str}
+    """
+    def indent(lines):
+        return "".join("    %s\n"%line for line in lines.splitlines(False))
+    funcdef = (
+        "import pyflyby\n"
+        "pyflyby.enable_auto_importer()\n"
+    )
+    # Check whether we need to include the path in sys.path, and if so, add
+    # that to the contents.
+    import pyflyby
+    pyflyby_path = pyflyby.__path__[0]
+    if not _python_can_import_pyflyby(pyflyby_path):
+        path_entry = os.path.dirname(os.path.realpath(pyflyby_path))
+        assert _python_can_import_pyflyby(pyflyby_path, path_entry)
+        funcdef = (
+            "import sys\n"
+            "saved_sys_path = sys.path[:]\n"
+            "try:\n"
+            "    sys.path.insert(0, %r)\n" % (path_entry,) +
+            indent(funcdef) +
+            "finally:\n"
+            "    sys.path = saved_sys_path\n"
+        )
+    # Wrap the code in a temporary function, call it, then delete the
+    # function.  This avoids polluting the user's global namespace.  Although
+    # the global name "pyflyby" will almost always end up meaning the module
+    # "pyflyby" anyway, if the user types it, there's still value in not
+    # polluting the namespace in case something enumerates over globals().
+    # For the function name we use a name that's unlikely to be used by the
+    # user.
+    contents = (
+        "def __pyflyby_enable_auto_importer_60321389():\n" +
+        indent(funcdef) +
+        "__pyflyby_enable_auto_importer_60321389()\n"
+        "del __pyflyby_enable_auto_importer_60321389\n"
+    )
+    return contents
+
+
+def _install_in_ipython_startup_file_012():
+    """
+    Implementation of L{install_in_ipython_startup_file} for IPython 0.12+.
+    Tested with IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     """
     import IPython
     ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
@@ -111,20 +293,78 @@ def install_in_ipython_startup_file():
     if fn.exists:
         logger.info("Doing nothing, because %s already exists", fn)
         return
-    contents = (
-        "import pyflyby\n"
-        "pyflyby.enable_auto_importer()\n"
-    )
-    import pyflyby
-    pyflyby_path = pyflyby.__path__[0]
-    if not _python_can_import_pyflyby(pyflyby_path):
-        path_entry = os.path.dirname(os.path.realpath(pyflyby_path))
-        assert _python_can_import_pyflyby(pyflyby_path, path_entry)
-        contents = (
-            "import sys\n"
-            "sys.path.insert(0, %r)\n" % (path_entry,)
-        ) + contents
+    argv = sys.argv[:]
+    argv[0] = os.path.realpath(argv[0])
+    argv = ' '.join(argv)
+    header = (
+        "# File: {fn}\n"
+        "#\n"
+        "# Generated by {argv}\n"
+        "#\n"
+        "# This file causes IPython to enable the Pyflyby Auto Importer.\n"
+        "#\n"
+        "# To uninstall, just delete this file.\n"
+        "#\n"
+    ).format(**locals())
+    contents = header + _generate_enabler_code()
+    logger.info("Installing pyflyby auto importer in your IPython startup")
     logger.info("Writing to %s:\n%s", fn, contents)
+    atomic_write_file(fn, contents)
+
+
+def _install_in_ipython_startup_file_011():
+    """
+    Implementation of L{install_in_ipython_startup_file} for IPython 0.11.
+    """
+    import IPython
+    def indent(lines):
+        return "".join("    %s\n"%line for line in lines.splitlines(False))
+    ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
+    fn = ipython_dir / "profile_default" / "ipython_config.py"
+    if not fn.exists:
+        raise RuntimeError(
+            "Couldn't find IPython startup file.  Tried %s" % (fn,))
+    old_contents = read_file(fn).joined
+    if re.search(r"^ *(pyflyby[.])?enable_auto_importer[(][)]", old_contents, re.M):
+        logger.info("Doing nothing, because already installed in %s", fn)
+        return
+    header = (
+        "\n"
+        "\n"
+        "#\n"
+        "# Enable the Pyflyby Auto Importer.\n"
+    )
+    new_contents = header + _generate_enabler_code()
+    contents = old_contents.rstrip() + new_contents
+    logger.info("Installing pyflyby auto importer in your IPython startup")
+    logger.info("Appending to %s:\n%s", fn, new_contents)
+    atomic_write_file(fn, contents)
+
+
+def _install_in_ipython_startup_file_010():
+    """
+    Implementation of L{install_in_ipython_startup_file} for IPython 0.10.
+    """
+    import IPython
+    ipython_dir = Filename(IPython.genutils.get_ipython_dir())
+    fn = ipython_dir / "ipy_user_conf.py"
+    if not fn.exists:
+        raise RuntimeError(
+            "Couldn't find IPython config file.  Tried %s" % (fn,))
+    old_contents = read_file(fn).joined
+    if re.search(r"^ *(pyflyby[.])?enable_auto_importer[(][)]", old_contents, re.M):
+        logger.info("Doing nothing, because already installed in %s", fn)
+        return
+    header = (
+        "\n"
+        "\n"
+        "#\n"
+        "# Enable the Pyflyby Auto Importer.\n"
+    )
+    new_contents = header + _generate_enabler_code()
+    contents = old_contents.rstrip() + new_contents
+    logger.info("Installing pyflyby auto importer in your IPython startup")
+    logger.info("Appending to %s:\n%s", fn, new_contents)
     atomic_write_file(fn, contents)
 
 
@@ -133,6 +373,8 @@ def _ipython_in_multiline(ip):
     Return C{False} if the user has entered only one line of input so far,
     including the current line, or C{True} if it is the second or later line.
 
+    @type ip:
+      C{InteractiveShell}
     @rtype:
       C{bool}
     """
@@ -152,6 +394,9 @@ def InterceptPrintsDuringPromptCtx(ip):
     Decorator that hooks our logger so that:
       1. Before the first print, if any, print an extra newline.
       2. Upon context exit, if any lines were printed, redisplay the prompt.
+
+    @type ip:
+      C{InteractiveShell}
     """
     if not ip:
         return NullCtx()
@@ -203,54 +448,49 @@ def InterceptPrintsDuringPromptCtx(ip):
     return logger.HookCtx(pre=pre, post=post)
 
 
-@memoize
-def get_ipython_safe():
-    """
-    Get an IPython shell instance, if we are inside an IPython session.
+class NoIPythonAppError(Exception):
+    pass
 
-    If we are not inside an IPython session, don't initialize one.
+
+def _get_ipython_app():
+    """
+    Get an IPython application instance, if we are inside an IPython session.
+
+    If there isn't already an IPython application, raise an exception; don't
+    create one.
+
+    If there is a subapp, return it.
 
     @rtype:
-      C{IPython.core.interactiveshell.InteractiveShell}
+      L{BaseIPythonApplication}
     """
     try:
         IPython = sys.modules['IPython']
     except KeyError:
         # The 'IPython' module isn't already loaded, so we're not in an
         # IPython session.  Don't import it.
-        logger.debug("[IPython not loaded]")
-        return None
-    # IPython 1.0+: use IPython.get_ipython().  This doesn't create an
-    # instance if it doesn't already exist.
+        raise NoIPythonAppError(
+            "No active IPython application (IPython not even imported yet)")
+    # The following has been tested on IPython 0.11, 0.12, 0.13, 1.0, 1.2,
+    # 2.0, 2.1, 2.2, 2.3.
     try:
-        get_ipython = IPython.get_ipython
+        App = IPython.core.application.BaseIPythonApplication
     except AttributeError:
-        pass # not IPython 1.0+
+        pass
     else:
-        return get_ipython()
-    # IPython 0.11+: IPython.core.interactiveshell.InteractiveShell._instance.
-    # [The public method IPython.core.ipapi.get() also returns this, but we
-    # don't want to call that, because get() creates an IPython shell if it
-    # doesn't already exist, which we don't want.]
-    try:
-        return IPython.core.interactiveshell.InteractiveShell._instance
-    except AttributeError:
-        pass # not IPython 0.11+
-    # IPython 0.10+: IPython.ipapi.get().IP
-    try:
-        get = IPython.ipapi.get
-    except AttributeError:
-        pass # not IPython 0.10+
-    else:
-        ipsh = get()
-        if ipsh is not None:
-            return ipsh.IP
+        app = App._instance
+        if app is None:
+            raise NoIPythonAppError("No active IPython application")
+        if app.subapp is not None:
+            return app.subapp
         else:
-            return None
-    # Couldn't get IPython.
-    logger.debug("Couldn't get IPython shell instance (IPython version: %s)",
-                 IPython.__version__)
-    return None
+            return app
+    # The following has been tested on IPython 0.10.
+    if hasattr(IPython, "ipapi"):
+        return _IPython010TerminalApplication.instance()
+    raise NoIPythonAppError(
+        "Could not figure out how to get active IPython application for IPython version %s"
+        % (IPython.__version__,))
 
 
 def _ipython_namespaces(ip):
@@ -260,7 +500,7 @@ def _ipython_namespaces(ip):
     The ordering follows IPython convention of most-local to most-global.
 
     @type ip:
-      C{IPython.core.InteractiveShell}
+      C{InteractiveShell}
     @rtype:
       C{list}
     @return:
@@ -284,9 +524,10 @@ def get_global_namespaces(ip):
     """
     Get the global interactive namespaces.
 
+    @type ip:
+      C{InteractiveShell}
     @param ip:
-      IPython shell or C{None} for non-IPython, as returned by
-      get_ipython_safe().
+      IPython shell or C{None} to assume not in IPython.
     @rtype:
       C{list} of C{dict}
     """
@@ -297,7 +538,7 @@ def get_global_namespaces(ip):
         return [__builtin__.__dict__, __main__.__dict__]
 
 
-def complete_symbol(fullname, namespaces, db=None, autoimported=None):
+def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
     """
     Enumerate possible completions for C{fullname}.
 
@@ -337,6 +578,10 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None):
       L{importDB}
     @param db:
       Import database to use.
+    @type ip:
+      C{InteractiveShell}
+    @param ip:
+      IPython shell instance if in IPython; C{None} to assume not in IPython.
     @rtype:
       C{list} of C{str}
     @return:
@@ -375,7 +620,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None):
             logger.debug("complete_symbol(%r): couldn't load symbol %r", fullname, pname)
             return []
         results = set()
-        results.update(_list_members_for_completion(parent))
+        results.update(_list_members_for_completion(parent, ip))
         if sys.modules.get(pname, object()) is parent and parent.__name__ == pname:
             results.update(known.member_names.get(pname, []))
             results.update([m.name.parts[-1]
@@ -385,7 +630,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None):
     return results
 
 
-def _list_members_for_completion(obj):
+def _list_members_for_completion(obj, ip):
     """
     Enumerate the existing member attributes of an object.
     This emulates the regular Python/IPython completion items.
@@ -397,7 +642,6 @@ def _list_members_for_completion(obj):
     @rtype:
       C{list} of C{str}
     """
-    ip = get_ipython_safe()
     if ip is None:
         words = dir(obj)
     else:
@@ -421,16 +665,61 @@ def _list_members_for_completion(obj):
     return [w for w in words if isinstance(w, basestring)]
 
 
-class _AutoImporter(object):
+class _EnableState(object):
+    DISABLING = "DISABLING"
+    DISABLED  = "DISABLED"
+    ENABLING  = "ENABLING"
+    ENABLED   = "ENABLED"
+
+
+class AutoImporter(object):
     """
     Auto importer enable state.
+
+    The state is attached to an IPython "application".
     """
 
-    def __init__(self):
+    def __new__(cls, arg):
+        """
+        Get the AutoImporter for C{app}, or create and assign one.
+
+        @type arg:
+          L{AutoImporter} or L{BaseIPythonApplication}
+        """
+        if isinstance(arg, AutoImporter):
+            return arg
+        app = arg
+        subapp = getattr(app, "subapp", None)
+        if subapp is not None:
+            app = subapp
+        try:
+            self = app.auto_importer
+        except AttributeError:
+            pass
+        else:
+            assert isinstance(self, cls)
+            return self
+        # Create a new instance and assign to the app.
+        self = cls._construct(app)
+        app.auto_importer = self
+        return self
+
+    @classmethod
+    def _construct(cls, app):
+        """
+        Create a new AutoImporter for C{app}.
+
+        @type app:
+          L{IPython.core.application.BaseIPythonApplication}
+        """
+        self = object.__new__(cls)
+        self.app = app
+        logger.debug("Constructing %r for app=%r, subapp=%r", self, app,
+                     getattr(app, "subapp", None))
         # Functions to call to disable the auto importer.
         self._disablers = []
-        # Whether we're currently enabled.
-        self._enabled = False
+        # Current enabling state.
+        self._state = _EnableState.DISABLED
         # Whether there has been an error implying a bug in pyflyby code or a
         # problem with the import database.
         self._errored = False
@@ -440,14 +729,26 @@ class _AutoImporter(object):
         self._ast_transformer = None
         # Dictionary of things we've attempted to autoimport for this cell.
         self._autoimported_this_cell = {}
+        return self
 
     def enable(self, even_if_previously_errored=False):
         """
         Turn on the auto-importer in the current IPython session.
         """
-        # Check if already enabled.  If so, silently do nothing.
-        if self._enabled:
+        # Check that we are not enabled/enabling yet.
+        if self._state is _EnableState.DISABLED:
+            pass
+        elif self._state is _EnableState.ENABLED:
+            logger.debug("Already enabled")
             return
+        elif self._state is _EnableState.ENABLING:
+            logger.debug("Already enabling")
+            return
+        elif self._state is _EnableState.DISABLING:
+            logger.debug("Still disabling (run disable() to completion first)")
+            return
+        else:
+            raise AssertionError
         self.reset_state_new_cell()
         # Check if previously errored.
         if self._errored:
@@ -461,49 +762,239 @@ class _AutoImporter(object):
                     "Not reattempting to enable auto importer after earlier "
                     "error")
                 return
-        self._errored = False
         import IPython
-        logger.debug("Enabling auto importer for IPython version %s",
-                     IPython.__version__)
-        # TODO: advise IPython.kernel.launcher.make_ipkernel_cmd (even if
-        # get_ipython_safe() returns None)
-        # TODO: if no ipython shell yet then delay until there is, instead of
-        # doing nothing
-        ip = get_ipython_safe()
-        if not ip:
-            return
-        self._ip = ip
-        if IPython.__version__.startswith("0.10"):
-            # Yuck.  IPython might not be ready to hook yet because we're
-            # called from the config phase, and certain stuff (like Completer)
-            # is set up in post-config.  Delay ourselves until after
-            # post_config_initialization.
-            # Kludge: post_config_initialization() sets ip.rl_next_input=None,
-            # so assume that if it's not set, then post_config_initialization
-            # hasn't been run yet.
-            if not hasattr(ip, "rl_next_input"):
-                logger.debug("Postponing remaining steps until after "
-                             "IPython post-config initialization")
-                @advise(ip.post_config_initialization)
-                def post_config_enable_auto_importer():
-                    post_config_enable_auto_importer.unadvise()
-                    __original__()
-                    if not hasattr(ip, "rl_next_input"):
-                        # Post-config initialization failed?
-                        return
-                    self._safe_call(self._enable_shell_hooks)
-                self._disablers.append(post_config_enable_auto_importer.unadvise)
-                return
-        # *** Enable ***.
-        self._safe_call(self._enable_shell_hooks)
+        # Reset the logger's output stream, since sys.stderr might have changed.
+        logger.setup_output_stream()
+        logger.debug("Enabling auto importer for IPython version %s, pid=%r",
+                     IPython.__version__, os.getpid())
+        logger.debug("enable(): state %s=>ENABLING", self._state)
+        self._errored = False
+        self._state = _EnableState.ENABLING
+        self._safe_call(self._enable_internal)
 
-    def _enable_shell_hooks(self):
+    def _continue_enable(self):
+        if self._state != _EnableState.ENABLING:
+            logger.debug("_enable_internal(): state = %s", self._state)
+            return
+        logger.debug("Continuing enabling auto importer")
+        self._safe_call(self._enable_internal)
+
+    def _enable_internal(self):
+        # Main enabling entry point.  This function can get called multiple
+        # times, depending on what's been initialized so far.
+        app = self.app
+        assert app is not None
+        if getattr(app, "subapp", None) is not None:
+            app = app.subapp
+            self.app = app
+        logger.debug("app = %r", app)
+        ok = True
+        ok &= self._enable_ipython_bugfixes()
+        ok &= self._enable_initializer_hooks(app)
+        ok &= self._enable_kernel_manager_hook(app)
+        ok &= self._enable_shell_hooks(app)
+        if ok:
+            logger.debug("_enable_internal(): success!  state: %s=>ENABLED",
+                         self._state)
+            self._state = _EnableState.ENABLED
+            # Repoint sys.stderr.  Note that we only do this once we've fully
+            # completed.  We don't do this at the first moment that sys.stderr
+            # is repointed, because writing to sys.stderr at that point will
+            # cause problems if we're in a kernel.
+            logger.setup_output_stream()
+        elif self._pending_initializers:
+            logger.debug("_enable_internal(): did what we can for now; "
+                         "will enable more after further IPython initialization.  "
+                         "state=%s", self._state)
+        else:
+            logger.debug("_enable_internal(): did what we can, but not "
+                         "fully successful.  state: %s=>ENABLED",
+                         self._state)
+            self._state = _EnableState.ENABLED
+            logger.setup_output_stream()
+
+    def _enable_initializer_hooks(self, app):
+        # Hook initializers.  There are various things we want to hook, and
+        # the hooking needs to be done at different times, depending on the
+        # IPython version and the "app".  For example, for most versions of
+        # IPython, terminal app, many things need to be done after
+        # initialize()/init_shell(); on the other hand, in some cases
+        # (e.g. IPython console), we need to do stuff *inside* the
+        # initialization function.
+        # Thus, we take a brute force approach: add hooks to a bunch of
+        # places, if they seem to not have run yet, and each time add any
+        # hooks that are ready to be added.
+        ok = True
+        pending = False
+        ip = getattr(app, "shell", None)
+        if ip is None:
+            if hasattr(app, "init_shell"):
+                @self._advise(app.init_shell)
+                def init_shell_enable_auto_importer():
+                    __original__()
+                    logger.debug("init_shell() completed")
+                    ip = app.shell
+                    if ip is None:
+                        logger.debug("Aborting enabling AutoImporter: "
+                                     "even after init_shell(), "
+                                     "still no shell in app=%r", app)
+                        return
+                    self._continue_enable()
+            elif not hasattr(app, "shell") and hasattr(app, "kernel_manager"):
+                logger.debug("No shell applicable; ok because using kernel manager")
+                pass
+            else:
+                logger.debug("App shell missing and no init_shell() to advise")
+                ok = False
+            if hasattr(app, "initialize_subcommand"):
+                # Hook the subapp, if any.  This requires some cleverness:
+                # 'ipython console' requires us to do some stuff *before*
+                # initialize() is called on the new app, while 'ipython
+                # notebook' requires us to do stuff *after* initialize() is
+                # called.
+                @self._advise(app.initialize_subcommand)
+                def init_subcmd_enable_auto_importer(*args, **kwargs):
+                    logger.debug("initialize_subcommand()")
+                    from IPython.core.application import Application
+                    @advise((Application, "instance"))
+                    def app_instance_enable_auto_importer(cls, *args, **kwargs):
+                        logger.debug("%s.instance()", cls.__name__)
+                        app = __original__(cls, *args, **kwargs)
+                        if app != self.app:
+                            self.app = app
+                            self._continue_enable()
+                        return app
+                    try:
+                        __original__(*args, **kwargs)
+                    finally:
+                        app_instance_enable_auto_importer.unadvise()
+                    self._continue_enable()
+            pending = True
+        if (hasattr(ip, "post_config_initialization") and
+            not hasattr(ip, "rl_next_input")):
+            # IPython 0.10 might not be ready to hook yet because we're called
+            # from the config phase, and certain stuff (like Completer) is set
+            # up in post-config.  Re-run after post_config_initialization.
+            # Kludge: post_config_initialization() sets ip.rl_next_input=None,
+            # so detect whether it's been run by checking for that attribute.
+            @self._advise(ip.post_config_initialization)
+            def post_config_enable_auto_importer():
+                __original__()
+                logger.debug("post_config_initialization() completed")
+                if not hasattr(ip, "rl_next_input"):
+                    # Post-config initialization failed?
+                    return
+                self._continue_enable()
+            pending = True
+        self._pending_initializers = pending
+        return ok
+
+    def _enable_kernel_manager_hook(self, app):
+        # For IPython notebook, by the time we get here, there's generally a
+        # kernel_manager already assigned, but kernel_manager.start_kernel()
+        # hasn't been called yet.  Hook app.kernel_manager.start_kernel().
+        kernel_manager = getattr(app, "kernel_manager", None)
+        ok = True
+        if kernel_manager is not None:
+            ok &= self._enable_start_kernel_hook(kernel_manager)
+        # For IPython console, a single function constructs the kernel_manager
+        # and then immediately calls kernel_manager.start_kernel().  The
+        # easiest way to intercept start_kernel() is by installing a hook
+        # after the kernel_manager is constructed.
+        if getattr(app, "kernel_manager_class", None) is not None:
+            @self._advise((app, "kernel_manager_class"))
+            def kernel_manager_class_with_autoimport(*args, **kwargs):
+                kernel_manager = __original__(*args, **kwargs)
+                self._enable_start_kernel_hook(kernel_manager)
+                return kernel_manager
+        # It's OK if no kernel_manager nor kernel_manager_class; this is the
+        # typical case, when using regular IPython terminal console (not
+        # IPython notebook/console).
+        return True
+
+    def _enable_start_kernel_hook(self, kernel_manager):
+        try:
+            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3
+            from IPython.kernel.manager import KernelManager
+        except ImportError:
+            pass
+        else:
+            @self._advise(kernel_manager.start_kernel)
+            def start_kernel_with_autoimport(*args, **kwargs):
+                logger.debug("start_kernel()")
+                # Advise format_kernel_cmd(), which is the function that
+                # computes the command line for a subprocess to run a new
+                # kernel.  Note that we advise the method on the class, rather
+                # than this instance of kernel_manager, because start_kernel()
+                # actually creates a *new* KernelInstance for this.
+                @advise(KernelManager.format_kernel_cmd)
+                def format_kernel_cmd_with_autoimport(*args, **kwargs):
+                    result = __original__(*args, **kwargs)
+                    try:
+                        carg = result.index("-c")
+                    except ValueError:
+                        logger.debug("couldn't parse output of format_kernel_cmd(): %r", result)
+                        return result
+                    cmd = result[carg+1]
+                    expected_cmd = 'from IPython.kernel.zmq.kernelapp import main; main()'
+                    if cmd != expected_cmd:
+                        logger.debug("unexpected command, not modifying it: %r", cmd)
+                        return result
+                    new_cmd = (
+                        'from pyflyby._interactive import start_ipython_kernel_with_autoimporter; '
+                        'start_ipython_kernel_with_autoimporter()')
+                    result[carg+1] = new_cmd
+                    return result
+                try:
+                    return __original__(*args, **kwargs)
+                finally:
+                    format_kernel_cmd_with_autoimport.unadvise()
+            return True
+        # Tested with IPython 0.12, 0.13
+        try:
+            import IPython.zmq.ipkernel
+        except ImportError:
+            pass
+        else:
+            @self._advise(kernel_manager.start_kernel)
+            def start_kernel_with_autoimport013(*args, **kwargs):
+                logger.debug("start_kernel()")
+                @advise((IPython.zmq.ipkernel, 'base_launch_kernel'))
+                def base_launch_kernel_with_autoimport(cmd, *args, **kwargs):
+                    logger.debug("base_launch_kernel()")
+                    expected_cmd = 'from IPython.zmq.ipkernel import main; main()'
+                    if cmd != expected_cmd:
+                        logger.debug("unexpected command, not modifying it: %r", cmd)
+                    else:
+                        cmd = (
+                            'from pyflyby._interactive import start_ipython_kernel_with_autoimporter; '
+                            'start_ipython_kernel_with_autoimporter()')
+                    return __original__(cmd, *args, **kwargs)
+                try:
+                    return __original__(*args, **kwargs)
+                finally:
+                    base_launch_kernel_with_autoimport.unadvise()
+            return True
+        logger.debug("Couldn't enable start_kernel hook")
+        return False
+
+    def _enable_shell_hooks(self, app):
         """
         Enable hooks to run auto_import before code execution.
         """
         # Check again in case this was registered delayed
-        if self._enabled or self._errored:
-            return
+        if self._state != _EnableState.ENABLING:
+            return False
+        try:
+            ip = app.shell
+        except AttributeError:
+            logger.debug("_enable_shell_hooks(): no shell at all")
+            return True
+        if ip is None:
+            logger.debug("_enable_shell_hooks(): no shell yet")
+            return False
+        logger.debug("Enabling IPython shell hooks, shell=%r", ip)
+        self._ip = ip
         # Notes on why we hook what we hook:
         #
         # There are many different places within IPython we can consider
@@ -551,21 +1042,19 @@ class _AutoImporter(object):
         #
         # Since we have two invocations of auto_import(), case 1 is
         # handled twice.  That's fine, because it runs quickly.
-        logger.debug("Enabling IPython shell hooks")
-        self._enable_reset_hook()
-        self._enable_ofind_hook()
-        self._enable_ast_hook()
-        self._enable_time_hook()
-        self._enable_timeit_hook()
-        self._enable_prun_hook()
-        self._enable_completion_hook()
-        self._enable_run_hook()
-        self._enable_ipython_bugfixes()
-        # Completed.  (At least we did what we could, and no exceptions.)
-        self._enabled = True
-        return True
+        ok = True
+        ok &= self._enable_reset_hook(ip)
+        ok &= self._enable_ofind_hook(ip)
+        ok &= self._enable_ast_hook(ip)
+        ok &= self._enable_time_hook(ip)
+        ok &= self._enable_timeit_hook(ip)
+        ok &= self._enable_prun_hook(ip)
+        ok &= self._enable_completion_hook(ip)
+        ok &= self._enable_run_hook(ip)
+        ok &= self._enable_ipython_shell_bugfixes(ip)
+        return ok
 
-    def _enable_reset_hook(self):
+    def _enable_reset_hook(self, ip):
         # Register a hook that resets autoimporter state per input cell.
         # The only per-input-cell state we currently have is the recording of
         # which autoimports we've attempted but failed.  We keep track of this
@@ -576,7 +1065,6 @@ class _AutoImporter(object):
         # function to get called twice per cell.  This seems like an
         # unintentional repeated call in IPython itself.  This is harmless for
         # us, since doing an extra reset shouldn't hurt.
-        ip = get_ipython_safe()
         if hasattr(ip, "input_transformer_manager"):
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
             class ResetAutoImporterState(object):
@@ -595,36 +1083,36 @@ class _AutoImporter(object):
                     logger.info(
                         "Couldn't remove python_line_transformer hook")
             self._disablers.append(unregister_input_transformer)
+            return True
         elif hasattr(ip, "input_splitter"):
             # Tested with IPython 0.13.  Also works with later versions, but
             # for those versions, we can use a real hook instead of advising.
-            @advise(ip.input_splitter.reset)
+            @self._advise(ip.input_splitter.reset)
             def reset_input_splitter_and_autoimporter_state():
                 logger.debug("reset_input_splitter_and_autoimporter_state()")
                 self.reset_state_new_cell()
                 return __original__()
-            self._disablers.append(
-                reset_input_splitter_and_autoimporter_state.unadvise)
+            return True
         elif hasattr(ip, "resetbuffer"):
             # Tested with IPython 0.10.
-            @advise(ip.resetbuffer)
+            @self._advise(ip.resetbuffer)
             def resetbuffer_and_autoimporter_state():
                 logger.debug("resetbuffer_and_autoimporter_state")
                 self.reset_state_new_cell()
                 return __original__()
-            self._disablers.append(resetbuffer_and_autoimporter_state.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable reset hook")
+            return False
 
-    def _enable_ofind_hook(self):
+    def _enable_ofind_hook(self, ip):
         """
         Enable a hook of _ofind(), which is used for pinfo, autocall, etc.
         """
-        ip = self._ip
         # Advise _ofind.
         if hasattr(ip, "_ofind"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
-            @advise(ip._ofind)
+            @self._advise(ip._ofind)
             def ofind_with_autoimport(oname, namespaces=None):
                 logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
                 is_multiline = False
@@ -638,16 +1126,16 @@ class _AutoImporter(object):
                     self.auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
                 result = __original__(oname, namespaces=namespaces)
                 return result
-            self._disablers.append(ofind_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable ofind hook")
+            return False
 
-    def _enable_ast_hook(self):
+    def _enable_ast_hook(self, ip):
         """
         Enable a hook somewhere in the source => parsed AST => compiled code
         pipeline.
         """
-        ip = self._ip
         # Register an AST transformer.
         if hasattr(ip, 'ast_transformers'):
             logger.debug("Registering an ast_transformer")
@@ -681,6 +1169,7 @@ class _AutoImporter(object):
                         "Couldn't remove ast_transformer hook - already gone?")
                 self._ast_transformer = None
             self._disablers.append(unregister_ast_transformer)
+            return True
         elif hasattr(ip, "run_ast_nodes"):
             # Second choice: advise the run_ast_nodes() function.  Tested with
             # IPython 0.11, 0.12, 0.13.  This is the most robust way available
@@ -688,13 +1177,13 @@ class _AutoImporter(object):
             # (ip.compile.ast_parse also works in IPython 0.12-0.13; no major
             # flaw, but might as well use the same mechanism that works in
             # 0.11.)
-            @advise(ip.run_ast_nodes)
+            @self._advise(ip.run_ast_nodes)
             def run_ast_nodes_with_autoimport(nodelist, *args, **kwargs):
                 logger.debug("run_ast_nodes")
                 ast_node = ast.Module(nodelist)
                 self.auto_import(ast_node)
                 return __original__(nodelist, *args, **kwargs)
-            self._disablers.append(run_ast_nodes_with_autoimport.unadvise)
+            return True
         elif hasattr(ip, 'compile'):
             # Third choice: Advise ip.compile.
             # Tested with IPython 0.10.
@@ -702,7 +1191,7 @@ class _AutoImporter(object):
             # not per multiline code.
             # We don't hook runsource because that gets called incrementally
             # with partial multiline source until the source is complete.
-            @advise((ip, "compile"))
+            @self._advise((ip, "compile"))
             def compile_with_autoimport(source, filename="<input>",
                                         symbol="single"):
                 result = __original__(source, filename, symbol)
@@ -717,94 +1206,94 @@ class _AutoImporter(object):
                     # Got full code that our caller, runsource, will execute.
                     self.auto_import(source)
                 return result
-            self._disablers.append(compile_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable parse hook")
+            return False
 
-    def _enable_time_hook(self):
+    def _enable_time_hook(self, ip):
         """
         Enable a hook so that %time will autoimport.
         """
         # For IPython 1.0+, the ast_transformer takes care of it.
         if self._ast_transformer:
-            return
+            return True
         # Otherwise, we advise %time to temporarily override the compile()
         # builtin within it.
-        ip = self._ip
         if hasattr(ip, 'magics_manager'):
             # Tested with IPython 0.13.  (IPython 1.0+ also has
             # magics_manager, but for those versions, ast_transformer takes
             # care of %time.)
             line_magics = ip.magics_manager.magics['line']
-            @advise((line_magics, 'time'))
+            @self._advise((line_magics, 'time'))
             def time_with_autoimport(*args, **kwargs):
                 logger.debug("time_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, compile=self.compile_with_autoimport)
                 return wrapped(*args, **kwargs)
-            self._disablers.append(time_with_autoimport.unadvise)
+            return True
         elif hasattr(ip, 'magic_time'):
             # Tested with IPython 0.10, 0.11, 0.12
-            @advise(ip.magic_time)
+            @self._advise(ip.magic_time)
             def magic_time_with_autoimport(*args, **kwargs):
                 logger.debug("time_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, compile=self.compile_with_autoimport)
                 return wrapped(*args, **kwargs)
-            self._disablers.append(magic_time_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable time hook")
+            return False
 
-    def _enable_timeit_hook(self):
+    def _enable_timeit_hook(self, ip):
         """
         Enable a hook so that %timeit will autoimport.
         """
         # For IPython 1.0+, the ast_transformer takes care of it.
         if self._ast_transformer:
-            return
+            return True
         # Otherwise, we advise %timeit to temporarily override the compile()
         # builtin within it.
-        ip = self._ip
         if hasattr(ip, 'magics_manager'):
             # Tested with IPython 0.13.  (IPython 1.0+ also has
             # magics_manager, but for those versions, ast_transformer takes
             # care of %timeit.)
             line_magics = ip.magics_manager.magics['line']
-            @advise((line_magics, 'timeit'))
+            @self._advise((line_magics, 'timeit'))
             def timeit_with_autoimport(*args, **kwargs):
                 logger.debug("timeit_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, compile=self.compile_with_autoimport)
                 return wrapped(*args, **kwargs)
-            self._disablers.append(timeit_with_autoimport.unadvise)
+            return True
         elif hasattr(ip, 'magic_timeit'):
             # Tested with IPython 0.10, 0.11, 0.12
-            @advise(ip.magic_timeit)
+            @self._advise(ip.magic_timeit)
             def magic_timeit_with_autoimport(*args, **kwargs):
                 logger.debug("timeit_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, compile=self.compile_with_autoimport)
                 return wrapped(*args, **kwargs)
-            self._disablers.append(magic_timeit_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable timeit hook")
+            return False
 
-    def _enable_prun_hook(self):
+    def _enable_prun_hook(self, ip):
         """
         Enable a hook so that %prun will autoimport.
         """
-        ip = self._ip
         if hasattr(ip, 'magics_manager'):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.
             line_magics = ip.magics_manager.magics['line']
             execmgr = line_magics['prun'].im_self
             if hasattr(execmgr, "_run_with_profiler"):
-                @advise(execmgr._run_with_profiler)
+                @self._advise(execmgr._run_with_profiler)
                 def run_with_profiler_with_autoimport(code, opts, namespace):
                     logger.debug("run_with_profiler_with_autoimport()")
                     self.auto_import(code, [namespace])
                     return __original__(code, opts, namespace)
-                self._disablers.append(run_with_profiler_with_autoimport.unadvise)
+                return True
             else:
                 # Tested with IPython 0.13.
                 class ProfileFactory_with_autoimport(object):
@@ -816,13 +1305,13 @@ class _AutoImporter(object):
                             self.auto_import(cmd, [globals, locals])
                             return __original__(cmd, globals, locals)
                         return p
-                @advise((line_magics, 'prun'))
+                @self._advise((line_magics, 'prun'))
                 def prun_with_autoimport(*args, **kwargs):
                     logger.debug("prun_with_autoimport()")
                     wrapped = FunctionWithGlobals(
                         __original__, profile=ProfileFactory_with_autoimport())
                     return wrapped(*args, **kwargs)
-                self._disablers.append(prun_with_autoimport.unadvise)
+                return True
         elif hasattr(ip, "magic_prun"):
             # Tested with IPython 0.10, 0.11, 0.12.
             class ProfileFactory_with_autoimport(object):
@@ -834,17 +1323,18 @@ class _AutoImporter(object):
                         self.auto_import(cmd, [globals, locals])
                         return __original__(cmd, globals, locals)
                     return p
-            @advise(ip.magic_prun)
+            @self._advise(ip.magic_prun)
             def magic_prun_with_autoimport(*args, **kwargs):
                 logger.debug("magic_prun_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, profile=ProfileFactory_with_autoimport())
                 return wrapped(*args, **kwargs)
-            self._disablers.append(magic_prun_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable prun hook")
+            return False
 
-    def _enable_completion_hook(self):
+    def _enable_completion_hook(self, ip):
         """
         Enable a tab-completion hook.
         """
@@ -866,28 +1356,30 @@ class _AutoImporter(object):
         # global_matches() and attr_matches() instead of python_matches()
         # because a few other functions call global_matches/attr_matches
         # directly.)
-        ip = self._ip
-        if hasattr(ip, "Completer"):
+        completer = getattr(ip, "Completer", None)
+        if hasattr(completer, "global_matches"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
-            @advise(ip.Completer.global_matches)
+            @self._advise(ip.Completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 return self.complete_symbol(fullname, on_error=__original__)
-            @advise(ip.Completer.attr_matches)
+            @self._advise(ip.Completer.attr_matches)
             def attr_matches_with_autoimport(fullname):
                 return self.complete_symbol(fullname, on_error=__original__)
-            self._disablers.append(global_matches_with_autoimport.unadvise)
-            self._disablers.append(attr_matches_with_autoimport.unadvise)
+            return True
+        elif hasattr(completer, "complete_request"):
+            # This is a ZMQCompleter, so nothing to do.
+            return True
         else:
             logger.debug("Couldn't enable completion hook")
+            return False
 
-    def _enable_run_hook(self):
+    def _enable_run_hook(self, ip):
         """
         Enable a hook so that %run will autoimport.
         """
-        ip = self._ip
         if hasattr(ip, "safe_execfile"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
-            @advise(ip.safe_execfile)
+            @self._advise(ip.safe_execfile)
             def safe_execfile_with_autoimport(filename,
                                               globals=None, locals=None,
                                               **kwargs):
@@ -904,11 +1396,12 @@ class _AutoImporter(object):
                 except Exception as e:
                     logger.error("%s: %s", type(e).__name__, e)
                 return __original__(filename, *namespaces, **kwargs)
-            self._disablers.append(safe_execfile_with_autoimport.unadvise)
+            return True
         else:
             logger.debug("Couldn't enable execfile hook")
+            return False
 
-    def _enable_ipython_bugfixes(self):
+    def _enable_ipython_shell_bugfixes(self, ip):
         """
         Enable some advice that's actually just fixing bugs in IPython.
         """
@@ -916,25 +1409,66 @@ class _AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        ip = get_ipython_safe()
         if (sys.version_info < (3,) and
             hasattr(ip, "new_main_mod") and
             inspect.getargspec(ip.new_main_mod).args == ["self","filename","modname"]):
-            @advise(ip.new_main_mod)
+            @self._advise(ip.new_main_mod)
             def new_main_mod_fix_str(filename, modname):
                 if type(modname) is unicode:
                     modname = str(modname)
                 return __original__(filename, modname)
-            self._disablers.append(new_main_mod_fix_str.unadvise)
+        return True
+
+    def _enable_ipython_bugfixes(self):
+        """
+        Enable some advice that's actually just fixing bugs in IPython.
+        """
+        try:
+            from IPython.config.application import LevelFormatter
+        except ImportError:
+            pass
+        else:
+            if (not issubclass(LevelFormatter, object) and
+                "super" in LevelFormatter.format.im_func.func_code.co_names and
+                "logging" not in LevelFormatter.format.im_func.func_code.co_names):
+                # In IPython 1.0, LevelFormatter uses super(), which assumes
+                # that logging.Formatter is a subclass of object.  However,
+                # this is only true in Python 2.7+, not in Python 2.6.  So
+                # Python 2.6 + IPython 1.0 causes problems.  IPython 1.2
+                # already includes this fix.
+                from logging import Formatter
+                @self._advise(LevelFormatter.format)
+                def format_patched(self, record):
+                    if record.levelno >= self.highlevel_limit:
+                        record.highlevel = self.highlevel_format % record.__dict__
+                    else:
+                        record.highlevel = ""
+                    return Formatter.format(self, record)
+        return True
 
     def disable(self):
         """
         Turn off auto-importer in the current IPython session.
         """
-        self._enabled = False
+        if self._state is _EnableState.DISABLED:
+            logger.debug("disable(): already disabled")
+            return
+        logger.debug("disable(): state: %s=>DISABLING", self._state)
+        self._state = _EnableState.DISABLING
         while self._disablers:
             f = self._disablers.pop(-1)
-            f()
+            try:
+                f()
+            except Exception as e:
+                self._errored = True
+                logger.error("Error while disabling: %s: %s", type(e).__name__, e)
+                if logger.debug_enabled:
+                    raise
+                else:
+                    logger.info(
+                        "Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.")
+        logger.debug("disable(): state: %s=>DISABLED", self._state)
+        self._state = _EnableState.DISABLED
 
     def _safe_call(self, function, *args, **kwargs):
         on_error = kwargs.pop("on_error", None)
@@ -1011,13 +1545,14 @@ class _AutoImporter(object):
         with InterceptPrintsDuringPromptCtx(self._ip):
             namespaces = get_global_namespaces(self._ip)
             if on_error is not None:
-                def on_error1(fullname, namespaces, autoimported):
+                def on_error1(fullname, namespaces, autoimported, ip):
                     return on_error(fullname)
             else:
                 on_error1 = None
             return self._safe_call(
                 complete_symbol, fullname, namespaces,
                 autoimported=self._autoimported_this_cell,
+                ip=self._ip,
                 raise_on_error=raise_on_error, on_error=on_error1)
 
     def compile_with_autoimport(self, src, filename, mode, flags=0):
@@ -1030,20 +1565,28 @@ class _AutoImporter(object):
         else:
             return compile(ast_node, filename, mode, flags, dont_inherit=True)
 
+    def _advise(self, joinpoint):
+        def advisor(f):
+            aspect = Aspect(joinpoint)
+            if aspect.advise(f, once=True):
+                self._disablers.append(aspect.unadvise)
+        return advisor
 
-_auto_importer = _AutoImporter()
+
 
 def enable_auto_importer():
     """
-    Turn on the auto-importer in the current IPython session.
+    Turn on the auto-importer in the current IPython application.
     """
-    # This is a separate function instead of just an assignment, for the sake
-    # of documentation, introspection, import into package namespace.
-    _auto_importer.enable()
+    app = _get_ipython_app()
+    auto_importer = AutoImporter(app)
+    auto_importer.enable()
 
 
 def disable_auto_importer():
     """
-    Turn off the auto-importer in the current IPython session.
+    Turn off the auto-importer in the current IPython application.
     """
-    _auto_importer.disable()
+    app = _get_ipython_app()
+    auto_importer = AutoImporter(app)
+    auto_importer.disable()

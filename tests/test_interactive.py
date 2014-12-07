@@ -8,16 +8,20 @@ from __future__ import absolute_import, division, with_statement
 import IPython
 import atexit
 from   cStringIO                import StringIO
+from   contextlib               import contextmanager
 import difflib
 import inspect
+import json
 import os
 import pexpect
 import pytest
 import random
 import re
 import readline
+import requests
 from   shutil                   import rmtree
 import signal
+from   subprocess               import PIPE, Popen, check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
 from   textwrap                 import dedent
@@ -25,9 +29,6 @@ from   textwrap                 import dedent
 import pyflyby
 from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
-
-
-# TODO: test IPython kernel (closest thing to testing Notebook)
 
 
 def assert_fail():
@@ -61,6 +62,12 @@ class _TmpFixture(object):
         """
         return self.new_tempfile()
 
+    @cached_attribute
+    def ipython_dir(self):
+        d = self.new_tempdir()
+        _init_ipython_dir(d)
+        return d
+
     def new_tempdir(self):
         d = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
         self._request.addfinalizer(lambda: rmtree(d))
@@ -73,15 +80,15 @@ class _TmpFixture(object):
         return Filename(f)
 
 
-def writetext(filename, text):
+def writetext(filename, text, mode='w'):
     text = dedent(text)
     filename = Filename(filename)
-    with open(str(filename), 'w') as f:
+    with open(str(filename), mode) as f:
         f.write(text)
     return filename
 
 
-def assert_match(result, expected):
+def assert_match(result, expected, ignore_prompt_number=False):
     """
     Check that C{result} matches C{expected}.
     C{expected} is a pattern where
@@ -90,8 +97,6 @@ def assert_match(result, expected):
     """
     __tracebackhide__ = True
     expected = dedent(expected).strip()
-    result = '\n'.join(line.rstrip() for line in result.splitlines())
-    result = result.strip()
     parts = expected.split("...")
     regexp_parts = [re.escape(parts[0])]
     for s in parts[1:]:
@@ -106,7 +111,18 @@ def assert_match(result, expected):
             regexp_parts.append(".*")
             regexp_parts.append(re.escape(s))
     regexp = "".join(regexp_parts)
-
+    if ignore_prompt_number:
+        regexp = re.sub(r"(In\\? |Out)\\*\[[0-9]+\\*\]\\?:", r"\1\[[0-9]+\]:", regexp)
+    if _IPYTHON_VERSION < (1, 0):
+        # IPython 0.13 console prints kernel info; ignore it.
+        #   [IPKernelApp] To connect another client to this kernel, use:
+        #   [IPKernelApp] --existing kernel-12345.json
+        ignore = dedent(r"""
+            (\[IPKernelApp\] To connect another client to this kernel, use:
+            \[IPKernelApp\] --existing kernel-[0-9]+\.json
+            )?
+        """).strip()
+        result = re.sub(ignore, "", result)
     if _IPYTHON_VERSION < (0, 11):
         # IPython 0.10 prompt counts are buggy, e.g. %time increments by 2.
         # Ignore prompt numbers and extra newlines before the output prompt.
@@ -114,13 +130,36 @@ def assert_match(result, expected):
                         r"In \[[0-9]+\]", regexp)
         regexp = re.sub(re.compile(r"^Out\\\[[0-9]+\\\]", re.M),
                         r"\n?Out\[[0-9]+\]", regexp)
+    if _IPYTHON_VERSION < (0, 12) and sys.version_info >= (2, 7):
+        # Ignore ultratb problems (not pyflyby-related).
+        # TODO: consider using --TerminalInteractiveShell.xmode=plain (-xmode)
+        ignore = dedent(r"""
+            (ERROR: An unexpected error occurred while tokenizing input
+            The following traceback may be corrupted or invalid
+            The error message is: .*
+            )?
+        """).strip()
+        result = re.sub(ignore, "", result)
+    if _IPYTHON_VERSION < (1, 0):
+        # Ignore zmq version warnings (not pyflyby-related).
+        # TODO: install older version of zmq for older IPython versions.
+        ignore = dedent(r"""
+            (/.*/IPython/zmq/__init__.py:\d+: RuntimeWarning: libzmq \d+ detected.
+            \s*It is unlikely that IPython's zmq code will work properly.
+            \s*Please install libzmq stable.*?
+            \s*RuntimeWarning\)
+            )?
+        """).strip()
+        result = re.sub(ignore, "", result)
     # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
     regexp = re.sub(re.compile(r"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
-                    "\\1(?:\nCompiler time: [0-9.]+ s)?\\2", regexp)
+                    "\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
     regexp += "$"
     # Check for match.
     regexp = re.compile(regexp)
+    result = '\n'.join(line.rstrip() for line in result.splitlines())
+    result = result.strip()
     if not regexp.match(result):
         msg = []
         msg.append("Expected:")
@@ -295,6 +334,12 @@ def test_selftest_assert_match_2():
         assert_match(result, expected)
 
 
+def test_lazy_import_ipython_1():
+    # Verify that "import pyflyby" doesn't imply "import IPython".
+    pycmd = 'import pyflyby, sys; sys.exit("IPython" in sys.modules)'
+    check_call(["python", "-c", pycmd])
+
+
 def remove_ansi_escapes(s):
     s = re.sub("\x1B\[[?]?[0-9;]*[a-zA-Z]", "", s)
     s = re.sub("[\x01\x02]", "", s)
@@ -367,7 +412,21 @@ def _build_pythonpath(PYTHONPATH):
     return ":".join(pypath)
 
 
-def _build_ipython_cmd(ipython_dir, autocall=False):
+def _init_ipython_dir(ipython_dir):
+    ipython_dir = Filename(ipython_dir)
+    if _IPYTHON_VERSION >= (0, 11):
+        os.makedirs(str(ipython_dir/"profile_default"))
+        os.makedirs(str(ipython_dir/"profile_default/startup"))
+        writetext(ipython_dir/"profile_default/ipython_config.py", "")
+    elif _IPYTHON_VERSION >= (0, 10):
+        writetext(ipython_dir/"ipythonrc", """
+            readline_parse_and_bind tab: complete
+            readline_parse_and_bind set show-all-if-ambiguous on
+        """)
+        writetext(ipython_dir/"ipy_user_conf.py", "")
+
+
+def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
     """
     Prepare the command to run IPython.
     """
@@ -375,41 +434,43 @@ def _build_ipython_cmd(ipython_dir, autocall=False):
     cmd = []
     if '/.tox/' in sys.prefix:
         # Get the ipython from our (tox virtualenv) path.
-        cmd += [os.path.join(os.path.dirname(sys.executable), "ipython")]
+        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     else:
-        cmd += ["ipython"]
+        cmd += [prog]
+    if isinstance(args, basestring):
+        args = [args]
+    if args and not args[0].startswith("-"):
+        app = args[0]
+    else:
+        app = "terminal"
+    cmd += list(args)
     # Construct IPython arguments based on version.
     if _IPYTHON_VERSION >= (0, 11):
-        cmd += [
-            "--ipython-dir=%s" % (ipython_dir,),
-            "--no-confirm-exit",
-            "--no-banner",
-            "--quiet",
-            "--colors=NoColor",
-            "--no-term-title",
-            "--no-autoindent",
-        ]
-        if autocall:
-            cmd += ["--autocall=1"]
+        opt = lambda arg: arg
     elif _IPYTHON_VERSION >= (0, 10):
-        cmd += [
-            "-ipythondir=%s" % (ipython_dir,),
-            "-noconfirm_exit",
-            "-nomessages",
-            "-nobanner",
-            "-colors=NoColor",
-            "-noautoindent",
-        ]
-        if autocall:
-            cmd += ["-autocall=1"]
-        writetext(ipython_dir/"ipythonrc", """
-            readline_parse_and_bind tab: complete
-            readline_parse_and_bind set show-all-if-ambiguous on
-        """)
-        writetext(ipython_dir/"ipy_user_conf.py", "")
+        def opt(arg):
+            """
+              >>> opt('--foo-bar=x-y')
+              '-foo_bar=x-y'
+            """
+            m = re.match("--([^=]+?)(=.*)?$", arg)
+            optname = m.group(1)
+            optval  = m.group(2) or ""
+            optname = re.sub("^no-", "no", optname)
+            optname = re.sub("-", "_", optname)
+            optname = re.sub("^ipython_dir$", "ipythondir", optname)
+            return "-%s%s" % (optname, optval)
     else:
         raise NotImplementedError("Don't know how to test IPython version %s"
                                   % (_IPYTHON_VERSION,))
+    cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
+    if app in ["terminal", "console"]:
+        cmd += [opt("--no-confirm-exit")]
+        cmd += [opt("--no-banner")]
+    cmd += [opt("--colors=NoColor")]
+    cmd += [opt("--no-autoindent")]
+    if autocall:
+        cmd += [opt("--autocall=1")]
     return cmd
 
 
@@ -434,18 +495,39 @@ class MySpawn(pexpect.spawn):
         super(MySpawn, self).setwinsize(100, 900)
 
 
-def spawn_ipython(input, autocall=False,
-                  PYTHONPATH=[],
-                  PYFLYBY_PATH=PYFLYBY_PATH,
-                  PYFLYBY_LOG_LEVEL=""):
+class ExpectError(Exception):
+    def __init__(self, e, child):
+        self.e = e
+        self.child = child
+        self.args = (e, child)
+
+    def __str__(self):
+        return "%s in %s" % (
+            self.e.__class__.__name__, ' '.join(self.child.args))
+
+
+@contextmanager
+def IPythonCtx(prog="ipython",
+               args=[],
+               autocall=False,
+               ipython_dir=None,
+               PYTHONPATH=[],
+               PYFLYBY_PATH=PYFLYBY_PATH,
+               PYFLYBY_LOG_LEVEL=""):
     """
     Spawn IPython in a pty subprocess.  Send it input and expect output.
     """
+    __tracebackhide__ = True
     if hasattr(PYFLYBY_PATH, "write"):
         PYFLYBY_PATH = PYFLYBY_PATH.name
     PYFLYBY_PATH = str(Filename(PYFLYBY_PATH))
     # Create a temporary directory which we'll use as our IPYTHONDIR.
-    ipython_dir = mkdtemp(prefix="pyflyby_test_ipython_", suffix=".tmp")
+    if ipython_dir:
+        cleanup = lambda: None
+    else:
+        ipython_dir = mkdtemp(prefix="pyflyby_test_ipython_", suffix=".tmp")
+        _init_ipython_dir(ipython_dir)
+        cleanup = lambda: rmtree(ipython_dir)
     child = None
     try:
         # Prepare environment variables.
@@ -454,10 +536,10 @@ def spawn_ipython(input, autocall=False,
         env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
         env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
         env["PYTHONSTARTUP"]     = ""
-        cmd = _build_ipython_cmd(ipython_dir, autocall=autocall)
+        cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall)
         # Spawn IPython.
         with EnvVarCtx(**env):
-            child = MySpawn(cmd[0], cmd[1:], echo=True, timeout=5.0)
+            child = MySpawn(cmd[0], cmd[1:], echo=True, timeout=10.0)
         # Log output to a StringIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
         # commands, since we used echo=True.  (Using logfile=StringIO and
@@ -467,43 +549,56 @@ def spawn_ipython(input, autocall=False,
         child.logfile_read = output
         # Don't delay 0.05s before sending.
         child.delaybeforesend = 0.0
-        # Canonicalize input lines.
-        input = dedent(input)
-        input = re.sub("^\n+", "", input)
-        input = re.sub("\n+$", "", input)
-        input += "\nexit()\n"
-        lines = input.splitlines(False)
-        # Loop over lines.
-        for line in lines:
-            # Wait for the "In [N]:" prompt.
-            child.expect(_IPYTHON_PROMPTS)
-            while line:
-                left, tab, right = line.partition("\t")
-                # Send the input (up to tab or newline).
-                child.send(left)
-                # Check that the client IPython gets the input.
-                child.expect_exact(left)
-                if tab:
-                    # Send the tab.
-                    child.send(tab)
-                    # Wait for response to tab.
-                    _wait_nonce(child)
-                line = right
-            child.send("\n")
-        # We're finished sending input commands.  Wait for process to
-        # complete.
-        child.expect(pexpect.EOF)
-    except (pexpect.TIMEOUT, pexpect.EOF):
-        print "Timed out."
+        # Yield control to caller.
+        child.ipython_dir = ipython_dir
+        yield child
+    except (pexpect.ExceptionPexpect) as e:
+        print "Error: %s" % (e.__class__.__name__,)
         print "Output so far:"
         result = _clean_ipython_output(output.getvalue())
         print ''.join("    %s\n"%line for line in result.splitlines())
-        raise
+        # Re-raise an exception wrapped so that we don't re-catch it for the
+        # wrong child.
+        raise ExpectError(e, child) #, None, sys.exc_info()[2]
     finally:
         # Clean up.
         if child is not None and child.isalive():
             child.kill(signal.SIGKILL)
-        rmtree(ipython_dir)
+        cleanup()
+
+
+def _interact_ipython(child, input, exit=True, sendeof=False):
+    # Canonicalize input lines.
+    input = dedent(input)
+    input = re.sub("^\n+", "", input)
+    input = re.sub("\n+$", "", input)
+    input += "\n"
+    if exit:
+        input += "exit()\n"
+    lines = input.splitlines(False)
+    # Loop over lines.
+    for line in lines:
+        # Wait for the "In [N]:" prompt.
+        child.expect(_IPYTHON_PROMPTS)
+        while line:
+            left, tab, right = line.partition("\t")
+            # Send the input (up to tab or newline).
+            child.send(left)
+            # Check that the client IPython gets the input.
+            child.expect_exact(left)
+            if tab:
+                # Send the tab.
+                child.send(tab)
+                # Wait for response to tab.
+                _wait_nonce(child)
+            line = right
+        child.send("\n")
+    # We're finished sending input commands.  Wait for process to complete.
+    if sendeof:
+        child.sendeof()
+    child.expect(pexpect.EOF)
+    # Get output.
+    output = child.logfile_read
     result = output.getvalue()
     result = _clean_ipython_output(result)
     return result
@@ -522,12 +617,137 @@ def ipython(template, **kwargs):
     template = dedent(template).strip()
     template = template.format(**parent_vars)
     input, expected = parse_template(template)
+    args = kwargs.pop("args", ())
+    if isinstance(args, basestring):
+        args = [args]
+    args = list(args)
+    if args and not args[0].startswith("-"):
+        app = args[0]
+    else:
+        app = "terminal"
+    if app == "console":
+        kwargs.setdefault("exit"                , False)
+        kwargs.setdefault("sendeof"             , True)
+        kwargs.setdefault("ignore_prompt_number", True)
+    exit                 = kwargs.pop("exit"                , True)
+    sendeof              = kwargs.pop("sendeof"             , False)
+    ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
+    kernel = kwargs.pop("kernel", None)
+    if kernel is not None:
+        args += kernel.kernel_info
+        kwargs.setdefault("ipython_dir", kernel.ipython_dir)
     # print "Input:"
     # print "".join("    %s\n"%line for line in input.splitlines())
-    result = spawn_ipython(input, **kwargs)
+    with IPythonCtx(args=args, **kwargs) as child:
+        result = _interact_ipython(child, input, exit=exit, sendeof=sendeof)
     # print "Output:"
     # print "".join("    %s\n"%line for line in result.splitlines())
-    assert_match(result, expected)
+    assert_match(result, expected, ignore_prompt_number=ignore_prompt_number)
+
+
+@contextmanager
+def IPythonKernelCtx(**kwargs):
+    """
+    Launch IPython kernel.
+    """
+    __tracebackhide__ = True
+    with IPythonCtx(args='kernel', **kwargs) as child:
+        # Get the kernel info: --existing kernel-1234.json
+        child.expect(r"To connect another client to this kernel, use:\s*"
+                     "(?:\[IPKernelApp\])?\s*(--existing .*?json)")
+        kernel_info = child.match.group(1).split()
+        # Yield control to caller.
+        child.kernel_info = kernel_info
+        yield child
+
+
+@contextmanager
+def IPythonNotebookCtx(**kwargs):
+    """
+    Launch IPython Notebook.
+    """
+    __tracebackhide__ = True
+    args = kwargs.pop("args", [])
+    args = args + ['notebook', '--no-browser']
+    notebook_dir = kwargs.pop("notebook_dir", None)
+    cleanups = []
+    if not notebook_dir:
+        notebook_dir = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
+        cleanups.append(lambda: rmtree(notebook_dir))
+    if (kwargs.get("prog", "ipython") == "ipython" and
+        (1, 0) <= _IPYTHON_VERSION < (1, 2) and
+        sys.version_info < (2, 7)):
+        # Work around a bug in IPython 1.0 + Python 2.6.
+        # The bug is that in IPython 1.0, LevelFormatter uses super(), which
+        # assumes that logging.Formatter is a subclass of object.  However,
+        # this is only true in Python 2.7+, not in Python 2.6.
+        # pyflyby.enable_auto_importer() fixes that issue too, so 'autoipython
+        # notebook' is not affected, only 'ipython notebook'.
+        assert "PYTHONPATH" not in kwargs
+        extra_pythonpath = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
+        cleanups.append(lambda: rmtree(extra_pythonpath))
+        kwargs["PYTHONPATH"] = extra_pythonpath
+        writetext(Filename(extra_pythonpath)/"sitecustomize.py", """
+            from logging import Formatter
+            from IPython.config.application import LevelFormatter
+            def _format_patched(self, record):
+                if record.levelno >= self.highlevel_limit:
+                    record.highlevel = self.highlevel_format % record.__dict__
+                else:
+                    record.highlevel = ""
+                return Formatter.format(self, record)
+            LevelFormatter.format = _format_patched
+        """)
+    try:
+        args += ['--notebook-dir=%s' % notebook_dir]
+        with IPythonCtx(args=args, **kwargs) as child:
+            # Get the base URL from the notebook app.
+            child.expect(r"The IPython Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
+            baseurl = child.match.group(1)
+            # Create a new notebook.
+            if _IPYTHON_VERSION >= (2,):
+                response = requests.post(baseurl + "/api/notebooks")
+                assert response.status_code == 201
+                # Get the notebook path & name for the new notebook.
+                text = response.text
+                response_data = json.loads(text)
+                path = response_data['path']
+                name = response_data['name']
+                # Create a session & kernel for the new notebook.
+                request_data = json.dumps(
+                    dict(notebook=dict(path=path, name=name)))
+                response = requests.post(baseurl + "/api/sessions",
+                                         data=request_data)
+                assert response.status_code == 201
+                # Get the kernel_id for the new kernel.
+                text = response.text
+                response_data = json.loads(text)
+                kernel_id = response_data['kernel']['id']
+            elif _IPYTHON_VERSION >= (0, 12):
+                response = requests.get(baseurl + "/new")
+                assert response.status_code == 200
+                # Get the notebook_id for the new notebook.
+                text = response.text
+                m = re.search("data-notebook-id\s*=\s*([0-9a-f-]+)", text)
+                assert m is not None
+                notebook_id = m.group(1)
+                # Start a kernel for the notebook.
+                response = requests.post(baseurl + "/kernels?notebook=" + notebook_id)
+                assert response.status_code == 200
+                # Get the kernel_id for the new kernel.
+                text = response.text
+                kernel_id = json.loads(text)['kernel_id']
+            else:
+                raise NotImplementedError(
+                    "Not implemented for IPython %s" % (IPython.__version__))
+            # Construct the kernel info line: --existing kernel-123-abcd-...456.json
+            kernel_info = ['--existing', "kernel-%s.json" % kernel_id]
+            # Yield control to caller.
+            child.kernel_info = kernel_info
+            yield child
+    finally:
+        for cleanup in cleanups:
+            cleanup()
 
 
 def _wait_nonce(child):
@@ -601,8 +821,10 @@ def _clean_ipython_output(result):
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(r"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), "<ipython-input>", result)
     result = re.sub(re.compile(r"^----> .*?\n", re.M), "", result)
-    # Remove "In [N]: exit()".
-    result = re.sub(_IPYTHON_PROMPT1 + "exit[(][)]\n$", "", result)
+    # Remove trailing "In [N]:", if any.
+    result = re.sub("%s\n?$"%_IPYTHON_PROMPT1, "", result)
+    # Remove trailing "In [N]: exit()".
+    result = re.sub("%sexit[(][)]\n?$"%_IPYTHON_PROMPT1, "", result)
     # Compress newlines.
     result = re.sub("\n\n+", "\n", result)
     return result
@@ -1700,7 +1922,7 @@ def test_error_during_enable_1():
     # autoimporter.  Verify that we don't attempt to re-enable again.
     ipython("""
         In [1]: import pyflyby
-        In [2]: pyflyby._interactive.advise = None
+        In [2]: pyflyby._interactive.AutoImporter._enable_internal = None
         In [3]: pyflyby.enable_auto_importer()
         [PYFLYBY] TypeError: 'NoneType' object is not callable
         [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
@@ -1715,3 +1937,473 @@ def test_error_during_enable_1():
         In [6]: pyflyby.enable_auto_importer()
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
     """)
+
+
+skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="IPython version %s does not support kernel, so nothing to test")
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_console_1():
+    # Verify that autoimport and tab completion work in IPython console.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: b64deco\tde('cGVhbnV0')
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: 'peanut'
+    """, args='console', sendeof=True)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_kernel_console_existing_1():
+    # Verify that autoimport and tab completion work in IPython console, when
+    # started independently.
+    # Start "IPython kernel".
+    with IPythonKernelCtx() as kernel:
+        # Start a separate "ipython console --existing kernel-1234.json".
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: b64deco\tde('bGVndW1l')
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: 'legume'
+        """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_kernel_console_multiple_existing_1():
+    # Verify that autoimport and tab completion work in IPython console, when
+    # the auto importer is enabled from a different console.
+    # Start "IPython kernel".
+    with IPythonKernelCtx() as kernel:
+        # Start a separate "ipython console --existing kernel-1234.json".
+        # Verify that the auto importer isn't enabled yet.
+        ipython("""
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in <module>()
+            NameError: name 'b64decode' is not defined
+        """, args=['console'], kernel=kernel)
+        # Enable the auto importer.
+        ipython("""
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()
+        """, args=['console'], kernel=kernel)
+        # Verify that the auto importer and tab completion work.
+        ipython("""
+            In [3]: b64deco\tde('YWxtb25k')
+            [PYFLYBY] from base64 import b64decode
+            Out[3]: 'almond'
+        """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_notebook_1():
+    with IPythonNotebookCtx() as kernel:
+        # Verify that the auto importer isn't enabled yet.
+        ipython("""
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in <module>()
+            NameError: name 'b64decode' is not defined
+        """, args=['console'], kernel=kernel)
+        # Enable the auto importer.
+        ipython(
+        """
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()
+        """, args=['console'], kernel=kernel)
+        # Verify that the auto importer and tab completion work.
+        ipython("""
+            In [3]: b64deco\tde('aGF6ZWxudXQ=')
+            [PYFLYBY] from base64 import b64decode
+            Out[3]: 'hazelnut'
+        """, args=['console'], kernel=kernel)
+
+
+def test_autoipython_1():
+    # Verify that autoipython works - i.e. the autoimporter is enabled at start.
+    ipython("""
+        In [1]: b64deco\tde('cGlzdGFjaGlv')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'pistachio'
+    """, prog="autoipython")
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_console_1():
+    # Verify that autoipython console works.
+    ipython("""
+        In [1]: b64deco\tde('d2FsbnV0')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'walnut'
+    """, prog="autoipython", args=['console'])
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_kernel_1():
+    # Verify that autoipython kernel works.
+    with IPythonKernelCtx(prog="autoipython") as kernel:
+        # Run ipython console.  Note that we don't need autoipython here, as
+        # the autoimport & completion is a property of the kernel.
+        ipython("""
+            In [1]: b64deco\tde('bWFjYWRhbWlh')
+            [PYFLYBY] from base64 import b64decode
+            Out[1]: 'macadamia'
+        """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_console_existing_1():
+    # Verify that autoipython console works as usual (no extra functionality
+    # expected over regular ipython console, but just check that it still
+    # works normally).
+    with IPythonKernelCtx() as kernel:
+        ipython("""
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in <module>()
+            NameError: name 'b64decode' is not defined
+        """, prog="autoipython", args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_notebook_1():
+    with IPythonNotebookCtx(prog="autoipython") as kernel:
+        # Verify that the auto importer and tab completion work.
+        ipython("""
+            In [1]: b64deco\tde('Y2FzaGV3')
+            [PYFLYBY] from base64 import b64decode
+            Out[1]: 'cashew'
+        """, args=['console'], kernel=kernel)
+
+
+def test_autoipython_disable_1():
+    # Verify that when using autoipython, we can disable the autoimporter, and
+    # also re-enable it.
+    ipython("""
+        In [1]: b64deco\tde('aGlja29yeQ==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'hickory'
+        In [2]: pyflyby.disable_auto_importer()
+        [PYFLYBY] import pyflyby
+        In [3]: b64encode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64encode' is not defined
+        In [4]: b64decode('bW9ja2VybnV0')
+        Out[4]: 'mockernut'
+        In [5]: pyflyby.enable_auto_importer()
+        In [6]: b64encode('pecan')
+        [PYFLYBY] from base64 import b64encode
+        Out[6]: 'cGVjYW4='
+    """, prog="autoipython")
+
+
+def run_autoipython_install(ipython_dir, expect_installed=False):
+    with EnvVarCtx(IPYTHONDIR=str(ipython_dir)):
+        proc = Popen(['autoipython', '--install'], stderr=PIPE)
+    retcode = proc.wait()
+    output = proc.stderr.read()
+    assert retcode == 0, output
+    if expect_installed:
+        assert "Doing nothing" in output
+        assert "Installing" not in output
+    else:
+        assert "Doing nothing" not in output
+        assert "Installing" in output
+
+
+def test_autoipython_install_1(tmp):
+    # Verify that 'autoipython --install' works, i.e. it permanently makes the
+    # auto importer enabled at IPython startup.
+    run_autoipython_install(tmp.ipython_dir)
+    ipython("""
+        In [1]: b64deco\tde('bWFwbGU=')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'maple'
+    """, ipython_dir=tmp.ipython_dir)
+    # Double-check that we only modified tmp.ipython_dir.
+    ipython("""
+        In [1]: b64decode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64decode' is not defined
+    """)
+
+
+def test_autoipython_install_redundant_1(tmp):
+    # Verify that 'autoipython --install' the second time detects that it was
+    # already installed.
+    run_autoipython_install(tmp.ipython_dir)
+    run_autoipython_install(tmp.ipython_dir, expect_installed=True)
+    ipython("""
+        In [1]: b64deco\tde('bWFwbGU=')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'maple'
+    """, ipython_dir=tmp.ipython_dir)
+    # Double-check that we only modified tmp.ipython_dir.
+    ipython("""
+        In [1]: b64decode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64decode' is not defined
+    """)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_install_console_1(tmp):
+    # Verify that 'autoipython --install' + 'ipython console' works.
+    run_autoipython_install(tmp.ipython_dir)
+    ipython("""
+        In [1]: b64deco\tde('c3BydWNl')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'spruce'
+    """, args=['console'], ipython_dir=tmp.ipython_dir)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_install_kernel_1(tmp):
+    # Verify that 'autoipython --install' + 'ipython kernel' works.
+    run_autoipython_install(tmp.ipython_dir)
+    with IPythonKernelCtx(ipython_dir=tmp.ipython_dir) as kernel:
+        ipython("""
+            In [1]: b64deco\tde('b2Fr')
+            [PYFLYBY] from base64 import b64decode
+            Out[1]: 'oak'
+        """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_autoipython_install_notebook_1(tmp):
+    run_autoipython_install(tmp.ipython_dir)
+    with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
+        ipython("""
+            In [1]: b64deco\tde('c3ljYW1vcmU=')
+            [PYFLYBY] from base64 import b64decode
+            Out[1]: 'sycamore'
+        """, args=['console'], kernel=kernel)
+
+
+def test_autoipython_install_disable_1(tmp):
+    # Verify that when we've installed, we can still disable at run-time, and
+    # also re-enable.
+    run_autoipython_install(tmp.ipython_dir)
+    ipython("""
+        In [1]: b64deco\tde('cGluZQ==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'pine'
+        In [2]: pyflyby.disable_auto_importer()
+        [PYFLYBY] import pyflyby
+        In [3]: b64encode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64encode' is not defined
+        In [4]: b64decode('d2lsbG93')
+        Out[4]: 'willow'
+        In [5]: pyflyby.enable_auto_importer()
+        In [6]: b64encode('elm')
+        [PYFLYBY] from base64 import b64encode
+        Out[6]: 'ZWxt'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+def test_autoipython_install_enable_1(tmp):
+    # Verify that manually calling enable_auto_importer() is a no-op after
+    # 'autoipython --install'.
+    run_autoipython_install(tmp.ipython_dir)
+    ipython("""
+        In [1]: pyflyby.enable_auto_importer()
+        [PYFLYBY] import pyflyby
+        In [2]: b64deco\tde('Y2hlcnJ5')
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: 'cherry'
+        In [3]: pyflyby.disable_auto_importer()
+        In [4]: b64encode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64encode' is not defined
+        In [5]: b64decode('YmlyY2g=')
+        Out[5]: 'birch'
+        In [6]: pyflyby.enable_auto_importer()
+        In [7]: b64encode('fir')
+        [PYFLYBY] from base64 import b64encode
+        Out[7]: 'Zmly'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+def test_autoipython_install_autoipython_1(tmp):
+    # Verify that 'autoipython --install' + 'autoipython' are compatible.
+    run_autoipython_install(tmp.ipython_dir)
+    ipython("""
+        In [1]: b64deco\tde('YmFzc3dvb2Q=')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'basswood'
+        In [2]: pyflyby.disable_auto_importer()
+        [PYFLYBY] import pyflyby
+        In [3]: b64encode('x')
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'b64encode' is not defined
+        In [4]: b64decode('YnV0dGVybnV0')
+        Out[4]: 'butternut'
+        In [5]: pyflyby.enable_auto_importer()
+        In [6]: b64encode('larch')
+        [PYFLYBY] from base64 import b64encode
+        Out[6]: 'bGFyY2g='
+    """, prog="autoipython", ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="old IPython doesn't support startup directory")
+def test_manual_install_profile_startup_1(tmp):
+    # Test that manually installing to the startup folder works.
+    writetext(tmp.ipython_dir/"profile_default/startup/foo.py", """
+        __import__("pyflyby").enable_auto_importer()
+    """)
+    ipython("""
+        In [1]: b64deco\tde('ZG92ZQ==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'dove'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support ipython_config.py")
+def test_manual_install_ipython_config_direct_1(tmp):
+    # Verify that manually installing in ipython_config.py works when enabling
+    # at top level.
+    writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
+        __import__("pyflyby").enable_auto_importer()
+    """)
+    ipython("""
+        In [1]: b64deco\tde('aHVtbWluZ2JpcmQ=')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'hummingbird'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support ipython_config.py")
+def test_manual_install_exec_lines_1(tmp):
+    writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
+        c = get_config()
+        c.InteractiveShellApp.exec_lines = [
+            '__import__("pyflyby").enable_auto_importer()',
+        ]
+    """)
+    ipython("""
+        In [1]: b64deco\tde('c2VhZ3VsbA==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'seagull'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support ipython_config.py")
+def test_manual_install_exec_files_1(tmp):
+    writetext(tmp.file, """
+        import pyflyby
+        pyflyby.enable_auto_importer()
+    """)
+    writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
+        c = get_config()
+        c.InteractiveShellApp.exec_files = [%r]
+    """ % (str(tmp.file),))
+    ipython("""
+        In [1]: b64deco\tde('Y3Vja29v')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'cuckoo'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION >= (0, 11),
+    reason="IPython 0.11+ doesn't support ipythonrc")
+def test_manual_install_ipythonrc_execute_1(tmp):
+    writetext(tmp.ipython_dir/"ipythonrc", """
+        execute __import__("pyflyby").enable_auto_importer()
+    """, mode='a')
+    ipython("""
+        In [1]: b64deco\tde('cGVuZ3Vpbg==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'penguin'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION >= (0, 11),
+    reason="IPython 0.11+ doesn't support ipy_user_conf")
+def test_manual_install_ipy_user_conf_1(tmp):
+    writetext(tmp.ipython_dir/"ipy_user_conf.py", """
+        import pyflyby
+        pyflyby.enable_auto_importer()
+    """)
+    ipython("""
+        In [1]: b64deco\tde('bG9vbg==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'loon'
+    """, ipython_dir=tmp.ipython_dir)
+
+
+@pytest.mark.skipif(
+    (0, 11) <= _IPYTHON_VERSION < (0, 12),
+    reason="IPython 0.11 doesn't support -c")
+def test_cmdline_enable_c_i_1(tmp):
+    ipython("""
+        In [1]: b64deco\tde('Zm94aG91bmQ=')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'foxhound'
+    """, args=['-c', 'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support InteractiveShellApp config")
+def test_cmdline_enable_code_to_run_i_1(tmp):
+    ipython("""
+        In [1]: b64deco\tde('cm90dHdlaWxlcg==')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'rottweiler'
+    """, args=['--InteractiveShellApp.code_to_run='
+               'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support InteractiveShellApp config")
+def test_cmdline_enable_exec_lines_1(tmp):
+    ipython("""
+        In [1]: b64deco\tde('cG9vZGxl')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'poodle'
+    """, args=[
+        '--InteractiveShellApp.exec_lines='
+        '''["__import__('pyflyby').enable_auto_importer()"]'''])
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="old IPython doesn't support InteractiveShellApp config")
+def test_cmdline_enable_exec_files_1(tmp):
+    writetext(tmp.file, """
+        import pyflyby
+        pyflyby.enable_auto_importer()
+    """)
+    ipython("""
+        In [1]: b64deco\tde('Y3Vja29v')
+        [PYFLYBY] from base64 import b64decode
+        Out[1]: 'cuckoo'
+    """, args=[
+        '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])

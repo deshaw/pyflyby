@@ -36,10 +36,9 @@ from __future__ import absolute_import, division, with_statement
 
 import sys
 
-from   pyflyby._cmdline         import maindoc
-from   pyflyby._interactive     import (enable_auto_importer,
-                                        initialize_ipython,
-                                        install_in_ipython_startup_file)
+from   pyflyby._cmdline         import maindoc, print_version_and_exit
+from   pyflyby._interactive     import (install_in_ipython_startup_file,
+                                        start_ipython_with_autoimporter)
 
 
 def main(args):
@@ -48,14 +47,20 @@ def main(args):
         print
         print "----------------------------------------------------------------------"
         print
-        initialize_ipython(["--help"])
+        start_ipython_with_autoimporter(["--help"])
         return
     if args and args[0] in ["--install", "-install", "install"]:
+        args.pop(0)
+        if args:
+            raise ValueError("--install: unexpected args %s" % (' '.join(args)))
         install_in_ipython_startup_file()
-    else:
-        start_ipython = initialize_ipython()
-        enable_auto_importer()
-        start_ipython()
+        return
+    if args and args[0] in ["--version", "-version"]:
+        import IPython
+        print_version_and_exit("IPython %s" % (IPython.__version__))
+        raise AssertionError("unreachable")
+    # *** Start IPython with autoimporter enabled. ***
+    start_ipython_with_autoimporter(args)
 
 
 if __name__ == "__main__":

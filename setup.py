@@ -149,6 +149,7 @@ setup(
         'bin/find-import',
         'bin/list-bad-xrefs',
         'bin/prune-broken-imports',
+        'bin/py',
         'bin/pyflyby-diff',
         'bin/reformat-imports',
         'bin/replace-star-imports',
