@@ -8,6 +8,7 @@ from   contextlib               import contextmanager
 import logging
 from   logging                  import Formatter, Logger, StreamHandler
 import os
+import sys
 
 
 class _HookedStreamHandler(StreamHandler):
@@ -82,6 +83,15 @@ class PyflybyLogger(Logger):
         handler.setFormatter(formatter)
         self.addHandler(handler)
         self.set_level(level)
+        self.setup_output_stream()
+
+    def setup_output_stream(self):
+        """
+        Set the handler's output stream to C{sys.stderr}.  Useful to call
+        again if C{sys.stderr} has been changed since the logger was
+        initialized.  """
+        handler, = self.handlers
+        handler.stream = sys.stderr
 
     def set_level(self, level):
         """
