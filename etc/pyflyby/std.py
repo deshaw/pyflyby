@@ -134,6 +134,8 @@ import pickle
 from   pickle                   import PickleError, UnpicklingError
 import pickletools
 import pkg_resources
+import pkgutil
+from   pkg_resources                  import load_entry_point
 import pprint
 import psutil
 import pwd
