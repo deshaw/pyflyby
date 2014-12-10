@@ -66,6 +66,43 @@ def _is_interactive(file):
     return os.isatty(fileno)
 
 
+@contextmanager
+def _NoRegisterLoggerHandlerInHandlerListCtx():
+    """
+    Work around a bug in the C{logging} module for Python 2.x-3.2.
+
+    The Python stdlib C{logging} module has a bug where you sometimes get the
+    following warning at exit::
+      Exception TypeError: "'NoneType' object is not callable" in <function
+      _removeHandlerRef at 0x10a1b3f50> ignored
+
+    This is caused by shutdown ordering affecting which globals in the logging
+    module are available to the _removeHandlerRef function.
+
+    Python 3.3 fixes this.
+
+    For earlier versions of Python, this context manager works around the
+    issue by avoiding registering a handler in the _handlerList.  This means
+    that we no longer call "flush()" from the atexit callback.  However, that
+    was a no-op anyway, and even if we needed it, we could call it ourselves
+    atexit.
+
+    @see:
+      U{http://bugs.python.org/issue9501}
+    """
+    if not hasattr(logging, "_handlerList"):
+        yield
+        return
+    if sys.version_info >= (3, 3):
+        yield
+        return
+    try:
+        orig_handlerList = logging._handlerList[:]
+        yield
+    finally:
+        logging._handlerList[:] = orig_handlerList
+
+
 
 class PyflybyLogger(Logger):
 
@@ -74,7 +111,8 @@ class PyflybyLogger(Logger):
 
     def __init__(self, name, level):
         Logger.__init__(self, name)
-        handler = _HookedStreamHandler()
+        with _NoRegisterLoggerHandlerInHandlerListCtx():
+            handler = _HookedStreamHandler()
         if _is_interactive(handler.stream):
             pfx = "\033[0m\033[33m[PYFLYBY]\033[0m"
         else:
