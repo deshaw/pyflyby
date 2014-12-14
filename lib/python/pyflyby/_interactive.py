@@ -22,7 +22,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (Aspect, CwdCtx, FunctionWithGlobals,
-                                        NullCtx, advise)
+                                        NullCtx, advise, indent)
 
 
 if False:
@@ -237,8 +237,6 @@ def _generate_enabler_code():
     @rtype:
       C{str}
     """
-    def indent(lines):
-        return "".join("    %s\n"%line for line in lines.splitlines(False))
     funcdef = (
         "import pyflyby\n"
         "pyflyby.enable_auto_importer()\n"
@@ -255,7 +253,7 @@ def _generate_enabler_code():
             "saved_sys_path = sys.path[:]\n"
             "try:\n"
             "    sys.path.insert(0, %r)\n" % (path_entry,) +
-            indent(funcdef) +
+            indent(funcdef, "    ") +
             "finally:\n"
             "    sys.path = saved_sys_path\n"
         )
@@ -268,7 +266,7 @@ def _generate_enabler_code():
     # user.
     contents = (
         "def __pyflyby_enable_auto_importer_60321389():\n" +
-        indent(funcdef) +
+        indent(funcdef, "    ") +
         "__pyflyby_enable_auto_importer_60321389()\n"
         "del __pyflyby_enable_auto_importer_60321389\n"
     )
@@ -317,8 +315,6 @@ def _install_in_ipython_startup_file_011():
     Implementation of L{install_in_ipython_startup_file} for IPython 0.11.
     """
     import IPython
-    def indent(lines):
-        return "".join("    %s\n"%line for line in lines.splitlines(False))
     ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
     fn = ipython_dir / "profile_default" / "ipython_config.py"
     if not fn.exists:

@@ -104,6 +104,14 @@ def prefixes(parts):
         yield parts[:i]
 
 
+def indent(lines, prefix):
+    r"""
+      >>> indent('hello\nworld\n', '@@')
+      '@@hello\n@@world\n'
+    """
+    return "".join("%s%s\n"%(prefix,line) for line in lines.splitlines(False))
+
+
 def partition(iterable, predicate):
     """
       >>> partition('12321233221', lambda c: int(c) % 2 == 0)
