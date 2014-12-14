@@ -28,7 +28,7 @@ Or, you can manually add 'pyflyby.enable_auto_importer()' wherever you prefer.
 
 """
 
-# pyflyby/iautopython
+# pyflyby/autoipython
 # Copyright (C) 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
