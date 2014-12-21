@@ -11,6 +11,17 @@ import os
 import sys
 
 
+class _MultilineFormatter(Formatter):
+    def __init__(self, fmt=None, datefmt=None, prefix=None):
+        Formatter.__init__(self, fmt=fmt, datefmt=datefmt)
+        self.prefix = prefix or ""
+
+    def format(self, record):
+        formatted = Formatter.format(self, record)
+        return '\n'.join(
+            self.prefix + line for line in formatted.splitlines())
+
+
 class _HookedStreamHandler(StreamHandler):
 
     _pre_log_function = None
@@ -114,10 +125,10 @@ class PyflybyLogger(Logger):
         with _NoRegisterLoggerHandlerInHandlerListCtx():
             handler = _HookedStreamHandler()
         if _is_interactive(handler.stream):
-            pfx = "\033[0m\033[33m[PYFLYBY]\033[0m"
+            prefix = "\033[0m\033[33m[PYFLYBY]\033[0m "
         else:
-            pfx = "[PYFLYBY]"
-        formatter = Formatter('{pfx} %(message)s'.format(pfx=pfx))
+            prefix = "[PYFLYBY] "
+        formatter = _MultilineFormatter(prefix=prefix)
         handler.setFormatter(formatter)
         self.addHandler(handler)
         self.set_level(level)
@@ -128,6 +139,8 @@ class PyflybyLogger(Logger):
         Set the handler's output stream to C{sys.stderr}.  Useful to call
         again if C{sys.stderr} has been changed since the logger was
         initialized.  """
+        # TODO: Make the handler always reference the current sys.stderr, so
+        # that this function is not required.
         handler, = self.handlers
         handler.stream = sys.stderr
 
