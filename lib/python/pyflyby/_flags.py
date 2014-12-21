@@ -152,6 +152,13 @@ class CompilerFlags(int):
     def __rand__(self, o):
         return self & o
 
+    def __xor__(self, o):
+        o = CompilerFlags(o)
+        return CompilerFlags(int(self) ^ int(o))
+
+    def __rxor__(self, o):
+        return self ^ o
+
     def __repr__(self):
         return "CompilerFlags(%s)" % (hex(self),)
 
