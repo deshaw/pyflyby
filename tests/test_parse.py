@@ -617,3 +617,285 @@ def test_PythonBlock_decorator_1():
         PythonStatement("@foo2\ndef bar2(): pass\n", startpos=(103,1)),
     )
     assert block.statements == expected
+
+
+# auto_flags tests.
+# Key for test names:
+#   ps = code contains print statement
+#   pf = code contains print function
+#   pn = code does not contain print statement or function
+#   px = code contains ambiguous print statement/function
+#   flagps = flags does not contain CompilerFlags("print_function")
+#   flagpf = flags contains CompilerFlags("print_function")
+#   futpf = code contains 'from __future__ import print_function'
+
+def test_PythonBlock_no_auto_flags_ps_flagps_1():
+    block = PythonBlock(dedent('''
+        print 42
+    ''').lstrip())
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_ps_flagpf_1():
+    block = PythonBlock(dedent('''
+        print 42
+    ''').lstrip(), flags="print_function")
+    with pytest.raises(SyntaxError):
+        block.ast_node
+
+
+def test_PythonBlock_no_auto_flags_pf_flagps_1():
+    block = PythonBlock(dedent('''
+        print(42, out=x)
+    ''').lstrip())
+    with pytest.raises(SyntaxError):
+        block.ast_node
+
+
+def test_PythonBlock_no_auto_flags_pf_flagpf_1():
+    block = PythonBlock(dedent('''
+        print(42, out=x)
+    ''').lstrip(), flags="print_function")
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_pf_flagps_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42)
+    ''').lstrip())
+    assert     (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_pf_flagpf_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42)
+    ''').lstrip(), flags="print_function")
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_px_flagps_1():
+    block = PythonBlock(dedent('''
+        print(42)
+    ''').lstrip())
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_px_flagpf_1():
+    block = PythonBlock(dedent('''
+        print(42)
+    ''').lstrip(), flags="print_function")
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_pn_flagps_1():
+    block = PythonBlock(dedent('''
+        42
+    ''').lstrip())
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_pn_flagpf_1():
+    block = PythonBlock(dedent('''
+        42
+    ''').lstrip(), flags="print_function")
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_no_auto_flags_pn_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        42
+    ''').lstrip())
+    assert     (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_ps_flagps_1():
+    block = PythonBlock(dedent('''
+        print 42
+    ''').lstrip(), auto_flags=True)
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_ps_flagpf_1():
+    block = PythonBlock(dedent('''
+        print 42
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_ps_flagpf_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print 42
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    with pytest.raises(SyntaxError):
+        block.ast_node
+
+
+def test_PythonBlock_auto_flags_ps_flagps_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print 42
+    ''').lstrip(), auto_flags=True)
+    with pytest.raises(SyntaxError):
+        block.ast_node
+
+
+def test_PythonBlock_auto_flags_pf_flagps_1():
+    block = PythonBlock(dedent('''
+        print(42, out=x)
+    ''').lstrip(), auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pf_flagpf_1():
+    block = PythonBlock(dedent('''
+        print(42, out=x)
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pf_flagps_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42, out=x)
+    ''').lstrip(), auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pf_flagpf_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42, out=x)
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_px_flagps_1():
+    block = PythonBlock(dedent('''
+        print(42)
+    ''').lstrip(), auto_flags=True)
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_px_flagpf_1():
+    block = PythonBlock(dedent('''
+        print(42)
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_px_flagps_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42)
+    ''').lstrip(), auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_px_flagpf_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        print(42)
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pn_flagps_1():
+    block = PythonBlock(dedent('''
+        42
+    ''').lstrip(), auto_flags=True)
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pn_flagpf_1():
+    block = PythonBlock(dedent('''
+        42
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pn_flagps_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        42
+    ''').lstrip(), auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonBlock_auto_flags_pn_flagpf_futpf_1():
+    block = PythonBlock(dedent('''
+        from __future__ import print_function
+        42
+    ''').lstrip(), flags="print_function", auto_flags=True)
+    assert     (block.flags                & "print_function")
+    assert     (block.ast_node.input_flags & "print_function")
+    assert     (block.source_flags         & "print_function")
+
+
+def test_PythonStatement_flags_1():
+    block = PythonBlock("from __future__ import unicode_literals\nx\n",
+                        flags="division")
+    s0, s1 = block.statements
+    assert s0.block.source_flags == CompilerFlags("unicode_literals")
+    assert s1.block.source_flags == CompilerFlags(0)
+    assert s0.block.flags        == CompilerFlags("unicode_literals", "division")
+    assert s1.block.flags        == CompilerFlags("unicode_literals", "division")
+
+
+def test_PythonStatement_auto_flags_1():
+    block = PythonBlock(
+        "from __future__ import unicode_literals\nprint(1,file=x)\n",
+        flags="division", auto_flags=True)
+    s0, s1 = block.statements
+    assert s0.block.source_flags == CompilerFlags("unicode_literals")
+    assert s1.block.source_flags == CompilerFlags(0)
+    expected = CompilerFlags("unicode_literals", "division", "print_function")
+    assert s0.block.flags        == expected
+    assert s1.block.flags        == expected

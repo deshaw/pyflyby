@@ -227,3 +227,51 @@ def test_auto_eval_exec_1():
               locals=mylocals)
     assert mylocals['x'] == ['hello']
     assert mylocals["b64decode"] is __import__("base64").b64decode
+
+
+def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
+    auto_eval("print 3.00", flags=0, auto_flags=False)
+    out, _ = capsys.readouterr()
+    assert out == "3.0\n"
+
+
+def test_auto_eval_no_auto_flags_ps_flag_pf1():
+    with pytest.raises(SyntaxError):
+        auto_eval("print 3.00", flags="print_function", auto_flags=False)
+
+
+def test_auto_eval_no_auto_flags_pf_flagps_1():
+    with pytest.raises(SyntaxError):
+        auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=False)
+
+
+def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
+    auto_eval("print(3.00, file=sys.stdout)",
+              flags="print_function", auto_flags=False)
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] import sys\n3.0\n"
+
+
+def test_auto_eval_auto_flags_ps_flagps_1(capsys):
+    auto_eval("print 3.00", flags=0, auto_flags=True)
+    out, _ = capsys.readouterr()
+    assert out == "3.0\n"
+
+
+def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
+    auto_eval("print 3.00", flags="print_function", auto_flags=True)
+    out, _ = capsys.readouterr()
+    assert out == "3.0\n"
+
+
+def test_auto_eval_auto_flags_pf_flagps_1(capsys):
+    auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=True)
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] import sys\n3.0\n"
+
+
+def test_auto_eval_auto_flags_pf_flag_pf1(capsys):
+    auto_eval("print(3.00, file=sys.stdout)",
+              flags="print_function", auto_flags=True)
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] import sys\n3.0\n"

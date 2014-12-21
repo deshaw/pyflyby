@@ -114,14 +114,46 @@ def _walk_ast_nodes_in_order(node):
         todo.extend(reversed(list(_iter_child_nodes_in_order(node))))
 
 
-def _parse_ast_nodes(text, flags, mode):
+def _flags_to_try(source, flags, auto_flags, mode):
+    """
+    Flags to try for C{auto_flags}.
+
+    If C{auto_flags} is False, then only yield C{flags}.
+    If C{auto_flags} is True, then yield C{flags} and C{flags ^ print_function}.
+    """
+    flags = CompilerFlags(flags)
+    if not auto_flags:
+        yield flags
+        return
+    if sys.version_info[0] != 2:
+        yield flags
+        return
+    if mode == "eval":
+        if re.search(r"\bprint\b", source):
+            flags = flags | CompilerFlags("print_function")
+        yield flags
+        return
+    yield flags
+    if re.search(r"\bprint\b", source):
+        yield flags ^ CompilerFlags("print_function")
+
+
+def _parse_ast_nodes(text, flags, auto_flags, mode):
     """
     Parse a block of lines into an AST.
+
+    Also annotate C{input_flags}, C{source_flags}, and C{flags} on the
+    resulting ast node.
 
     @type text:
       C{FileText}
     @type flags:
       C{CompilerFlags}
+    @type auto_flags:
+      C{bool}
+    @param auto_flags:
+      Whether to guess different flags if C{text} can't be parsed with
+      C{flags}.
     @rtype:
       C{ast.Module}
     """
@@ -134,8 +166,19 @@ def _parse_ast_nodes(text, flags, mode):
         # Ensure that the last line ends with a newline (C{ast} barfs
         # otherwise).
         source += "\n"
-    flags = ast.PyCF_ONLY_AST | int(flags)
-    return compile(source, filename, mode, flags=flags, dont_inherit=1)
+    for flags in _flags_to_try(source, flags, auto_flags, mode):
+        cflags = ast.PyCF_ONLY_AST | int(flags)
+        try:
+            result = compile(
+                source, filename, mode, flags=cflags, dont_inherit=1)
+        except SyntaxError:
+            pass
+        else:
+            result.input_flags = flags
+            result.source_flags = CompilerFlags.from_ast(result)
+            result.flags = result.input_flags | result.source_flags
+            return result
+    raise # SyntaxError
 
 
 def _test_parse_string_literal(text, flags):
@@ -148,7 +191,7 @@ def _test_parse_string_literal(text, flags):
 
     """
     try:
-        module_node = _parse_ast_nodes(text, flags, "eval")
+        module_node = _parse_ast_nodes(text, flags, False, "eval")
     except SyntaxError:
         return None
     body = module_node.body
@@ -157,7 +200,7 @@ def _test_parse_string_literal(text, flags):
     return body.s
 
 
-def _parse_annotate_ast_nodes(text, flags):
+def _parse_annotate_ast_nodes(text, flags, auto_flags):
     """
     Parse a block of lines into an AST and annotate with startpos and endpos.
 
@@ -170,7 +213,7 @@ def _parse_annotate_ast_nodes(text, flags):
     """
     text = FileText(text)
     flags = CompilerFlags(flags)
-    ast_node = _parse_ast_nodes(text, flags, "exec")
+    ast_node = _parse_ast_nodes(text, flags, auto_flags, "exec")
     # Annotate starting line numbers.
     _annotate_ast_startpos(ast_node, text.startpos, text, flags)
     return ast_node
@@ -664,7 +707,8 @@ class PythonBlock(object):
 
     """
 
-    def __new__(cls, arg, filename=None, startpos=None, flags=None):
+    def __new__(cls, arg, filename=None, startpos=None, flags=None,
+                auto_flags=None):
         if isinstance(arg, PythonStatement):
             arg = arg.block
             # Fall through
@@ -676,7 +720,8 @@ class PythonBlock(object):
             # Fall through
         if isinstance(arg, (FileText, Filename, str)):
             return cls.from_text(
-                arg, filename=filename, startpos=startpos, flags=flags)
+                arg, filename=filename, startpos=startpos,
+                flags=flags, auto_flags=auto_flags)
         raise TypeError("%s: unexpected %s"
                         % (cls.__name__, type(arg).__name__,))
 
@@ -685,10 +730,25 @@ class PythonBlock(object):
         return cls.from_text(Filename(filename))
 
     @classmethod
-    def from_text(cls, text, filename=None, startpos=None, flags=None):
+    def from_text(cls, text, filename=None, startpos=None, flags=None,
+                  auto_flags=False):
         """
         @type text:
           L{FileText} or convertible
+        @type filename:
+          C{Filename}
+        @param filename:
+          Filename, if not already given by C{text}.
+        @type startpos:
+          C{FilePos}
+        @param startpos:
+          Starting position, if not already given by C{text}.
+        @type flags:
+          C{CompilerFlags}
+        @param flags:
+          Input compiler flags.
+        @param auto_flags:
+          Whether to try other flags if C{flags} fails.
         @rtype:
           L{PythonBlock}
         """
@@ -696,16 +756,21 @@ class PythonBlock(object):
         self = object.__new__(cls)
         self.text = text
         self._input_flags = CompilerFlags(flags)
+        self._auto_flags = auto_flags
         return self
 
     @classmethod
     def __construct_from_ast(cls, ast_nodes, text, flags):
         # Constructor for internal use by _split_by_statement() or
         # concatenate().
+        ast_node = ast.Module(ast_nodes)
+        if not hasattr(ast_node, "source_flags"):
+            ast_node.source_flags = CompilerFlags.from_ast(ast_nodes)
         self = object.__new__(cls)
-        self.ast_node = ast.Module(ast_nodes)
+        self.ast_node = ast_node
         self.text     = text
         self.flags    = self._input_flags = flags
+        self._auto_flags = False
         return self
 
     @classmethod
@@ -768,7 +833,8 @@ class PythonBlock(object):
         # ast_node may also be set directly by __construct_from_ast(),
         # in which case this code does not run.
         try:
-            return _parse_annotate_ast_nodes(self.text, self._input_flags)
+            return _parse_annotate_ast_nodes(
+                self.text, self._input_flags, self._auto_flags)
         except Exception as e:
             # Add the filename to the exception message to be nicer.
             if self.text.filename:
@@ -795,13 +861,15 @@ class PythonBlock(object):
             # Figure out whether to use mode="exec" or mode="eval".  Parse it
             # using mode="exec", then convert the result into mode="eval" if
             # it makes sense to.
-            ast_node = _parse_ast_nodes(self.text, self._input_flags, "exec")
+            ast_node = _parse_ast_nodes(self.text, self._input_flags,
+                                        self._auto_flags, "exec")
             if len(ast_node.body) == 1 and isinstance(ast_node.body[0], ast.Expr):
                 return ast.Expression(ast_node.body[0].value)
             else:
                 return ast_node
         else:
-            return _parse_ast_nodes(self.text, self._input_flags, mode)
+            return _parse_ast_nodes(self.text, self._input_flags,
+                                    self._auto_flags, mode)
 
 
     @cached_attribute
@@ -847,25 +915,26 @@ class PythonBlock(object):
         associated with them.  Otherwise, 0.
 
         The difference between C{source_flags} and C{flags} is that C{flags}
-        may be set by the caller (e.g. based on an earlier __future__ import),
-        whereas C{source_flags} is only nonzero if this code itself contains
-        __future__ imports.
+        may be set by the caller (e.g. based on an earlier __future__ import)
+        and include automatically guessed flags, whereas C{source_flags} is
+        only nonzero if this code itself contains __future__ imports.
 
         @rtype:
           L{CompilerFlags}
         """
-        return CompilerFlags.from_ast(self.ast_node)
+        return self.ast_node.source_flags
 
     @cached_attribute
     def flags(self):
         """
         The compiler flags for this code block, including both the input flags
-        and the source flags.
+        (possibly automatically guessed), and the flags from "__future__"
+        imports in the source code text.
 
         @rtype:
           L{CompilerFlags}
         """
-        return self._input_flags | self.source_flags
+        return self.ast_node.flags
 
     @cached_attribute
     def parse_tree(self):

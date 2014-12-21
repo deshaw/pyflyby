@@ -1038,7 +1038,7 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
 
 
 def auto_eval(arg, filename=None, mode=None,
-              flags=None, globals=None, locals=None, db=None):
+              flags=None, auto_flags=True, globals=None, locals=None, db=None):
     """
     Evaluate/execute the given code, automatically importing as needed.
 
@@ -1078,6 +1078,10 @@ def auto_eval(arg, filename=None, mode=None,
       Compilation feature flags, e.g. ["division", "with_statement"].  If
       C{None}, defaults to no flags.  Does not inherit flags from parent
       scope.
+    @type auto_flags:
+      C{bool}
+    @param auto_flags:
+      Whether to try other flags if C{flags} causes SyntaxError.
     @type globals:
       C{dict}
     @param globals:
@@ -1095,7 +1099,9 @@ def auto_eval(arg, filename=None, mode=None,
     """
     flags = CompilerFlags(flags)
     if isinstance(arg, (basestring, Filename, FileText, PythonBlock)):
-        block = PythonBlock(arg, filename=filename, flags=flags)
+        block = PythonBlock(arg, filename=filename, flags=flags,
+                            auto_flags=auto_flags)
+        flags = block.flags
         filename = block.filename
         if mode is None:
             if not isinstance(arg, basestring):
