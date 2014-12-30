@@ -8,11 +8,14 @@
 - Pyflakes reports unused "import foo.bar" as "foo" making it hard to remove
   unused "foo.bar" (there could be other imports on the same line).
 - Heuristically guess alignment style from existing code
-- Grouping: Teach tidy-imports to canonicalize import groups; need the user to
-  configure import groups.  Or do it the Eclipse way: for each top-level
-  package, if there is more than one import statement, then make those a
-  group.
+- Grouping: Teach tidy-imports to canonicalize import groups.  3 possiblities:
+  (1) Follow PEP8 standard library imports, then third-party imports, then
+  local app imports. http://legacy.python.org/dev/peps/pep-0008/#imports. Best
+  default. (2) The Eclipse way: for each top-level package, if there is more
+  than one import statement, then make those a group.  (3) User-configured
+  grouping.
 - Remove pyflakes dependency - use our own AST parser
+- Use rope?
 - Allow comments in a file to specify imports that shouldn't be removed,
   including "*" to mean don't-remove-any.
 - Allow a comment in the file to specify alignment options.
@@ -39,4 +42,59 @@
     - Make zip-safe/PEP308 compliant; use pkg_resources (if possible) instead
       of __file__.
 - If fail to import something, remove it (and children) from known imports.
+- Autopython script
+- Make naming consistent: auto_importer vs autoimporter
 
+
+- Add pretty-printing parameter --groupimports=manual|pep8|java, new default
+  pep8.
+- Pep8 grouping:
+    - stdlib, then third-party libs, then first-party libs
+    - guess whether the current file is in the same package as an
+      import by checking if imported_pkg.split(".")[0] in filename.split("/").
+    - But how do we distinguish some random local module from third-party
+      libraries?  Import it and check if path is in sys.path excluding current
+      dir?  Not satisfying but can't think of anything better.
+    - stdlib before third-party libs.  Need a list of stdlibs.
+      I guess we should include e.g. argparse regardless of the python version,
+      since we don't want the grouping to change depending on python version.
+      Maybe just use a (cogged) hardcoded list of modules.
+
+- pyflyby_path importdb: require that components start with "/" or "./" or
+  ".../"; i.e. don't allow "foo/bar"; tell user to use "./foo/bar" if that's
+  what he wants.  Test case.
+- Pyflyby_path: make sure that empty strings are ignored, not treated as ".".
+  Test case.
+- py --safe: pyflyby_path=":" (not empty string, because that means "use
+  default")
+
+- Allow non-imports in import db?  Warn or allow silently?  Indicate mode
+  somehow? We want to allow setting pyflyby_path to the directory of code and
+  use it without having to maintain an importdb.  But don't make regular
+  .pyflyby databases sloppy.
+
+- collect-exports: new mode that parses file and enumerates "stores", instead
+  of executing code.
+
+- Unify collect-imports/collect-exports/collect-exports-from-stores into a
+  single script with a mode argument.  Also parameters for whether to include
+  things imported from submodules (default on) and whether to include things
+  imported from other packages (default off).
+
+- Test cases for autoipython
+
+- Add ability to dynamically enable a file based on py3 or py2
+
+- Merge all scripts into pyflyby top-level frontend
+
+- Merge contents of all scripts into modules, and use setup.py entry_points.
+  Keep stub scripts in bin directory only for non-installed usage.
+
+- Support pypy.  It seems to already work fine in casual tests, but tox and
+  maybe setup.py need tweaking
+
+- Transforms: support 'from a import b' => 'from c import d' (plus global
+  replace b=>d) in addition to 'from a import b' => 'from c import d as b'
+
+- Make tidy-imports support detecting that print_function is necessary but
+  missing, and add it.

@@ -1,5 +1,5 @@
 # pyflyby/_parse.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -154,6 +154,8 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     @param auto_flags:
       Whether to guess different flags if C{text} can't be parsed with
       C{flags}.
+    @param mode:
+      Compilation mode: "exec", "single", or "eval".
     @rtype:
       C{ast.Module}
     """
@@ -174,9 +176,11 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
         except SyntaxError:
             pass
         else:
+            # Attach flags to the result.
             result.input_flags = flags
             result.source_flags = CompilerFlags.from_ast(result)
             result.flags = result.input_flags | result.source_flags
+            result.text = text
             return result
     raise # SyntaxError
 
@@ -200,23 +204,21 @@ def _test_parse_string_literal(text, flags):
     return body.s
 
 
-def _parse_annotate_ast_nodes(text, flags, auto_flags):
+def _annotate_ast_nodes(ast_node):
     """
-    Parse a block of lines into an AST and annotate with startpos and endpos.
+    Annotate AST with startpos and endpos.
 
-    @type text:
-      C{FileText}
-    @type flags:
-      C{CompilerFlags}
-    @rtype:
-      C{ast.Module}
+    @type ast_node:
+      C{ast.AST}
+    @param ast_node:
+      AST node returned by L{_parse_ast_nodes}
+    @return:
+      C{None}
     """
-    text = FileText(text)
-    flags = CompilerFlags(flags)
-    ast_node = _parse_ast_nodes(text, flags, auto_flags, "exec")
-    # Annotate starting line numbers.
-    _annotate_ast_startpos(ast_node, text.startpos, text, flags)
-    return ast_node
+    text = ast_node.text
+    flags = ast_node.flags
+    startpos = text.startpos
+    _annotate_ast_startpos(ast_node, startpos, text, flags)
 
 
 def _annotate_ast_startpos(ast_node, minpos, text, flags):
@@ -465,7 +467,7 @@ def _split_code_lines(ast_nodes, text):
         yield ([], text)
         return
     assert text.startpos <= ast_nodes[0].startpos
-    assert ast_nodes[-1].startpos < text.endpos
+    assert ast_nodes[-1].startpos < text.endpos, breakpoint()#XXX
     if text.startpos != ast_nodes[0].startpos:
         # Starting noncode lines.
         yield ([], text[text.startpos:ast_nodes[0].startpos])
@@ -760,17 +762,21 @@ class PythonBlock(object):
         return self
 
     @classmethod
-    def __construct_from_ast(cls, ast_nodes, text, flags):
+    def __construct_from_annotated_ast(cls, annotated_ast_nodes, text, flags):
         # Constructor for internal use by _split_by_statement() or
         # concatenate().
-        ast_node = ast.Module(ast_nodes)
+        ast_node = ast.Module(annotated_ast_nodes)
+        ast_node.text = text
+        ast_node.flags = flags
         if not hasattr(ast_node, "source_flags"):
-            ast_node.source_flags = CompilerFlags.from_ast(ast_nodes)
+            ast_node.source_flags = CompilerFlags.from_ast(annotated_ast_nodes)
         self = object.__new__(cls)
-        self.ast_node = ast_node
-        self.text     = text
-        self.flags    = self._input_flags = flags
-        self._auto_flags = False
+        self._ast_node_or_parse_exception = ast_node
+        self.ast_node                     = ast_node
+        self.annotated_ast_node           = ast_node
+        self.text                         = text
+        self.flags                        = self._input_flags = flags
+        self._auto_flags                  = False
         return self
 
     @classmethod
@@ -794,9 +800,9 @@ class PythonBlock(object):
         text = FileText.concatenate([b.text for b in blocks])
         # The contiguous assumption is important here because C{ast_node}
         # contains line information that would otherwise be wrong.
-        ast_nodes = [n for b in blocks for n in b.ast_node.body]
+        ast_nodes = [n for b in blocks for n in b.annotated_ast_node.body]
         flags = blocks[0].flags
-        return cls.__construct_from_ast(ast_nodes, text, flags)
+        return cls.__construct_from_annotated_ast(ast_nodes, text, flags)
 
     @property
     def filename(self):
@@ -811,6 +817,49 @@ class PythonBlock(object):
         return self.text.endpos
 
     @cached_attribute
+    def _ast_node_or_parse_exception(self):
+        """
+        Attempt to parse this block of code into an abstract syntax tree.
+        Cached (including exception case).
+
+        @return:
+          Either ast_node or exception.
+        """
+        # This attribute may also be set by __construct_from_annotated_ast(),
+        # in which case this code does not run.
+        try:
+            return _parse_ast_nodes(
+                self.text, self._input_flags, self._auto_flags, "exec")
+        except Exception as e:
+            # Add the filename to the exception message to be nicer.
+            if self.text.filename:
+                e = type(e)("While parsing %s: %s" % (self.text.filename, e))
+            # Cache the exception to avoid re-attempting while debugging.
+            return e
+
+    @cached_attribute
+    def parsable(self):
+        """
+        Whether the contents of this C{PythonBlock} are parsable as Python
+        code, using the given flags.
+
+        @rtype:
+          C{bool}
+        """
+        return isinstance(self._ast_node_or_parse_exception, ast.AST)
+
+    @cached_attribute
+    def parsable_as_expression(self):
+        """
+        Whether the contents of this C{PythonBlock} are parsable as a single
+        Python expression, using the given flags.
+
+        @rtype:
+          C{bool}
+        """
+        return self.parsable and self.expression_ast_node is not None
+
+    @cached_attribute
     def ast_node(self):
         """
         Parse this block of code into an abstract syntax tree.
@@ -819,29 +868,49 @@ class PythonBlock(object):
         C{compile} built-in (rather than as returned by the older, deprecated
         C{compiler} module).  The code is parsed using mode="exec".
 
-        All nodes are annotated with C{startpos}.
-        All top-level nodes are annotated with C{endpos}.
-
         The result is a C{ast.Module} node, even if this block represents only
         a subset of the entire file.
 
         @rtype:
           C{ast.Module}
         """
-        if hasattr(self, "_failed_compile"):
-            raise self._failed_compile
-        # ast_node may also be set directly by __construct_from_ast(),
-        # in which case this code does not run.
-        try:
-            return _parse_annotate_ast_nodes(
-                self.text, self._input_flags, self._auto_flags)
-        except Exception as e:
-            # Add the filename to the exception message to be nicer.
-            if self.text.filename:
-                e = type(e)("While parsing %s: %s" % (self.text.filename, e))
-            # Cache the exception to avoid re-attempting while debugging.
-            self._failed_compile = e
-            raise e, None, sys.exc_info()[2]
+        r = self._ast_node_or_parse_exception
+        if isinstance(r, ast.AST):
+            return r
+        else:
+            raise r
+
+    @cached_attribute
+    def annotated_ast_node(self):
+        """
+        Return C{self.ast_node}, annotated in place with positions.
+
+        All nodes are annotated with C{startpos}.
+        All top-level nodes are annotated with C{endpos}.
+
+        @rtype:
+          C{ast.Module}
+        """
+        result = self.ast_node
+        _annotate_ast_nodes(result)
+        return result
+
+    @cached_attribute
+    def expression_ast_node(self):
+        """
+        Return an C{ast.Expression} if C{self.ast_node} can be converted into
+        one.  I.e., return parse(self.text, mode="eval"), if possible.
+
+        Otherwise, return C{None}.
+
+        @rtype:
+          C{ast.Expression}
+        """
+        node = self.ast_node
+        if len(node.body) == 1 and isinstance(node.body[0], ast.Expr):
+            return ast.Expression(node.body[0].value)
+        else:
+            return None
 
     def parse(self, mode=None):
         """
@@ -851,26 +920,26 @@ class PythonBlock(object):
           Compilation mode: "exec", "single", or "eval".  "exec", "single",
           and "eval" work as the built-in C{compile} function do.  If C{None},
           then default to "eval" if the input is a string with a single
-          expression, else "exec".  Instead of C{parse(mode="exec")}, consider
-          using C{ast_node} instead, which is cached and annotates line
-          numbers.
+          expression, else "exec".
         @rtype:
           C{ast.AST}
         """
-        if mode is None:
-            # Figure out whether to use mode="exec" or mode="eval".  Parse it
-            # using mode="exec", then convert the result into mode="eval" if
-            # it makes sense to.
-            ast_node = _parse_ast_nodes(self.text, self._input_flags,
-                                        self._auto_flags, "exec")
-            if len(ast_node.body) == 1 and isinstance(ast_node.body[0], ast.Expr):
-                return ast.Expression(ast_node.body[0].value)
+        if mode == "exec":
+            return self.ast_node
+        elif mode == "eval":
+            if self.expression_ast_node:
+                return self.expression_ast_node
             else:
-                return ast_node
+                raise SyntaxError
+        elif mode == None:
+            if self.expression_ast_node:
+                return self.expression_ast_node
+            else:
+                return self.ast_node
+        elif mode == "exec":
+            raise NotImplementedError
         else:
-            return _parse_ast_nodes(self.text, self._input_flags,
-                                    self._auto_flags, mode)
-
+            raise ValueError("parse(): invalid mode=%r" % (mode,))
 
     @cached_attribute
     def statements(self):
@@ -888,14 +957,15 @@ class PythonBlock(object):
         @rtype:
           C{tuple} of L{PythonStatement}s
         """
-        nodes_subtexts = list(_split_code_lines(self.ast_node.body, self.text))
+        node = self.annotated_ast_node
+        nodes_subtexts = list(_split_code_lines(node.body, self.text))
         if nodes_subtexts == [(self.ast_node.body, self.text)]:
             # This block is either all comments/blanks or a single statement
             # with no surrounding whitespace/comment lines.  Return self.
             return (PythonStatement._construct_from_block(self),)
         cls = type(self)
         statement_blocks = [
-            cls.__construct_from_ast(subnodes, subtext, self.flags)
+            cls.__construct_from_annotated_ast(subnodes, subtext, self.flags)
             for subnodes, subtext in nodes_subtexts]
         # Convert to statements.
         statements = []
@@ -980,7 +1050,7 @@ class PythonBlock(object):
         @return:
           Iterable of C{ast.Str} nodes
         """
-        for node in _walk_ast_nodes_in_order(self.ast_node):
+        for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
             if isinstance(node, ast.Str):
                 assert hasattr(node, 'startpos')
                 yield node

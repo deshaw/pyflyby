@@ -275,40 +275,62 @@ def test_find_import_bad_1():
     assert result == expected
 
 
-def test_autopython_eval_1():
-    result = pipe([BIN_DIR+"/autopython", "-c", "b64decode('aGVsbG8=')"])
-    expected = "[PYFLYBY] from base64 import b64decode\n'hello'"
+def test_py_eval_1():
+    result = pipe([BIN_DIR+"/py", "-c", "b64decode('aGVsbG8=')"])
+    expected = dedent("""
+        [PYFLYBY] from base64 import b64decode
+        [PYFLYBY] b64decode('aGVsbG8=')
+        'hello'
+    """).strip()
     assert result == expected
 
 
-def test_autopython_exec_1():
-    result = pipe([BIN_DIR+"/autopython", "-c", "print b64decode('aGVsbG8=')"])
-    expected = "[PYFLYBY] from base64 import b64decode\nhello"
+def test_py_exec_1():
+    result = pipe([BIN_DIR+"/py", "-c", "print b64decode('aGVsbG8=')"])
+    expected = dedent("""
+        [PYFLYBY] from base64 import b64decode
+        [PYFLYBY] print b64decode('aGVsbG8=')
+        hello
+    """).strip()
     assert result == expected
 
 
-def test_autopython_name_1():
-    result = pipe([BIN_DIR+"/autopython", "-c", "__name__"])
-    expected = "'__main__'"
+def test_py_name_1():
+    result = pipe([BIN_DIR+"/py", "-c", "__name__"])
+    expected = dedent("""
+        [PYFLYBY] __name__
+        '__main__'
+    """).strip()
     assert result == expected
 
 
-def test_autopython_argv_1():
-    result = pipe([BIN_DIR+"/autopython", "-c", "sys.argv", "x", "y"])
-    expected = "[PYFLYBY] import sys\n['-c', 'x', 'y']"
+def test_py_argv_1():
+    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "x", "y"])
+    expected = dedent("""
+       [PYFLYBY] import sys
+       [PYFLYBY] sys.argv
+       ['-c', 'x', 'y']
+    """).strip()
     assert result == expected
 
 
-def test_autopython_argv_option_1():
-    result = pipe([BIN_DIR+"/autopython", "-csys.argv", "--debug", "-x  x"])
-    expected = "[PYFLYBY] import sys\n['-c', '--debug', '-x  x']"
+def test_py_argv_2():
+    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "--debug", "-x  x"])
+    expected = dedent("""
+        [PYFLYBY] import sys
+        [PYFLYBY] sys.argv
+        ['-c', '--debug', '-x  x']
+    """).strip()
     assert result == expected
 
 
-def test_autopython_file_1():
+def test_py_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py") as f:
         f.write('print sys.argv\n')
         f.flush()
-        result = pipe([BIN_DIR+"/autopython", f.name, "a", "b"])
-    expected = "[PYFLYBY] import sys\n[%r, 'a', 'b']" % (f.name,)
+        result = pipe([BIN_DIR+"/py", f.name, "a", "b"])
+    expected = dedent("""
+        [PYFLYBY] import sys
+        [%r, 'a', 'b']
+    """).strip() % (f.name,)
     assert result == expected

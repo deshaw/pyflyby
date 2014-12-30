@@ -1,10 +1,10 @@
 Pyflyby is a set of Python programming productivity tools.
 
-For IPython interaction:
-  * autoimport: automatically imports symbols when needed.
-
 For command-line interaction:
-  * autopython: evaluates command-line arguments with automatic importing.
+  * py: command-line multitool
+
+For IPython interaction:
+  * autoimporter: automatically imports symbols when needed.
 
 For editing python source code:
   * tidy-imports:      adds missing 'import's, removes unused 'import's, and
@@ -16,11 +16,10 @@ For editing python source code:
                        form of import statements.
   * transform-imports: renames imported modules/functions.
 
-Quick start: Autoimporter
-=========================
+Quick start: Autoimporter + IPython
+===================================
 
-To use without installing::
-  $ autoipython
+  $ py
       In [1]: re.search("[a-z]+", "....hello...").group(0)
       [PYFLYBY] import re
       Out[1]: 'hello'
@@ -41,6 +40,32 @@ To install into your IPython startup file::
       [AUTOIMPORT] from base64 import b64decode
       Out[1]: 'hello'
 
+
+Quick start: command-line multi-tool
+====================================
+
+  $ py b64decode aGVsbG8=
+  [PYFLYBY] from base64 import b64decode
+  [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
+  'hello'
+
+  $ py log2 sys.maxint
+  [PYFLYBY] from numpy import log2
+  [PYFLYBY] import sys
+  [PYFLYBY] log2(9223372036854775807)
+  63.0
+
+  $ py 'plot(cos(arange(30)))'
+  [PYFLYBY] from numpy import arange
+  [PYFLYBY] from numpy import cos
+  [PYFLYBY] from matplotlib.pyplot import plot
+  [PYFLYBY] plot(cos(arange(30)))
+  <plot>
+
+  $ py 38497631 / 13951446
+  2.7594007818257693
+
+  $ py foo.py
 
 Quick start: tidy-imports
 =========================

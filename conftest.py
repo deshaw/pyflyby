@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
+import pkgutil
 import sys
 
 _already_ran_setup = False
@@ -52,6 +53,7 @@ def _setup_logger():
 
 # Set $PYFLYBY_PATH to a predictable value.  For other env vars, set to defaults.
 PYFLYBY_HOME = os.path.dirname(os.path.realpath(__file__))
+
 os.environ["PYFLYBY_PATH"] = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
 os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
 os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
@@ -61,6 +63,15 @@ os.environ["PYTHONSTARTUP"] = ""
 # Make sure that the virtualenv path is first.
 os.environ["PATH"] = "%s:%s" % (os.path.dirname(sys.executable),
                                 os.environ["PATH"])
+
+# Make sure we can import pyflyby.
+if not pkgutil.find_loader("pyflyby"):
+    pylib = os.path.join(PYFLYBY_HOME, "lib/python")
+    sys.path.append(pylib)
+    os.environ["PYTHONPATH"] = ":".join(
+        filter(None, os.environ.get("PYTHONPATH", "").split(":")) + [pylib])
+    if not pkgutil.find_loader("pyflyby"):
+        raise RuntimeError("%s: pyflyby is not importable" % (__file__,))
 
 
 # The following block is a workaround for IPython 0.11 and earlier versions.

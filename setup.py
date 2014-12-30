@@ -137,19 +137,23 @@ setup(
     author_email = "quarl@8166.clguba.z.quarl.org",
     description = ("pyflyby - Python development productivity tools, in particular automatic import management"),
     license = "MIT",
-    keywords = "pyflyby productivity automatic imports autoimporter tidy-imports",
+    keywords = "pyflyby py autopython autoipython productivity automatic imports autoimporter tidy-imports",
     url = "http://packages.python.org/pyflyby",
     package_dir={'': 'lib/python'},
     packages=['pyflyby'],
+    entry_points={'console_scripts':
+                  '\n'.join([
+                      'py=pyflyby._py:py_main',
+                  ])},
     scripts=[
-        'bin/autopython',
+        # TODO: convert these scripts into entry points (but leave stubs in
+        # bin/ for non-installed usage)
         'bin/autoipython',
         'bin/collect-exports',
         'bin/collect-imports',
         'bin/find-import',
         'bin/list-bad-xrefs',
         'bin/prune-broken-imports',
-        'bin/py',
         'bin/pyflyby-diff',
         'bin/reformat-imports',
         'bin/replace-star-imports',

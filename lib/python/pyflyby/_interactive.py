@@ -1,5 +1,5 @@
 # pyflyby/_interactive.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -167,6 +167,36 @@ def _initialize_and_start_app_with_autoimporter(app, argv):
     return app.start()
 
 
+def run_ipython_line_magic(arg):
+    """
+    Run IPython magic command.
+    If necessary, start an IPython terminal app to do so.
+    """
+    import IPython
+    if not arg.startswith("%"):
+        arg = "%" + arg
+    app = _get_or_create_ipython_terminal_app()
+    AutoImporter(app).enable()
+    # TODO: only initialize if not already initialized.
+    app.initialize([])
+    ip = app.shell
+    if hasattr(ip, "magic"):
+        # IPython 0.11+.
+        # The following has been tested on IPython 0.11, 0.12, 0.13, 1.0, 1.2,
+        # 2.0, 2.1, 2.2, 2.3.
+        # TODO: may want to wrap in one or two layers of dummy functions to make
+        # sure run_line_magic() doesn't inspect our locals.
+        return ip.magic(arg)
+    elif hasattr(ip, "runlines"):
+        # IPython 0.10
+        return ip.runlines(arg)
+    else:
+        raise RuntimeError(
+            "Couldn't run IPython magic.  "
+            "Is your IPython version too old (or too new)?  "
+            "IPython.__version__=%r" % (IPython.__version__))
+
+
 def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
     """
     Try to figure out whether python (when started from scratch) can get the
@@ -201,7 +231,7 @@ def install_in_ipython_startup_file():
     """
     import IPython
     # The following has been tested on IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1,
-    # 2.2., 2.3.
+    # 2.2, 2.3.
     try:
         IPython.core.profiledir.ProfileDir.startup_dir
     except AttributeError:
@@ -540,7 +570,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
 
     Includes globals and auto-importable symbols.
 
-      >>> complete_symbol("threadi", [])                # doctest:+ELLIPSIS
+      >>> complete_symbol("threadi", [{}])                # doctest:+ELLIPSIS
       [...'threading'...]
 
     Completion works on attributes, even on modules not yet imported - modules

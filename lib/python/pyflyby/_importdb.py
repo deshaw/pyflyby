@@ -1,5 +1,5 @@
 # pyflyby/_importdb.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -66,6 +66,11 @@ def _get_python_path(env_var_name, default_path, target_dirname):
       C{tuple} of C{Filename}s
     '''
     pathnames = _get_env_var(env_var_name, default_path)
+    if pathnames == ["EMPTY"]:
+        # The special code PYFLYBY_PATH=EMPTY means we intentionally want to
+        # use an empty PYFLYBY_PATH (and don't fall back to the default path,
+        # nor warn about an empty path).
+        return ()
     for p in pathnames:
         if re.match("/|[.]/|[.][.][.]/|~/", p):
             continue

@@ -899,3 +899,28 @@ def test_PythonStatement_auto_flags_1():
     expected = CompilerFlags("unicode_literals", "division", "print_function")
     assert s0.block.flags        == expected
     assert s1.block.flags        == expected
+
+
+def test_parsable_1():
+    block = PythonBlock("if 1:\n  2")
+    assert block.parsable
+
+
+def test_unparsable_1():
+    block = PythonBlock("if 1:\n2")
+    assert not block.parsable
+
+
+def test_parsable_explicit_flags_1():
+    block = PythonBlock("print(3, file=4)", flags="print_function")
+    assert block.parsable
+
+
+def test_parsable_missing_flags_no_auto_flags_1():
+    block = PythonBlock("print(3, file=4)")
+    assert not block.parsable
+
+
+def test_parsable_missing_flags_auto_flags_1():
+    block = PythonBlock("print(3, file=4)", auto_flags=True)
+    assert block.parsable

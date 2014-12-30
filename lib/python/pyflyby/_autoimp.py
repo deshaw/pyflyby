@@ -1,5 +1,5 @@
 # pyflyby/_autoimp.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -45,6 +45,8 @@ def interpret_namespaces(namespaces):
     if not isinstance(namespaces, list):
         raise TypeError("Expected dict or list of dicts; got a %s"
                         % type(namespaces).__name__)
+    if not namespaces:
+        raise ValueError("interpret_namespaces(): no namespaces given")
     if not all(isinstance(ns, dict) for ns in namespaces):
         raise TypeError("Expected dict or list of dicts; got a sequence of %r"
                         % ([type(x).__name__ for x in namespaces]))
@@ -302,7 +304,7 @@ def _find_missing_imports_in_ast(node, namespaces):
     Helper function to L{find_missing_imports}.
 
       >>> node = ast.parse("import numpy; numpy.arange(x) + arange(x)")
-      >>> _find_missing_imports_in_ast(node, [])
+      >>> _find_missing_imports_in_ast(node, [{}])
       ['arange', 'x']
 
     @type node:
@@ -334,11 +336,11 @@ def _find_missing_imports_in_code(co, namespaces):
     Helper function to L{find_missing_imports}.
 
       >>> f = lambda: foo.bar(x) + baz(y)
-      >>> _find_missing_imports_in_code(f.func_code, [])
+      >>> _find_missing_imports_in_code(f.func_code, [{}])
       ['baz', 'foo.bar', 'x', 'y']
 
       >>> f = lambda x: (lambda: x+y)
-      >>> _find_missing_imports_in_code(f.func_code, [])
+      >>> _find_missing_imports_in_code(f.func_code, [{}])
       ['y']
 
     @type co:
@@ -693,7 +695,7 @@ def find_missing_imports(arg, namespaces):
 
     For example, if we use an empty list of namespaces, then "os.path.join" is
     a symbol that requires import:
-      >>> find_missing_imports("os.path.join", namespaces=[])
+      >>> find_missing_imports("os.path.join", namespaces=[{}])
       ['os.path.join']
 
     But if the global namespace already has the "os" module imported, then we
@@ -713,45 +715,45 @@ def find_missing_imports(arg, namespaces):
 
     If something is imported/assigned/etc within the scope, then we assume it
     doesn't require importing:
-      >>> find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [])
+      >>> find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [{}])
       ['arange', 'x']
 
-      >>> find_missing_imports("from numpy import pi; numpy.pi + pi + x", [])
+      >>> find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])
       ['numpy.pi', 'x']
 
-      >>> find_missing_imports("for x in range(3): print numpy.arange(x)", [])
+      >>> find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])
       ['numpy.arange']
 
-      >>> find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [])
+      >>> find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])
       ['foo2.bar', 'func']
 
-      >>> find_missing_imports("a.b.y = 1; a.b.x, a.b.y, a.b.z", [])
+      >>> find_missing_imports("a.b.y = 1; a.b.x, a.b.y, a.b.z", [{}])
       ['a.b.x', 'a.b.z']
 
     find_missing_imports() parses the AST, so it understands scoping.  In the
     following example, C{x} is never undefined:
-      >>> find_missing_imports("(lambda x: x*x)(7)", [])
+      >>> find_missing_imports("(lambda x: x*x)(7)", [{}])
       []
 
     but this example, C{x} is undefined at global scope:
-      >>> find_missing_imports("(lambda x: x*x)(7) + x", [])
+      >>> find_missing_imports("(lambda x: x*x)(7) + x", [{}])
       ['x']
 
     The (unintuitive) rules for generator expressions and list comprehensions
     are handled correctly:
-      >>> find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [])
+      >>> find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
       ['z']
 
-      >>> find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [])
+      >>> find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])
       ['y', 'z']
 
     Only fully-qualified names starting at top-level are included:
 
-      >>> find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [])
+      >>> find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])
       ['a.b.x.y', 'c', 'd']
 
     @type arg:
-      C{str}, C{ast.AST}, C{callable}, or C{types.CodeType}
+      C{str}, C{ast.AST}, L{PythonBlock}, C{callable}, or C{types.CodeType}
     @param arg:
       Python code, either as source text, a parsed AST, or compiled code; can
       be as simple as a single qualified name, or as complex as an entire
@@ -778,6 +780,8 @@ def find_missing_imports(arg, namespaces):
             node = ast.parse(arg) # may raise SyntaxError
             # Get missing imports from AST.
             return _find_missing_imports_in_ast(node, namespaces)
+    elif isinstance(arg, PythonBlock):
+        return _find_missing_imports_in_ast(arg.ast_node, namespaces)
     elif isinstance(arg, ast.AST):
         return _find_missing_imports_in_ast(arg, namespaces)
     elif isinstance(arg, types.CodeType):
@@ -922,15 +926,20 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
       L{ImportDB}
     @param db:
       Import database to use.
+    @rtype:
+      C{bool}
+    @return:
+      C{True} if the symbol was already in the namespace, or the auto-import
+      succeeded; C{False} if the auto-import failed.
     """
     namespaces = interpret_namespaces(namespaces)
     if not symbol_needs_import(fullname, namespaces):
-        return
+        return True
     if autoimported is None:
         autoimported = {}
     if DottedIdentifier(fullname) in autoimported:
         logger.debug("auto_import_symbol(%r): already attempted", fullname)
-        return
+        return False
     # See whether there's a known import for this name.  This is mainly
     # important for things like "from numpy import arange".  Imports such as
     # "import sqlalchemy.orm" will also be handled by this, although it's less
@@ -948,7 +957,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
             for imp in imports:
                 logger.info("  %s", imp)
             autoimported[DottedIdentifier(fullname)] = False
-            return
+            return False
         imp, = imports
         if symbol_needs_import(imp.import_as, namespaces=namespaces):
             # We're ready for some real action.  The input code references a
@@ -959,17 +968,17 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
             if not _try_import(imp, namespaces[-1]):
                 # Failed; don't do anything else.
                 autoimported[DottedIdentifier(fullname)] = False
-                return
+                return False
             # Succeeded.
             autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
                 # We got what we wanted, so nothing more to do.
-                return
+                return True
             if imp.import_as != imp.fullname:
                 # This is not just an 'import foo.bar'; rather, it's a 'import
                 # foo.bar as baz' or 'from foo import bar'.  So don't go any
                 # further.
-                return
+                return True
         # Fall through.
     # We haven't yet imported what we want.  Either there was no entry in the
     # known imports database, or it wasn't "complete" (e.g. the user wanted
@@ -985,15 +994,16 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
                 logger.debug("auto_import_symbol(%r): stopping because "
                              "already previously failed to autoimport %s",
                              fullname, pmodule_name)
-                return
+                return False
         if not pmodule.module_if_importable:
             logger.debug("auto_import_symbol(%r): %r is not importable",
                          fullname, pmodule)
             autoimported[pmodule_name] = False
-            return
+            return False
         result = _try_import("import %s" % pmodule_name, namespaces[-1])
         assert result
         autoimported[pmodule_name] = True
+    return True
 
 
 def auto_import(arg, namespaces, db=None, autoimported=None):
@@ -1002,7 +1012,7 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
     them.
 
     @type arg:
-      C{str}, C{ast.AST}, C{callable}, or C{types.CodeType}
+      C{str}, C{ast.AST}, L{PythonBlock}, C{callable}, or C{types.CodeType}
     @param arg:
       Python code, either as source text, a parsed AST, or compiled code; can
       be as simple as a single qualified name, or as complex as an entire
@@ -1023,22 +1033,30 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
       dictionary, and will add attempted symbols to this dictionary, with
       value C{True} if the autoimport succeeded, or C{False} if the autoimport
       did not succeed.
+    @rtype:
+      C{bool}
+    @return:
+      C{True} if all symbols are already in the namespace or successfully
+      auto-imported; C{False} if any auto-imports failed.
     """
     namespaces = interpret_namespaces(namespaces)
     try:
         fullnames = find_missing_imports(arg, namespaces)
     except SyntaxError:
         logger.debug("syntax error parsing %r", arg)
-        return
+        return False
     logger.debug("Missing imports: %r", fullnames)
     if autoimported is None:
         autoimported = {}
+    ok = True
     for fullname in fullnames:
-        auto_import_symbol(fullname, namespaces, db, autoimported=autoimported)
+        ok &= auto_import_symbol(fullname, namespaces, db, autoimported)
+    return ok
 
 
 def auto_eval(arg, filename=None, mode=None,
-              flags=None, auto_flags=True, globals=None, locals=None, db=None):
+              flags=None, auto_flags=True, globals=None, locals=None,
+              auto_import=True, db=None):
     """
     Evaluate/execute the given code, automatically importing as needed.
 
@@ -1090,6 +1108,8 @@ def auto_eval(arg, filename=None, mode=None,
       C{dict}
     @param locals:
       Locals for evaluation.  If C{None}, use C{globals}.
+    @param auto_import:
+      Whether to auto-import before evaluation.
     @type db:
       L{ImportDB}
     @param db:
@@ -1103,14 +1123,6 @@ def auto_eval(arg, filename=None, mode=None,
                             auto_flags=auto_flags)
         flags = block.flags
         filename = block.filename
-        if mode is None:
-            if not isinstance(arg, basestring):
-                # For file contents, etc., if mode is unspecified, default to
-                # "exec".
-                mode = "exec"
-            else:
-                # Let PythonBlock.parse() guess the mode.
-                pass
         arg = block.parse(mode=mode)
     elif isinstance(arg, (ast.AST, types.CodeType)):
         pass
@@ -1123,14 +1135,16 @@ def auto_eval(arg, filename=None, mode=None,
         filename = Filename(filename)
     else:
         filename = None
-    db = ImportDB.interpret_arg(db, target_filename=filename)
     if globals is None:
         globals = {}
     if locals is None:
         locals = globals
-    namespaces = [globals, locals]
-    # Import as needed.
-    auto_import(arg, namespaces, db)
+    if auto_import:
+        db = ImportDB.interpret_arg(db, target_filename=filename)
+        namespaces = [globals, locals]
+        # Import as needed.
+        auto_import_f = __builtin__.globals()["auto_import"]
+        auto_import_f(arg, namespaces, db)
     # Compile from AST to code object.
     if isinstance(arg, types.CodeType):
         code = arg
@@ -1146,8 +1160,11 @@ def auto_eval(arg, filename=None, mode=None,
             raise TypeError(
                 "Expected Module/Expression/Interactive ast node; got %s"
                 % (type(arg).__name__))
-        # Compile ast node => code object.
-        code = compile(arg, str(filename or "<unknown>"), mode, flags, True)
+        # Compile ast node => code object.  This step is necessary because
+        # eval() doesn't work on AST objects.  We don't need to pass C{flags}
+        # to compile() because flags are irrelevant when we already have an
+        # AST node.
+        code = compile(arg, str(filename or "<unknown>"), mode)
     # Evaluate/execute.
     return eval(code, globals, locals)
 

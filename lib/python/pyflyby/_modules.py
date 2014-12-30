@@ -1,5 +1,5 @@
 # pyflyby/_modules.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -171,7 +171,33 @@ class ModuleHandle(object):
 
     @cached_attribute
     def filename(self):
-        return Filename(pyc_to_py(self.module.__file__))
+        """
+        Return the filename, if appropriate.
+
+        The module itself will not be imported, but if the module is not a
+        top-level module/package, accessing this attribute may cause the
+        parent package to be imported.
+
+        @rtype:
+          L{Filename}
+        """
+        # Use the loader mechanism to find the filename.  We do so instead of
+        # using self.module.__file__, because the latter forces importing a
+        # module, which may be undesirable.
+        import pkgutil
+        try:
+            loader = pkgutil.get_loader(str(self.name))
+        except ImportError:
+            return None
+        if not loader:
+            return None
+        # Get the filename using loader.get_filename().  Note that this does
+        # more than just loader.filename: for example, it adds /__init__.py
+        # for packages.
+        filename = loader.get_filename()
+        if not filename:
+            return None
+        return Filename(pyc_to_py(filename))
 
     @cached_attribute
     def text(self):
@@ -213,7 +239,6 @@ class ModuleHandle(object):
         module_names = [m for m in module_names if is_identifier(m)]
         # Canonicalize.
         return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
-
 
     @cached_attribute
     def submodules(self):

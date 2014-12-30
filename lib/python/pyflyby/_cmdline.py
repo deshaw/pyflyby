@@ -1,5 +1,5 @@
 # pyflyby/_cmdline.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -263,10 +263,12 @@ def print_version_and_exit(extra=None):
     raise SystemExit(0)
 
 
-def syntax(message=None):
+def syntax(message=None, usage=None):
     if message:
         logger.error(message)
-    print >>sys.stderr, maindoc() + '\n\nFor usage, see: %s --help' % (sys.argv[0],)
+    outmsg = ((usage or maindoc()) +
+              '\n\nFor usage, see: %s --help' % (sys.argv[0],))
+    print >>sys.stderr, outmsg
     raise SystemExit(1)
 
 
