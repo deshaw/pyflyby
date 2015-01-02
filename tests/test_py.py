@@ -2432,10 +2432,10 @@ def test_ctypes_1():
     result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "%03d", "7")
     expected = dedent("""
         [PYFLYBY] import ctypes
-        [PYFLYBY] ctypes.CDLL("libc.dylib").printf
-        [PYFLYBY] ctypes.CDLL("libc.dylib").printf('%03d', 7)
+        [PYFLYBY] ctypes.CDLL("{libname}").printf
+        [PYFLYBY] ctypes.CDLL("{libname}").printf('%03d', 7)
         007
-    """).strip()
+    """).strip().format(libname=libname)
     assert expected == result
 
 
