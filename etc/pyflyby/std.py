@@ -78,7 +78,7 @@ import filecmp
 import fileinput
 import functional
 import functools
-from   functools                import partial, update_wrapper
+from   functools                import partial, update_wrapper, wraps
 import gc
 import getpass
 from   getpass                  import getuser
@@ -134,8 +134,8 @@ import pickle
 from   pickle                   import PickleError, UnpicklingError
 import pickletools
 import pkg_resources
+from   pkg_resources            import load_entry_point
 import pkgutil
-from   pkg_resources                  import load_entry_point
 import pprint
 import psutil
 import pwd
