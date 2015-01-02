@@ -1420,6 +1420,38 @@ def test_complete_symbol_bad_as_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+def test_complete_symbol_nonmodule_1(tmp):
+    # Verify that completion works even if a module replaced itself in
+    # sys.modules with a pseudo-module (perhaps in order to get module
+    # properties).  E.g. psutil, https://github.com/josiahcarlson/mprop.
+    writetext(tmp.dir/"gravesend60063393.py", """
+        import sys
+        river = 'Thames'
+        class M(object):
+            @property
+            def river(self):
+                print "in the river"
+                return 'Medway'
+            @property
+            def island(self):
+                print "on the island"
+                return 'Canvey'
+            __name__ = __name__
+        sys.modules[__name__] = M()
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: gravesend60063\t393.r\t
+        [PYFLYBY] import gravesend60063393
+        In [2]: gravesend60063393.river
+        in the river
+        Out[2]: 'Medway'
+        In [3]: gravesend60063\t393.is\tland
+        on the island
+        Out[3]: 'Canvey'
+    """, PYTHONPATH=tmp.dir)
+
+
 def test_disable_reenable_autoimport_1():
     ipython("""
         In [1]: import pyflyby

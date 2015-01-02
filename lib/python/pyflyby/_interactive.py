@@ -646,11 +646,20 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
             logger.debug("complete_symbol(%r): couldn't load symbol %r", fullname, pname)
             return []
         results = set()
+        # Add current attribute members.
         results.update(_list_members_for_completion(parent, ip))
-        if sys.modules.get(pname, object()) is parent and parent.__name__ == pname:
+        # Is the parent a package/module?
+        if sys.modules.get(pname, Ellipsis) is parent and parent.__name__ == pname:
+            # Add known_imports entries from the database.
             results.update(known.member_names.get(pname, []))
-            results.update([m.name.parts[-1]
-                            for m in ModuleHandle(parent).submodules])
+            # Get the module handle.  Note that we use ModuleHandle() on the
+            # *name* of the module (C{pname}) instead of the module instance
+            # (C{parent}).  Using the module instance normally works, but
+            # breaks if the module hackily replaced itself with a pseudo
+            # module (e.g. https://github.com/josiahcarlson/mprop).
+            pmodule = ModuleHandle(pname)
+            # Add importable submodules.
+            results.update([m.name.parts[-1] for m in pmodule.submodules])
         results = sorted([r for r in results if r.startswith(attrname)])
         results = ["%s.%s" % (pname, r) for r in results]
     return results
