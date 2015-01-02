@@ -1601,11 +1601,23 @@ class AutoImporter(object):
 
 
 
-def enable_auto_importer():
+def enable_auto_importer(if_no_ipython='raise'):
     """
     Turn on the auto-importer in the current IPython application.
+
+    @param if_no_ipython:
+      If we are not inside IPython and if_no_ipython=='ignore', then silently
+      do nothing.
+      If we are not inside IPython and if_no_ipython=='raise', then raise
+      NoIPythonAppError.
     """
-    app = _get_ipython_app()
+    try:
+        app = _get_ipython_app()
+    except NoIPythonAppError:
+        if if_no_ipython=='ignore':
+            return
+        else:
+            raise
     auto_importer = AutoImporter(app)
     auto_importer.enable()
 
@@ -1614,6 +1626,9 @@ def disable_auto_importer():
     """
     Turn off the auto-importer in the current IPython application.
     """
-    app = _get_ipython_app()
+    try:
+        app = _get_ipython_app()
+    except NoIPythonAppError:
+        return
     auto_importer = AutoImporter(app)
     auto_importer.disable()
