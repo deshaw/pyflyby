@@ -10,6 +10,7 @@ import atexit
 from   cStringIO                import StringIO
 from   contextlib               import contextmanager
 import difflib
+from   functools                import wraps
 import inspect
 import json
 import os
@@ -25,6 +26,7 @@ from   subprocess               import PIPE, Popen, check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
 from   textwrap                 import dedent
+import time
 
 import pyflyby
 from   pyflyby._file            import Filename
@@ -78,6 +80,28 @@ class _TmpFixture(object):
         os.close(fd)
         self._request.addfinalizer(lambda: os.unlink(f))
         return Filename(f)
+
+
+def retry(exceptions=(Exception,), tries=5, delay=1.0, backoff=1.0):
+    """
+    Decorator that retries a function upon exception.
+    """
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return f(*args, **kwargs)
+                except exceptions as e:
+                    print "Error: %s: %s; retrying in %.1f seconds" % (
+                        type(e).__name__, e, mdelay)
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs)
+        return f_retry  # true decorator
+    return deco_retry
 
 
 def writetext(filename, text, mode='w'):
@@ -1977,13 +2001,20 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 
 
 @skipif_ipython_too_old_for_kernel
+@retry(ExpectError)
 def test_ipython_console_1():
     # Verify that autoimport and tab completion work in IPython console.
+    # We retry a few times until success (via the @retry decorator) because
+    # for some versions of ipython, in some configurations, 'ipython console'
+    # occasionally hangs on startup; not sure why, but it seems unrelated to
+    # pyflyby, since it happens before any pyflyby commands.
     ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: b64deco\tde('cGVhbnV0')
+        In [1]: 'acorn'
+        Out[1]: 'acorn'
+        In [2]: import pyflyby; pyflyby.enable_auto_importer()
+        In [3]: b64deco\tde('cGVhbnV0')
         [PYFLYBY] from base64 import b64decode
-        Out[2]: 'peanut'
+        Out[3]: 'peanut'
     """, args='console', sendeof=True)
 
 
