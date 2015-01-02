@@ -582,10 +582,10 @@ def test_heuristic_eval_complex_2():
 
 
 def test_heuristic_eval_exponentiation_1():
-    result = py("123**5")
+    result = py("123**4")
     expected = dedent("""
-        [PYFLYBY] 123**5
-        28153056843
+        [PYFLYBY] 123**4
+        228886641
     """).strip()
     assert expected == result
 
