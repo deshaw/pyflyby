@@ -1509,6 +1509,28 @@ def test_print_joinstr_1():
     assert expected == result
 
 
+def test_join_single_arg_1():
+    result = py("print", "sys")
+    expected = dedent("""
+        [PYFLYBY] import sys
+        [PYFLYBY] print sys
+        <module 'sys' (built-in)>
+    """).strip()
+    assert expected == result
+
+
+def test_join_single_arg_fallback_1():
+    # Verify that when heuristically joining, we fall back to heuristic apply.
+    # Even though "print foo" is parsable as a joined string, if C{foo} is not
+    # importable, then fallback to "print('foo')".
+    result = py("print", "ardmore23653526")
+    expected = dedent("""
+        [PYFLYBY] print('ardmore23653526')
+        ardmore23653526
+    """).strip()
+    assert expected == result
+
+
 def test_no_ipython_for_eval_1():
     result = py("-q", "'os' in sys.modules, 'IPython' in sys.modules")
     expected = "(True, False)"
@@ -2191,21 +2213,21 @@ def test_argmode_str_no_concat_1():
     assert expected == result
 
 
-def test_argmode_eval_concat_1():
+def test_argmode_eval_no_concat_1():
     result = py("--args=eval", "print", "sys")
     expected = dedent("""
         [PYFLYBY] import sys
-        [PYFLYBY] print sys
+        [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
     assert expected == result
 
 
-def test_argmode_auto_concat_1():
+def test_argmode_auto_no_concat_1():
     result = py("--args=auto", "print", "sys")
     expected = dedent("""
         [PYFLYBY] import sys
-        [PYFLYBY] print sys
+        [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
     assert expected == result

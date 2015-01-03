@@ -282,6 +282,12 @@ $ py                             IPython
 
 # TODO: provide a way to omit newline in output.  maybe --output=write.
 
+# TODO: make sure 'py -c' matches behavior of 'python -c' w.r.t. sys.modules["__main__"]
+# $ py -c 'x=3;import sys; print sys.modules["__main__"].__dict__["x"]'
+# mimic runpy.{_TempModule,_run_code}
+
+# TODO: refactor this module - maybe to _heuristic.py
+
 import ast
 from   contextlib               import contextmanager
 import inspect
@@ -1228,7 +1234,7 @@ class _Namespace(object):
     def auto_import(self, arg):
         return auto_import(arg, [self.globals], autoimported=self.autoimported)
 
-    def auto_eval(self, block, mode=None, info=False):
+    def auto_eval(self, block, mode=None, info=False, auto_import=True):
         """
         Evaluate C{block} with auto-importing.
         """
@@ -1236,7 +1242,7 @@ class _Namespace(object):
         #   auto_eval(arg, mode=mode, flags=FLAGS, globals=self.globals)
         # but better logging and error raising.
         block = PythonBlock(block, flags=FLAGS, auto_flags=True)
-        if not self.auto_import(block):
+        if auto_import and not self.auto_import(block):
             missing = find_missing_imports(block, [self.globals])
             mstr = ", ".join(map(repr, missing))
             if len(missing) == 1:
@@ -1248,7 +1254,8 @@ class _Namespace(object):
             raise UnimportableNameError(msg)
         if info:
             logger.info(block)
-        return auto_eval(block, globals=self.globals, mode=mode)
+        return auto_eval(block, globals=self.globals, mode=mode,
+                         auto_import=False)
 
 
 class _PyMain(object):
@@ -1697,18 +1704,19 @@ class _PyMain(object):
             # concatenated and parsed as a single python program/expression.
             # But don't try this if any arguments look like options, empty
             # string or whitespace, etc.
+            # TODO: refactor
             if (args and
-                self.arg_mode != "string" and
+                self.arg_mode == None and
                 not any(re.match("\s*$|-[a-zA-Z-]", a) for a in args)):
                 cmd = PythonBlock(" ".join([arg0]+args),
                                   flags=FLAGS, auto_flags=True)
-                if cmd.parsable:
-                    # TODO: check for failure to auto import everything and
-                    # fall back to not joining, e.g. 'py print foo' vs 'py
-                    # --apply print foo' => auto args.
-                    self.arg_mode = "error"
-                    self.eval(cmd, [])
-                    return
+                if cmd.parsable and self.namespace.auto_import(cmd):
+                    with SysArgvCtx("-c"):
+                        output_mode = _interpret_output_mode(self.output_mode)
+                        result = self.namespace.auto_eval(
+                            cmd, info=True, auto_import=False)
+                        print_result(result, output_mode)
+                        return
                 # else fall through
             # Heuristic based on first arg: try run_module, apply, or exec/eval.
             cmd = PythonBlock(arg0, flags=FLAGS, auto_flags=True)

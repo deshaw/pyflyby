@@ -1465,14 +1465,36 @@ def test_complete_symbol_nonmodule_1(tmp):
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: gravesend60063\t393.r\t
+        In [2]: print gravesend60063\t393.r\t
         [PYFLYBY] import gravesend60063393
-        In [2]: gravesend60063393.river
+        In [2]: print gravesend60063393.river
         in the river
-        Out[2]: 'Medway'
-        In [3]: gravesend60063\t393.is\tland
+        Medway
+        In [3]: print gravesend60063\t393.is\tland
         on the island
-        Out[3]: 'Canvey'
+        Canvey
+    """, PYTHONPATH=tmp.dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="IPython version %s itself is triggers superfluous property access")
+def test_property_no_superfluous_access_1(tmp):
+    # Verify that we don't trigger properties more than once.
+    writetext(tmp.dir/"rathbun38356202.py", """
+        class A(object):
+            @property
+            def ellsworth(self):
+                print "edgegrove"
+                return "darlington"
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: a = rathbun38356202.A()
+        [PYFLYBY] import rathbun38356202
+        In [3]: a.ellsworth
+        edgegrove
+        Out[3]: 'darlington'
     """, PYTHONPATH=tmp.dir)
 
 
