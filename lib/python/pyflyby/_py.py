@@ -369,10 +369,9 @@ def _requires_parens_as_function(function_name):
     @rtype:
       C{bool}
     """
-    flags = int(FLAGS) + ast.PyCF_ONLY_AST
-    try:
-        node = compile(function_name, "<unknown>", "eval", flags)
-    except SyntaxError:
+    function_name = PythonBlock(function_name, flags=FLAGS)
+    node = function_name.expression_ast_node
+    if not node:
         # Couldn't parse?  Just assume we do need parens for now.  Or should
         # we raise an exception here?
         return True
@@ -381,11 +380,13 @@ def _requires_parens_as_function(function_name):
     if isinstance(body, (ast.Name, ast.Attribute, ast.Call, ast.Subscript)):
         return False
     # Does it already have parentheses?
-    if function_name.startswith("(") and function_name.endswith(")"):
+    n = str(function_name)
+    if n.startswith("(") and n.endswith(")"):
         # It has parentheses, superficially.  Make sure it's not something
         # like "(foo)+(bar)".
+        flags = int(FLAGS) | ast.PyCF_ONLY_AST
         try:
-            tnode = compile(function_name[1:-1], "<unknown>", "eval", flags)
+            tnode = compile(n[1:-1], "<unknown>", "eval", flags)
         except SyntaxError:
             return True
         if ast.dump(tnode) == ast.dump(node):
@@ -463,82 +464,6 @@ def _build_function_usage_string(function_name, argspec, prefix):
     return "\n".join(usage)
 
 
-def _parse_value_or_string(arg, namespace, arg_mode="auto"):
-    """
-    Heuristically choose to auto_eval() a string if appropriate, else return
-    the argument as a string.
-
-    Heuristic auto-evaluation:
-      >>> ns = _Namespace()
-      >>> _parse_value_or_string('5+2', ns)
-      7
-
-      >>> _parse_value_or_string('5j+2', ns)
-      (2+5j)
-
-      >>> _parse_value_or_string('base64.b64decode("SGFsbG93ZWVu")', ns)
-      [PYFLYBY] import base64
-      'Halloween'
-
-    Returning an unparsable argument as a string:
-      >>> _parse_value_or_string('5foo+2', ns)
-      '5foo+2'
-
-    Returning an undefined (and not auto-importable) argument as a string:
-      >>> _parse_value_or_string('foo5+2', ns)
-      'foo5+2'
-
-    @type arg:
-      C{str}
-    @type namespace:
-      L{_Namespace}
-    @type arg_mode:
-      C{str}
-    @param arg_mode:
-      If C{"string"}, then return C{arg} unchanged.  If C{"eval"}, then always
-      evaluate C{arg}.  If C{"auto"}, then heuristically evaluate if
-      appropriate.
-    """
-    if not isinstance(arg, str):
-        raise TypeError("_parse_value_or_string(): expected str instead of %s"
-                        % (type(arg).__name__,))
-    if arg_mode == "string":
-        return arg
-    elif arg_mode == "eval":
-        # Try to parse into an AST.  (We don't need auto_flags here because
-        # it only affects print_function, which is only relevant for
-        # mode="exec".)
-        block = PythonBlock(arg, flags=FLAGS, auto_flags=False)
-        if block.parsable_as_expression:
-            return namespace.auto_eval(block)
-        else:
-            raise SyntaxError("syntax error: %s" % (arg,))
-    elif arg_mode == "auto":
-        # Try parsing as a Python expression.
-        block = PythonBlock(arg, flags=FLAGS, auto_flags=False)
-        if block.parsable_as_expression:
-            try:
-                return namespace.auto_eval(block)
-            except UnimportableNameError:
-                # If the string can't be auto-evaluated, then fallback to a
-                # string.
-                #
-                # (We used to only do the fallback behavior when the entire
-                # string was an identifier.  However, we should also fallback
-                # for "foo/bar", "foo-bar", etc.)
-                return arg
-                # TODO: unit test that we don't get confused by NameError in
-                # user code
-        else:
-            # Not a Python expression.  Return as a string.
-            return arg
-    elif arg_mode == "error":
-        raise ValueError("Expected no arguments; got %r" % (arg,))
-    else:
-        raise ValueError("_parse_value_or_string(): invalid arg_mode=%r"
-                         % (arg_mode,))
-
-
 class ParseError(Exception):
     pass
 
@@ -551,12 +476,137 @@ class _ParseInterruptedWantSource(Exception):
     pass
 
 
-# TODO: create a new class Arg (AutoEvaluatedArg?) which tracks string form,
-# ast form, unparsed form, evaluated form and defers the auto-evaluation until
-# later.  This allows:
-#   * avoiding repr() for "-" and "--"
-#   * making args=auto work for eval_maybe_apply
-#   * integrating function/function_name stuff
+class UserExpr(object):
+    """
+    An expression from user input, and its evaluated value.
+
+    The expression can come from a string literal or other raw value, or a
+    string that is evaluated as an expression, or heuristically chosen.
+
+      >>> ns = _Namespace()
+
+    Heuristic auto-evaluation:
+      >>> UserExpr('5+2', ns, "auto").value
+      7
+
+      >>> UserExpr('5j+2', ns, "auto").value
+      (2+5j)
+
+      >>> UserExpr('base64.b64decode("SGFsbG93ZWVu")', ns, "auto").value
+      [PYFLYBY] import base64
+      'Halloween'
+
+    Returning an unparsable argument as a string:
+      >>> UserExpr('Victory Loop', ns, "auto").value
+      'Victory Loop'
+
+    Returning an undefined (and not auto-importable) argument as a string:
+      >>> UserExpr('Willowbrook29817621+5', ns, "auto").value
+      'Willowbrook29817621+5'
+
+    Explicit literal string:
+      >>> UserExpr("2+3", ns, "raw_value").value
+      '2+3'
+
+      >>> UserExpr("'2+3'", ns, "raw_value").value
+      "'2+3'"
+
+    Other raw values:
+      >>> UserExpr(sys.exit, ns, "raw_value").value
+      <built-in function exit>
+    """
+
+    def __init__(self, arg, namespace, arg_mode, source=None):
+        """
+        Construct a new UserExpr.
+
+        @type arg:
+          C{str} if C{arg_mode} is "eval" or "auto"; anything if C{arg_mode}
+          is "raw_value"
+        @param arg:
+          Input user argument.
+        @type namespace:
+          L{_Namespace}
+        @type arg_mode:
+          C{str}
+        @param arg_mode:
+          If C{"raw_value"}, then return C{arg} unchanged.  If C{"eval"}, then
+          always evaluate C{arg}.  If C{"auto"}, then heuristically evaluate
+          if appropriate.
+        """
+        if arg_mode == "string":
+            arg_mode = "raw_value"
+        self._namespace = namespace
+        self._original_arg_mode = arg_mode
+        self._original_arg        = arg
+        if arg_mode == "raw_value":
+            # self.inferred_arg_mode = "raw_value"
+            # self.original_source = None
+            if source is None:
+                source = PythonBlock(repr(self._original_arg))
+            else:
+                source = PythonBlock(source)
+            self.source = source
+            self.value = self._original_arg
+        elif arg_mode == "eval":
+            if source is not None:
+                raise ValueError(
+                    "UserExpr(): source argument not allowed for eval")
+            # self.inferred_arg_mode = "eval"
+            self._original_arg_as_source = PythonBlock(arg, flags=FLAGS)
+            # self.original_source = self._original_arg_as_source
+        elif arg_mode == "auto":
+            if source is not None:
+                raise ValueError(
+                    "UserExpr(): source argument not allowed for auto")
+            if not isinstance(arg, basestring):
+                raise ValueError(
+                    "UserExpr(): arg must be a string if arg_mode='auto'")
+            self._original_arg_as_source = PythonBlock(arg, flags=FLAGS)
+        else:
+            raise ValueError("UserExpr(): bad arg_mode=%r" % (arg_mode,))
+
+    def _infer_and_evaluate(self):
+        if self._original_arg_mode == "raw_value":
+            pass
+        elif self._original_arg_mode == "eval":
+            block = self._original_arg_as_source
+            if not (str(block).strip()):
+                raise ValueError("empty input")
+            self.value = self._namespace.auto_eval(block)
+            self.source = self._original_arg_as_source #.pretty_print() # TODO
+        elif self._original_arg_mode == "auto":
+            block = self._original_arg_as_source
+            ERROR = object()
+            if not (str(block).strip()):
+                value = ERROR
+            elif not block.parsable_as_expression:
+                value = ERROR
+            else:
+                try:
+                    value = self._namespace.auto_eval(block)
+                except UnimportableNameError:
+                    value = ERROR
+            if value is ERROR:
+                # self.inferred_arg_mode = "raw_value"
+                self.value = self._original_arg
+                # self.original_source = None
+                self.source = PythonBlock(repr(self.value))
+            else:
+                # self.inferred_arg_mode = "eval"
+                self.value = value
+                # self.original_source = block
+                self.source = block #.pretty_print() # TODO
+        else:
+            raise AssertionError("internal error")
+        self._infer_and_evaluate = lambda: None
+
+    def __getattr__(self, k):
+        self._infer_and_evaluate()
+        return object.__getattribute__(self, k)
+
+    def __str__(self):
+        return str(self._original_arg)
 
 
 def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"):
@@ -571,13 +621,15 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
     # do so because neither supports dynamic keyword arguments well.  Optparse
     # doesn't support parsing known arguments only, and argparse doesn't
     # support turning off interspersed positional arguments.
+    def make_expr(arg, arg_mode=arg_mode):
+        return UserExpr(arg, namespace, arg_mode)
 
     # Create a map from argname to default value.
     defaults = argspec.defaults or ()
     argname2default = {}
     for argname, default in zip(argspec.args[len(argspec.args)-len(defaults):],
                                 defaults):
-        argname2default[argname] = default
+        argname2default[argname] = make_expr(default, "raw_value")
     # Create a map from prefix to arguments with that prefix.  E.g. {"foo":
     # ["foobar", "foobaz"]}
     prefix2argname = {}
@@ -598,19 +650,11 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
             if arg == "-":
                 # Read from stdin and stuff into next argument as a string.
                 data = sys.stdin.read()
-                if arg_mode != "string":
-                    # Wrap in repr() to eval later.
-                    # TODO: avoid this ugly kludge here
-                    data = repr(data)
-                got_pos_args.append(data)
+                got_pos_args.append(make_expr(data, "string"))
                 continue
             elif arg == "--":
                 # Treat remaining arguments as strings.
-                # TODO: optimize this function to avoid the need for the repr.
-                if arg_mode == "string":
-                    got_pos_args.extend(args)
-                else:
-                    got_pos_args.extend([repr(x) for x in args])
+                got_pos_args.extend([make_expr(x, "string") for x in args])
                 del args[:]
                 continue
             elif arg.startswith("--"):
@@ -650,9 +694,9 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                         "If you really want to use %r as the argument to %s, "
                         "then use %s=%s."
                         % (arg, value, arg, arg, value))
-            got_keyword_args[argname] = value
+            got_keyword_args[argname] = make_expr(value)
         else:
-            got_pos_args.append(arg)
+            got_pos_args.append(make_expr(arg))
 
     parsed_args = []
     parsed_kwargs = {}
@@ -663,25 +707,34 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                     "%s specified both as positional argument (%s) "
                     "and keyword argument (%s)"
                     % (argname, got_pos_args[i], got_keyword_args[argname]))
-            unparsed_value = got_pos_args[i]
-            parsed_value = _parse_value_or_string(unparsed_value, namespace, arg_mode)
+            expr = got_pos_args[i]
         else:
             try:
-                unparsed_value = got_keyword_args.pop(argname)
+                expr = got_keyword_args.pop(argname)
             except KeyError:
                 try:
-                    parsed_value = argname2default[argname]
+                    expr = argname2default[argname]
                 except KeyError:
                     raise ParseError(
                         "missing required argument %s" % (argname,))
-            else:
-                parsed_value = _parse_value_or_string(unparsed_value, namespace, arg_mode)
-        parsed_args.append(parsed_value)
+        try:
+            value = expr.value
+        except Exception as e:
+            raise ParseError(
+                "Error parsing value for --%s=%s: %s: %s"
+                % (argname, expr, type(e).__name__, e))
+        parsed_args.append(value)
 
     if len(got_pos_args) > len(argspec.args):
         if argspec.varargs:
-            for unparsed_value in got_pos_args[len(argspec.args):]:
-                parsed_args.append(_parse_value_or_string(unparsed_value, namespace, arg_mode))
+            for expr in got_pos_args[len(argspec.args):]:
+                try:
+                    value = expr.value
+                except Exception as e:
+                    raise ParseError(
+                        "Error parsing value for *%s: %s: %s: %s"
+                        % (argspec.varargs, expr, type(e).__name__, e))
+                parsed_args.append(value)
         else:
             max_nargs = len(argspec.args)
             if argspec.defaults:
@@ -692,15 +745,15 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                 "Too many positional arguments.  "
                 "Expected %s positional argument(s): %s.  Got %d args: %s"
                 % (expected, ", ".join(argspec.args),
-                   len(got_pos_args), " ".join(got_pos_args)))
+                   len(got_pos_args), " ".join(map(str, got_pos_args))))
 
-    for argname, unparsed_value in sorted(got_keyword_args.items()):
+    for argname, expr in sorted(got_keyword_args.items()):
         try:
-            parsed_kwargs[argname] = _parse_value_or_string(unparsed_value, namespace, arg_mode)
+            parsed_kwargs[argname] = expr.value
         except Exception as e:
             raise ParseError(
                 "Error parsing value for --%s=%s: %s: %s"
-                % (argname, unparsed_value, type(e).__name__, e))
+                % (argname, expr, type(e).__name__, e))
 
     return parsed_args, parsed_kwargs
 
@@ -731,63 +784,21 @@ class NotAFunctionError(Exception):
     pass
 
 
-# TODO: replace with an Arg class.
-def _interpret_function_name(function, function_name, namespace):
-    """
-    Interpret function/function_name.
-
-    If C{function} is a string, then evaluate it (with auto importing) to get
-    the function.  (In general, it can be any callable, not just a function.)
-
-    If C{function_name} is not specified, then use C{function} if it was
-    originally specified as a string, else C{function.__name__}.
-
-    @param function:
-      Function, or a string to evaluate.
-    @param function_name:
-      Name of function.
-    @return:
-      (function, function_name)
-    """
-    if callable(function):
-        if function_name is None:
-            function_name = function.__name__
-        return function, function_name
-    elif isinstance(function, basestring):
-        function = function.strip()
-        if not function:
-            raise ValueError("No function specified")
-        if function_name is None:
-            function_name = function
-        else:
-            function_name = function_name.strip()
-        try:
-            function = namespace.auto_eval(function, mode="eval")
-        except Exception as e:
-            raise ValueError("Invalid function %s: %s: %s"
-                             % (function, type(e).__name__, e))
-        if not callable(function):
-            raise NotAFunctionError("Not a function", function)
-        return function, function_name
-    else:
-        raise TypeError(
-            "Expected function or string; got a %s"
-            % (type(function).__name__,))
-
-
-def _get_help(obj, name, verbosity=1):
+def _get_help(expr, verbosity=1):
     """
     Construct a help string.
 
-    @param object:
+    @type expr:
+      L{UserExpr}
+    @param expr:
       Object to generate help for.
-    @param name:
-      Name of object.
     @rtype:
       C{str}
     """
     # TODO: colorize headers
     result = ""
+    obj = expr.value
+    name = str(expr.source)
     if callable(obj):
         argspec = _get_argspec(obj)
         prefix = os.path.basename(sys.orig_argv[0]) + " "
@@ -836,17 +847,16 @@ def _get_help(obj, name, verbosity=1):
     return result
 
 
-def auto_apply(function, commandline_args, namespace,
-               arg_mode=None, function_name=None):
+def auto_apply(function, commandline_args, namespace, arg_mode=None):
     """
     Call C{function} on command-line arguments.  Arguments can be positional
     or keyword arguments like "--foo=bar".  Arguments are by default
     heuristically evaluated.
 
+    @type function:
+      C{UserExpr}
     @param function:
-      Function, or a string to evaluate.
-    @param function_name:
-      Name of function (used for usage strings).
+      Function to apply.
     @type commandline_args:
       C{list} of C{str}
     @param commandline_args:
@@ -857,35 +867,36 @@ def auto_apply(function, commandline_args, namespace,
       expressions.  If C{"auto"} (the default), then heuristically decide
       whether to treat as expressions or strings.
     """
-    function, function_name = _interpret_function_name(
-        function, function_name, namespace)
+    if not isinstance(function, UserExpr):
+        raise TypeError
+    if not callable(function.value):
+        raise NotAFunctionError("Not a function", function.value)
     arg_mode = _interpret_arg_mode(arg_mode, default="auto")
     # Parse command-line arguments.
-    argspec = _get_argspec(function)
+    argspec = _get_argspec(function.value)
     try:
         args, kwargs = _parse_auto_apply_args(argspec, commandline_args,
                                               namespace, arg_mode=arg_mode)
     except _ParseInterruptedWantHelp:
-        usage = _get_help(function, function_name, verbosity=1)
+        usage = _get_help(function, verbosity=1)
         print(usage)
         raise SystemExit(0)
     except _ParseInterruptedWantSource:
-        usage = _get_help(function, function_name, verbosity=2)
+        usage = _get_help(function, verbosity=2)
         print(usage)
         raise SystemExit(0)
     except ParseError as e:
         # Failed parsing command-line arguments.  Print usage.
         logger.error(e)
-        usage = _get_help(function, function_name,
-                          verbosity=(1 if logger.info_enabled else 0))
+        usage = _get_help(function, verbosity=(1 if logger.info_enabled else 0))
         sys.stderr.write("\n" + usage)
         raise SystemExit(1)
     # Log what we're doing.
-    logger.info("%s", _format_call(function_name, argspec, args, kwargs))
+    logger.info("%s", _format_call(function.source, argspec, args, kwargs))
 
     # *** Call the function. ***
     try:
-        result = function(*args, **kwargs)
+        result = function.value(*args, **kwargs)
     except Exception as e:
         raise
         # TODO: print traceback only for user portion of code
@@ -1124,6 +1135,8 @@ def _interpret_arg_mode(arg, default="auto"):
     """
     if arg is None:
         arg = default
+    if arg is "auto" or arg is "eval" or arg is "string":
+        return arg # optimization for interned strings
     rarg = str(arg).strip().lower()
     if rarg in ["eval", "evaluate", "exprs", "expr", "expressions", "expression", "e"]:
         return "eval"
@@ -1247,7 +1260,7 @@ class _PyMain(object):
     def exec_stdin(self, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode, default="silent")
-        cmd_args = [_parse_value_or_string(a, self.namespace, arg_mode)
+        cmd_args = [UserExpr(a, self.namespace, arg_mode).value
                     for a in cmd_args]
         with SysArgvCtx(*cmd_args):
             result = self.namespace.auto_eval(Filename.STDIN)
@@ -1256,7 +1269,7 @@ class _PyMain(object):
     def eval(self, cmd, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode)
-        cmd_args = [_parse_value_or_string(a, self.namespace, arg_mode)
+        cmd_args = [UserExpr(a, self.namespace, arg_mode).value
                     for a in cmd_args]
         with SysArgvCtx("-c", *cmd_args):
             cmd = PythonBlock(cmd)
@@ -1269,7 +1282,7 @@ class _PyMain(object):
         # TODO: support compiled (.pyc/.pyo) files
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode)
-        cmd_args = [_parse_value_or_string(a, self.namespace, arg_mode)
+        cmd_args = [UserExpr(a, self.namespace, arg_mode).value
                     for a in cmd_args]
         if filename == "-":
             filename = Filename.STDIN
@@ -1281,11 +1294,11 @@ class _PyMain(object):
             result = self.namespace.auto_eval(filename)
             print_result(result, output_mode)
 
-    def apply(self, function_name, cmd_args):
+    def apply(self, function, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="auto")
         output_mode = _interpret_output_mode(self.output_mode)
         # Todo: what should we set argv to?
-        result = auto_apply(function_name, cmd_args, self.namespace, arg_mode)
+        result = auto_apply(function, cmd_args, self.namespace, arg_mode)
         print_result(result, output_mode)
 
     def _seems_like_module(self, arg):
@@ -1326,8 +1339,10 @@ class _PyMain(object):
             info = not re.match("^[a-zA-Z0-9_.]+$", function_name)
             result = self.namespace.auto_eval(cmd, info=info)
             if callable(result):
-                result = auto_apply(result, cmd_args, self.namespace,
-                                    self.arg_mode, function_name)
+                function = UserExpr(
+                    result, self.namespace, "raw_value", function_name)
+                result = auto_apply(function, cmd_args, self.namespace,
+                                    self.arg_mode)
                 print_result(result, output_mode)
                 sys.argv[:] # mark as accessed
             else:
@@ -1372,12 +1387,16 @@ class _PyMain(object):
             return
         if len(args)==1 and args[0] in ["--help", "-help", "--h", "-h",
                                         "--?", "-?", "?"]:
-            usage = _get_help(module.module, str(module.name), 1)
+            expr = UserExpr(module.module, None, "raw_value",
+                            source=str(module.name))
+            usage = _get_help(expr, 1)
             print(usage)
             return
         if len(args)==1 and args[0] in ["--source", "-source",
                                         "--??", "-??", "??"]:
-            usage = _get_help(module.module, str(module.name), 2)
+            expr = UserExpr(module.module, None, "raw_value",
+                            source=str(module.name))
+            usage = _get_help(expr, 2)
             print(usage)
             return
         self.run_module(module, args)
@@ -1406,8 +1425,8 @@ class _PyMain(object):
         if not objname:
             print(__doc__)
             return
-        obj = self.namespace.auto_eval(objname, mode="eval")
-        usage = _get_help(obj, objname, verbosity)
+        expr = UserExpr(objname, self.namespace, "eval")
+        usage = _get_help(expr, verbosity)
         print(usage)
 
     def _parse_global_opts(self):
@@ -1551,8 +1570,9 @@ class _PyMain(object):
         elif action in ["apply", "call"]:
             # Call a function named on the command-line, with auto importing and
             # auto evaluation of arguments.
-            cmd = popcmdarg()
-            self.apply(cmd, args)
+            function_name = popcmdarg()
+            function = UserExpr(function_name, self.namespace, "eval")
+            self.apply(function, args)
         elif action in ["map"]:
             # Call function on each argument.
             # TODO: instead of making this a standalone mode, change this to a
@@ -1562,13 +1582,14 @@ class _PyMain(object):
             #      py --map '_**2' 3 4 5
             # when using heuristic mode, "lock in" the action mode on the
             # first argument.
-            cmd = popcmdarg()
+            function_name = popcmdarg()
+            function = UserExpr(function_name, self.namespace, "eval")
             if args and args[0] == '--':
                 for arg in args[1:]:
-                    self.apply(cmd, ['--', arg])
+                    self.apply(function, ['--', arg])
             else:
                 for arg in args:
-                    self.apply(cmd, [arg])
+                    self.apply(function, [arg])
         elif action in ["xargs"]:
             # TODO: read lines from stdin and map.  default arg_mode=string
             raise NotImplementedError("TODO: xargs")

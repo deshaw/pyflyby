@@ -81,11 +81,9 @@
   things imported from submodules (default on) and whether to include things
   imported from other packages (default off).
 
-- Test cases for autoipython
-
 - Add ability to dynamically enable a file based on py3 or py2
 
-- Merge all scripts into pyflyby top-level frontend
+- Add tidy-imports, etc to py
 
 - Merge contents of all scripts into modules, and use setup.py entry_points.
   Keep stub scripts in bin directory only for non-installed usage.

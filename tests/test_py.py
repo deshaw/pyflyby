@@ -444,9 +444,9 @@ def test_argmode_eval_expression_1():
 
 
 def test_argmode_eval_unparsable_1():
-    result, retcode = py("--args=eval", "--apply", "print", "1+")
+    result, retcode = py("--args=eval", "--apply", "print", "29033611+")
     assert retcode == 1
-    assert "SyntaxError: syntax error: 1+" in result
+    assert "29033611+: SyntaxError: invalid syntax" in result
 
 
 def test_argmode_eval_modname_1():
@@ -2661,6 +2661,38 @@ def test_first_arg_spaces_1():
     result, retcode = py("\t  \t ", "5")
     assert retcode == 1
     assert "got empty string as first argument" in result
+
+
+def test_function_defaults_1(tmp):
+    # Verify that default values get passed through without being disturbed,
+    # without being round-tripped through strings, etc.
+    writetext(tmp.dir / "dobbin69118865.py", """
+        class X(object):
+            _ctr = 0
+            def __init__(self):
+                X._ctr += 1
+                self._i = X._ctr
+            def __repr__(self):
+                return "<X %d>" % (self._i)
+            def __str__(self):
+                return "<<X %d>>" % (self._i)
+        def meserole(a, b, c=X(), d="77610270.000", e=None, f=X()):
+            print a, b, c, d, e, f
+    """)
+    result = py("dobbin69118865.meserole", "java", "'kent'", "--e=paidge",
+                PYTHONPATH=tmp.dir)
+    expected = dedent("""
+        [PYFLYBY] import dobbin69118865
+        [PYFLYBY] dobbin69118865.meserole('java', 'kent', c=<X 1>, d='77610270.000', e='paidge', f=<X 2>)
+        java kent <<X 1>> 77610270.000 paidge <<X 2>>
+    """).strip()
+    assert expected == result
+
+
+def test_apply_not_a_function():
+    result, retcode = py("--call", "75650517")
+    assert retcode == 1
+    assert "NotAFunctionError: ('Not a function', 75650517)" in result
 
 
 # TODO: timeit, time
