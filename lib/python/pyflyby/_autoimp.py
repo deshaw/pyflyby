@@ -219,14 +219,16 @@ class _MissingImportFinder(ast.NodeVisitor):
         # Visit a "comprehension" node, which is a component of list
         # comprehensions and generator expressions.
         self.visit(node.iter)
-        target = node.target
-        if isinstance(target, (ast.Tuple, ast.List)):
-            elts = target.elts
-        else:
-            elts = [target]
-        for elt in elts:
-            assert isinstance(elt, ast.Name)
-            self._visit_Store(elt.id)
+        def visit_target(target):
+            if isinstance(target, ast.Name):
+                self._visit_Store(target.id)
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                for elt in target.elts:
+                    visit_target(elt)
+            else:
+                raise AssertionError(
+                    "unexpected %s in comprehension" % (type(target).__name__))
+        visit_target(node.target)
         for n in node.ifs:
             self.visit(n)
 

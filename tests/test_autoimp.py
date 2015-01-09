@@ -85,6 +85,19 @@ def test_find_missing_imports_list_comprehension_1():
     assert result == expected
 
 
+def test_find_missing_imports_list_comprehension_nested_tuple_1():
+    result   = find_missing_imports("[w+x+y+z for x,(y,z) in []]", [{}])
+    expected = ['w']
+    assert result == expected
+
+
+def test_find_missing_imports_list_comprehension_nested_tuple_2():
+    result   = find_missing_imports(
+        "[a+A+b+B+c+C+d+D+e+E+f+F+g+G for a,((b,c),d,[e,f,(g,)]) in []]", [{}])
+    expected = ['A','B','C','D','E','F','G']
+    assert result == expected
+
+
 def test_find_missing_imports_generator_expression_1():
     result   = find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])
     expected = ['y', 'z']
