@@ -21,8 +21,9 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (Aspect, CwdCtx, FunctionWithGlobals,
-                                        NullCtx, advise, indent)
+from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
+                                        FunctionWithGlobals, NullCtx, advise,
+                                        indent)
 
 
 if False:
@@ -436,7 +437,10 @@ def InterceptPrintsDuringPromptCtx(ip):
         # IPython >= 0.12 (known to work including up to 1.2, 2.1)
         prompt_manager = ip.prompt_manager
         def get_prompt_ipython_012():
-            if _ipython_in_multiline(ip):
+            pdb_instance = _get_pdb_if_is_in_pdb()
+            if pdb_instance is not None:
+                return pdb_instance.prompt
+            elif _ipython_in_multiline(ip):
                 return prompt_manager.render("in2")
             else:
                 return ip.separate_in + prompt_manager.render("in")
@@ -445,7 +449,10 @@ def InterceptPrintsDuringPromptCtx(ip):
         # IPython 0.10, 0.11
         generate_prompt = ip.hooks.generate_prompt
         def get_prompt_ipython_010():
-            if _ipython_in_multiline(ip):
+            pdb_instance = _get_pdb_if_is_in_pdb()
+            if pdb_instance is not None:
+                return pdb_instance.prompt
+            elif _ipython_in_multiline(ip):
                 return generate_prompt(True)
             else:
                 if hasattr(ip, "outputcache"):
@@ -545,6 +552,36 @@ def _ipython_namespaces(ip):
 # TODO class NamespaceList(tuple):
 
 
+def _get_pdb_if_is_in_pdb():
+    """
+    Return the current Pdb instance, if we're currently called from Pdb.
+
+    @rtype:
+      C{pdb.Pdb} or C{NoneType}
+    """
+    # This is kludgy.  Todo: Is there a better way to do this?
+    frame = sys._getframe(1)
+    while True:
+        if frame is None:
+            return None
+        modname = frame.f_globals.get("__name__", None) or ""
+        # print("## _get_pdb_if_is_in_pdb(): frame.modname=%s" % (modname,))
+        if modname.startswith("pyflyby.") or modname.startswith("IPython."):
+            frame = frame.f_back
+            continue
+        elif modname in ["cmd", "contextlib"]:
+            frame = frame.f_back
+            continue
+        elif modname == "pdb":
+            import pdb
+            pdb_instance = frame.f_locals.get("self", None)
+            if (type(pdb_instance).__name__ == "Pdb" or
+                isinstance(pdb_instance, pdb.Pdb)):
+                return pdb_instance
+            else:
+                return None
+        return None
+
 
 def get_global_namespaces(ip):
     """
@@ -557,7 +594,11 @@ def get_global_namespaces(ip):
     @rtype:
       C{list} of C{dict}
     """
-    if ip:
+    pdb_instance = _get_pdb_if_is_in_pdb()
+    if pdb_instance:
+        frame = pdb_instance.curframe
+        return [frame.f_globals, frame.f_locals]
+    elif ip:
         return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
     else:
         import __main__
@@ -698,6 +739,68 @@ def _list_members_for_completion(obj, ip):
         else:
             words = dir(obj)
     return [w for w in words if isinstance(w, basestring)]
+
+
+def _auto_import_in_pdb_frame(pdb_instance, arg):
+    frame = pdb_instance.curframe
+    namespaces = [ frame.f_globals, frame.f_locals ]
+    filename = frame.f_code.co_filename
+    if not filename or filename.startswith("<"):
+        filename = "."
+    db = ImportDB.get_default(filename)
+    auto_import(arg, namespaces=namespaces, db=db)
+
+
+def _enable_pdb_hooks(pdb_instance):
+    # Patch Pdb._getval() to use auto_eval.
+    @advise(pdb_instance._getval)
+    def _getval_with_autoimport(arg):
+        logger.debug("Pdb._getval(%r)", arg)
+        _auto_import_in_pdb_frame(pdb_instance, arg)
+        return __original__(arg)
+    # Patch Pdb.default() to use auto_import.
+    @advise(pdb_instance.default)
+    def default_with_autoimport(arg):
+        logger.debug("Pdb.default(%r)", arg)
+        if arg.startswith("!"):
+            arg = arg[1:]
+        _auto_import_in_pdb_frame(pdb_instance, arg)
+        return __original__(arg)
+
+
+def _get_Pdb_class():
+    """
+    Get the IPython Pdb class.
+    If IPython is not importable, then return the raw Pdb class.
+
+    Note that we intentionally get the IPython Pdb class if it's importable,
+    even if we're not in an IPython session.
+    """
+    try:
+        import IPython
+    except ImportError:
+        # No IPython; use regular Pdb.
+        import pdb
+        return pdb.Pdb
+    else:
+        try:
+            # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2,
+            # 2.0, 2.1, 2.2, 2.3.
+            from IPython.core import debugger
+            return debugger.Pdb
+        except ImportError:
+            pass
+        try:
+            # IPython 0.10
+            from IPython import Debugger
+            return Debugger.Pdb
+        except ImportError:
+            pass
+        # IPython exists but couldn't figure out how to get Pdb.
+        raise RuntimeError(
+            "Couldn't get IPython Pdb.  "
+            "Is your IPython version too old (or too new)?  "
+            "IPython.__version__=%r" % (IPython.__version__))
 
 
 class _EnableState(object):
@@ -1078,6 +1181,7 @@ class AutoImporter(object):
         ok &= self._enable_prun_hook(ip)
         ok &= self._enable_completion_hook(ip)
         ok &= self._enable_run_hook(ip)
+        ok &= self._enable_debugger_hook(ip)
         ok &= self._enable_ipython_shell_bugfixes(ip)
         return ok
 
@@ -1427,6 +1531,57 @@ class AutoImporter(object):
         else:
             logger.debug("Couldn't enable execfile hook")
             return False
+
+    def _enable_debugger_hook(self, ip):
+        try:
+            Pdb = _get_Pdb_class()
+        except Exception as e:
+            logger.debug("Couldn't locate Pdb class: %s: %s",
+                         type(e).__name__, e)
+            return False
+        def HookPdbCtx():
+            def Pdb_with_autoimport(*args):
+                pdb_instance = __original__(*args)
+                _enable_pdb_hooks(pdb_instance)
+                return pdb_instance
+            return AdviceCtx(Pdb, Pdb_with_autoimport)
+        iptb = getattr(ip, "InteractiveTB", None)
+        ok = True
+        if hasattr(iptb, "debugger"):
+            # Hook ip.InteractiveTB.debugger().  This implements auto
+            # importing for "%debug" (postmortem mode).
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0,
+            # 2.1, 2.2, 2.3.
+            @self._advise(iptb.debugger)
+            def debugger_with_autoimport(*args, **kwargs):
+                with HookPdbCtx():
+                    return __original__(*args, **kwargs)
+        else:
+            ok = False
+        if hasattr(ip, 'magics_manager'):
+            # Hook ExecutionMagics._run_with_debugger().  This implements auto
+            # importing for "%debug <statement>".
+            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.
+            line_magics = ip.magics_manager.magics['line']
+            execmgr = line_magics['debug'].im_self
+            if hasattr(execmgr, "_run_with_debugger"):
+                @self._advise(execmgr._run_with_debugger)
+                def run_with_debugger_with_autoimport(code, code_ns,
+                                                      filename=None,
+                                                      *args, **kwargs):
+                    db = ImportDB.get_default(filename or ".")
+                    auto_import(code, namespaces=[code_ns], db=db)
+                    with HookPdbCtx():
+                        return __original__(code, code_ns, filename,
+                                            *args, **kwargs
+                        )
+            else:
+                # IPython 0.13 and earlier don't have "%debug <statement>".
+                pass
+        else:
+            ok = False
+        return ok
+
 
     def _enable_ipython_shell_bugfixes(self, ip):
         """

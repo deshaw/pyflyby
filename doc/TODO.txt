@@ -96,5 +96,3 @@
 
 - Make tidy-imports support detecting that print_function is necessary but
   missing, and add it.
-
-- Auto importing in ipdb

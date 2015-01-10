@@ -1,5 +1,5 @@
 # pyflyby/_util.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -326,7 +326,7 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if isinstance(joinpoint, types.FunctionType):
+        if isinstance(joinpoint, (types.FunctionType, types.ClassType, type)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
@@ -380,9 +380,7 @@ class Aspect(object):
                     container.__class__.__name__,
                     name)
             self._name      = name
-        # TODO: FunctionType (for top-level functions)
         # TODO: unbound method
-        # TODO: classmethod
         else:
             raise TypeError("JoinPoint: unexpected %s"
                             % (type(joinpoint).__name__,))
@@ -440,3 +438,13 @@ def advise(joinpoint):
     """
     aspect = Aspect(joinpoint)
     return aspect.advise
+
+
+@contextmanager
+def AdviceCtx(joinpoint, hook):
+    aspect = Aspect(joinpoint)
+    advice = aspect.advise(hook)
+    try:
+        yield
+    finally:
+        advice.unadvise()

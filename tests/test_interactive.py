@@ -201,7 +201,7 @@ def parse_template(template):
     template = dedent(template).strip()
     input = []
     expected = []
-    pattern = re.compile("^(?:In \[[0-9]+\]|   [.][.][.]+):(?: |$)", re.M)
+    pattern = re.compile("^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
@@ -393,7 +393,8 @@ _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 _IPYTHON_PROMPT1 = "\nIn \[[0-9]+\]: "
 _IPYTHON_PROMPT2 = "\n   [.][.][.]+: "
-_IPYTHON_PROMPTS = [_IPYTHON_PROMPT1, _IPYTHON_PROMPT2]
+_IPDB_PROMPT = "\nipdb> "
+_IPYTHON_PROMPTS = [_IPYTHON_PROMPT1, _IPYTHON_PROMPT2, _IPDB_PROMPT]
 
 
 @memoize
@@ -2492,3 +2493,345 @@ def test_cmdline_enable_exec_files_1(tmp):
         Out[1]: 'cuckoo'
     """, args=[
         '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])
+
+
+def test_debug_baseline_1():
+    # Verify that we can test ipdb without any pyflyby involved.
+    ipython("""
+        In [1]: 82318215/0
+        ....
+        ZeroDivisionError: ...
+        In [2]: %debug
+        ....
+        ipdb> p 43405728 + 69642968
+        113048696
+        ipdb> q
+    """)
+
+
+def test_debug_without_autoimport_1():
+    # Verify that without autoimport, we get a NameError.
+    ipython("""
+        In [1]: 70506357/0
+        ....
+        ZeroDivisionError: ...
+        In [2]: %debug
+        ....
+        ipdb> p b64decode("QXVkdWJvbg==")
+        *** NameError: NameError("name 'b64decode' is not defined",)
+        ipdb> q
+    """)
+
+
+def test_debug_auto_import_p_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 17839239/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> p b64decode("S2Vuc2luZ3Rvbg==")
+        [PYFLYBY] from base64 import b64decode
+        'Kensington'
+        ipdb> q
+    """)
+
+
+def test_debug_auto_import_pp_1():
+    # Verify that auto importing works with "pp foo".
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 87484355/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> p b64decode("R2FyZGVu")
+        [PYFLYBY] from base64 import b64decode
+        'Garden'
+        ipdb> q
+    """)
+
+
+def test_debug_auto_import_default_1():
+    # Verify that auto importing works with "foo(...)".
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 41594069/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> b64decode("UHJvc3BlY3Q=")
+        [PYFLYBY] from base64 import b64decode
+        'Prospect'
+        ipdb> q
+    """)
+
+
+def test_debug_auto_import_print_1():
+    # Verify that auto importing works with "print foo".  (This is executed as
+    # a statement; a special case of "default".)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 4046029/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> print b64decode("TW9udGdvbWVyeQ==")
+        [PYFLYBY] from base64 import b64decode
+        Montgomery
+        ipdb> q
+    """)
+
+
+def test_debug_auto_import_bang_default_1():
+    # Verify that "!blah" works with auto importing.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 66783474/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> !q = b64decode("SGF3dGhvcm5l")
+        [PYFLYBY] from base64 import b64decode
+        ipdb> !q
+        'Hawthorne'
+        ipdb> q
+    """)
+
+
+def test_debug_postmortem_auto_import_1():
+    # Verify that %debug postmortem mode works.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def foo(x, y):
+           ...:     return x / y
+           ...:
+        In [3]: foo("Bowcraft", "Mountain")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [4]: %debug
+        ....
+        ipdb> print x + b64decode("QA==") + y
+        [PYFLYBY] from base64 import b64decode
+        Bowcraft@Mountain
+        ipdb> q
+    """)
+
+
+def test_debug_tab_completion_db_1():
+    # Verify that tab completion from database works.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 90383951/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> print b64dec\tode("R2FyZmllbGQ=")
+        [PYFLYBY] from base64 import b64decode
+        Garfield
+        ipdb> q
+    """)
+
+
+def test_debug_tab_completion_module_1(tmp):
+    # Verify that tab completion on module names works.
+    writetext(tmp.dir/"thornton60097181.py", """
+        randolph = 14164598
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 53418403/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> print thornton60097\t181.rando\t
+        [PYFLYBY] import thornton60097181
+        ipdb> print thornton60097181.rando\tlph
+        14164598
+        ipdb> q
+    """, PYTHONPATH=tmp.dir)
+
+
+def test_debug_tab_completion_multiple_1(tmp):
+    # Verify that tab completion with ambiguous names works.
+    writetext(tmp.dir/"sturbridge9088333.py", """
+        nebula_41695458 = 1
+        nebula_10983840 = 2
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: 61764525/0
+        ....
+        ZeroDivisionError: ...
+        In [3]: %debug
+        ....
+        ipdb> print sturbridge9088333.neb\t
+        [PYFLYBY] import sturbridge9088333
+        ipdb> print sturbridge9088333.neb
+        sturbridge9088333.nebula_10983840  sturbridge9088333.nebula_41695458
+        ipdb> print sturbridge9088333.nebula_
+        *** AttributeError: 'module' object has no attribute 'nebula_'
+        ipdb> q
+    """, PYTHONPATH=tmp.dir)
+
+
+def test_debug_postmortem_tab_completion_1():
+    # Verify that tab completion in %debug postmortem mode works.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def foo(x, y):
+           ...:     return x / y
+           ...:
+        In [3]: foo("Camden", "Hopkinson")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [4]: %debug
+        ....
+        ipdb> print x + base64.b64d\t
+        [PYFLYBY] import base64
+        ipdb> print x + base64.b64decode("Lw==") + y
+        Camden/Hopkinson
+        ipdb> q
+    """)
+
+
+def test_debug_namespace_1():
+    # Verify that autoimporting and tab completion happen in the local
+    # namespace.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def foo(x, base64):
+           ...:     return x / base64
+           ...:
+        In [3]: foo("Lexington", "Atlantic")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [4]: %debug
+        ....
+        ipdb> print base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==")
+        [PYFLYBY] from base64 import b64decode
+        AtlanticPacific
+        ipdb> p b64deco\tde("Q29udGluZW50YWw=")
+        'Continental'
+        ipdb> q
+        In [5]: base64.b64de\t
+        [PYFLYBY] import base64
+        In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
+        [PYFLYBY] from base64 import b64decode
+        Out[5]: 'HillLake'
+    """)
+
+
+def test_debug_second_1():
+    # Verify that a second postmortem debug of the same function behaves as
+    # expected.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def foo(x, y):
+           ...:     return x / y
+           ...:
+        In [3]: foo("Huron", "Osage")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [4]: %debug
+        ....
+        ipdb> print b64deco\tde("Sm9zZXBo")
+        [PYFLYBY] from base64 import b64decode
+        Joseph
+        ipdb> print b64deco\tde("U2VtaW5vbGU=")
+        Seminole
+        ipdb> q
+        In [5]: foo("Quince", "Lilac")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [6]: %debug
+        ....
+        ipdb> print b64deco\tde("Q3JvY3Vz")
+        [PYFLYBY] from base64 import b64decode
+        Crocus
+        ipdb> q
+    """)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (1, 0),
+    reason="old IPython doesn't support debug <statement>")
+def test_debug_auto_import_string_1():
+    # Verify that auto importing works inside the debugger after running
+    # "%debug <string>".
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %debug 44968817
+        NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
+        > <string>(1)<module>()
+        ipdb> p b64decode("TGluc2xleQ==")
+        [PYFLYBY] from base64 import b64decode
+        'Linsley'
+        ipdb> q
+    """)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (1, 0),
+    reason="old IPython doesn't support debug <statement>")
+def test_debug_auto_import_of_string_1(tmp):
+    # Verify that auto importing works for the string to be debugged.
+    writetext(tmp.dir/"peekskill43666930.py", """
+        def hollow(x):
+            print x * 2
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %debug peekskill43666930.hollow(67658141)
+        [PYFLYBY] import peekskill43666930
+        NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
+        > <string>(1)<module>()
+        ipdb> c
+        135316282
+    """, PYTHONPATH=tmp.dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (1, 0),
+    reason="old IPython doesn't support debug <statement>")
+def test_debug_auto_import_statement_step_1(tmp):
+    # Verify that step functionality isn't broken.
+    writetext(tmp.dir/"taconic72383428.py", """
+        def pudding(x):
+            y = x * 5
+            print y
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %debug taconic72383428.pudding(48364325)
+        [PYFLYBY] import taconic72383428
+        NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
+        > <string>(1)<module>()
+        ipdb> s
+        ....
+        ipdb> n
+        ....
+        ipdb> print x
+        48364325
+        ipdb> x = os.path.sep
+        [PYFLYBY] import os.path
+        ipdb> c
+        /////
+    """, PYTHONPATH=tmp.dir)
