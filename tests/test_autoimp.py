@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, with_statement
 import ast
 import os
 import pytest
+from   textwrap                 import dedent
 
 from   pyflyby._autoimp         import (auto_eval, find_missing_imports,
                                         load_symbol)
@@ -124,6 +125,252 @@ def test_find_missing_imports_print_function_1():
     )
     result   = find_missing_imports(node, [{}])
     expected = ['sys.stdout']
+    assert result == expected
+
+
+def test_find_missing_imports_assignment_1():
+    code = dedent("""
+        def f():
+            x = 1
+            print x, y, z
+            y = 2
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y', 'z']
+    assert result == expected
+
+
+def test_find_missing_imports_classdef_1():
+    code = dedent("""
+        class Mahopac:
+            pass
+        class Gleneida(Mahopac):
+            pass
+        Mahopac, Carmel, Gleneida
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Carmel']
+    assert result == expected
+
+
+def test_find_missing_imports_class_base_1():
+    code = dedent("""
+        Mill = object
+        class Mohansic(Crom, Mill):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Crom']
+    assert result == expected
+
+
+def test_find_missing_imports_class_name_1():
+    code = dedent("""
+        class Corinne(object):
+            pass
+        class Bobtail(object):
+            class Chippewa(object):
+                pass
+            Rockton = Passall, Corinne, Bobtail, Chippewa
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Bobtail', 'Passall']
+    assert result == expected
+
+
+def test_find_missing_imports_class_members_1():
+    code = dedent("""
+        class Kenosha(object):
+            x = 3
+            z = x, y
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert result == expected
+
+
+def test_find_missing_imports_class_member_vs_function_1():
+    code = dedent("""
+        class Sidney(object):
+            x = 3
+            def barracuda(self):
+                return x, y
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['x', 'y']
+    assert result == expected
+
+
+def test_find_missing_imports_class_member_vs_function_2():
+    code = dedent("""
+        class Wayne: pass
+        class Connaught(object):
+            class Windsor: pass
+            def Mercury(self):
+                return Wayne, Connaught, Windsor
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Windsor']
+    assert result == expected
+
+
+def test_find_missing_imports_inner_class_method_1():
+    code = dedent("""
+        class Sand(object):
+            Dirt = 100
+            class Silicon:
+                def f(self):
+                    return Sand, Dirt, Silicon, Glass
+        class Glass:
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Dirt', 'Silicon']
+    assert result == expected
+
+
+def test_find_missing_imports_inner_class_attribute_1():
+    code = dedent("""
+        x = 100
+        class Axel(object):
+            a = 100
+            class Beth:
+                b = x + a
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['a']
+    assert result == expected
+
+
+def test_find_missing_imports_class_member_function_ref_1():
+    code = dedent("""
+        class Niska(object):
+            def f1(self): pass
+            g = f1, f2
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['f2']
+    assert result == expected
+
+
+def test_find_missing_imports_class_member_generator_expression_1():
+    # Verify that variables leak out of list comprehensions but not out of
+    # generator expressions.
+    # Verify that both can see members of the same ClassDef.
+    code = dedent("""
+        class Caleb(object):
+            x = []
+            g1 = (1 for y1 in x)
+            g2 = [1 for y2 in x]
+            h = [y1, y2]
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y1']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_def_1():
+    code = dedent("""
+        def marble(x):
+            return x + y + z
+        z = 100
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_def_def_1():
+    code = dedent("""
+        def twodot():
+            return sterling() + haymaker() + cannon() + twodot()
+        def haymaker():
+            return 100
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['cannon', 'sterling']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_innerdef_1():
+    code = dedent("""
+        def kichawan(w):
+            def turkey(x):
+                return v + w + x + y + z
+            z = 100
+        v = 200
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_innerdef_2():
+    code = dedent("""
+        def maple(w):
+            def drumgor(x):
+                return v + w + x + y + z
+            z = 100
+        def springmere(w):
+            def dorchester(x):
+                return v + w + x + y + z
+        v = 200
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y', 'z']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_classdef_1():
+    code = dedent("""
+        a = 100
+        class Granite:
+            x = a, b
+            def springs(self):
+                x, y, z
+        b = 100
+        z = 100
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['b', 'x', 'y']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_func_class_func_1():
+    code = dedent("""
+        def Nellie():
+            class Shelley:
+                def Norman(self):
+                    return Alfred, Sherry, Grover, Kirk
+            Sherry = 100
+        Kirk = 200
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['Alfred', 'Grover']
+    assert result == expected
+
+
+def test_find_missing_imports_latedef_if_1():
+    code = dedent("""
+        if 1:
+            def cavalier():
+                x, y
+        if 1:
+            x = 1
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert result == expected
+
+
+def test_find_missing_imports_class_scope_comprehension_1():
+    code = dedent("""
+        class Plymouth:
+            x = []
+            z = list(1 for t in x+y)
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
     assert result == expected
 
 

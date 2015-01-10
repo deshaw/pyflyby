@@ -8,6 +8,7 @@ from __future__ import (absolute_import, division, print_function,
 import __builtin__
 import ast
 import contextlib
+import copy
 import os
 import types
 
@@ -21,45 +22,92 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 
 
-def interpret_namespaces(namespaces):
-    """
-    Interpret the input argument as a stack of namespaces.  It is normally
-    ordered from most-global to most-local.
+class _ClassScope(dict):
+    pass
 
-    Always include builtins.
+
+class ScopeStack(tuple):
+    """
+    A stack of namespace scopes, as a tuple of C{dict}s.
+
+    Each entry is a C{dict}.
+
+    Ordered from most-global to most-local.
+    Builtins are always included.
     Duplicates are removed.
-
-    @type namespaces:
-      C{dict}, C{list} of C{dict}, or C{None}
-    @param namespaces:
-      Input namespaces
-    @rtype:
-      C{list} of C{dict}
     """
-    if namespaces is None:
-        raise TypeError(
-            "got namespaces=None; did you mean to use "
-            "namespaces=get_global_namespaces()?")
-    if isinstance(namespaces, dict):
-        namespaces = [namespaces]
-    if not isinstance(namespaces, list):
-        raise TypeError("Expected dict or list of dicts; got a %s"
-                        % type(namespaces).__name__)
-    if not namespaces:
-        raise ValueError("interpret_namespaces(): no namespaces given")
-    if not all(isinstance(ns, dict) for ns in namespaces):
-        raise TypeError("Expected dict or list of dicts; got a sequence of %r"
-                        % ([type(x).__name__ for x in namespaces]))
-    namespaces = [__builtin__.__dict__] + namespaces
-    result = []
-    seen = set()
-    # Keep only unique items, checking uniqueness by object identity.
-    for ns in namespaces:
-        if id(ns) in seen:
-            continue
-        seen.add(id(ns))
-        result.append(ns)
-    return result
+
+    def __new__(cls, arg):
+        """
+        Interpret argument as a C{ScopeStack}.
+
+        @type arg:
+          C{ScopeStack}, C{dict}, C{list} of C{dict}
+        @param arg:
+          Input namespaces
+        @rtype:
+          C{ScopeStack}
+        """
+        if isinstance(arg, ScopeStack):
+            return arg
+        if isinstance(arg, dict):
+            scopes = [arg]
+        elif isinstance(arg, (tuple, list)):
+            scopes = list(arg)
+        else:
+            raise TypeError(
+                "ScopeStack: expected a sequence of dicts; got a %s"
+                % (type(arg).__name__,))
+        if not len(scopes):
+            raise TypeError("ScopeStack: no scopes given")
+        if not all(isinstance(scope, dict) for scope in scopes):
+            raise TypeError("Expected list of dicts; got a sequence of %r"
+                            % ([type(x).__name__ for x in scopes]))
+        scopes = [__builtin__.__dict__] + scopes
+        result = []
+        seen = set()
+        # Keep only unique items, checking uniqueness by object identity.
+        for scope in scopes:
+            if id(scope) in seen:
+                continue
+            seen.add(id(scope))
+            result.append(scope)
+        self = tuple.__new__(cls, result)
+        return self
+
+    def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
+        """
+        Return a new C{ScopeStack} with an additional empty scope.
+
+        @param include_class_scopes:
+          Whether to include previous scopes that are meant for ClassDefs.
+        @param new_class_scope:
+          Whether the new scope is for a ClassDef.
+        @rtype:
+          C{ScopeStack}
+        """
+        if include_class_scopes:
+            scopes = tuple(self)
+        else:
+            scopes = tuple(s for s in self
+                           if not isinstance(s, _ClassScope))
+        if new_class_scope:
+            new_scope = _ClassScope()
+        else:
+            new_scope = {}
+        cls = type(self)
+        result = tuple.__new__(cls, scopes + (new_scope,))
+        return result
+
+    def clone_top(self):
+        """
+        Return a new C{ScopeStack} referencing the same namespaces as C{self},
+        but cloning the topmost namespace (and aliasing the others).
+        """
+        scopes = list(self)
+        scopes[-1] = copy.copy(scopes[-1])
+        cls = type(self)
+        return tuple.__new__(cls, scopes)
 
 
 def symbol_needs_import(fullname, namespaces):
@@ -91,7 +139,7 @@ def symbol_needs_import(fullname, namespaces):
     @return:
       C{True} if C{fullname} needs import, else C{False}
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
     fullname = DottedIdentifier(fullname)
     partial_names = fullname.prefixes[::-1]
     # Iterate over local scopes.
@@ -162,53 +210,74 @@ class _MissingImportFinder(ast.NodeVisitor):
 
     """
 
-    def __init__(self, namespaces):
+    def __init__(self, scopestack):
         """
         Construct the AST visitor.
 
-        @type namespaces:
-          C{dict} or C{list} of C{dict}
-        @param namespaces:
-          User globals
+        @type scopestack:
+          L{ScopeStack}
+        @param scopestack:
+          Initial scope stack.
         """
         # Create a stack of namespaces.  The caller should pass in a list that
-        # includes the globals dictionary.  interpret_namespaces() will make
-        # sure this includes builtins.  Add an empty dictionary to the stack.
-        # This is to allow ourselves to add stuff to ns_stack[-1] without ever
-        # modifying user globals.  We will also mutate ns_stack, so it should
-        # be a newly constructed list.
-        namespaces = interpret_namespaces(namespaces)
-        self.ns_stack = namespaces + [{}]
-        # Create data structure to hold the result.  Caller will read this.
+        # includes the globals dictionary.  ScopeStack() will make sure this
+        # includes builtins.
+        scopestack = ScopeStack(scopestack)
+        # Add an empty namespace to the stack.  This facilitates adding stuff
+        # to scopestack[-1] without ever modifying user globals.
+        scopestack = scopestack.with_new_scope()
+        self.scopestack = scopestack
+        # Create data structure to hold the result.
         self.missing_imports = set()
+        # Function bodies that we need to check after defining names in this
+        # function scope.
+        self._deferred_load_checks = []
+        # Whether we're currently in a FunctionDef.
+        self._in_FunctionDef = False
+
+    def find_missing_imports(self, node):
+        self.visit(node)
+        self._finish_deferred_load_checks()
+        return sorted(self.missing_imports)
 
     @contextlib.contextmanager
-    def _NewScopeCtx(self):
+    def _NewScopeCtx(self, **kwargs):
         """
         Context manager that temporarily pushes a new empty namespace onto the
         stack of namespaces.
         """
-        this_ns = {}
-        self.ns_stack.append(this_ns)
+        prev_scopestack = self.scopestack
+        new_scopestack = prev_scopestack.with_new_scope(**kwargs)
+        self.scopestack = new_scopestack
         try:
             yield
         finally:
-            assert self.ns_stack[-1] is this_ns
-            del self.ns_stack[-1]
+            assert self.scopestack is new_scopestack
+            self.scopestack = prev_scopestack
 
     def visit_Lambda(self, node):
         with self._NewScopeCtx():
             self.generic_visit(node)
 
     def visit_ClassDef(self, node):
+        for base in node.bases:
+            self.visit(base)
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+        with self._NewScopeCtx(new_class_scope=True):
+            for child in node.body:
+                self.visit(child)
+        # The class's name is only visible to others (not to the body to the
+        # class).
         self._visit_Store(node.name)
-        with self._NewScopeCtx():
-            self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
         self._visit_Store(node.name)
+        old_in_FunctionDef = self._in_FunctionDef
+        self._in_FunctionDef = True
         with self._NewScopeCtx():
             self.generic_visit(node)
+        self._in_FunctionDef = old_in_FunctionDef
 
     def visit_arguments(self, node):
         self._visit_Store(node.vararg)
@@ -250,7 +319,7 @@ class _MissingImportFinder(ast.NodeVisitor):
         # This is just like a ListComp, except that we enter a new scope,
         # because a generator expression does _not_ leak variables out of its
         # scope (unlike list comprehensions).
-        with self._NewScopeCtx():
+        with self._NewScopeCtx(include_class_scopes=True):
             self.visit_ListComp(node)
 
     def visit_alias(self, node):
@@ -293,12 +362,49 @@ class _MissingImportFinder(ast.NodeVisitor):
 
     def _visit_Store(self, fullname):
         logger.debug("_visit_Store(%r)", fullname)
-        self.ns_stack[-1][fullname] = None
+        self.scopestack[-1][fullname] = None
 
     def _visit_Load(self, fullname):
         logger.debug("_visit_Load(%r)", fullname)
-        if symbol_needs_import(fullname, self.ns_stack):
+        if self._in_FunctionDef:
+            # We're in a FunctionDef.  We need to defer checking whether this
+            # references undefined names.  The reason is that globals (or
+            # stores in a parent function scope) may be stored later.
+            # For example, bar() is defined later after the body of foo(), but
+            # still available to foo() when it is called:
+            #    def foo():
+            #        return bar()
+            #    def bar():
+            #        return 42
+            #    foo()
+            # To support this, we clone the top of the scope stack and alias
+            # the other scopes in the stack.  Later stores in the same scope
+            # shouldn't count, e.g. x should be considered undefined in the
+            # following example:
+            #    def foo():
+            #        print x
+            #        x = 1
+            # On the other hand, we intentionally alias the other scopes
+            # rather than cloning them, because the point is to allow them to
+            # be modified until we do the check at the end.
+            data = (fullname, self.scopestack.clone_top())
+            self._deferred_load_checks.append(data)
+        else:
+            # We're not in a FunctionDef.  Deferring would give us the same
+            # result; we do the check now to avoid the overhead of cloning the
+            # stack.
+            self._check_load(fullname, self.scopestack)
+
+    def _check_load(self, fullname, scopestack):
+        if symbol_needs_import(fullname, scopestack):
             self.missing_imports.add(fullname)
+
+    def _finish_deferred_load_checks(self):
+        for fullname, scopestack in self._deferred_load_checks:
+            self._check_load(fullname, scopestack)
+        self._deferred_load_checks = []
+
+
 
 def _find_missing_imports_in_ast(node, namespaces):
     """
@@ -321,9 +427,7 @@ def _find_missing_imports_in_ast(node, namespaces):
     # Traverse the abstract syntax tree.
     if logger.debug_enabled:
         logger.debug("ast=%s", ast.dump(node))
-    visitor = _MissingImportFinder(namespaces=namespaces)
-    visitor.visit(node)
-    return sorted(visitor.missing_imports)
+    return _MissingImportFinder(namespaces).find_missing_imports(node)
 
 # TODO: maybe we should replace _find_missing_imports_in_ast with
 # _find_missing_imports_in_code(compile(node)).  The method of parsing opcodes
@@ -767,7 +871,7 @@ def find_missing_imports(arg, namespaces):
     @rtype:
       C{list} of C{str}
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
     if isinstance(arg, basestring):
         if is_identifier(arg, dotted=True):
             # The string is a single identifier.  Check directly whether it
@@ -934,7 +1038,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
       C{True} if the symbol was already in the namespace, or the auto-import
       succeeded; C{False} if the auto-import failed.
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
     if not symbol_needs_import(fullname, namespaces):
         return True
     if autoimported is None:
@@ -1041,15 +1145,22 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
       C{True} if all symbols are already in the namespace or successfully
       auto-imported; C{False} if any auto-imports failed.
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
+    if isinstance(arg, PythonBlock):
+        filename = arg.filename
+    else:
+        filename = "."
     try:
         fullnames = find_missing_imports(arg, namespaces)
     except SyntaxError:
         logger.debug("syntax error parsing %r", arg)
         return False
     logger.debug("Missing imports: %r", fullnames)
+    if not fullnames:
+        return True
     if autoimported is None:
         autoimported = {}
+    db = ImportDB.interpret_arg(db, target_filename=filename)
     ok = True
     for fullname in fullnames:
         ok &= auto_import_symbol(fullname, namespaces, db, autoimported)
@@ -1210,7 +1321,7 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
     @raise AttributeError:
       Object was not found.
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
     if autoimport:
         # Auto-import the symbol first.
         # We do the lookup as a separate step after auto-import.  (An

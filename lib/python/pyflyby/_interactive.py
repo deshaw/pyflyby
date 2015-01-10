@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 
-from   pyflyby._autoimp         import (auto_import, interpret_namespaces,
+from   pyflyby._autoimp         import (auto_import, ScopeStack,
                                         load_symbol)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
@@ -613,7 +613,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
     @return:
       Completion candidates.
     """
-    namespaces = interpret_namespaces(namespaces)
+    namespaces = ScopeStack(namespaces)
     logger.debug("complete_symbol(%r)", fullname)
     # Require that the input be a prefix of a valid symbol.
     if not is_identifier(fullname, dotted=True, prefix=True):
