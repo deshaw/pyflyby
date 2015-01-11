@@ -1,5 +1,5 @@
 # pyflyby/_file.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -8,7 +8,7 @@ import os
 import re
 import sys
 
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, memoize
 
 class UnsafeFilenameError(ValueError):
     pass
@@ -117,6 +117,18 @@ class Filename(object):
     def isfile(self):
         return os.path.isfile(self._filename)
 
+    @property
+    def isreadable(self):
+        return os.access(self._filename, os.R_OK)
+
+    @property
+    def iswritable(self):
+        return os.access(self._filename, os.W_OK)
+
+    @property
+    def isexecutable(self):
+        return os.access(self._filename, os.X_OK)
+
     def startswith(self, prefix):
         prefix = Filename(prefix)
         if self == prefix:
@@ -156,6 +168,44 @@ class Filename(object):
                 break
             result.append(dir)
         return tuple(result)
+
+
+@memoize
+def _get_PATH():
+    PATH = os.environ.get("PATH", "").split(os.pathsep)
+    result = []
+    for path in PATH:
+        if not path:
+            continue
+        try:
+            result.append(Filename(path))
+        except UnsafeFilenameError:
+            continue
+    return tuple(result)
+
+
+def which(program):
+    """
+    Find C{program} on $PATH.
+
+    @type program:
+      C{str}
+    @rtype:
+      L{Filename}
+    @return:
+      Program on $PATH, or C{None} if not found.
+    """
+    if "/" in program:
+        raise ValueError("which(): input should be a basename")
+    # See if it exists in the current directory.
+    candidate = Filename(program)
+    if candidate.isreadable:
+        return candidate
+    for path in _get_PATH():
+        candidate = path / program
+        if candidate.isexecutable:
+            return candidate
+    return None
 
 
 

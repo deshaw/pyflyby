@@ -467,7 +467,7 @@ def _split_code_lines(ast_nodes, text):
         yield ([], text)
         return
     assert text.startpos <= ast_nodes[0].startpos
-    assert ast_nodes[-1].startpos < text.endpos, breakpoint()#XXX
+    assert ast_nodes[-1].startpos < text.endpos
     if text.startpos != ast_nodes[0].startpos:
         # Starting noncode lines.
         yield ([], text[text.startpos:ast_nodes[0].startpos])
@@ -527,6 +527,29 @@ def _split_code_lines(ast_nodes, text):
         yield ([node], text[startpos:endpos])
         if endpos != next_startpos:
             yield ([], text[endpos:next_startpos])
+
+
+def infer_compile_mode(arg):
+    """
+    Infer the mode needed to compile C{arg}.
+
+    @type arg:
+      C{ast.AST}
+    @rtype:
+      C{str}
+    """
+    # Infer mode from ast object.
+    if isinstance(arg, ast.Module):
+        mode = "exec"
+    elif isinstance(arg, ast.Expression):
+        mode = "eval"
+    elif isinstance(arg, ast.Interactive):
+        mode = "single"
+    else:
+        raise TypeError(
+            "Expected Module/Expression/Interactive ast node; got %s"
+            % (type(arg).__name__))
+    return mode
 
 
 class _DummyAst_Node(object):
@@ -940,6 +963,18 @@ class PythonBlock(object):
             raise NotImplementedError
         else:
             raise ValueError("parse(): invalid mode=%r" % (mode,))
+
+    def compile(self, mode=None):
+        """
+        Parse into AST and compile AST into code.
+
+        @rtype:
+          C{CodeType}
+        """
+        ast_node = self.parse(mode=mode)
+        mode = infer_compile_mode(ast_node)
+        filename = str(self.filename or "<unknown>")
+        return compile(ast_node, filename, mode)
 
     @cached_attribute
     def statements(self):

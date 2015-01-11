@@ -4,31 +4,27 @@
 
 """
 The `py' program (part of the pyflyby project) is a command-line multitool for
-running python code, with heuristic intention guessing and automatic
-importing.
+running python code, with heuristic intention guessing, automatic importing,
+and debugging support.
 
 Invocation summary
 ==================
-  py --file   filename.py arg1 arg2   Execute a file
-  py          filename.py arg1 arg2
-  py        < filename.py
+  py [--file]   filename.py arg1 arg2   Execute a file
+  py [--eval]  'function(arg1, arg2)'   Evaluate an expression/statement
+  py [--apply]  function arg1 arg2      Call function(arg1, arg2)
+  py [--module] modname arg1 arg2       Run a module
 
-  py --eval  'function(arg1, arg2)'   Evaluate/execute an expression/statement
-  py         'function(arg1, arg2)'
+  py  --map     function arg1 arg2      Call function(arg1); function(arg2)
 
-  py --apply  function arg1 arg2      Call function(arg1, arg2)
-  py          function arg1 arg2
+  py  -i       'function(arg1, arg2)'   Run file/code/etc, then run IPython
+  py  --debug  'function(arg1, arg2)'   Debug file/code/etc
+  py  --debug   PID                     Attach debugger to PID
 
-  py --module modname arg1 arg2       Run a module
-  py          modname arg1 arg2
+  py            function?               Get help for a function or module
+  py            function??              Get source of a function or module
 
-  py --map    function arg1 arg2      Call function(arg1); function(arg2)
-
-  py          function?               Get help for a function or module
-  py          function??              Get source of a function or module
-
-  py                                  Start IPython with autoimporter
-  py nb                               Start IPython Notebook with autoimporter
+  py                                    Start IPython with autoimporter
+  py nb                                 Start IPython Notebook with autoimporter
 
 
 Features
@@ -61,6 +57,11 @@ Features
   * Matplotlib/pylab integration: show() is called if appropriate to block on
     plots.
 
+  * Enter debugger upon unhandled exception.
+
+  * Control-\\ (SIGQUIT) enters debugger while running (and allows continuing).
+
+  * New builtin functions such as "breakpoint()".
 
 Warning
 =======
@@ -75,32 +76,36 @@ Options
 
 Global options valid before code argument:
 
-  --args=string   Interpret all arguments as literal strings.
-                  (The "--" argument also specifies remaining arguments to be
-                  literal strings.)
-  --args=eval     Evaluate all arguments as expressions.
-  --args=auto     (Default) Heuristically guess whether to evaluate arguments
-                  as literal strings or expressions.
-  --output=silent Don't print the result of evaluation.
-  --output=str    Print str(result).
-  --output=repr   Print repr(result).
-  --output=pprint Print pprint.pformat(result).
+  --args=string    Interpret all arguments as literal strings.
+                   (The "--" argument also specifies remaining arguments to be
+                   literal strings.)
+  --args=eval      Evaluate all arguments as expressions.
+  --args=auto      (Default) Heuristically guess whether to evaluate arguments
+                   as literal strings or expressions.
+  --output=silent  Don't print the result of evaluation.
+  --output=str     Print str(result).
+  --output=repr    Print repr(result).
+  --output=pprint  Print pprint.pformat(result).
   --output=repr-if-not-none
-                  Print repr(result), but only if result is not None.
+                   Print repr(result), but only if result is not None.
   --output=pprint-if-not-none
-                  Print pprint.pformat(result), but only if result is not None.
+                   Print pprint.pformat(result), but only if result is not None.
   --output=interactive
-                  (Default) Print result.__interactive_display__() if defined,
-                  else pprint if result is not None.
-  --output=exit   Raise SystemExit(result).
-  --safe          Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
-  --quiet, -q     Log only error messages to stderr; omit info and warnings.
+                   (Default) Print result.__interactive_display__() if defined,
+                   else pprint if result is not None.
+  --output=exit    Raise SystemExit(result).
+  --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
+  --quiet/-q       Log only error messages to stderr; omit info and warnings.
+  --interactive/-i Run an IPython shell after completion
+  --debug/-d       Run the target code/file/etc under the debugger.  If a PID is
+                   given, then instead attach a debugger to the target PID.
+  --verbose        Turn on verbose messages from pyflyby.
 
 Pseudo-actions valid before, after, or without code argument:
 
-  --version       Print pyflyby version or version of a module.
-  --help, -h, ?   Print this help or help for a function or module.
-  --source, ??    Print source code for a function or module.
+  --version        Print pyflyby version or version of a module.
+  --help/-h/?      Print this help or help for a function or module.
+  --source/??      Print source code for a function or module.
 
 
 Examples
@@ -231,18 +236,18 @@ from __future__ import (absolute_import, division, print_function,
 usage = """
 py --- command-line python multitool with automatic importing
 
-$ py  filename.py arg1 arg2      Execute file
-$ py  function arg1 arg2         Call function
-$ py 'function(arg1, arg2)'      Evaluate code
-$ py                             IPython
+$ py [--file]   filename.py arg1 arg2      Execute file
+$ py [--apply]  function arg1 arg2         Call function
+$ py [--eval]  'function(arg1, arg2)'      Evaluate code
+$ py [--module] modname arg1 arg2          Run a module
+
+$ py --debug    file/code... args...       Debug code
+$ py --debug    PID                        Attach debugger to PID
+
+$ py                                       IPython shell
 """.strip()
 
-# TODO: --debug/--pdb => enter debugger before execution
-# TODO: ipdb tracebacks
-# TODO: default to entering debugger upon exception
 # TODO: add --tidy-imports, etc
-# TODO: --interactive/-i => ipython after execution
-# TODO: note additional features in documentation feature list
 
 # TODO: new --action="concat_eval eval apply" etc.  specifying multiple
 # actions means try each of them in that order.  then --safe can exclude
@@ -288,6 +293,9 @@ $ py                             IPython
 
 # TODO: refactor this module - maybe to _heuristic.py
 
+# TODO: add --profile, --runsnake
+
+import __builtin__
 import ast
 from   contextlib               import contextmanager
 import inspect
@@ -297,13 +305,19 @@ import sys
 import types
 from   types                    import FunctionType, MethodType
 
-from   pyflyby._autoimp         import (auto_eval, auto_import,
-                                        find_missing_imports)
+from   pyflyby._autoimp         import (auto_import, find_missing_imports,
+                                        infer_compile_mode)
 from   pyflyby._cmdline         import print_version_and_exit, syntax
-from   pyflyby._file            import Filename, UnsafeFilenameError
+from   pyflyby._dbg             import (add_debug_functions_to_builtins,
+                                        attach_debugger, debug_exception,
+                                        enable_faulthandler,
+                                        enable_signal_handler_breakpoint,
+                                        enable_sigterm_handler,
+                                        remote_print_stack)
+from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (run_ipython_line_magic,
+from   pyflyby._interactive     import (run_ipython_line_magic,print_verbose_tb,
                                         start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
@@ -853,7 +867,38 @@ def _get_help(expr, verbosity=1):
     return result
 
 
-def auto_apply(function, commandline_args, namespace, arg_mode=None):
+def _handle_user_exception(exc_info=None):
+    """
+    Handle an exception in user code.
+    """
+    # TODO: Make tracebacks show user code being executed.  IPython does that
+    # by stuffing linecache.cache, and also advising linecache.checkcache.  We
+    # can either advise it ourselves also, or re-use IPython.core.compilerop.
+    # Probably better to advise ourselves.  Add "<pyflyby-input-md5[:12]>" to
+    # linecache.  Perhaps do it in a context manager that removes from
+    # linecache when done.  Advise checkcache to protect any "<pyflyby-*>".
+    # Do it for all code compiled from here, including args, debug_statement,
+    # etc.
+    if exc_info is None:
+        exc_info = sys.exc_info()
+    exc_info = list(exc_info)
+    if exc_info[2].tb_next:
+        exc_info[2] = exc_info[2].tb_next # skip this frame
+    # If we're called from a tty, then debug the exception.
+    # TODO: make it a user option.
+    if os.isatty(1):
+        debug_exception(*exc_info)
+    else:
+        # TODO: consider using print_verbose_tb(*exc_info)
+        print("Traceback (most recent call last):", file=sys.stderr)
+        import traceback
+        traceback.print_tb(exc_info[2])
+        print("%s: %s" % (exc_info[0].__name__, exc_info[1]), file=sys.stderr)
+    raise SystemExit(1)
+
+
+def auto_apply(function, commandline_args, namespace, arg_mode=None,
+               debug=False):
     """
     Call C{function} on command-line arguments.  Arguments can be positional
     or keyword arguments like "--foo=bar".  Arguments are by default
@@ -901,17 +946,20 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None):
     logger.info("%s", _format_call(function.source, argspec, args, kwargs))
 
     # *** Call the function. ***
+    f = function.value
     try:
-        result = function.value(*args, **kwargs)
-    except Exception as e:
+        if debug:
+            result = debug_statement("f(*args, **kwargs)")
+        else:
+            result = f(*args, **kwargs)
+        return result
+    except SystemExit:
         raise
-        # TODO: print traceback only for user portion of code
-        # TODO: arrange for traceback to show user code instead of
-        # "function(*args, **kwargs)"
-        tb = sys.exc_info()[2]
-        import traceback; traceback.print_tb(tb)
-        raise SystemExit(1)
-    return result
+    # TODO: handle "quit" by user here specially instead of returning None.
+    # May need to reimplement pdb.runeval() so we can catch BdbQuit.
+    except:
+        # Handle exception in user code.
+        _handle_user_exception()
 
 
 class LoggedList(object):
@@ -1085,29 +1133,29 @@ def SysArgvCtx(*args):
         sys.argv = orig_argv
 
 
-def _seems_like_filename(arg):
+def _as_filename_if_seems_like_filename(arg):
     """
-    Return whether C{arg} seems like a filename.
+    If C{arg} seems like a filename, then return it as one.
 
-      >>> _seems_like_filename("foo.py")
+      >>> bool(_as_filename_if_seems_like_filename("foo.py"))
       True
 
-      >>> _seems_like_filename("%foo.py")
+      >>> bool(_as_filename_if_seems_like_filename("%foo.py"))
       False
 
-      >>> _seems_like_filename("foo(bar)")
+      >>> bool(_as_filename_if_seems_like_filename("foo(bar)"))
       False
 
-      >>> _seems_like_filename("/foo/bar/baz.quux-66047003")
+      >>> bool(_as_filename_if_seems_like_filename("/foo/bar/baz.quux-660470"))
       True
 
-      >>> _seems_like_filename("../foo/bar-24084866")
+      >>> bool(_as_filename_if_seems_like_filename("../foo/bar-24084866"))
       True
 
     @type arg:
       C{str}
     @rtype:
-      C{bool}
+      C{Filename}
     """
     try:
         filename = Filename(arg)
@@ -1117,21 +1165,49 @@ def _seems_like_filename(arg):
         # argument like "foo(bar)" or "lambda x:x*y" we won't even check
         # existence.  This is both a performance optimization and a safety
         # valve to avoid unsafe filenames being created to intercept expressions.
-        return False
+        return None
     # If the argument "looks" like a filename and is unlikely to be a python
     # expression, then assume it is a filename.  We assume so regardless of
     # whether the file actually exists; if it turns out to not exist, we'll
     # complain later.
+    if arg.startswith("/") or arg.startswith("./") or arg.startswith("../"):
+        return filename
     if filename.ext == ".py":
         # TODO: .pyc, .pyo
-        return True
-    if arg.startswith("/") or arg.startswith("./") or arg.startswith("../"):
-        return True
-    # Otherwise, even if it doesn't obviously look like a filename, but it
-    # does exist as a filename, then use it as one.
+        return which(arg) or filename
+    # Even if it doesn't obviously look like a filename, but it does exist as
+    # a filename, then use it as one.
     if filename.exists:
-        return True
-    return False
+        return filename
+    # If it's a plain name and we can find an executable on $PATH, then use
+    # that.
+    if re.match("^[a-zA-Z0-9_-]+$", arg):
+        filename = which(arg)
+        if not filename:
+            return None
+        if not _has_python_shebang(filename):
+            logger.debug("Found %s but it doesn't seem like a python script",
+                         filename)
+            return None
+        return filename
+    return None
+
+
+def _has_python_shebang(filename):
+    """
+    Return whether the first line contains #!...python...
+
+    Used for confirming that an executable script found via which() is
+    actually supposed to be a python script.
+
+    Note that this test is only needed for scripts found via which(), since
+    otherwise the shebang is not necessary.
+    """
+    filename = Filename(filename)
+    with open(str(filename)) as f:
+        line = f.readline(1024)
+        return line.startswith("#!") and "python" in line
+
 
 
 def _interpret_arg_mode(arg, default="auto"):
@@ -1228,13 +1304,16 @@ def print_result(result, output_mode):
 class _Namespace(object):
 
     def __init__(self):
-        self.globals      = {"__name__": "__main__"}
+        self.globals      = {"__name__": "__main__",
+                             "__builtin__": __builtin__,
+                             "__builtins__": __builtin__}
         self.autoimported = {}
 
     def auto_import(self, arg):
         return auto_import(arg, [self.globals], autoimported=self.autoimported)
 
-    def auto_eval(self, block, mode=None, info=False, auto_import=True):
+    def auto_eval(self, block, mode=None, info=False, auto_import=True,
+                  debug=False):
         """
         Evaluate C{block} with auto-importing.
         """
@@ -1254,8 +1333,17 @@ class _Namespace(object):
             raise UnimportableNameError(msg)
         if info:
             logger.info(block)
-        return auto_eval(block, globals=self.globals, mode=mode,
-                         auto_import=False)
+        try:
+            # TODO: enter text into linecache
+            if debug:
+                return debug_statement(block, self.globals)
+            else:
+                code = block.compile(mode=mode)
+                return eval(code, self.globals, self.globals)
+        except SystemExit:
+            raise
+        except:
+            _handle_user_exception()
 
 
 class _PyMain(object):
@@ -1263,6 +1351,7 @@ class _PyMain(object):
     def __init__(self, args):
         self.main_args = args
         self.namespace = _Namespace()
+        self.result = None
 
     def exec_stdin(self, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
@@ -1270,8 +1359,9 @@ class _PyMain(object):
         cmd_args = [UserExpr(a, self.namespace, arg_mode).value
                     for a in cmd_args]
         with SysArgvCtx(*cmd_args):
-            result = self.namespace.auto_eval(Filename.STDIN)
+            result = self.namespace.auto_eval(Filename.STDIN, debug=self.debug)
             print_result(result, output_mode)
+            self.result = result
 
     def eval(self, cmd, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
@@ -1280,10 +1370,13 @@ class _PyMain(object):
                     for a in cmd_args]
         with SysArgvCtx("-c", *cmd_args):
             cmd = PythonBlock(cmd)
-            result = self.namespace.auto_eval(cmd, info=True)
+            result = self.namespace.auto_eval(cmd, info=True, debug=self.debug)
+            # TODO: make auto_eval() plow ahead even if there are unimportable
+            # names, after warning
             print_result(result, output_mode)
+            self.result = result
 
-    def execfile(self, filename, cmd_args):
+    def execfile(self, filename_arg, cmd_args):
         # TODO: pass filename to import db target_filename; unit test.
         # TODO: set __file__
         # TODO: support compiled (.pyc/.pyo) files
@@ -1291,24 +1384,41 @@ class _PyMain(object):
         output_mode = _interpret_output_mode(self.output_mode)
         cmd_args = [UserExpr(a, self.namespace, arg_mode).value
                     for a in cmd_args]
-        if filename == "-":
+        additional_msg = ""
+        if isinstance(filename_arg, Filename):
+            filename = filename_arg
+        elif filename_arg == "-":
             filename = Filename.STDIN
+        elif "/" in filename_arg:
+            filename = Filename(filename_arg)
         else:
-            filename = Filename(filename)
+            filename = which(filename_arg)
+            if not filename:
+                filename = Filename(filename_arg)
+                additional_msg = (" (and didn't find %s on $PATH)"
+                                  % (filename_arg,))
+            elif not _has_python_shebang(filename):
+                additional_msg = (" (found %s but it doesn't look "
+                                  "like python source"
+                                  % (filename,))
+                filename = Filename(filename_arg)
         if not filename.exists:
-            raise Exception("No such file: %s" % filename)
+            raise Exception("No such file: %s%s" % (filename, additional_msg))
         with SysArgvCtx(str(filename), *cmd_args):
-            result = self.namespace.auto_eval(filename)
+            result = self.namespace.auto_eval(filename, debug=self.debug)
             print_result(result, output_mode)
+            self.result = result
 
     def apply(self, function, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="auto")
         output_mode = _interpret_output_mode(self.output_mode)
         # Todo: what should we set argv to?
-        result = auto_apply(function, cmd_args, self.namespace, arg_mode)
+        result = auto_apply(function, cmd_args, self.namespace, arg_mode,
+                            debug=self.debug)
         print_result(result, output_mode)
+        self.result = result
 
-    def _seems_like_module(self, arg):
+    def _seems_like_runnable_module(self, arg):
         if not is_identifier(arg, dotted=True):
             # It's not a single (dotted) identifier.
             return False
@@ -1324,14 +1434,16 @@ class _PyMain(object):
             if not self.namespace.auto_import(str(m.parent.name)):
                 return False
         if not m.filename:
+            logger.debug("Module %s doesn't have a source filename", m)
             return False
+        # TODO: check that the source accesses __main__ (ast traversal?)
         return True
 
     def heuristic_cmd(self, cmd, cmd_args, function_name=None):
         output_mode = _interpret_output_mode(self.output_mode)
         # If the "command" is just a module name, then call run_module.  Make
         # sure we check that it's not a builtin.
-        if self._seems_like_module(str(cmd)):
+        if self._seems_like_runnable_module(str(cmd)):
             self.heuristic_run_module(str(cmd), cmd_args)
             return
         # FIXME TODO heed arg_mode for non-apply case.  This is tricky to
@@ -1344,19 +1456,21 @@ class _PyMain(object):
             # can't know whether the result will be callable until we evaluate
             # it.)
             info = not re.match("^[a-zA-Z0-9_.]+$", function_name)
-            result = self.namespace.auto_eval(cmd, info=info)
+            result = self.namespace.auto_eval(cmd, info=info, debug=self.debug)
             if callable(result):
                 function = UserExpr(
                     result, self.namespace, "raw_value", function_name)
                 result = auto_apply(function, cmd_args, self.namespace,
-                                    self.arg_mode)
+                                    self.arg_mode, debug=self.debug)
                 print_result(result, output_mode)
+                self.result = result
                 sys.argv[:] # mark as accessed
             else:
                 if not info:
                     # We guessed wrong earlier and didn't log yet; log now.
                     logger.info(cmd)
                 print_result(result, output_mode)
+                self.result = result
                 unaccessed = sys.argv.unaccessed
                 if unaccessed:
                     logger.error(
@@ -1376,6 +1490,9 @@ class _PyMain(object):
         #   os.execvp(sys.executable, [sys.argv[0], "-m", modname] + args)
         sys.argv = [str(module.filename)] + args
         import runpy
+        if self.debug:
+            # TODO: break closer to user code
+            breakpoint()
         runpy.run_module(str(module.name), run_name="__main__")
 
     def heuristic_run_module(self, module, args):
@@ -1406,6 +1523,7 @@ class _PyMain(object):
             usage = _get_help(expr, 2)
             print(usage)
             return
+        # TODO: check if module checks __main__
         self.run_module(module, args)
 
     def print_version(self, arg):
@@ -1436,16 +1554,27 @@ class _PyMain(object):
         usage = _get_help(expr, verbosity)
         print(usage)
 
+    def start_ipython(self, args=[]):
+        user_ns = self.namespace.globals
+        start_ipython_with_autoimporter(args, _user_ns=user_ns)
+        # Don't need to do another interactive session after this one
+        # (i.e. make 'py --interactive' the same as 'py').
+        self.interactive = False
+
     def _parse_global_opts(self):
         args = list(self.main_args)
+        self.debug       = False
+        self.interactive = False
         self.verbosity   = 1
         self.arg_mode    = None
         self.output_mode = None
         while args:
             arg = args[0]
-            if not arg.startswith("-"):
+            if arg in ["debug", "pdb", "ipdb", "dbg"]:
+                argname = "debug"
+            elif not arg.startswith("-"):
                 break
-            if arg.startswith("--"):
+            elif arg.startswith("--"):
                 argname = arg[2:]
             else:
                 argname = arg[1:]
@@ -1461,13 +1590,14 @@ class _PyMain(object):
             def novalue():
                 if equalsign:
                     raise ValueError("unexpected argument %s" % arg)
-            if argname in ["debug", "pdb", "ipdb", "dbg"]:
-                # TODO: set a flag that enables entering debugger before
-                # evaluating.  (by default we should enter debugger
-                # upon Exception [TODO]).
-                # TODO: if argument is an integer PID, then attach to that process.
-                # TODO: note additional features in documentation feature list
-                raise NotImplementedError("TODO: debug mode")
+            if argname in ["interactive", "i"]:
+                novalue()
+                self.interactive = True
+                del args[0]
+            elif argname in ["debug", "pdb", "ipdb", "dbg", "d"]:
+                novalue()
+                self.debug = True
+                del args[0]
             if argname == "verbose":
                 novalue()
                 logger.set_level("DEBUG")
@@ -1484,6 +1614,7 @@ class _PyMain(object):
                 self.arg_mode = _interpret_arg_mode("string")
                 # TODO: make this less hacky, something like
                 #   self.import_db = ""
+                # TODO: also turn off which() behavior
                 os.environ["PYFLYBY_PATH"] = "EMPTY"
                 os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
                 os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
@@ -1510,11 +1641,18 @@ class _PyMain(object):
             break
         self.args = args
 
+    def _enable_debug_tools(self):
+        # Enable a bunch of debugging tools.
+        enable_faulthandler()
+        enable_signal_handler_breakpoint()
+        enable_sigterm_handler()
+        add_debug_functions_to_builtins()
+
     def run(self):
         # Parse global options.
         sys.orig_argv = list(sys.argv)
         self._parse_global_opts()
-        # Get the import database.
+        self._enable_debug_tools()
         self._run_action()
         self._pre_exit()
 
@@ -1527,7 +1665,11 @@ class _PyMain(object):
                 # autoipython.  Note that we directly start IPython in the same
                 # process, instead of using subprocess.call(['autoipython']),
                 # because the latter messes with Control-C handling.
-                start_ipython_with_autoimporter([])
+                # TODO: add 'py shell' and make this an alias.
+                # TODO: if IPython isn't installed, then do our own
+                # interactive REPL with code.InteractiveConsole, readline, and
+                # autoimporter.
+                self.start_ipython()
                 return
             else:
                 # Emulate python args.
@@ -1570,7 +1712,8 @@ class _PyMain(object):
             # "python -c foo".  For now, we intentionally don't support that.
             cmd = popcmdarg()
             self.eval(cmd, args)
-        elif action in ["file", "execfile", "execf", "runfile", "run", "f"]:
+        elif action in ["file", "execfile", "execf", "runfile", "run", "f",
+                        "python"]:
             # Execute a file named on the command-line, with auto importing.
             cmd = popcmdarg()
             self.execfile(cmd, args)
@@ -1611,30 +1754,39 @@ class _PyMain(object):
             # Support "py -mbase64" in addition to "py -m base64".
             modname = arg0[2:]
             self.run_module(modname, args)
+        elif action in ["attach"]:
+            pid = int(popcmdarg())
+            nocmdarg()
+            attach_debugger(pid)
+        elif action in ["stack", "stack_trace", "stacktrace", "backtrace", "bt"]:
+            pid = int(popcmdarg())
+            nocmdarg()
+            print("Stack trace for process %s:" % (pid,))
+            remote_print_stack(pid)
         elif action in ["ipython", "ip"]:
             # Start IPython.
-            start_ipython_with_autoimporter(args)
+            self.start_ipython(args)
         elif action in ["notebook", "nb"]:
             # Start IPython notebook.
             nocmdarg()
-            start_ipython_with_autoimporter(["notebook"] + args)
+            self.start_ipython(["notebook"] + args)
         elif action in ["kernel"]:
             # Start IPython kernel.
             nocmdarg()
-            start_ipython_with_autoimporter(["kernel"] + args)
+            self.start_ipython(["kernel"] + args)
         elif action in ["qtconsole", "qt"]:
             # Start IPython qtconsole.
             nocmdarg()
-            start_ipython_with_autoimporter(["qtconsole"] + args)
+            self.start_ipython(["qtconsole"] + args)
         elif action in ["console"]:
             # Start IPython console (with new kernel).
             nocmdarg()
-            start_ipython_with_autoimporter(["console"] + args)
+            self.start_ipython(["console"] + args)
         elif action in ["existing"]:
             # Start IPython console (with existing kernel).
             if equalsign:
                 args.insert(0, cmdarg)
-            start_ipython_with_autoimporter(["console", "--existing"] + args)
+            self.start_ipython(["console", "--existing"] + args)
         elif action in ["nbconvert"]:
             # Start IPython nbconvert.  (autoimporter is irrelevant.)
             if equalsign:
@@ -1695,10 +1847,20 @@ class _PyMain(object):
 
         # Heuristically choose the behavior automatically based on what the
         # argument looks like.
-        elif _seems_like_filename(arg0):
-            # Implied --execfile.
-            self.execfile(arg0, args)
         else:
+            filename = _as_filename_if_seems_like_filename(arg0)
+            if filename:
+                # Implied --execfile.
+                self.execfile(filename, args)
+                return
+            if not args and arg0.isdigit():
+                if self.debug:
+                    attach_debugger(int(arg0, 10))
+                    return
+                else:
+                    logger.error(
+                        "Use py -d %s if you want to attach a debugger", arg0)
+                    raise SystemExit(1)
             # Implied --eval.
             # When given multiple arguments, first see if the args can be
             # concatenated and parsed as a single python program/expression.
@@ -1716,6 +1878,7 @@ class _PyMain(object):
                         result = self.namespace.auto_eval(
                             cmd, info=True, auto_import=False)
                         print_result(result, output_mode)
+                        self.result = result
                         return
                 # else fall through
             # Heuristic based on first arg: try run_module, apply, or exec/eval.
@@ -1728,19 +1891,27 @@ class _PyMain(object):
             self.heuristic_cmd(cmd, args, function_name=arg0)
 
     def _pre_exit(self):
-        self._matplotlib_show()
+        self._pre_exit_matplotlib_show()
+        self._pre_exit_interactive_shell()
 
-    def _matplotlib_show(self):
+    def _pre_exit_matplotlib_show(self):
         """
         If matplotlib.pyplot (pylab) is loaded, then call the show() function.
         This will cause the program to block until all figures are closed.
         Without this, a command like 'py plot(...)' would exit immediately.
         """
+        if self.interactive:
+            return
         try:
             pyplot = sys.modules["matplotlib.pyplot"]
         except KeyError:
             return
         pyplot.show()
+
+    def _pre_exit_interactive_shell(self):
+        if self.interactive:
+            self.namespace.globals["_"] = self.result
+            self.start_ipython()
 
 
 def py_main(args=None):

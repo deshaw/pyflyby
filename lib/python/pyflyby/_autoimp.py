@@ -19,7 +19,7 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import PythonBlock
+from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
 
 class _ClassScope(dict):
@@ -1169,7 +1169,7 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
 
 def auto_eval(arg, filename=None, mode=None,
               flags=None, auto_flags=True, globals=None, locals=None,
-              auto_import=True, db=None):
+              db=None):
     """
     Evaluate/execute the given code, automatically importing as needed.
 
@@ -1221,8 +1221,6 @@ def auto_eval(arg, filename=None, mode=None,
       C{dict}
     @param locals:
       Locals for evaluation.  If C{None}, use C{globals}.
-    @param auto_import:
-      Whether to auto-import before evaluation.
     @type db:
       L{ImportDB}
     @param db:
@@ -1252,27 +1250,16 @@ def auto_eval(arg, filename=None, mode=None,
         globals = {}
     if locals is None:
         locals = globals
-    if auto_import:
-        db = ImportDB.interpret_arg(db, target_filename=filename)
-        namespaces = [globals, locals]
-        # Import as needed.
-        auto_import_f = __builtin__.globals()["auto_import"]
-        auto_import_f(arg, namespaces, db)
+    db = ImportDB.interpret_arg(db, target_filename=filename)
+    namespaces = [globals, locals]
+    # Import as needed.
+    auto_import(arg, namespaces, db)
     # Compile from AST to code object.
     if isinstance(arg, types.CodeType):
         code = arg
     else:
         # Infer mode from ast object.
-        if isinstance(arg, ast.Module):
-            mode = "exec"
-        elif isinstance(arg, ast.Expression):
-            mode = "eval"
-        elif isinstance(arg, ast.Interactive):
-            mode = "single"
-        else:
-            raise TypeError(
-                "Expected Module/Expression/Interactive ast node; got %s"
-                % (type(arg).__name__))
+        mode = infer_compile_mode(arg)
         # Compile ast node => code object.  This step is necessary because
         # eval() doesn't work on AST objects.  We don't need to pass C{flags}
         # to compile() because flags are irrelevant when we already have an

@@ -2573,7 +2573,7 @@ def test_unknown_option_1():
 
 @pytest.mark.parametrize("args", flatten([
     "--tremont", "--Elsmere", "-Mohegan",
-    [ ["--%s"%x, "-%s"%x] for x in "abdgijklnprstuvwxyz"],
+    [ ["--%s"%x, "-%s"%x] for x in "abgjklnprstuvwxyz"],
     [ ["--%s"%x, "-%s"%x] for x in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
 ]))
 def test_unknown_option_variants_1(args):
@@ -2717,4 +2717,19 @@ def test_apply_not_a_function():
     assert "NotAFunctionError: ('Not a function', 75650517)" in result
 
 
-# TODO: timeit, time
+# TODO: test timeit, time
+# TODO: test --attach
+# TODO: test postmortem debugging
+# TODO: test SystemExit
+# TODO: test SIGQUIT
+# TODO: test faulthandler
+# TODO: test globals e.g. breakpoint
+# TODO: test py python foo
+# TODO: test py program-on-$PATH
+# TODO: test py --debug 'code...'
+# TODO: test py --debug PID
+# TODO: test repeated attach to the same PID.
+# TODO: test py -i filename.pya
+# TODO: test py -i 'code ...'
+# TODO: test 'py -i' == 'py' (no double shell)
+# TODO: exiting debugger with EOF (control-D)

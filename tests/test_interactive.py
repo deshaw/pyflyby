@@ -2835,3 +2835,8 @@ def test_debug_auto_import_statement_step_1(tmp):
         ipdb> c
         /////
     """, PYTHONPATH=tmp.dir)
+
+
+# TODO: add tests for when IPython is not installed.  either using a tox
+# environment, or using a PYTHONPATH that shadows IPython with something
+# unimportable.

@@ -7,14 +7,14 @@ from __future__ import (absolute_import, division, print_function,
 
 import __builtin__
 import ast
+from   contextlib               import contextmanager
 import inspect
 import os
 import re
 import subprocess
 import sys
 
-from   pyflyby._autoimp         import (auto_import, ScopeStack,
-                                        load_symbol)
+from   pyflyby._autoimp         import ScopeStack, auto_import, load_symbol
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -34,14 +34,31 @@ if False:
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
 
 
+class NoIPythonPackageError(Exception):
+    """
+    Exception raised when the IPython package is not installed in the system.
+    """
+
+
+class NoActiveIPythonAppError(Exception):
+    """
+    Exception raised when there is no current IPython application instance.
+    """
+
+
 def _get_or_create_ipython_terminal_app():
     """
     Create/get the singleton IPython terminal application.
 
     @rtype:
       C{TerminalIPythonApp}
+    @raise NoIPythonPackageError:
+      IPython is not installed in the system.
     """
-    import IPython
+    try:
+        import IPython
+    except ImportError as e:
+        raise NoIPythonPackageError(e)
     # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
@@ -63,6 +80,34 @@ def _get_or_create_ipython_terminal_app():
         "Couldn't get TerminalIPythonApp class.  "
         "Is your IPython version too old (or too new)?  "
         "IPython.__version__=%r" % (IPython.__version__))
+
+
+def _app_is_initialized(app):
+    """
+    Return whether C{app.initialize()} has been called.
+
+    @type app:
+      L{IPython.Application}
+    @rtype:
+      C{bool}
+    """
+    # There's no official way to tell whether app.initialize() has been called
+    # before.  We guess whether the app has been initialized by checking
+    # whether all traits have values.
+    #
+    # There's a method app.initialized(), but it doesn't do what we want.  It
+    # does not return whether app.initialize() has been called - rather,
+    # type(app).initialized() returns whether an instance of the class has
+    # ever been constructed, i.e. app.initialized() always returns True.
+    cache_name = "__is_initialized_54283907"
+    if cache_name in app.__dict__:
+        return True
+    if all(n in app._trait_values for n in app.trait_names()):
+        app.__dict__[cache_name] = True
+        return True
+    else:
+        return False
+
 
 
 class _IPython010TerminalApplication(object):
@@ -110,6 +155,7 @@ class _IPython010TerminalApplication(object):
         self._session.mainloop()
 
 
+
 def _get_or_create_ipython_kernel_app():
     """
     Create/get the singleton IPython kernel application.
@@ -140,11 +186,56 @@ def _get_or_create_ipython_kernel_app():
         "IPython.__version__=%r" % (IPython.__version__))
 
 
-def start_ipython_with_autoimporter(argv=None):
+def get_ipython_terminal_app_with_autoimporter():
     """
-    Start IPython with autoimporter enabled.
+    Return an initialized C{TerminalIPythonApp}.
+
+    If a C{TerminalIPythonApp} has already been created, then use it (whether
+    we are inside that app or not).  If there isn't already one, then create
+    one.  Enable the auto importer, if it hasn't already been enabled.  If the
+    app hasn't been initialized yet, then initialize() it (but don't start()
+    it).
+
+    @rtype:
+      C{TerminalIPythonApp}
+    @raise NoIPythonPackageError:
+      IPython is not installed in the system.
     """
     app = _get_or_create_ipython_terminal_app()
+    AutoImporter(app).enable()
+    if not _app_is_initialized(app):
+        app.initialize([])
+    return app
+
+
+def start_ipython_with_autoimporter(argv=None, _user_ns=None):
+    """
+    Start IPython (terminal) with autoimporter enabled.
+    """
+    app = _get_or_create_ipython_terminal_app()
+    if _user_ns is not None:
+        # Tested with IPython 1.2, 2.0, 2.1, 2.2, 2.3.
+        # FIXME TODO: support older versions of IPython.
+        # FIXME TODO: fix attaching debugger to IPython started this way.  It
+        # has to do with assigning user_ns.  Apparently if user_ns["__name__"]
+        # is "__main__" (which IPython defaults to, and we want to use
+        # anyway), then user_module must be a true ModuleType in order for
+        # attaching to work correctly.  If you specify user_ns but not
+        # user_module, then user_module is a DummyModule rather than a true
+        # ModuleType (since ModuleType.__dict__ is read-only).  Thus, if we
+        # specify user_ns, we should specify user_module also.  However, while
+        # user_module is a constructor parameter to InteractiveShell,
+        # IPythonTerminalApp doesn't pass that parameter to it.  We can't
+        # assign after initialize() because user_module and user_ns are
+        # already used during initialization.  One workaround idea is to let
+        # IPython initialize without specifying either user_ns or user_module,
+        # and then patch in members.  However, that has the downside of
+        # breaking func_globals of lambdas, e.g. if a script does 'def f():
+        # global x; x=4', then we run it with 'py -i', our globals dict won't
+        # be the same dict.  We should create a true ModuleType anyway even if
+        # not using IPython.  We might need to resort to advising
+        # init_create_namespaces etc. depending on IPython version.
+        app.user_ns = user_ns
     return _initialize_and_start_app_with_autoimporter(app, argv)
 
 
@@ -163,8 +254,23 @@ def _initialize_and_start_app_with_autoimporter(app, argv):
     @type app:
       L{BaseIPythonApplication}
     """
+    # Enable the auto importer.
     AutoImporter(app).enable()
+    # Save the value of the "_" name in the user namespace, to avoid
+    # initialize() clobbering it.
+    user_ns = getattr(app, "user_ns", None)
+    saved_user_ns = {}
+    if user_ns is not None:
+        for k in ["_"]:
+            try:
+                saved_user_ns[k] = user_ns[k]
+            except KeyError:
+                pass
+    # Initialize the app.
     app.initialize(argv)
+    if user_ns is not None:
+        user_ns.update(saved_user_ns)
+    # Start the app mainloop.
     return app.start()
 
 
@@ -481,10 +587,6 @@ def InterceptPrintsDuringPromptCtx(ip):
     return logger.HookCtx(pre=pre, post=post)
 
 
-class NoIPythonAppError(Exception):
-    pass
-
-
 def _get_ipython_app():
     """
     Get an IPython application instance, if we are inside an IPython session.
@@ -502,7 +604,7 @@ def _get_ipython_app():
     except KeyError:
         # The 'IPython' module isn't already loaded, so we're not in an
         # IPython session.  Don't import it.
-        raise NoIPythonAppError(
+        raise NoActiveIPythonAppError(
             "No active IPython application (IPython not even imported yet)")
     # The following has been tested on IPython 0.11, 0.12, 0.13, 1.0, 1.2,
     # 2.0, 2.1, 2.2, 2.3.
@@ -513,7 +615,7 @@ def _get_ipython_app():
     else:
         app = App._instance
         if app is None:
-            raise NoIPythonAppError("No active IPython application")
+            raise NoActiveIPythonAppError("No active IPython application")
         if app.subapp is not None:
             return app.subapp
         else:
@@ -521,7 +623,7 @@ def _get_ipython_app():
     # The following has been tested on IPython 0.10.
     if hasattr(IPython, "ipapi"):
         return _IPython010TerminalApplication.instance()
-    raise NoIPythonAppError(
+    raise NoActiveIPythonAppError(
         "Could not figure out how to get active IPython application for IPython version %s"
         % (IPython.__version__,))
 
@@ -768,39 +870,179 @@ def _enable_pdb_hooks(pdb_instance):
         return __original__(arg)
 
 
-def _get_Pdb_class():
+def _get_IPdb_class():
     """
     Get the IPython Pdb class.
-    If IPython is not importable, then return the raw Pdb class.
-
-    Note that we intentionally get the IPython Pdb class if it's importable,
-    even if we're not in an IPython session.
     """
     try:
         import IPython
     except ImportError:
-        # No IPython; use regular Pdb.
-        import pdb
-        return pdb.Pdb
+        raise NoIPythonPackageError()
+    try:
+        # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2,
+        # 2.0, 2.1, 2.2, 2.3.
+        from IPython.core import debugger
+        return debugger.Pdb
+    except ImportError:
+        pass
+    try:
+        # IPython 0.10
+        from IPython import Debugger
+        return Debugger.Pdb
+    except ImportError:
+        pass
+    # IPython exists but couldn't figure out how to get Pdb.
+    raise RuntimeError(
+        "Couldn't get IPython Pdb.  "
+        "Is your IPython version too old (or too new)?  "
+        "IPython.__version__=%r" % (IPython.__version__))
+
+
+def new_IPdb_instance():
+    """
+    Create a new Pdb instance.
+
+    If IPython is available, then use IPython's Pdb.  Initialize a new IPython
+    terminal application if necessary.
+
+    If the IPython package is not installed in the system, then use regular Pdb.
+
+    Enable the auto importer.
+
+    @rtype:
+      L{Pdb}
+    """
+    try:
+        app = get_ipython_terminal_app_with_autoimporter()
+    except NoIPythonPackageError as e:
+        logger.debug("%s: %s", type(e).__name__, e)
+        from pdb import Pdb
+        pdb_instance = Pdb()
+        _enable_pdb_hooks(pdb_instance)
+        return pdb_instance
+    pdb_class = _get_IPdb_class()
+    color_scheme = _get_ipython_color_scheme(app)
+    pdb_instance = pdb_class(color_scheme)
+    _enable_pdb_hooks(pdb_instance)
+    return pdb_instance
+
+
+def _get_ipython_color_scheme(app):
+    """
+    Get the configured IPython color scheme.
+
+    @type app:
+      L{TerminalIPythonApp}
+    @param app:
+      An initialized IPython terminal application.
+    @rtype:
+      C{str}
+    """
+    try:
+        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
+        # 2.3.
+        return app.shell.colors
+    except AttributeError:
+        pass
+    try:
+        # Tested with IPython 0.10.
+        import IPython
+        ipapi = IPython.ipapi.get()
+        return ipapi.options.colors
+    except AttributeError:
+        pass
+    import IPython
+    raise RuntimeError(
+        "Couldn't get IPython colors.  "
+        "Is your IPython version too old (or too new)?  "
+        "IPython.__version__=%r" % (IPython.__version__))
+
+
+def print_verbose_tb(*exc_info):
+    """
+    Print a traceback, using IPython's ultraTB if possible.
+
+    @param exc_info:
+      3 arguments as returned by sys.exc_info().
+    """
+    if not exc_info:
+        exc_info = sys.exc_info()
+    elif len(exc_info) == 1 and isinstance(exc_info[0], tuple):
+        exc_info, = exc_info
+    if len(exc_info) != 3:
+        raise TypeError(
+            "Expected 3 items for exc_info; got %d" % len(exc_info))
+    try:
+        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
+        # 2.3.
+        from IPython.core.ultratb import VerboseTB
+    except ImportError:
+        try:
+            # Tested with IPython 0.10.
+            from IPython.ultraTB import VerboseTB
+        except ImportError:
+            VerboseTB = None
+    exc_type, exc_value, exc_tb = exc_info
+    # TODO: maybe use ip.showtraceback() instead?
+    if VerboseTB is not None:
+        VerboseTB(include_vars=False)(exc_type, exc_value, exc_tb)
     else:
+        import traceback
+        def red(x):
+            return "\033[0m\033[31;1m%s\033[0m" % (x,)
+        exc_name = exc_type
         try:
-            # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2,
-            # 2.0, 2.1, 2.2, 2.3.
-            from IPython.core import debugger
-            return debugger.Pdb
-        except ImportError:
+            exc_name = exc_name.__name__
+        except AttributeError:
             pass
-        try:
-            # IPython 0.10
-            from IPython import Debugger
-            return Debugger.Pdb
-        except ImportError:
-            pass
-        # IPython exists but couldn't figure out how to get Pdb.
-        raise RuntimeError(
-            "Couldn't get IPython Pdb.  "
-            "Is your IPython version too old (or too new)?  "
-            "IPython.__version__=%r" % (IPython.__version__))
+        exc_name = str(exc_name)
+        print(red("---------------------------------------------------------------------------"))
+        print(red(exc_name.ljust(42)) + "Traceback (most recent call last)")
+        traceback.print_tb(exc_tb)
+        print()
+        print("%s: %s" % (red(exc_name), exc_value),
+              file=sys.stderr)
+        print()
+
+
+@contextmanager
+def UpdateIPythonStdioCtx():
+    """
+    Context manager that updates IPython's cached stdin/stdout/stderr handles
+    to match the current values of sys.stdin/sys.stdout/sys.stderr.
+    """
+    if "IPython" not in sys.modules:
+        yield
+        return
+    if "IPython.utils.io" in sys.modules:
+        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
+        # 2.3.
+        module = sys.modules["IPython.utils.io"]
+        container = module
+        IOStream = module.IOStream
+    elif "IPython.genutils" in sys.modules:
+        # Tested with IPython 0.10.
+        module = sys.modules["IPython.genutils"]
+        container = module.Term
+        IOStream = module.IOStream
+    else:
+        # IPython version too old or too new?
+        # For now just silently do nothing.
+        yield
+        return
+    old_stdin  = container.stdin
+    old_stdout = container.stdout
+    old_stderr = container.stderr
+    try:
+        container.stdin  = IOStream(sys.stdin)
+        container.stdout = IOStream(sys.stdout)
+        container.stderr = IOStream(sys.stderr)
+        yield
+    finally:
+        container.stdin  = old_stdin
+        container.stdout = old_stdout
+        container.stderr = old_stderr
+
 
 
 class _EnableState(object):
@@ -1534,7 +1776,7 @@ class AutoImporter(object):
 
     def _enable_debugger_hook(self, ip):
         try:
-            Pdb = _get_Pdb_class()
+            Pdb = _get_IPdb_class()
         except Exception as e:
             logger.debug("Couldn't locate Pdb class: %s: %s",
                          type(e).__name__, e)
@@ -1764,11 +2006,11 @@ def enable_auto_importer(if_no_ipython='raise'):
       If we are not inside IPython and if_no_ipython=='ignore', then silently
       do nothing.
       If we are not inside IPython and if_no_ipython=='raise', then raise
-      NoIPythonAppError.
+      NoActiveIPythonAppError.
     """
     try:
         app = _get_ipython_app()
-    except NoIPythonAppError:
+    except NoActiveIPythonAppError:
         if if_no_ipython=='ignore':
             return
         else:
@@ -1783,7 +2025,7 @@ def disable_auto_importer():
     """
     try:
         app = _get_ipython_app()
-    except NoIPythonAppError:
+    except NoActiveIPythonAppError:
         return
     auto_importer = AutoImporter(app)
     auto_importer.disable()

@@ -1,11 +1,20 @@
 # pyflyby/__init__.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._autoimp         import (auto_eval, auto_import,
                                         find_missing_imports)
+from   pyflyby._dbg             import (add_debug_functions_to_builtins,
+                                        attach_debugger, breakpoint,
+                                        debug_exception, debug_on_exception,
+                                        debug_statement,
+                                        enable_exception_handler,
+                                        enable_faulthandler,
+                                        enable_signal_handler_breakpoint,
+                                        print_traceback, remote_print_stack,
+                                        waitpoint)
 from   pyflyby._file            import Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importdb        import ImportDB
