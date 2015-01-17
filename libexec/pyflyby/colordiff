@@ -25,7 +25,7 @@ fi
 
 PATH="$scriptdir:$PATH"
 
-if [[ -t 1 ]] && type -p diff-colorize; then
+if [[ -t 1 ]] && type -p diff-colorize >/dev/null; then
     diff -u "$@" | diff-colorize
 else
     diff -u "$@"
