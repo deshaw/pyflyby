@@ -788,9 +788,9 @@ def test_heuristic_apply_method_arg_1():
         True
     """).strip()
     assert expected == result
-    result = py("float.is_integer", "3.1")
+    result = py("float.is_integer", "3.5")
     expected = dedent("""
-        [PYFLYBY] float.is_integer(3.1)
+        [PYFLYBY] float.is_integer(3.5)
         False
     """).strip()
     assert expected == result
