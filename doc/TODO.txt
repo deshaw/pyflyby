@@ -96,3 +96,6 @@
 
 - Make tidy-imports support detecting that print_function is necessary but
   missing, and add it.
+
+- Tidy-imports for notebooks: add all necessary imports to cells (either at
+  the top or per cell)
