@@ -201,7 +201,7 @@ def parse_template(template):
     template = dedent(template).strip()
     input = []
     expected = []
-    pattern = re.compile("^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>)(?: |$)", re.M)
+    pattern = re.compile("^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
@@ -393,8 +393,12 @@ _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 _IPYTHON_PROMPT1 = "\nIn \[[0-9]+\]: "
 _IPYTHON_PROMPT2 = "\n   [.][.][.]+: "
+_PYTHON_PROMPT = ">>> "
 _IPDB_PROMPT = "\nipdb> "
-_IPYTHON_PROMPTS = [_IPYTHON_PROMPT1, _IPYTHON_PROMPT2, _IPDB_PROMPT]
+_IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
+                    _IPYTHON_PROMPT2,
+                    _PYTHON_PROMPT,
+                    _IPDB_PROMPT]
 
 
 @memoize
@@ -469,6 +473,8 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
     else:
         app = "terminal"
     cmd += list(args)
+    if prog == "python":
+        return cmd
     # Construct IPython arguments based on version.
     if _IPYTHON_VERSION >= (0, 11):
         opt = lambda arg: arg
@@ -2836,6 +2842,23 @@ def test_debug_auto_import_statement_step_1(tmp):
         /////
     """, PYTHONPATH=tmp.dir)
 
+# TODO: test embedded mode.  Something like this:
+#         >>> sys = 86176104
+#         >>> import IPython
+#         >>> IPython.embed()
+#         ....
+#         In [1]: import pyflyby
+#         In [2]: pyflyby.enable_auto_importer()
+#         In [3]: b64decode("cG93bmFs")
+#         [PYFLYBY] from base64 import b64decode
+#         Out[3]: 'pownal'
+#         In [4]: sys
+#         Out[4]: 86176104
+#         In [5]: exit()
+#         >>> b64decode("...")
+#         ...
+#         >>> b64encode("...")
+#         NameError: ...
 
 # TODO: add tests for when IPython is not installed.  either using a tox
 # environment, or using a PYTHONPATH that shadows IPython with something

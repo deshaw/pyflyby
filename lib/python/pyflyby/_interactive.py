@@ -156,6 +156,16 @@ class _IPython010TerminalApplication(object):
 
 
 
+class _DummyIPythonEmbeddedApp(object):
+    """
+    Small wrapper around an L{InteractiveShellEmbed}.
+    """
+
+    def __init__(self, shell):
+        self.shell = shell
+
+
+
 def _get_or_create_ipython_kernel_app():
     """
     Create/get the singleton IPython kernel application.
@@ -597,7 +607,7 @@ def _get_ipython_app():
     If there is a subapp, return it.
 
     @rtype:
-      L{BaseIPythonApplication}
+      L{BaseIPythonApplication} or an object that mimics some of its behavior
     """
     try:
         IPython = sys.modules['IPython']
@@ -614,12 +624,26 @@ def _get_ipython_app():
         pass
     else:
         app = App._instance
-        if app is None:
-            raise NoActiveIPythonAppError("No active IPython application")
-        if app.subapp is not None:
-            return app.subapp
+        if app is not None:
+            if app.subapp is not None:
+                return app.subapp
+            else:
+                return app
+        # If we're inside an embedded shell, then there will be an active
+        # InteractiveShellEmbed but no application.  In that case, create a
+        # fake application.
+        # (An alternative implementation would be to use
+        # IPython.core.interactiveshell.InteractiveShell._instance.  However,
+        # that doesn't work with older versions of IPython, where the embedded
+        # shell is not a singleton.)
+        if hasattr(__builtin__, "get_ipython"):
+            shell = __builtin__.get_ipython()
         else:
-            return app
+            shell = None
+        if shell is not None:
+            return _DummyIPythonEmbeddedApp(shell)
+        # No active IPython app/shell.
+        raise NoActiveIPythonAppError("No active IPython application")
     # The following has been tested on IPython 0.10.
     if hasattr(IPython, "ipapi"):
         return _IPython010TerminalApplication.instance()
