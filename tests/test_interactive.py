@@ -554,13 +554,16 @@ def IPythonCtx(prog="ipython",
     if hasattr(PYFLYBY_PATH, "write"):
         PYFLYBY_PATH = PYFLYBY_PATH.name
     PYFLYBY_PATH = str(Filename(PYFLYBY_PATH))
+    cleanup_dirs = []
     # Create a temporary directory which we'll use as our IPYTHONDIR.
-    if ipython_dir:
-        cleanup = lambda: None
-    else:
+    if not ipython_dir:
         ipython_dir = mkdtemp(prefix="pyflyby_test_ipython_", suffix=".tmp")
         _init_ipython_dir(ipython_dir)
-        cleanup = lambda: rmtree(ipython_dir)
+        cleanup_dirs.append(ipython_dir)
+    # Create an empty directory for MPLCONFIGDIR to avoid matplotlib looking
+    # in $HOME.
+    mplconfigdir = mkdtemp(prefix="pyflyby_test_matplotlib_", suffix=".tmp")
+    cleanup_dirs.append(mplconfigdir)
     child = None
     try:
         # Prepare environment variables.
@@ -569,6 +572,7 @@ def IPythonCtx(prog="ipython",
         env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
         env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
         env["PYTHONSTARTUP"]     = ""
+        env["MPLCONFIGDIR"]      = mplconfigdir
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall)
         # Spawn IPython.
         with EnvVarCtx(**env):
@@ -597,7 +601,8 @@ def IPythonCtx(prog="ipython",
         # Clean up.
         if child is not None and child.isalive():
             child.kill(signal.SIGKILL)
-        cleanup()
+        for d in cleanup_dirs:
+            rmtree(d)
 
 
 def _interact_ipython(child, input, exit=True, sendeof=False):
