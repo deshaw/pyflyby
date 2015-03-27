@@ -1405,6 +1405,7 @@ class _PyMain(object):
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
         with SysArgvCtx(str(filename), *cmd_args):
+            sys.path.insert(0, str(filename.dir))
             result = self.namespace.auto_eval(filename, debug=self.debug)
             print_result(result, output_mode)
             self.result = result
