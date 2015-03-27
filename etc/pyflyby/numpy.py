@@ -144,7 +144,8 @@ import scipy.interpolate
 from   scipy.interpolate        import InterpolatedUnivariateSpline, interp1d
 import scipy.linalg
 import scipy.optimize
-from   scipy.optimize           import fmin_l_bfgs_b, fsolve, leastsq
+from   scipy.optimize           import (curve_fit, fmin_l_bfgs_b, fsolve,
+                                        leastsq)
 from   scipy.optimize.zeros     import bisect
 import scipy.special
 from   scipy.special            import gamma, gammainc, gammaincinv, ndtri
