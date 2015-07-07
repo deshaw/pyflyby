@@ -483,7 +483,12 @@ def syscall_marker(msg):
         pass
 
 
+_ORIG_PID = os.getpid()
+
 def _signal_handler_breakpoint(signal_number, interrupted_frame):
+    if os.getpid() != _ORIG_PID:
+        # We're in a forked subprocess.  Ignore this SIGQUIT.
+        return
     fd_tty = _dev_tty_fd()
     os.write(fd_tty, b"\nIntercepted SIGQUIT; entering debugger.  Resend ^\\ to dump core (and 'stty sane' to reset terminal settings).\n\n")
     frame = _get_caller_frame()
@@ -491,6 +496,7 @@ def _signal_handler_breakpoint(signal_number, interrupted_frame):
     breakpoint(
         frame=frame,
         on_continue=enable_signal_handler_breakpoint)
+    signal.signal(signal.SIGQUIT, _signal_handler_breakpoint)
 
 
 def enable_signal_handler_breakpoint(enable=True):
