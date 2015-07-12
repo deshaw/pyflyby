@@ -249,13 +249,174 @@ def test_PythonBlock_statements_all_comments_2():
 
 def test_PythonBlock_doctest_1():
     block = PythonBlock(dedent("""
-        x
+        # x
         '''
           >>> foo(bar
           ...     + baz)
         '''
     """).lstrip())
     expected = [PythonBlock('foo(bar\n    + baz)\n', startpos=(3,3))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_nested_1():
+    # Verify that we only include doctests from nested functions.
+    block = PythonBlock(dedent("""
+        def f():
+            '>>> f(18739149)'
+            def g():
+                '>>> g(29355493)'
+    """).lstrip())
+    expected = [PythonBlock('f(18739149)\n', startpos=(2,5)),
+                PythonBlock('g(29355493)\n', startpos=(4,9))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_nested_cond_1():
+    block = PythonBlock(dedent("""
+        def f():
+            '>>> f(17556901)'
+            if True:
+                def g():
+                    '>>> g(21607865)'
+    """).lstrip())
+    expected = [PythonBlock('f(17556901)\n', startpos=(2,5)),
+                PythonBlock('g(21607865)\n', startpos=(5,13))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_nested_class_1():
+    block = PythonBlock(dedent("""
+        def f():
+            '>>> f(11462083)'
+            class C:
+                '>>> C(21800340)'
+                @classmethod
+                def g(cls):
+                    '>>> g(35606252)'
+    """).lstrip())
+    expected = [PythonBlock('f(11462083)\n', startpos=(2,5)),
+                PythonBlock('C(21800340)\n', startpos=(4,9)),
+                PythonBlock('g(35606252)\n', startpos=(7,13))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_function_1():
+    # Verify that we only include doctests from the first string in a
+    # function.
+    block = PythonBlock(dedent("""
+        def f():
+            '>>> a'
+            3
+            '>>> b'
+    """).lstrip())
+    expected = [PythonBlock('a\n', startpos=(2,5))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_function_2():
+    block = PythonBlock(dedent("""
+        def f():
+            if True:
+                '>>> x'
+    """).lstrip())
+    expected = []
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_function_3():
+    block = PythonBlock(dedent("""
+        def f():
+            return '>>> x'
+    """).lstrip())
+    expected = []
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_function_4():
+    block = PythonBlock(dedent("""
+        def f():
+            ('>>> a' + '')
+            3
+    """).lstrip())
+    expected = []
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_function_not_try_1():
+    block = PythonBlock(dedent("""
+        def f():
+            '>>> a'
+            try:
+                '>>> b'
+            except:
+                pass
+    """).lstrip())
+    expected = [PythonBlock('a\n', startpos=(2,5))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_only_first_in_class_1():
+    block = PythonBlock(dedent("""
+        class C:
+            '>>> C(11475111)'
+            def f(self): pass
+            '>>> x'
+
+    """).lstrip())
+    expected = [PythonBlock('C(11475111)\n', startpos=(2,5))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_assignments_at_global_scope_1():
+    # Verify that we only include doctests from (Epydoc) "variable docstrings"
+    # at global scope.
+    block = PythonBlock(dedent("""
+        '>>> x'
+        def f(): pass
+
+        a = 4
+        '>>> a'
+
+        def g(): pass
+
+        b = 5
+        '>>> b'
+    """).lstrip())
+    expected = [PythonBlock('x\n'),
+                PythonBlock('a\n', startpos=(5,1)),
+                PythonBlock('b\n', startpos=(10,1))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_assignments_ClassDef_1():
+    block = PythonBlock(dedent("""
+        class C:
+            ">>> C(17621216)"
+            x = 5
+            ">>> C(28208124)"
+            def f(self): pass
+            ">>> x"
+    """).lstrip())
+    expected = [PythonBlock('C(17621216)\n', startpos=(2,5)),
+                PythonBlock('C(28208124)\n', startpos=(4,5))]
+    assert block.get_doctests() == expected
+
+
+def test_PythonBlock_doctest_assignments_method_1():
+    block = PythonBlock(dedent("""
+        class C:
+            ">>> C(13798505)"
+            def __init__(self):
+                ">>> C(25709748)"
+                self.x = 0
+                ">>> C(32231717)"
+                f()
+                ">>> x"
+    """).lstrip())
+    expected = [PythonBlock('C(13798505)\n', startpos=(2,5)),
+                PythonBlock('C(25709748)\n', startpos=(4,9)),
+                PythonBlock('C(32231717)\n', startpos=(6,9))]
     assert block.get_doctests() == expected
 
 

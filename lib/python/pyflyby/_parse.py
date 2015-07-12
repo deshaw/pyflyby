@@ -5,6 +5,7 @@
 from __future__ import absolute_import, division, with_statement
 
 import ast
+from   collections              import namedtuple
 from   itertools                import groupby
 import re
 import sys
@@ -106,7 +107,7 @@ def _walk_ast_nodes_in_order(node):
     # The implementation is basically the same as C{ast.walk}, but:
     #   1. Use a stack instead of a deque.  (I.e., depth-first search instead
     #      of breadth-first search.)
-    #   2. Use _iter_child_nodes_in_order instead of C{ast.walk}.
+    #   2. Use _iter_child_nodes_in_order instead of C{ast.iter_child_nodes}.
     todo = [node]
     while todo:
         node = todo.pop()
@@ -204,9 +205,14 @@ def _test_parse_string_literal(text, flags):
     return body.s
 
 
+AstNodeContext = namedtuple("AstNodeContext", "parent field index")
+
+
 def _annotate_ast_nodes(ast_node):
     """
-    Annotate AST with startpos and endpos.
+    Annotate AST with:
+      - startpos and endpos
+      - [disabled for now: context as L{AstNodeContext}]
 
     @type ast_node:
       C{ast.AST}
@@ -219,6 +225,9 @@ def _annotate_ast_nodes(ast_node):
     flags = ast_node.flags
     startpos = text.startpos
     _annotate_ast_startpos(ast_node, startpos, text, flags)
+    # Not used for now:
+    #   ast_node.context = AstNodeContext(None, None, None)
+    #   _annotate_ast_context(ast_node)
 
 
 def _annotate_ast_startpos(ast_node, minpos, text, flags):
@@ -447,6 +456,28 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
         % (ast.dump(ast_node)))
 
 
+def _annotate_ast_context(ast_node):
+    """
+    Recursively annotate C{context} on ast nodes, setting C{context} to
+    a L{AstNodeContext} named tuple with values
+    C{(parent, field, index)}.
+    Each ast_node satisfies C{parent.<field>[<index>] is ast_node}.
+
+    For non-list fields, the index part is C{None}.
+    """
+    for field_name, field_value in ast.iter_fields(ast_node):
+        if isinstance(field_value, ast.AST):
+            child_node = field_value
+            child_node.context = AstNodeContext(ast_node, field_name, None)
+            _annotate_ast_context(child_node)
+        elif isinstance(field_value, list):
+            for i, item in enumerate(field_value):
+                if isinstance(item, ast.AST):
+                    child_node = item
+                    child_node.context = AstNodeContext(ast_node, field_name, i)
+                    _annotate_ast_context(child_node)
+
+
 def _split_code_lines(ast_nodes, text):
     """
     Split the given C{ast_nodes} and corresponding C{text} by code/noncode
@@ -527,6 +558,49 @@ def _split_code_lines(ast_nodes, text):
         yield ([node], text[startpos:endpos])
         if endpos != next_startpos:
             yield ([], text[endpos:next_startpos])
+
+
+def _ast_node_is_in_docstring_position(ast_node):
+    """
+    Given a C{Str} AST node, return whether its position within the AST makes
+    it eligible as a docstring.
+
+    The main way a C{Str} can be a docstring is if it is a standalone string
+    at the beginning of a C{Module}, C{FunctionDef}, or C{ClassDef}.
+
+    We also support variable docstrings per Epydoc:
+      - If a variable assignment statement is immediately followed by a bare
+        string literal, then that assignment is treated as a docstring for
+        that variable.
+
+    @type ast_node:
+      C{ast.Str}
+    @param ast_node:
+      AST node that has been annotated by C{_annotate_ast_nodes}.
+    @rtype:
+      C{bool}
+    @return:
+      Whether this string ast node is in docstring position.
+    """
+    if not isinstance(ast_node, ast.Str):
+        raise TypeError
+    expr_node = ast_node.context.parent
+    if not isinstance(expr_node, ast.Expr):
+        return False
+    assert ast_node.context.field == 'value'
+    assert ast_node.context.index is None
+    expr_ctx = expr_node.context
+    if expr_ctx.field != 'body':
+        return False
+    parent_node = expr_ctx.parent
+    if not isinstance(parent_node, (ast.FunctionDef, ast.ClassDef, ast.Module)):
+        return False
+    if expr_ctx.index == 0:
+        return True
+    prev_sibling_node = parent_node.body[expr_ctx.index-1]
+    if isinstance(prev_sibling_node, ast.Assign):
+        return True
+    return False
 
 
 def infer_compile_mode(arg):
@@ -1090,6 +1164,48 @@ class PythonBlock(object):
                 assert hasattr(node, 'startpos')
                 yield node
 
+    def _get_docstring_nodes(self):
+        """
+        Yield docstring AST nodes.
+
+        We consider the following to be docstrings:
+          - First literal string of function definitions, class definitions,
+            and modules (the python standard)
+          - Literal strings after assignments, per Epydoc
+
+        @rtype:
+          Generator of C{ast.Str} nodes
+        """
+        # This is similar to C{ast.get_docstring}, but:
+        #   - This function is recursive
+        #   - This function yields the node object, rather than the string
+        #   - This function yields multiple docstrings (even per ast node)
+        #   - This function doesn't raise TypeError on other AST types
+        #   - This function doesn't cleandoc
+        # A previous implementation did
+        #   [n for n in self.string_literals()
+        #    if _ast_node_is_in_docstring_position(n)]
+        # However, the method we now use is more straightforward, and doesn't
+        # require first annotating each node with context information.
+        docstring_containers = (ast.FunctionDef, ast.ClassDef, ast.Module)
+        for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
+            if not isinstance(node, docstring_containers):
+                continue
+            if not node.body:
+                continue
+            # If the first body item is a literal string, then yield the node.
+            if (isinstance(node.body[0], ast.Expr) and
+                isinstance(node.body[0].value, ast.Str)):
+                yield node.body[0].value
+            for i in xrange(1, len(node.body)-1):
+                # If a body item is an assignment and the next one is a
+                # literal string, then yield the node for the literal string.
+                n1, n2 = node.body[i], node.body[i+1]
+                if (isinstance(n1, ast.Assign) and
+                    isinstance(n2, ast.Expr) and
+                    isinstance(n2.value, ast.Str)):
+                    yield n2.value
+
     def get_doctests(self):
         r"""
         Return doctests in this code.
@@ -1105,7 +1221,7 @@ class PythonBlock(object):
         doctest_blocks = []
         filename = self.filename
         flags = self.flags
-        for ast_node in self.string_literals():
+        for ast_node in self._get_docstring_nodes():
             try:
                 examples = parser.get_examples(ast_node.s)
             except Exception:
