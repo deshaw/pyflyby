@@ -179,6 +179,8 @@ def assert_match(result, expected, ignore_prompt_number=False):
     # depending on runtime.
     regexp = re.sub(re.compile(r"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
                     "\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
+    regexp = re.sub(re.compile(r"^(Wall[\\]* time[\\]*:.*?)($|[$]|[\\]*\n)", re.M),
+                    "\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
     regexp += "$"
     # Check for match.
     regexp = re.compile(regexp)
