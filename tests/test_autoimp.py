@@ -612,6 +612,15 @@ def test_find_missing_imports_global_1():
     assert expected == result
 
 
+def test_find_missing_imports_complex_1():
+    code = dedent("""
+        x = 3+4j+k+u'a'
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['k']
+    assert expected == result
+
+
 def test_find_missing_imports_code_1():
     f = lambda: foo.bar(x) + baz(y)
     result   = find_missing_imports(f.func_code, [{}])
