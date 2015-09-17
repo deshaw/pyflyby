@@ -140,6 +140,144 @@ def test_find_missing_imports_assignment_1():
     assert expected == result
 
 
+def test_find_missing_imports_function_body_1():
+    code = dedent("""
+        x1 = 1
+        def func59399065():
+            return x1 + x2 + x3
+        x3 = 3
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['x2']
+    assert expected == result
+
+
+def test_find_missing_imports_function_paramlist_1():
+    code = dedent("""
+        X1 = 1
+        def func85025862(x1=X1, x2=X2, x3=X3):
+            return x1 + x2 + x3
+        X3 = 3
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['X2', 'X3']
+    assert expected == result
+
+
+def test_find_missing_imports_function_defaults_1():
+    code = dedent("""
+        e = 1
+        def func32466773(a=b, b=c, c=a, d=d, e=e, f=1):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['a', 'b', 'c', 'd']
+    assert expected == result
+
+
+def test_find_missing_imports_function_defaults_kwargs_1():
+    code = dedent("""
+        def func16049151(x=args, y=kwargs, z=y, *args, **kwargs):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['args', 'kwargs', 'y']
+    assert expected == result
+
+
+def test_find_missing_imports_function_defaults_kwargs_2():
+    code = dedent("""
+        args = 1
+        kwargs = 2
+        def func69790319(x=args, y=kwargs, z=y, *args, **kwargs):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert expected == result
+
+
+def test_find_missing_imports_function_paramlist_local_1():
+    code = dedent("""
+        x1 = 1
+        x2 = 2
+        def func77361554(x1, x3, x4):
+            pass
+        x4 = 4
+        x1, x2, x3, x4, x5
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['x3', 'x5']
+    assert expected == result
+
+
+def test_find_missing_imports_function_paramlist_selfref_1():
+    code = dedent("""
+        f1 = 'x'
+        def f2(g1=f1, g2=f2, g3=f3):
+            return (g1, g2, g3)
+        f3 = 'x'
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['f2', 'f3']
+    assert expected == result
+
+
+def test_find_missing_imports_function_paramlist_lambda_1():
+    code = dedent("""
+        X1 = 1
+        def func85025862(x1=lambda: 1/X1, x2=lambda: 1/X2, x3=lambda: 1/X3):
+            return x1() + x2() + x3()
+        X3 = 3
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['X2']
+    assert expected == result
+
+
+def test_find_missing_imports_decorator_1():
+    code = dedent("""
+        deco1 = 'x'
+        @deco1
+        @deco2
+        @deco3
+        def func33144383():
+            pass
+        deco3 = 'x'
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['deco2', 'deco3']
+    assert expected == result
+
+
+def test_find_missing_imports_decorator_selfref_1():
+    code = dedent("""
+        deco = 'x'
+        func1 = 'x'
+        @deco(func1, func2, func3)
+        def func2():
+            pass
+        func3 = 'x'
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['func2', 'func3']
+    assert expected == result
+
+
+def test_find_missing_imports_decorator_paramlist_1():
+    code = dedent("""
+        p2 = 2
+        def deco(*args): pass
+        @deco(p1, p2, p3)
+        def foo74632516():
+            pass
+        p3 = 3
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['p1', 'p3']
+    assert expected == result
+
+
 def test_find_missing_imports_classdef_1():
     code = dedent("""
         class Mahopac:
@@ -214,6 +352,84 @@ def test_find_missing_imports_class_member_vs_function_2():
     assert expected == result
 
 
+def test_find_missing_imports_class_member_vs_lambda_1():
+    code = dedent("""
+        x1 = 1
+        class Salsa(object):
+            x2 = 2
+            x3 = 3
+            y = [lambda y3=x3, y4=x4: x1 + x2 + x5 + x6]
+        x4 = 4
+        x5 = 5
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['x2', 'x4', 'x6']
+    assert expected == result
+
+
+def test_find_missing_imports_class_member_vs_paramlist_1():
+    code = dedent("""
+        class Drake:
+            duck2 = 2
+            def quack(self, mallard1=duck1, mallard2=duck2, mallard3=duck3):
+                pass
+            duck3 = 3
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['duck1', 'duck3']
+    assert expected == result
+
+
+def test_find_missing_imports_class_member_vs_paramlist_lambda_1():
+    code = dedent("""
+        class Breakfast:
+            def corn1(self):
+                pass
+            def cereal(self, maize1=lambda: corn1, maize2=lambda: corn2,
+                             maize3=lambda: corn3):
+                return (maize1(), maize2())
+            def corn2(self):
+                pass
+        def corn3(self):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['corn1', 'corn2']
+    assert expected == result
+
+
+def test_find_missing_imports_class_member_vs_paramlist_local_1():
+    code = dedent("""
+        class Legume:
+            x1 = 1
+            x2 = 2
+            def func13585710(x1, x3, x4):
+                pass
+            x4 = 4
+            y = x1, x2, x3, x4, x5
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['x3', 'x5']
+    assert expected == result
+
+
+def test_find_missing_imports_class_member_vs_decorator_1():
+    code = dedent("""
+        def deco(): 1/0
+        class Cat:
+            def panther1(self):
+                pass
+            @deco(panther1, panther2, panther3)
+            def growl(self):
+                pass
+            def panther2(self):
+                pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['panther2', 'panther3']
+    assert expected == result
+
+
 def test_find_missing_imports_inner_class_method_1():
     code = dedent("""
         class Sand(object):
@@ -273,6 +489,16 @@ def test_find_missing_imports_latedef_def_1():
     code = dedent("""
         def marble(x):
             return x + y + z
+        z = 100
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert expected == result
+
+
+def test_find_missing_imports_latedef_lambda_1():
+    code = dedent("""
+        granite = lambda x: x + y + z
         z = 100
     """)
     result   = find_missing_imports(code, [{}])
@@ -368,6 +594,18 @@ def test_find_missing_imports_class_scope_comprehension_1():
         class Plymouth:
             x = []
             z = list(1 for t in x+y)
+    """)
+    result   = find_missing_imports(code, [{}])
+    expected = ['y']
+    assert expected == result
+
+
+def test_find_missing_imports_global_1():
+    code = dedent("""
+        def func10663671():
+            global x
+            x = x + y
+        x = 1
     """)
     result   = find_missing_imports(code, [{}])
     expected = ['y']

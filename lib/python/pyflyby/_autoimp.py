@@ -193,7 +193,7 @@ def symbol_needs_import(fullname, namespaces):
     return True
 
 
-class _MissingImportFinder(ast.NodeVisitor):
+class _MissingImportFinder(object):
     """
     A helper class to be used only by L{_find_missing_imports_in_ast}.
 
@@ -240,6 +240,53 @@ class _MissingImportFinder(ast.NodeVisitor):
         self._finish_deferred_load_checks()
         return sorted(self.missing_imports)
 
+    def visit(self, node):
+        """
+        Visit a node.
+
+        @type node:
+          C{ast.AST} or C{list} of C{ast.AST}
+        """
+        # Modification of ast.NodeVisitor.visit(): support list inputs.
+        if isinstance(node, list):
+            for item in node:
+                self.visit(item)
+        elif isinstance(node, ast.AST):
+            method = 'visit_' + node.__class__.__name__
+            visitor = getattr(self, method, self.generic_visit)
+            return visitor(node)
+        else:
+            raise TypeError("unexpected %s" % (type(node).__name__,))
+
+    def generic_visit(self, node):
+        """
+        Generic visitor that visits all of the node's field values, in the
+        order declared by C{node._fields}.
+
+        Called if no explicit visitor function exists for a node.
+        """
+        # Modification of ast.NodeVisitor.generic_visit: recurse to visit()
+        # even for lists, and be more explicit about type checking.
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, ast.AST):
+                self.visit(value)
+            elif isinstance(value, list):
+                if all(isinstance(v, str) for v in value):
+                    pass
+                elif all(isinstance(v, ast.AST) for v in value):
+                    self.visit(value)
+                else:
+                    raise TypeError(
+                        "unexpected %s" %
+                        (', '.join(type(v).__name__ for v in value)))
+            elif isinstance(value, (int, float, str, types.NoneType)):
+                pass
+            else:
+                raise TypeError(
+                    "unexpected %s for %s.%s"
+                    % (type(value).__name__, type(node).__name__, field))
+
+
     @contextlib.contextmanager
     def _NewScopeCtx(self, **kwargs):
         """
@@ -255,34 +302,60 @@ class _MissingImportFinder(ast.NodeVisitor):
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
-    def visit_Lambda(self, node):
-        with self._NewScopeCtx():
-            self.generic_visit(node)
-
     def visit_ClassDef(self, node):
-        for base in node.bases:
-            self.visit(base)
-        for decorator in node.decorator_list:
-            self.visit(decorator)
+        self.visit(node.bases)
+        self.visit(node.decorator_list)
         with self._NewScopeCtx(new_class_scope=True):
-            for child in node.body:
-                self.visit(child)
+            self.visit(node.body)
         # The class's name is only visible to others (not to the body to the
         # class).
         self._visit_Store(node.name)
 
     def visit_FunctionDef(self, node):
+        # Visit a function definition.
+        #   - Visit args and decorator list normally.
+        #   - Visit function body in a special mode where we defer checking
+        #     loads until later, and don't load names from the parent ClassDef
+        #     scope.
+        #   - Store the name in the current scope (but not visibly to
+        #     args/decorator_list).
+        assert node._fields == ('name', 'args', 'body', 'decorator_list')
+        with self._NewScopeCtx(include_class_scopes=True):
+            self.visit(node.args)
+            self.visit(node.decorator_list)
+            old_in_FunctionDef = self._in_FunctionDef
+            self._in_FunctionDef = True
+            with self._NewScopeCtx():
+                self.visit(node.body)
+            self._in_FunctionDef = old_in_FunctionDef
         self._visit_Store(node.name)
-        old_in_FunctionDef = self._in_FunctionDef
-        self._in_FunctionDef = True
-        with self._NewScopeCtx():
-            self.generic_visit(node)
-        self._in_FunctionDef = old_in_FunctionDef
+
+    def visit_Lambda(self, node):
+        # Like FunctionDef, but without the decorator_list or name.
+        assert node._fields == ('args', 'body')
+        with self._NewScopeCtx(include_class_scopes=True):
+            self.visit(node.args)
+            old_in_FunctionDef = self._in_FunctionDef
+            self._in_FunctionDef = True
+            with self._NewScopeCtx():
+                self.visit(node.body)
+            self._in_FunctionDef = old_in_FunctionDef
 
     def visit_arguments(self, node):
+        assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+        # Argument/parameter list.  Visit 'defaults' first because these
+        # should be checked for missing imports before the stores from the
+        # args/varargs/kwargs.
+        # E.g. consider:
+        #    def f(x=y, y=x): pass
+        # Both x and y should be considered undefined (unless they were indeed
+        # defined before the def).
+        self.visit(node.defaults)
+        # Store arg names.
+        self.visit(node.args)
+        # Store vararg/kwarg names.
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
-        self.generic_visit(node)
 
     def visit_comprehension(self, node):
         # Visit a "comprehension" node, which is a component of list
@@ -298,8 +371,7 @@ class _MissingImportFinder(ast.NodeVisitor):
                 raise AssertionError(
                     "unexpected %s in comprehension" % (type(target).__name__))
         visit_target(node.target)
-        for n in node.ifs:
-            self.visit(n)
+        self.visit(node.ifs)
 
     def visit_ListComp(self, node):
         # Visit a list comprehension node.
@@ -310,8 +382,7 @@ class _MissingImportFinder(ast.NodeVisitor):
         # We intentionally don't enter a new scope here, because a list
         # comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
-        for comprehension in node.generators:
-            self.visit(comprehension)
+        self.visit(node.generators)
         self.visit(node.elt)
 
     def visit_GeneratorExp(self, node):
