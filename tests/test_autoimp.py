@@ -614,7 +614,7 @@ def test_find_missing_imports_global_1():
 
 def test_find_missing_imports_complex_1():
     code = dedent("""
-        x = 3+4j+k+u'a'
+        x = 3+4j+5L+k+u'a'
     """)
     result   = find_missing_imports(code, [{}])
     expected = ['k']

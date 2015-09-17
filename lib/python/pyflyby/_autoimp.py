@@ -279,7 +279,7 @@ class _MissingImportFinder(object):
                     raise TypeError(
                         "unexpected %s" %
                         (', '.join(type(v).__name__ for v in value)))
-            elif isinstance(value, (int, float, complex,
+            elif isinstance(value, (int, long, float, complex,
                                     str, unicode, types.NoneType)):
                 pass
             else:
