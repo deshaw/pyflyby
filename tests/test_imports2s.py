@@ -86,6 +86,22 @@ def test_reformat_import_statements_shadowed_1():
     assert output == expected
 
 
+def test_reformat_continuation_comments_1():
+    input = dedent('''
+        import   b , a
+        # x\\
+        # y
+    ''').lstrip()
+    output = str(reformat_import_statements(input))
+    expected = dedent('''
+        import a
+        import b
+        # x\\
+        # y
+    ''').lstrip()
+    assert expected == output
+
+
 def test_fix_unused_and_missing_imports_1():
     input = PythonBlock(dedent('''
         from foo import m1, m2, m3, m4

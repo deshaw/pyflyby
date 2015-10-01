@@ -129,6 +129,32 @@ def test_PythonBlock_statements_last_line_comment_continuation_1():
     assert block.statements == expected
 
 
+def test_PythonBlock_statements_comment_no_continuation_1():
+    block = PythonBlock(dedent('''
+        x
+        # y
+        # z
+    ''').lstrip())
+    expected = (
+        PythonStatement("x\n"                       ),
+        PythonStatement("# y\n# z\n", startpos=(2,1)),
+    )
+    assert block.statements == expected
+
+
+def test_PythonBlock_statements_comment_continuation_to_comment_1():
+    block = PythonBlock(dedent('''
+        x
+        # y \\
+        # z
+    ''').lstrip())
+    expected = (
+        PythonStatement("x\n"                          ),
+        PythonStatement("# y \\\n# z\n", startpos=(2,1)),
+    )
+    assert block.statements == expected
+
+
 def test_PythonBlock_statements_last_line_no_newline_1():
     block = PythonBlock(dedent('''
         a

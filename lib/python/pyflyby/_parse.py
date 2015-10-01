@@ -552,7 +552,8 @@ def _split_code_lines(ast_nodes, text):
             if endpos.colno == 1:
                 while (endpos.lineno-1 > startpos.lineno and
                        _is_comment_or_blank(text[endpos.lineno-1]) and
-                       not text[endpos.lineno-2].endswith("\\")):
+                       (not text[endpos.lineno-2].endswith("\\") or
+                        _is_comment_or_blank(text[endpos.lineno-2]))):
                     endpos = FilePos(endpos.lineno-1, 1)
         assert startpos < endpos <= next_startpos
         yield ([node], text[startpos:endpos])

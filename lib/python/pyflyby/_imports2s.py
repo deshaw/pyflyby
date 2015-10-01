@@ -1,5 +1,5 @@
 # pyflyby/_imports2s.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -723,6 +723,7 @@ def canonicalize_imports(codeblock, params=None, db=None):
     @rtype:
       L{PythonBlock}
     """
+    codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
     db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
     transformations = db.canonical_imports
