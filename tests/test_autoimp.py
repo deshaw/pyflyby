@@ -8,10 +8,43 @@ from __future__ import absolute_import, division, with_statement
 import ast
 import os
 import pytest
+from   shutil                   import rmtree
+import sys
+from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
+from   pyflyby                  import Filename
 from   pyflyby._autoimp         import (auto_eval, find_missing_imports,
                                         load_symbol)
+
+
+@pytest.fixture
+def tpp(request):
+    """
+    A temporary directory which is temporarily added to sys.path.
+    """
+    d = mkdtemp(prefix="pyflyby_test_autoimp_", suffix=".tmp")
+    d = Filename(d).real
+    def cleanup():
+        # Unload temp modules.
+        for name, module in sorted(sys.modules.items()):
+            if (getattr(module, "__file__", None) or "").startswith(str(d)):
+                del sys.modules[name]
+        # Clean up sys.path.
+        sys.path.remove(str(d))
+        # Clean up directory on disk.
+        rmtree(str(d))
+    request.addfinalizer(cleanup)
+    sys.path.append(str(d))
+    return d
+
+
+def writetext(filename, text, mode='w'):
+    text = dedent(text)
+    filename = Filename(filename)
+    with open(str(filename), mode) as f:
+        f.write(text)
+    return filename
 
 
 def test_find_missing_imports_basic_1():
@@ -782,3 +815,45 @@ def test_auto_eval_auto_flags_pf_flag_pf1(capsys):
               flags="print_function", auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import sys\n3.0\n"
+
+
+def test_auto_eval_proxy_module_1(tpp, capsys):
+    os.mkdir("%s/tornado83183065"%tpp)
+    writetext(tpp/"tornado83183065/__init__.py", """
+        import sys
+        twister = 54170888
+        class P:
+            def __getattr__(self, K):
+                k = K.lower()
+                if k == K:
+                    raise AttributeError
+                else:
+                    return getattr(self, k)
+        p = P()
+        p.__dict__ = globals()
+        p._m = sys.modules[__name__]
+        sys.modules[__name__] = p
+    """)
+    writetext(tpp/"tornado83183065/hurricane.py", """
+        cyclone = 79943637
+    """)
+    # Verify that we can auto-import a sub-module of a proxy module.
+    result = auto_eval("tornado83183065.hurricane.cyclone")
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import tornado83183065
+        [PYFLYBY] import tornado83183065.hurricane
+    """).lstrip()
+    assert out == expected
+    assert result == 79943637
+    # Verify that the proxy module can do its magic stuff.
+    result = auto_eval("tornado83183065.TWISTER")
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] import tornado83183065\n"
+    assert result == 54170888
+    # Verify that the proxy module can do its magic stuff with a submodule
+    # that's already imported.
+    result = auto_eval("tornado83183065.HURRICANE.cyclone")
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] import tornado83183065\n"
+    assert result == 79943637

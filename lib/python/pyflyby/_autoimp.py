@@ -10,6 +10,7 @@ import ast
 import contextlib
 import copy
 import os
+import sys
 import types
 
 from   pyflyby._file            import FileText, Filename
@@ -161,21 +162,39 @@ def symbol_needs_import(fullname, namespaces):
             suffix_parts = fullname.parts[prefix_len:]
             pname = str(partial_name)
             for part in suffix_parts:
-                if not isinstance(var, types.ModuleType):
+                # Check if the var so far is a module -- in fact that it's
+                # *the* module of a given name.  That is, for var ==
+                # foo.bar.baz, check if var is sys.modules['foo.bar.baz'].  We
+                # used to just check if isinstance(foo.bar.baz, ModuleType).
+                # However, that naive check is wrong for these situations:
+                #   - A module that contains an import of anything other than a
+                #     submodule with its exact name.  For example, suppose
+                #     foo.bar contains 'import sqlalchemy'.
+                #     foo.bar.sqlalchemy is of ModuleType, but that doesn't
+                #     mean that we could import foo.bar.sqlalchemy.orm.
+                #     Similar case if foo.bar contains 'from . import baz as
+                #     baz2'.  Mistaking these doesn't break much, but might as
+                #     well avoid an unnecessary import attempt.
+                #   - A "proxy module".  Suppose foo.bar replaces itself with
+                #     an object with a __getattr__, using
+                #     'sys.modules[__name__] = ...'  Submodules are still
+                #     importable, but sys.modules['foo.bar'] would not be of
+                #     type ModuleType.
+                if var is not sys.modules.get(pname, object()):
                     # The variable is not a module.  (If this came from a
                     # local assignment then C{var} will just be "None"
                     # here to indicate we know it was assigned but don't
                     # know about its type.)  Thus nothing under it needs
                     # import.
-                    logger.debug("symbol_needs_import(%r): %s is in namespace %d (under %r) and not a module, so it doesn't need import", fullname, pname, ns_idx, partial_name)
+                    logger.debug("symbol_needs_import(%r): %s is in namespace %d (under %r) and not a global module, so it doesn't need import", fullname, pname, ns_idx, partial_name)
                     return False
                 try:
                     var = getattr(var, part)
                 except AttributeError:
-                    # We saw that "foo.bar" is imported, and is a module,
-                    # but it does not have a "baz" attribute.  Thus, as we
-                    # know so far, foo.bar.baz requires import.  But
-                    # continue on to the next scope.
+                    # We saw that "foo.bar" is imported, and is a module, but
+                    # it does not have a "baz" attribute.  Thus, as far as we
+                    # know so far, foo.bar.baz requires import.  But continue
+                    # on to the next scope.
                     logger.debug("symbol_needs_import(%r): %s is a module in namespace %d (under %r), but has no %r attribute", fullname, pname, ns_idx, partial_name, part)
                     break # continue outer loop
                 pname = "%s.%s" % (pname, part)
