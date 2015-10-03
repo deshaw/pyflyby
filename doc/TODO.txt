@@ -99,3 +99,12 @@
 
 - Tidy-imports for notebooks: add all necessary imports to cells (either at
   the top or per cell)
+
+- Fix issue where properties get evaluated by pyflyby and then again by
+  ipython.  E.g. repeated print output in test_complete_symbol_nonmodule_1.
+  We can't avoid pyflyby evaluating the property.  But is there some way to
+  intercept ipython's subsequent evaluation and reuse the same result?
+
+- Spyder: Fix pyflyby output coming during tab completion messing up the
+  display.  May need to fix in Spyder itself.
+
