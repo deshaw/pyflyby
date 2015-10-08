@@ -224,13 +224,13 @@ def _annotate_ast_nodes(ast_node):
     text = ast_node.text
     flags = ast_node.flags
     startpos = text.startpos
-    _annotate_ast_startpos(ast_node, startpos, text, flags)
+    _annotate_ast_startpos(ast_node, None, startpos, text, flags)
     # Not used for now:
     #   ast_node.context = AstNodeContext(None, None, None)
     #   _annotate_ast_context(ast_node)
 
 
-def _annotate_ast_startpos(ast_node, minpos, text, flags):
+def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     """
     Annotate C{ast_node}.  Set C{ast_node.startpos} to the starting position
     of the node within C{text}.
@@ -287,7 +287,8 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
     is_first_child = True
     leftstr_node = None
     for child_node in _iter_child_nodes_in_order(ast_node):
-        leftstr = _annotate_ast_startpos(child_node, child_minpos, text, flags)
+        leftstr = _annotate_ast_startpos(child_node, ast_node,
+                                         child_minpos, text, flags)
         if is_first_child and leftstr:
             leftstr_node = child_node
         if hasattr(child_node, 'lineno'):
@@ -322,7 +323,33 @@ def _annotate_ast_startpos(ast_node, minpos, text, flags):
         # a single-line string.)
         # Easy.
         delta = (ast_node.lineno-1, ast_node.col_offset)
-        ast_node.startpos = text.startpos + delta
+        startpos = text.startpos + delta
+        # Special case for 'with' statements.  Consider the code:
+        #    with X: pass
+        #    ^0   ^5
+        # In python2.6, col_offset is 0.
+        # In python2.7, col_offset is 5.
+        # This is because python2.7 allows for multiple clauses:
+        #    with X, Y: pass
+        # Since 'Y's col_offset isn't the beginning of the line, the authors
+        # of Python presumably changed 'X's col_offset to also not be the
+        # beginning of the line.  If they had made the With ast node support
+        # multiple clauses, they wouldn't have needed to do that, but then
+        # that would introduce an API change in the AST.  So it's
+        # understandable that they did that.
+        # Since we use startpos for breaking lines, we need to set startpos to
+        # the beginning of the line.
+        if (isinstance(ast_node, ast.With) and
+            not isinstance(parent_ast_node, ast.With) and
+            sys.version_info >= (2,7)):
+            assert ast_node.col_offset >= 5
+            line = text[(startpos.lineno,1):startpos]
+            m = re.search(r"\bwith\s+$", str(line))
+            assert m
+            lk = len(m.group()) # length of 'with   ' including spaces
+            startpos = FilePos(startpos.lineno, startpos.colno - lk)
+            assert str(text[startpos:(startpos+(0,4))]) == "with"
+        ast_node.startpos = startpos
         return False
     assert ast_node.col_offset == -1
     if leftstr_node:

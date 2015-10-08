@@ -5,6 +5,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import pytest
 import sys
 from   textwrap                 import dedent
 import types
@@ -741,3 +742,38 @@ def test_future_flags_1():
         print("", file=sys.stdout)
     ''').lstrip())
     assert output == expected
+
+
+def test_with_1():
+    input = PythonBlock(dedent('''
+        with   closing(open("/etc/passwd")) as f:
+            pass
+    ''').lstrip())
+    db = ImportDB("from contextlib import closing")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from contextlib import closing
+
+        with   closing(open("/etc/passwd")) as f:
+            pass
+    ''').lstrip())
+    assert expected == output
+
+
+@pytest.mark.skipif(
+    sys.version_info < (2,7),
+    reason="Old Python doesn't support multiple context managers")
+def test_with_multi_1():
+    input = PythonBlock(dedent('''
+        with       aa as xx  , bb as yy, cc as zz:
+            pass
+    ''').lstrip())
+    db = ImportDB("from M import aa, bb, cc, dd, xx, yy, zz")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from M import aa, bb, cc
+
+        with       aa as xx  , bb as yy, cc as zz:
+            pass
+    ''').lstrip())
+    assert expected == output

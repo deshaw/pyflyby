@@ -6,6 +6,7 @@
 from __future__ import absolute_import, division, with_statement
 
 import pytest
+import sys
 from   textwrap                 import dedent
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -802,6 +803,41 @@ def test_PythonBlock_decorator_1():
     expected = (
         PythonStatement("@foo1\ndef bar1(): pass\n", startpos=(101,1)),
         PythonStatement("@foo2\ndef bar2(): pass\n", startpos=(103,1)),
+    )
+    assert block.statements == expected
+
+
+def test_PythonBlock_with_1():
+    block = PythonBlock(dedent('''
+        with a: b
+    ''').lstrip())
+    expected = (PythonStatement("with a: b\n"),)
+    assert block.statements == expected
+
+
+def test_PythonBlock_with_2():
+    block = PythonBlock(dedent('''
+        with    closing(open('/etc/passwd')):
+            pass
+    ''').lstrip(), startpos=(101,1))
+    expected = (
+        PythonStatement("with    closing(open('/etc/passwd')):\n    pass\n",
+                        startpos=(101,1)),
+    )
+    assert block.statements == expected
+
+
+@pytest.mark.skipif(
+    sys.version_info < (2,7),
+    reason="Old Python doesn't support multiple context managers")
+def test_PythonBlock_with_multi_1():
+    block = PythonBlock(dedent('''
+        with   A  as  a, B as b, C as c:
+            pass
+    ''').lstrip(), startpos=(101,1))
+    expected = (
+        PythonStatement("with   A  as  a, B as b, C as c:\n    pass\n",
+                        startpos=(101,1)),
     )
     assert block.statements == expected
 
