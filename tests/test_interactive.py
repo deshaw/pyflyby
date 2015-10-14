@@ -1437,6 +1437,7 @@ def test_complete_symbol_bad_1(tmp):
         In [2]: foo_31221052_\tbar
         [PYFLYBY] import foo_31221052_bar
         [PYFLYBY] Error attempting to 'import foo_31221052_bar': ImportError: No module named foo_31221052_bar
+        ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
@@ -1451,6 +1452,7 @@ def test_complete_symbol_bad_as_1(tmp):
         In [2]: bar_98073069_\tquux.asdf
         [PYFLYBY] import foo_86487172 as bar_98073069_quux
         [PYFLYBY] Error attempting to 'import foo_86487172 as bar_98073069_quux': ImportError: No module named foo_86487172
+        ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()

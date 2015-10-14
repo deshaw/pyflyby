@@ -5,6 +5,7 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
+import re
 import sys
 import types
 
@@ -13,6 +14,15 @@ from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, memoize, prefixes)
+
+
+class ErrorDuringImportError(ImportError):
+    """
+    Exception raised by import_module if the module exists but an exception
+    occurred while attempting to import it.  That nested exception could be
+    ImportError, e.g. if a module tries to import another module that doesn't
+    exist.
+    """
 
 
 @memoize
@@ -25,10 +35,41 @@ def import_module(module_name):
             logger.debug("Note: import_module(%r).__name__ == %r",
                          module_name, result.__name__)
         return result
+    except ImportError as e:
+        # We got an ImportError.  Figure out whether this is due to the module
+        # not existing, or whether the module exists but caused an ImportError
+        # (perhaps due to trying to import another problematic module).
+        # Do this by looking at the exception traceback.  If the previous
+        # frame in the traceback is this function (because locals match), then
+        # it should be the internal import machinery reporting that the module
+        # doesn't exist.  Re-raise the exception as-is.
+        # If some sys.meta_path or other import hook isn't compatible with
+        # such a check, here are some things we could do:
+        #   - Use pkgutil.find_loader() after the fact to check if the module
+        #     is supposed to exist.  Note that we shouldn't rely solely on
+        #     this before attempting to import, because find_loader() doesn't
+        #     work with meta_path.
+        #   - Write a memoized global function that compares in the current
+        #     environment the difference between attempting to import a
+        #     non-existent module vs a problematic module, and returns a
+        #     function that uses the working discriminators.
+        real_importerror1 = type(e) is ImportError
+        real_importerror2 = (sys.exc_info()[2].tb_frame.f_locals is locals())
+        m = re.match("^No module named (.*)$", str(e))
+        real_importerror3 = (m and m.group(1) == module_name
+                             or module_name.endswith("."+m.group(1)))
+        logger.debug("import_module(%r): real ImportError: %s %s %s",
+                     module_name,
+                     real_importerror1, real_importerror2, real_importerror3)
+        if real_importerror1 and real_importerror2 and real_importerror3:
+            raise
+        raise ErrorDuringImportError(
+            "Error while attempting to import %s: %s: %s"
+            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2]
     except Exception as e:
-        logger.debug("Failed to import %r: %s: %r",
-                     module_name, type(e).__name__, e)
-        raise ImportError(module_name), None, sys.exc_info()[2]
+        raise ErrorDuringImportError(
+            "Error while attempting to import %s: %s: %s"
+            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2]
 
 
 def _my_iter_modules(path, prefix=''):
@@ -134,40 +175,39 @@ class ModuleHandle(object):
 
         @rtype:
           C{types.ModuleType}
+        @raise ErrorDuringImportError:
+          The module should exist but an error occurred while attempting to
+          import it.
         @raise ImportError:
-          The module is not importable.
+          The module doesn't exist.
         """
-        if self.module_if_importable:
-            return self.module_if_importable
-        else:
-            raise ImportError(self.name)
+        # First check if prefix component is importable.
+        if self.parent:
+            self.parent.module
+        # Import.
+        return import_module(self.name)
 
     @cached_attribute
-    def module_if_importable(self):
+    def exists(self):
         """
-        Return the module instance, or C{None} if not importable.
-
-        This does a best effort to not attempt to import the module if it's
-        not expected to be importable.
-
-        @rtype:
-          C{types.ModuleType} or C{None}
+        Return whether the module exists, according to pkgutil.
+        Note that this doesn't work for things that are only known by using
+        sys.meta_path.
         """
         name = str(self.name)
+        if name in sys.modules:
+            return True
+        if self.parent and not self.parent.exists:
+            return False
+        import pkgutil
         try:
-            # If it's already been imported, then we're already done.
-            return sys.modules[name]
-        except KeyError:
-            pass
-        if self.parent:
-            # First check if prefix component is importable.
-            if not self.parent.module_if_importable:
-                return None
-        # Attempt the import.
-        try:
-            return import_module(self.name)
-        except ImportError:
-            return None
+            loader = pkgutil.find_loader(name)
+        except Exception:
+            # Catch all exceptions, not just ImportError.  If the __init__.py
+            # for the parent package of the module raises an exception, it'll
+            # propagate to here.
+            loader = None
+        return loader is not None
 
     @cached_attribute
     def filename(self):

@@ -13,9 +13,9 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
-from   pyflyby                  import Filename
-from   pyflyby._autoimp         import (auto_eval, find_missing_imports,
-                                        load_symbol)
+from   pyflyby                  import (Filename, ImportDB, auto_eval,
+                                        auto_import, find_missing_imports)
+from   pyflyby._autoimp         import load_symbol
 
 
 @pytest.fixture
@@ -857,3 +857,131 @@ def test_auto_eval_proxy_module_1(tpp, capsys):
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import tornado83183065\n"
     assert result == 79943637
+
+
+def test_auto_import_1(capsys):
+    auto_import("sys.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import sys
+    """).lstrip()
+    assert expected == out
+
+
+def test_auto_import_multi_1(capsys):
+    auto_import("sys.asdfasdf + os.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import os
+        [PYFLYBY] import sys
+    """).lstrip()
+    assert expected == out
+
+
+def test_auto_import_nothing_1(capsys):
+    auto_import("sys.asdfasdf", [{"sys":sys}])
+    out, _ = capsys.readouterr()
+    assert out == ""
+
+
+def test_auto_import_some_1(capsys):
+    auto_import("sys.asdfasdf + os.asdfasdf", [{"sys":sys}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import os
+    """).lstrip()
+    assert expected == out
+
+
+def test_auto_import_custom_1(tpp, capsys):
+    writetext(tpp/"trampoline77069527.py", """
+        print('hello  world')
+    """)
+    auto_import("trampoline77069527.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import trampoline77069527
+        hello  world
+    """).lstrip()
+    assert expected == out
+
+
+def test_auto_import_custom_in_pkg_1(tpp, capsys):
+    os.mkdir(str(tpp/"truck56331367"))
+    writetext(tpp/"truck56331367/__init__.py", "")
+    writetext(tpp/"truck56331367/tractor.py", """
+        print('hello  there')
+    """)
+    auto_import("truck56331367.tractor", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import truck56331367
+        [PYFLYBY] import truck56331367.tractor
+        hello  there
+    """).lstrip()
+    assert expected == out
+
+
+def test_auto_import_unknown_1(capsys):
+    # Verify that if we try to access something that doesn't appear to be a
+    # module, we don't attempt to import it (or at least don't log any visible
+    # errors for it).
+    auto_import("electron91631346.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    assert out == ""
+
+
+def test_auto_import_unknown_but_in_db1(tpp, capsys):
+    # Verify that if we try to access something that's in the known-imports
+    # database, but it doesn't actually exist, we get a visible error for it.
+    db = ImportDB('import photon70447198')
+    auto_import("photon70447198.asdfasdf", [{}], db=db)
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import photon70447198
+        [PYFLYBY] Error attempting to 'import photon70447198': ImportError: No module named photon70447198
+        Traceback (most recent call last):
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_auto_import_fake_importerror_1(tpp, capsys):
+    writetext(tpp/"proton24412521.py", """
+        raise ImportError("No module named proton24412521")
+    """)
+    auto_import("proton24412521.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import proton24412521
+        [PYFLYBY] Error attempting to 'import proton24412521': ImportError: No module named proton24412521
+        Traceback (most recent call last):
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_auto_import_indirect_importerror_1(tpp, capsys):
+    writetext(tpp/"neutron46291483.py", """
+        import baryon96446873
+    """)
+    auto_import("neutron46291483.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import neutron46291483
+        [PYFLYBY] Error attempting to 'import neutron46291483': ImportError: No module named baryon96446873
+        Traceback (most recent call last):
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_auto_import_nameerror_1(tpp, capsys):
+    writetext(tpp/"lepton69688541.py", """
+        foo
+    """)
+    auto_import("lepton69688541.asdfasdf", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import lepton69688541
+        [PYFLYBY] Error attempting to 'import lepton69688541': NameError: name 'foo' is not defined
+        Traceback (most recent call last):
+    """).lstrip()
+    assert out.startswith(expected)

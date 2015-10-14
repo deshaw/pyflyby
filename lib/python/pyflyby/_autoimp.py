@@ -1088,7 +1088,8 @@ def _try_import(imp, namespace):
         exec stmt in scratch_namespace
         imported = scratch_namespace[name0]
     except Exception as e:
-        logger.info("Error attempting to %r: %s: %s", stmt, type(e).__name__, e)
+        logger.warning("Error attempting to %r: %s: %s", stmt, type(e).__name__, e,
+                       exc_info=True)
         _IMPORT_FAILED.add(imp)
         return False
     try:
@@ -1143,6 +1144,8 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
     # important, since we're going to attempt that import anyway if it looks
     # like a "sqlalchemy" package is importable.
     imports = get_known_import(fullname, db=db)
+    logger.debug("auto_import_symbol(%r): get_known_import() => %r",
+                 fullname, imports)
     if imports is None:
         # No known imports.
         pass
@@ -1192,14 +1195,15 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
                              "already previously failed to autoimport %s",
                              fullname, pmodule_name)
                 return False
-        if not pmodule.module_if_importable:
-            logger.debug("auto_import_symbol(%r): %r is not importable",
+        if not pmodule.exists:
+            logger.debug("auto_import_symbol(%r): %r doesn't exist according to pkgutil",
                          fullname, pmodule)
             autoimported[pmodule_name] = False
             return False
         result = _try_import("import %s" % pmodule_name, namespaces[-1])
-        assert result
-        autoimported[pmodule_name] = True
+        autoimported[pmodule_name] = result
+        if not result:
+            return False
     return True
 
 
