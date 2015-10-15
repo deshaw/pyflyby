@@ -11,6 +11,7 @@ import perl
 import pexpect
 import pstats
 import pyflyby
+from   pyflyby                  import xreload
 import pylab
 import pyodbc
 import pysvn

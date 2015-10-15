@@ -44,17 +44,17 @@ def test_eqne_1():
 
 def test_filename_1():
     fn = logging.handlers.__file__
-    fn = re.sub("[.]pyc$", ".py", fn)
+    fn = Filename(re.sub("[.]pyc$", ".py", fn)).real
     m = ModuleHandle("logging.handlers")
-    assert m.filename == Filename(fn)
+    assert m.filename.real == fn
     assert m.filename.base == "handlers.py"
 
 
 def test_filename_init_1():
     fn = logging.__file__
-    fn = re.sub("[.]pyc$", ".py", fn)
+    fn = Filename(re.sub("[.]pyc$", ".py", fn)).real
     m = ModuleHandle("logging")
-    assert m.filename == Filename(fn)
+    assert m.filename.real == fn
     assert m.filename.base == "__init__.py"
 
 

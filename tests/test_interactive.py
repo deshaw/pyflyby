@@ -699,6 +699,11 @@ def IPythonKernelCtx(**kwargs):
         yield child
 
 
+def rand_chars(length=8, letters='abcdefghijklmnopqrstuvwxyz'):
+    return ''.join([random.choice(letters) for _ in range(length)])
+
+
+
 @contextmanager
 def IPythonNotebookCtx(**kwargs):
     """
@@ -706,7 +711,10 @@ def IPythonNotebookCtx(**kwargs):
     """
     __tracebackhide__ = True
     args = kwargs.pop("args", [])
-    args = args + ['notebook', '--no-browser']
+    args = args + ['notebook', '--no-browser', '--ip=127.0.0.1']
+    passwd_plaintext = rand_chars()
+    passwd_hashed = IPython.lib.passwd(passwd_plaintext)
+    args += ['--NotebookApp.password=%s' % passwd_hashed]
     notebook_dir = kwargs.pop("notebook_dir", None)
     cleanups = []
     if not notebook_dir:
@@ -742,9 +750,18 @@ def IPythonNotebookCtx(**kwargs):
             # Get the base URL from the notebook app.
             child.expect(r"The IPython Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
             baseurl = child.match.group(1)
+            # Login.
+            response = requests.post(
+                baseurl + "/login",
+                data=dict(password=passwd_plaintext),
+                allow_redirects=False
+            )
+            assert response.status_code == 302
+            cookies = response.cookies
             # Create a new notebook.
             if _IPYTHON_VERSION >= (2,):
-                response = requests.post(baseurl + "/api/notebooks")
+                # Get notebooks.
+                response = requests.post(baseurl + "/api/notebooks", cookies=cookies)
                 assert response.status_code == 201
                 # Get the notebook path & name for the new notebook.
                 text = response.text
@@ -755,7 +772,7 @@ def IPythonNotebookCtx(**kwargs):
                 request_data = json.dumps(
                     dict(notebook=dict(path=path, name=name)))
                 response = requests.post(baseurl + "/api/sessions",
-                                         data=request_data)
+                                         data=request_data, cookies=cookies)
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -890,10 +907,10 @@ def test_ipython_2():
 
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
-    f = pyflyby.__file__.replace(".pyc", ".py")
+    f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
     ipython("""
-        In [1]: import pyflyby
-        In [2]: print pyflyby.__file__.replace(".pyc", ".py")
+        In [1]: import os, pyflyby
+        In [2]: print os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
         {f}
     """)
 
@@ -909,10 +926,11 @@ def test_pyflyby_version_1():
 
 def test_ipython_file_1():
     # Verify that our test setup is getting the right IPython.
+    f = os.path.realpath(IPython.__file__)
     ipython("""
-        In [1]: import IPython
-        In [2]: print IPython.__file__
-        {IPython.__file__}
+        In [1]: import IPython, os
+        In [2]: print os.path.realpath(IPython.__file__)
+        {f}
     """)
 
 

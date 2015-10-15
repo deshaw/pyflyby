@@ -36,9 +36,9 @@ def test_pyflyby_path_1():
 
 def test_pyflyby_file_1():
     # Check that our test setup is getting the right pyflyby.
-    cmd = "import pyflyby; print pyflyby.__file__"
+    cmd = "import os, pyflyby; print os.path.realpath(pyflyby.__file__)"
     result = pipe([sys.executable, '-c', cmd]).replace(".pyc", ".py")
-    expected = pyflyby.__file__.replace(".pyc", ".py")
+    expected = os.path.realpath(pyflyby.__file__).replace(".pyc", ".py")
     assert result == expected
 
 

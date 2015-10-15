@@ -3,7 +3,7 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
-import pkgutil
+import re
 import sys
 
 _already_ran_setup = False
@@ -50,7 +50,6 @@ def _setup_logger():
     handler.emit = test_handler.emit
 
 
-
 # Set $PYFLYBY_PATH to a predictable value.  For other env vars, set to defaults.
 PYFLYBY_HOME = os.path.dirname(os.path.realpath(__file__))
 
@@ -64,14 +63,41 @@ os.environ["PYTHONSTARTUP"] = ""
 os.environ["PATH"] = "%s:%s" % (os.path.dirname(sys.executable),
                                 os.environ["PATH"])
 
-# Make sure we can import pyflyby.
-if not pkgutil.find_loader("pyflyby"):
+# Detect whether we're inside tox.  (Any better way to do this?)
+in_tox = '/.tox/' in sys.prefix
+
+
+if in_tox:
+    # When in tox, we shouldn't have any usercustomize messing this up.
+    for k in sys.modules.keys():
+        assert not k == "pyflyby" or k.startswith("pyflyby.")
+
+    import pyflyby
+    fn = pyflyby.__file__
+    assert fn.startswith(sys.prefix)
+
+else:
+    # Unload any already-imported pyflyby.  This could happen if the user's
+    # usercustomize imported pyflyby.  That would probably be the "production"
+    # pyflyby rather than the one being developed & tested.
+    for k in sys.modules.keys():
+        if k == "pyflyby" or k.startswith("pyflyby."):
+            del sys.modules[k]
+
+    # Make sure we import pyflyby from this repository, as opposed to any other
+    # copy of pyflyby.  This does prevent us from testing using the test cases of
+    # one repository against the modules from another repository.  But that's not
+    # a common case; better to avoid confusion in the more common case between
+    # production vs development pyflyby.
     pylib = os.path.join(PYFLYBY_HOME, "lib/python")
-    sys.path.append(pylib)
+    sys.path.insert(0, pylib)
     os.environ["PYTHONPATH"] = ":".join(
-        filter(None, os.environ.get("PYTHONPATH", "").split(":")) + [pylib])
-    if not pkgutil.find_loader("pyflyby"):
-        raise RuntimeError("%s: pyflyby is not importable" % (__file__,))
+        [pylib] + filter(None, os.environ.get("PYTHONPATH", "").split(":")))
+    import pyflyby
+
+    fn = re.sub("[.]py[co]$", ".py", pyflyby.__file__)
+    expected_fn = os.path.join(PYFLYBY_HOME, "lib/python/pyflyby/__init__.py")
+    assert fn == expected_fn, "pyflyby got loaded from %s; expected %s" % (fn, expected_fn)
 
 
 # The following block is a workaround for IPython 0.11 and earlier versions.
