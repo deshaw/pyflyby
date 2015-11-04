@@ -827,6 +827,30 @@ def test_PythonBlock_with_2():
     assert block.statements == expected
 
 
+def test_PythonBlock_with_offset_1():
+    block = PythonBlock(dedent('''
+        with a:
+            b
+    ''').lstrip(), startpos=(101, 10))
+    expected = (PythonStatement("with a:\n    b\n", startpos=(101, 10)),)
+    assert block.statements == expected
+
+
+def test_PythonBlock_doctest_with_1():
+    block = PythonBlock(dedent('''
+        def foo():
+            """
+            hello
+              >>> with 11:
+              ...   22
+            """
+    '''))
+    doctest_blocks = block.get_doctests()
+    doctest_block, = doctest_blocks
+    expected = (PythonStatement("with 11:\n  22\n", startpos=(5, 11)),)
+    assert doctest_block.statements == expected
+
+
 @pytest.mark.skipif(
     sys.version_info < (2,7),
     reason="Old Python doesn't support multiple context managers")

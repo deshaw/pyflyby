@@ -343,7 +343,11 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             not isinstance(parent_ast_node, ast.With) and
             sys.version_info >= (2,7)):
             assert ast_node.col_offset >= 5
-            line = text[(startpos.lineno,1):startpos]
+            if startpos.lineno == text.startpos.lineno:
+                linestart = text.startpos.colno
+            else:
+                linestart = 1
+            line = text[(startpos.lineno,linestart):startpos]
             m = re.search(r"\bwith\s+$", str(line))
             assert m
             lk = len(m.group()) # length of 'with   ' including spaces
