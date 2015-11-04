@@ -766,12 +766,10 @@ def attach_debugger(pid):
     # Inject the statement 'breakpoint()' into target process.
     # Signal ourselves that we're done.  TODO: what's a better way to
     # do this?
-    on_continue = "lambda: os.kill(%d, %d)" % (os.getpid(), signal.SIGUSR1)
+    on_continue = "lambda: __import__('os').kill(%d, %d)" % (os.getpid(), signal.SIGUSR1)
     gdb_pid = inject(pid, [
-            "import sys",
-            "sys.path.insert(0, %r)" % (pyflyby_lib_path,),
-            "import pyflyby",
-            ("pyflyby.breakpoint(tty=%r, on_continue=%s)"
+            "__import__('sys').path.insert(0, %r)" % (pyflyby_lib_path,),
+            ("__import__('pyflyby').breakpoint(tty=%r, on_continue=%s)"
              % (terminal.ttyname, on_continue)),
             ], wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
