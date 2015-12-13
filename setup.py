@@ -124,8 +124,22 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import pytest
+        # We want to test the version of pyflyby in this repository.  It's
+        # possible that some different version of pyflyby already got imported
+        # in usercustomize, before we could set sys.path here.  If so, unload
+        # it.
+        if 'pyflyby' in sys.modules:
+            print("setup.py: Unloading %s from sys.modules "
+                  "(perhaps it got loaded in usercustomize?)"
+                  % (sys.modules['pyflyby'].__file__,))
+            del sys.modules['pyflyby']
+            for k in sys.modules.keys():
+                if k.startswith("pyflyby."):
+                    del sys.modules[k]
+        # Add our version of pyflyby to sys.path & PYTHONPATH.
         sys.path.insert(0, PYFLYBY_PYPATH)
         os.environ["PYTHONPATH"] = PYFLYBY_PYPATH
+        # Run pytest.
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
