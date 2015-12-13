@@ -9,6 +9,7 @@ import os
 import pytest
 from   shutil                   import rmtree
 import subprocess
+import sys
 import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
@@ -103,8 +104,7 @@ def _build_pythonpath(PYTHONPATH):
 def _py_internal_1(args, stdin="",
                    PYTHONPATH=[],
                    PYFLYBY_PATH=PYFLYBY_PATH):
-
-    env = {}
+    env = dict(os.environ)
     env["PYFLYBY_PATH" ] = str(Filename(PYFLYBY_PATH))
     env["PYTHONPATH"   ] = _build_pythonpath(PYTHONPATH)
     env["PYTHONSTARTUP"] = ""
@@ -127,6 +127,27 @@ def writetext(filename, text, mode='w'):
     with open(str(filename), mode) as f:
         f.write(text)
     return filename
+
+
+def test_0prefix_raw_1():
+    # Verify that we're testing the virtualenv we think we are.
+    result = pipe(['python', '-c', 'import sys; print sys.prefix'])
+    expected = sys.prefix
+    assert expected == result
+
+
+def test_0version_1():
+    # Verify that we're testing the version we think we are.
+    result = py('-q', '--print', 'sys.version').strip()
+    expected = sys.version
+    assert expected == result
+
+
+def test_0prefix_1():
+    # Verify that we're testing the virtualenv we think we are.
+    result = py('-q', '--print', 'sys.prefix').strip()
+    expected = sys.prefix
+    assert expected == result
 
 
 def test_eval_1():
@@ -865,10 +886,10 @@ def test_apply_pyfunc_hybrid_args_disorder_1():
 
 
 def test_apply_argspec_too_few_args_1():
-    result, retcode = py("b64decode")
+    result, retcode = py("base64.b64decode")
     assert retcode == 1
     assert "[PYFLYBY] missing required argument s" in result
-    assert "$ py b64decode s [altchars]" in result
+    assert "$ py base64.b64decode s [altchars]" in result
 
 
 def test_apply_argspec_too_few_args_2():
@@ -879,12 +900,12 @@ def test_apply_argspec_too_few_args_2():
 
 
 def test_apply_argspec_too_many_args_1():
-    result, retcode = py("b64decode", "a", "b", "c")
+    result, retcode = py("base64.b64decode", "a", "b", "c")
     assert retcode == 1
     assert ("[PYFLYBY] Too many positional arguments.  "
             "Expected 1-2 positional argument(s): s, altchars.  "
             "Got 3 args: a b c") in result
-    assert "$ py b64decode s [altchars]" in result
+    assert "$ py base64.b64decode s [altchars]" in result
 
 
 def test_apply_argspec_too_many_args_2():
@@ -897,10 +918,10 @@ def test_apply_argspec_too_many_args_2():
 
 
 def test_apply_argspec_bad_kwarg_1():
-    result, retcode = py("b64decode", "x", "--christopher=sheridan")
+    result, retcode = py("base64.b64decode", "x", "--christopher=sheridan")
     assert retcode == 1
     assert "[PYFLYBY] Unknown option name christopher" in result
-    assert "$ py b64decode s [altchars]" in result
+    assert "$ py base64.b64decode s [altchars]" in result
 
 
 def test_apply_dashdash_1():
