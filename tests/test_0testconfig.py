@@ -27,24 +27,37 @@ def test_pytest_version_1():
                              "your version is pytest %s", pytest.__version__)
 
 
-def test_pyflyby_path_1():
+def test_pyflyby_version_1():
+    # Check that the version that we've imported here is the same as the one
+    # in this repository.
+    PYFLYBY_HOME   = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+    PYFLYBY_PYPATH = os.path.join(PYFLYBY_HOME, "lib/python")
+    version_vars = {}
+    version_fn = os.path.join(PYFLYBY_PYPATH, "pyflyby/_version.py")
+    exec(open(version_fn).read(), {}, version_vars)
+    expected = version_vars["__version__"]
+    result = pyflyby.__version__
+    assert expected == result
+
+
+def test_pyflyby_tox_path_1():
     # If we're inside tox, then check that we've loaded the virtualenv version.
     if '/.tox/' not in sys.prefix:
         return
     assert pyflyby.__file__.startswith(os.path.normpath(sys.prefix))
 
 
-def test_pyflyby_file_1():
+def test_pyflyby_subprocess_file_1():
     # Check that our test setup is getting the right pyflyby.
     cmd = "import os, pyflyby; print os.path.realpath(pyflyby.__file__)"
     result = pipe([sys.executable, '-c', cmd]).replace(".pyc", ".py")
     expected = os.path.realpath(pyflyby.__file__).replace(".pyc", ".py")
-    assert result == expected
+    assert expected == result
 
 
-def test_pyflyby_version_1():
+def test_pyflyby_subprocess_version_1():
     # Check that our test setup is getting the right pyflyby.
     cmd = "import pyflyby; print pyflyby.__version__"
     result = pipe([sys.executable, '-c', cmd])
     expected = pyflyby.__version__
-    assert result == expected
+    assert expected == result
