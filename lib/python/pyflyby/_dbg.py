@@ -294,7 +294,7 @@ def _find_py_commandline():
     if _cached_py_commandline is not None:
         return _cached_py_commandline
     import pyflyby
-    pkg_path = Filename(pyflyby.__path__[0])
+    pkg_path = Filename(pyflyby.__path__[0]).real
     assert pkg_path.base == "pyflyby"
     d = pkg_path.dir
     if d.base == "bin":
@@ -320,11 +320,6 @@ def _find_py_commandline():
             "Found 'py' script at %s but it's not executable" % (candidate,))
     _cached_py_commandline = candidate
     return candidate
-
-
-def get_hostname():
-    import socket
-    return socket.gethostbyaddr(socket.gethostname())[0]
 
 
 
@@ -397,17 +392,17 @@ def debug_on_exception(function):
 
 
 
-
 def _send_email_about_waitpoint(frame, mailto, originalpid):
     from   email.mime.text import MIMEText
     import smtplib
+    import socket
     import traceback
     if frame is None:
         frame = _get_caller_frame()
     user = pwd.getpwuid(os.geteuid()).pw_name
     if mailto is None:
         mailto = user
-    hostname = get_hostname()
+    hostname = socket.getfqdn()
     py = _find_py_commandline()
     pid = os.getpid()
     argv = ' '.join(sys.argv)
@@ -446,7 +441,7 @@ Details:
 While running {argv_abbrev}, waitpoint reached at {filename}:{line}
 
 Please run:
-    ssh -t {hostname} {pydbg} -p {pid}
+    ssh -t {hostname} {py} -p {pid}
 
 As process {originalpid}, I have forked to process {pid} and am waiting for a debugger to attach.
 
@@ -461,7 +456,7 @@ Details:
 """.format(**d)
     msg = MIMEText(email_body)
     msg['Subject'] = (
-        "ssh {hostname} pydbg -p {pid}"
+        "ssh {hostname} py -d {pid}"
         " # breakpoint in {argv_abbrev} at {filename}:{line}"
         ).format(**d)
     msg['From'] = user
