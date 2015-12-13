@@ -137,6 +137,12 @@ def assert_match(result, expected, ignore_prompt_number=False):
     regexp = "".join(regexp_parts)
     if ignore_prompt_number:
         regexp = re.sub(r"(In\\? |Out)\\*\[[0-9]+\\*\]\\?:", r"\1\[[0-9]+\]:", regexp)
+    if _IPYTHON_VERSION >= (4,):
+        ignore = dedent(r"""
+            (\[ZMQTerminalIPythonApp\] Loading IPython extension: storemagic
+            )?
+        """).strip()
+        result = re.sub(ignore, "", result)
     if _IPYTHON_VERSION < (1, 0):
         # IPython 0.13 console prints kernel info; ignore it.
         #   [IPKernelApp] To connect another client to this kernel, use:
@@ -154,7 +160,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
                         r"In \[[0-9]+\]", regexp)
         regexp = re.sub(re.compile(r"^Out\\\[[0-9]+\\\]", re.M),
                         r"\n?Out\[[0-9]+\]", regexp)
-    if _IPYTHON_VERSION < (0, 12) and sys.version_info >= (2, 7):
+    if _IPYTHON_VERSION < (0, 12):
         # Ignore ultratb problems (not pyflyby-related).
         # TODO: consider using --TerminalInteractiveShell.xmode=plain (-xmode)
         ignore = dedent(r"""
@@ -390,8 +396,10 @@ def _parse_version(version_string):
     return tuple(result)
 
 
-
-_IPYTHON_VERSION = _parse_version(IPython.__version__)
+try:
+    _IPYTHON_VERSION = IPython.version_info
+except AttributeError:
+    _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 _IPYTHON_PROMPT1 = "\nIn \[[0-9]+\]: "
 _IPYTHON_PROMPT2 = "\n   [.][.][.]+: "
@@ -496,14 +504,26 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
     else:
         raise NotImplementedError("Don't know how to test IPython version %s"
                                   % (_IPYTHON_VERSION,))
-    cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
+    if _IPYTHON_VERSION >= (4,) and app in ["console", "notebook"]:
+        # Argh! How do you set it on the command line in Jupyter console?
+        # InteractiveShell.ipython_dir, etc. don't work.
+        cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,)] + cmd
+    else:
+        cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
     if app in ["terminal", "console"]:
         cmd += [opt("--no-confirm-exit")]
         cmd += [opt("--no-banner")]
-    cmd += [opt("--colors=NoColor")]
-    cmd += [opt("--no-autoindent")]
+    if app != "notebook":
+        cmd += [opt("--colors=NoColor")]
+    if _IPYTHON_VERSION >= (3,0):
+        cmd += ["--InteractiveShell.autoindent=0"]
+    else:
+        cmd += [opt("--no-autoindent")]
     if autocall:
-        cmd += [opt("--autocall=1")]
+        if _IPYTHON_VERSION >= (3,0):
+            cmd += ["--InteractiveShell.autocall=1"]
+        else:
+            cmd += [opt("--autocall=1")]
     return cmd
 
 
@@ -565,6 +585,7 @@ def IPythonCtx(prog="ipython",
     mplconfigdir = mkdtemp(prefix="pyflyby_test_matplotlib_", suffix=".tmp")
     cleanup_dirs.append(mplconfigdir)
     child = None
+    output = StringIO()
     try:
         # Prepare environment variables.
         env = {}
@@ -576,13 +597,13 @@ def IPythonCtx(prog="ipython",
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall)
         # Spawn IPython.
         with EnvVarCtx(**env):
+            print("# Spawning: %s" % (' '.join(cmd)))
             child = MySpawn(cmd[0], cmd[1:], echo=True, timeout=10.0)
         # Log output to a StringIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
         # commands, since we used echo=True.  (Using logfile=StringIO and
         # echo=False works for most inputs, but doesn't work for things like
         # tab completion output.)
-        output = StringIO()
         child.logfile_read = output
         # Don't delay 0.05s before sending.
         child.delaybeforesend = 0.0
@@ -605,14 +626,14 @@ def IPythonCtx(prog="ipython",
             rmtree(d)
 
 
-def _interact_ipython(child, input, exit=True, sendeof=False):
+def _interact_ipython(child, input, exitstr="exit()\n",
+                      sendeof=False, waiteof=True):
     # Canonicalize input lines.
     input = dedent(input)
     input = re.sub("^\n+", "", input)
     input = re.sub("\n+$", "", input)
     input += "\n"
-    if exit:
-        input += "exit()\n"
+    input += exitstr
     lines = input.splitlines(False)
     # Loop over lines.
     for line in lines:
@@ -634,7 +655,10 @@ def _interact_ipython(child, input, exit=True, sendeof=False):
     # We're finished sending input commands.  Wait for process to complete.
     if sendeof:
         child.sendeof()
-    child.expect(pexpect.EOF)
+    if waiteof:
+        child.expect(pexpect.EOF)
+    else:
+        child.expect(_IPYTHON_PROMPTS)
     # Get output.
     output = child.logfile_read
     result = output.getvalue()
@@ -663,23 +687,43 @@ def ipython(template, **kwargs):
         app = args[0]
     else:
         app = "terminal"
-    if app == "console":
-        kwargs.setdefault("exit"                , False)
-        kwargs.setdefault("sendeof"             , True)
-        kwargs.setdefault("ignore_prompt_number", True)
-    exit                 = kwargs.pop("exit"                , True)
-    sendeof              = kwargs.pop("sendeof"             , False)
-    ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
     kernel = kwargs.pop("kernel", None)
+    if app == "console":
+        if _IPYTHON_VERSION >= (3,2) and kernel is not None:
+            # IPython console 3.2+ kills the kernel upon exit, unless you
+            # explicitly ask to keep it open.  If we're connecting to an
+            # existing kernel, default to keeping it alive upon exit.
+            kwargs.setdefault("exitstr", "exit(keep_kernel=True)\n")
+            kwargs.setdefault("sendeof", False)
+        elif _IPYTHON_VERSION >= (3,) and kernel is not None:
+            # IPython console 3.0, 3.1 always kill the kernel upon exit.
+            # There's a purported option exit(keep_kernel=True) but it's not
+            # implemented in these versions.
+            # https://github.com/ipython/ipython/issues/8482
+            # https://github.com/ipython/ipython/pull/8483
+            # Instead of cleanly telling the client to exit, we'll just kill
+            # it with SIGKILL (in the 'finally' clause of IPythonCtx).
+            kwargs.setdefault("exitstr", "")
+            kwargs.setdefault("sendeof", False)
+            kwargs.setdefault("waiteof", False)
+        else:
+            kwargs.setdefault("exitstr", "")
+            kwargs.setdefault("sendeof", True)
+        kwargs.setdefault("ignore_prompt_number", True)
+    exitstr              = kwargs.pop("exitstr"             , "exit()\n")
+    sendeof              = kwargs.pop("sendeof"             , False)
+    waiteof              = kwargs.pop("waiteof"             , True)
+    ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
     if kernel is not None:
         args += kernel.kernel_info
         kwargs.setdefault("ipython_dir", kernel.ipython_dir)
-    # print "Input:"
-    # print "".join("    %s\n"%line for line in input.splitlines())
+    print "Input:"
+    print "".join("    %s\n"%line for line in input.splitlines())
     with IPythonCtx(args=args, **kwargs) as child:
-        result = _interact_ipython(child, input, exit=exit, sendeof=sendeof)
-    # print "Output:"
-    # print "".join("    %s\n"%line for line in result.splitlines())
+        result = _interact_ipython(child, input, exitstr=exitstr,
+                                   sendeof=sendeof, waiteof=waiteof)
+    print "Output:"
+    print "".join("    %s\n"%line for line in result.splitlines())
     assert_match(result, expected, ignore_prompt_number=ignore_prompt_number)
 
 
@@ -748,7 +792,7 @@ def IPythonNotebookCtx(**kwargs):
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:
             # Get the base URL from the notebook app.
-            child.expect(r"The IPython Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
+            child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
             baseurl = child.match.group(1)
             # Login.
             response = requests.post(
@@ -762,7 +806,8 @@ def IPythonNotebookCtx(**kwargs):
             if _IPYTHON_VERSION >= (2,):
                 # Get notebooks.
                 response = requests.post(baseurl + "/api/notebooks", cookies=cookies)
-                assert response.status_code == 201
+                expected = 200 if _IPYTHON_VERSION >= (3,) else 201
+                assert response.status_code == expected
                 # Get the notebook path & name for the new notebook.
                 text = response.text
                 response_data = json.loads(text)
@@ -876,10 +921,16 @@ def _clean_ipython_output(result):
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(r"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), "<ipython-input>", result)
     result = re.sub(re.compile(r"^----> .*?\n", re.M), "", result)
+    # Remove cruft resulting from flakiness in 'ipython console'
+    if _IPYTHON_VERSION < (2,):
+        result = re.sub(re.compile(r"Exception in thread Thread-[0-9]+ [(]most likely raised during interpreter shutdown[)]:.*", re.S), "", result)
+    # Remove trailing post-exit message.
+    if _IPYTHON_VERSION >= (3,):
+        result = re.sub("(?:Shutting down kernel|keeping kernel alive)\n?$", "", result)
     # Remove trailing "In [N]:", if any.
     result = re.sub("%s\n?$"%_IPYTHON_PROMPT1, "", result)
     # Remove trailing "In [N]: exit()".
-    result = re.sub("%sexit[(][)]\n?$"%_IPYTHON_PROMPT1, "", result)
+    result = re.sub("%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, "", result)
     # Compress newlines.
     result = re.sub("\n\n+", "\n", result)
     return result
@@ -1584,6 +1635,7 @@ def test_disable_reenable_completion_1():
 
 
 def test_pinfo_1(tmp):
+    # Test that pinfo (ofind hook) works.
     writetext(tmp.dir/"m17426814.py", """
         def f34229186():
             'hello from '  '3422'  '9186'
@@ -1594,7 +1646,7 @@ def test_pinfo_1(tmp):
         In [2]: f34229186?
         [PYFLYBY] from m17426814 import f34229186
         ....
-        Docstring:....hello from 34229186
+        Docstring:....hello from 34229186....
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
 
@@ -2071,13 +2123,19 @@ def test_ipython_console_1():
     # for some versions of ipython, in some configurations, 'ipython console'
     # occasionally hangs on startup; not sure why, but it seems unrelated to
     # pyflyby, since it happens before any pyflyby commands.
+    # The reason for the 'In [1]: x = 91976012' is to make this test more
+    # robust in older versions of IPython.  In some versions (0.x), IPython
+    # console occasionally doesn't print the first output (i.e. Out[1]).  We
+    # work around this by first running something where we don't expect an
+    # Out[1].
     ipython("""
-        In [1]: 'acorn'
-        Out[1]: 'acorn'
-        In [2]: import pyflyby; pyflyby.enable_auto_importer()
-        In [3]: b64deco\tde('cGVhbnV0')
+        In [1]: x = 91976012
+        In [2]: 'acorn'
+        Out[2]: 'acorn'
+        In [3]: import pyflyby; pyflyby.enable_auto_importer()
+        In [4]: b64deco\tde('cGVhbnV0')
         [PYFLYBY] from base64 import b64decode
-        Out[3]: 'peanut'
+        Out[4]: 'peanut'
     """, args='console', sendeof=True)
 
 
@@ -2125,6 +2183,30 @@ def test_ipython_kernel_console_multiple_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 def test_ipython_notebook_1():
+    with IPythonNotebookCtx() as kernel:
+        ipython(
+            # Verify that the auto importer isn't enabled yet.
+            """
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in <module>()
+            NameError: name 'b64decode' is not defined"""
+            # Enable the auto importer.
+            """
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
+            # Verify that the auto importer and tab completion work.
+            """
+            In [3]: b64deco\tde('aGF6ZWxudXQ=')
+            [PYFLYBY] from base64 import b64decode
+            Out[3]: 'hazelnut'
+            """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_notebook_reconnect_1():
+    # Verify that we can reconnect to the same kernel, and pyflyby is still
+    # enabled.
     with IPythonNotebookCtx() as kernel:
         # Verify that the auto importer isn't enabled yet.
         ipython("""

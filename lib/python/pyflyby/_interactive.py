@@ -176,7 +176,15 @@ def _get_or_create_ipython_kernel_app():
       The function that can be called to start the kernel application.
     """
     import IPython
-    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3
+    # The following has been tested on IPython 4.0
+    try:
+        from ipykernel.kernelapp import IPKernelApp
+    except ImportError:
+        pass
+    else:
+        return IPKernelApp.instance()
+    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3,
+    # 2.4, 3.0, 3.1, 3.2
     try:
         from IPython.kernel.zmq.kernelapp import IPKernelApp
     except ImportError:
@@ -224,8 +232,8 @@ def start_ipython_with_autoimporter(argv=None, _user_ns=None):
     """
     app = _get_or_create_ipython_terminal_app()
     if _user_ns is not None:
-        # Tested with IPython 1.2, 2.0, 2.1, 2.2, 2.3.
-        # FIXME TODO: support older versions of IPython.
+        # Tested with IPython 1.2, 2.0, 2.1, 2.2, 2.3. 2.4, 3.0, 3.1, 3.2
+        # TODO: support older versions of IPython.
         # FIXME TODO: fix attaching debugger to IPython started this way.  It
         # has to do with assigning user_ns.  Apparently if user_ns["__name__"]
         # is "__main__" (which IPython defaults to, and we want to use
@@ -348,7 +356,7 @@ def install_in_ipython_startup_file():
     """
     import IPython
     # The following has been tested on IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1,
-    # 2.2, 2.3.
+    # 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
     try:
         IPython.core.profiledir.ProfileDir.startup_dir
     except AttributeError:
@@ -423,7 +431,8 @@ def _generate_enabler_code():
 def _install_in_ipython_startup_file_012():
     """
     Implementation of L{install_in_ipython_startup_file} for IPython 0.12+.
-    Tested with IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
+    Tested with IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
+    3.1, 3.2, 4.0.
     """
     import IPython
     ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
@@ -522,7 +531,8 @@ def _ipython_in_multiline(ip):
       C{bool}
     """
     if hasattr(ip, "input_splitter"):
-        # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.2, 2.1.
+        # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.2, 2.0,
+        # 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         return bool(ip.input_splitter.source)
     elif hasattr(ip, "buffer"):
         # IPython 0.10
@@ -904,7 +914,7 @@ def _get_IPdb_class():
         raise NoIPythonPackageError()
     try:
         # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2,
-        # 2.0, 2.1, 2.2, 2.3.
+        # 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0
         from IPython.core import debugger
         return debugger.Pdb
     except ImportError:
@@ -964,7 +974,7 @@ def _get_ipython_color_scheme(app):
     """
     try:
         # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3.
+        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         return app.shell.colors
     except AttributeError:
         pass
@@ -998,7 +1008,7 @@ def print_verbose_tb(*exc_info):
             "Expected 3 items for exc_info; got %d" % len(exc_info))
     try:
         # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3.
+        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         from IPython.core.ultratb import VerboseTB
     except ImportError:
         try:
@@ -1040,7 +1050,7 @@ def UpdateIPythonStdioCtx():
         return
     if "IPython.utils.io" in sys.modules:
         # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3.
+        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         module = sys.modules["IPython.utils.io"]
         container = module
         IOStream = module.IOStream
@@ -1309,8 +1319,52 @@ class AutoImporter(object):
         return True
 
     def _enable_start_kernel_hook(self, kernel_manager):
+        # Various IPython versions have different 'main' commands called from
+        # here, e.g.
+        #   IPython 2: IPython.kernel.zmq.kernelapp.main
+        #   IPython 3: IPython.kernel.__main__
+        #   IPython 4: ipykernel.__main__
+        # These essentially all do 'kernelapp.launch_new_instance()' (imported
+        # from different places).  We hook the guts of that to enable the
+        # autoimporter.
+        new_cmd = [
+            '-c',
+            'from pyflyby._interactive import start_ipython_kernel_with_autoimporter; '
+            'start_ipython_kernel_with_autoimporter()'
+        ]
         try:
-            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3
+            # Tested with Jupyter/IPython 4.0
+            from jupyter_client.manager import KernelManager
+        except ImportError:
+            pass
+        else:
+            @self._advise(kernel_manager.start_kernel)
+            def start_kernel_with_autoimport(*args, **kwargs):
+                logger.debug("start_kernel()")
+                # Advise format_kernel_cmd(), which is the function that
+                # computes the command line for a subprocess to run a new
+                # kernel.  Note that we advise the method on the class, rather
+                # than this instance of kernel_manager, because start_kernel()
+                # actually creates a *new* KernelInstance for this.
+                @advise(KernelManager.format_kernel_cmd)
+                def format_kernel_cmd_with_autoimport(*args, **kwargs):
+                    result = __original__(*args, **kwargs)
+                    logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
+                    if result[1:3] == ['-m', 'ipykernel']:
+                        result[1:3] = new_cmd
+                        logger.debug("intercepting format_kernel_cmd(): new = %r", result)
+                        return result
+                    else:
+                        logger.debug("intercepting format_kernel_cmd(): unexpected output; not modifying it")
+                        return result
+                try:
+                    return __original__(*args, **kwargs)
+                finally:
+                    format_kernel_cmd_with_autoimport.unadvise()
+            return True
+        try:
+            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
+            # 3.2.
             from IPython.kernel.manager import KernelManager
         except ImportError:
             pass
@@ -1326,21 +1380,19 @@ class AutoImporter(object):
                 @advise(KernelManager.format_kernel_cmd)
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
-                    try:
-                        carg = result.index("-c")
-                    except ValueError:
-                        logger.debug("couldn't parse output of format_kernel_cmd(): %r", result)
+                    logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
+                    if result[1:3] in [
+                            # IPython 3.x
+                            ['-m', 'IPython.kernel'],
+                            # IPython 1.x, 2.x
+                            ['-c', 'from IPython.kernel.zmq.kernelapp import main; main()'],
+                    ]:
+                        result[1:3] = new_cmd
+                        logger.debug("intercepting format_kernel_cmd(): new = %r", result)
                         return result
-                    cmd = result[carg+1]
-                    expected_cmd = 'from IPython.kernel.zmq.kernelapp import main; main()'
-                    if cmd != expected_cmd:
-                        logger.debug("unexpected command, not modifying it: %r", cmd)
+                    else:
+                        logger.debug("intercepting format_kernel_cmd(): unexpected output; not modifying it")
                         return result
-                    new_cmd = (
-                        'from pyflyby._interactive import start_ipython_kernel_with_autoimporter; '
-                        'start_ipython_kernel_with_autoimporter()')
-                    result[carg+1] = new_cmd
-                    return result
                 try:
                     return __original__(*args, **kwargs)
                 finally:
@@ -1463,7 +1515,8 @@ class AutoImporter(object):
         # unintentional repeated call in IPython itself.  This is harmless for
         # us, since doing an extra reset shouldn't hurt.
         if hasattr(ip, "input_transformer_manager"):
-            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
+            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
+            # 3.2, 4.0.
             class ResetAutoImporterState(object):
                 def push(self_, line):
                     return line
@@ -1508,7 +1561,8 @@ class AutoImporter(object):
         """
         # Advise _ofind.
         if hasattr(ip, "_ofind"):
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
+            # 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(ip._ofind)
             def ofind_with_autoimport(oname, namespaces=None):
                 logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
@@ -1537,7 +1591,7 @@ class AutoImporter(object):
         if hasattr(ip, 'ast_transformers'):
             logger.debug("Registering an ast_transformer")
             # First choice: register a formal ast_transformer.
-            # Tested with IPython 1.0, 1.2, 2.0, 2.3.
+            # Tested with IPython 1.0, 1.2, 2.0, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
             class _AutoImporter_ast_transformer(object):
                 """
                 A NodeVisitor-like wrapper around C{auto_import_for_ast} for
@@ -1681,7 +1735,8 @@ class AutoImporter(object):
         Enable a hook so that %prun will autoimport.
         """
         if hasattr(ip, 'magics_manager'):
-            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.
+            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
+            # 3.1, 3.2, 4.0.
             line_magics = ip.magics_manager.magics['line']
             execmgr = line_magics['prun'].im_self
             if hasattr(execmgr, "_run_with_profiler"):
@@ -1755,7 +1810,8 @@ class AutoImporter(object):
         # directly.)
         completer = getattr(ip, "Completer", None)
         if hasattr(completer, "global_matches"):
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
+            # 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(ip.Completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 return self.complete_symbol(fullname, on_error=__original__)
@@ -1775,7 +1831,8 @@ class AutoImporter(object):
         Enable a hook so that %run will autoimport.
         """
         if hasattr(ip, "safe_execfile"):
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
+            # 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(ip.safe_execfile)
             def safe_execfile_with_autoimport(filename,
                                               globals=None, locals=None,
@@ -1817,7 +1874,7 @@ class AutoImporter(object):
             # Hook ip.InteractiveTB.debugger().  This implements auto
             # importing for "%debug" (postmortem mode).
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0,
-            # 2.1, 2.2, 2.3.
+            # 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(iptb.debugger)
             def debugger_with_autoimport(*args, **kwargs):
                 with HookPdbCtx():
@@ -1827,7 +1884,8 @@ class AutoImporter(object):
         if hasattr(ip, 'magics_manager'):
             # Hook ExecutionMagics._run_with_debugger().  This implements auto
             # importing for "%debug <statement>".
-            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3.
+            # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
+            # 3.1, 3.2, 4.0.
             line_magics = ip.magics_manager.magics['line']
             execmgr = line_magics['debug'].im_self
             if hasattr(execmgr, "_run_with_debugger"):
@@ -1871,27 +1929,35 @@ class AutoImporter(object):
         """
         Enable some advice that's actually just fixing bugs in IPython.
         """
+        ok = True
+        ok &= self._enable_ipython_bugfixes_LevelFormatter()
+        return ok
+
+    def _enable_ipython_bugfixes_LevelFormatter(self):
+        # New versions of IPython complain if you import 'IPython.config'.
+        # Old versions of IPython already have it imported.
+        if 'IPython.config' not in sys.modules:
+            return True
         try:
             from IPython.config.application import LevelFormatter
         except ImportError:
-            pass
-        else:
-            if (not issubclass(LevelFormatter, object) and
-                "super" in LevelFormatter.format.im_func.func_code.co_names and
-                "logging" not in LevelFormatter.format.im_func.func_code.co_names):
-                # In IPython 1.0, LevelFormatter uses super(), which assumes
-                # that logging.Formatter is a subclass of object.  However,
-                # this is only true in Python 2.7+, not in Python 2.6.  So
-                # Python 2.6 + IPython 1.0 causes problems.  IPython 1.2
-                # already includes this fix.
-                from logging import Formatter
-                @self._advise(LevelFormatter.format)
-                def format_patched(self, record):
-                    if record.levelno >= self.highlevel_limit:
-                        record.highlevel = self.highlevel_format % record.__dict__
-                    else:
-                        record.highlevel = ""
-                    return Formatter.format(self, record)
+            return True
+        if (not issubclass(LevelFormatter, object) and
+            "super" in LevelFormatter.format.im_func.func_code.co_names and
+            "logging" not in LevelFormatter.format.im_func.func_code.co_names):
+            # In IPython 1.0, LevelFormatter uses super(), which assumes
+            # that logging.Formatter is a subclass of object.  However,
+            # this is only true in Python 2.7+, not in Python 2.6.  So
+            # Python 2.6 + IPython 1.0 causes problems.  IPython 1.2
+            # already includes this fix.
+            from logging import Formatter
+            @self._advise(LevelFormatter.format)
+            def format_patched(self, record):
+                if record.levelno >= self.highlevel_limit:
+                    record.highlevel = self.highlevel_format % record.__dict__
+                else:
+                    record.highlevel = ""
+                return Formatter.format(self, record)
         return True
 
     def disable(self):
