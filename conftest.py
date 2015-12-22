@@ -43,9 +43,10 @@ def _setup_logger():
             sys.stdout.flush()
         def flush(self):
             pass
+    test_handler = logging.StreamHandler(TestStream())
+    test_handler.formatter = logging.Formatter("[PYFLYBY] %(message)s")
     handler = pyflyby.logger.handlers[0]
-    handler.stream = TestStream()
-    handler.formatter = logging.Formatter("[PYFLYBY] %(message)s")
+    handler.emit = test_handler.emit
 
 
 

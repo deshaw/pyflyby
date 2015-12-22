@@ -759,8 +759,6 @@ class AutoImporter(object):
                     "error")
                 return
         import IPython
-        # Reset the logger's output stream, since sys.stderr might have changed.
-        logger.setup_output_stream()
         logger.debug("Enabling auto importer for IPython version %s, pid=%r",
                      IPython.__version__, os.getpid())
         logger.debug("enable(): state %s=>ENABLING", self._state)
@@ -793,11 +791,6 @@ class AutoImporter(object):
             logger.debug("_enable_internal(): success!  state: %s=>ENABLED",
                          self._state)
             self._state = _EnableState.ENABLED
-            # Repoint sys.stderr.  Note that we only do this once we've fully
-            # completed.  We don't do this at the first moment that sys.stderr
-            # is repointed, because writing to sys.stderr at that point will
-            # cause problems if we're in a kernel.
-            logger.setup_output_stream()
         elif self._pending_initializers:
             logger.debug("_enable_internal(): did what we can for now; "
                          "will enable more after further IPython initialization.  "
@@ -807,7 +800,6 @@ class AutoImporter(object):
                          "fully successful.  state: %s=>ENABLED",
                          self._state)
             self._state = _EnableState.ENABLED
-            logger.setup_output_stream()
 
     def _enable_initializer_hooks(self, app):
         # Hook initializers.  There are various things we want to hook, and

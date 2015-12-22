@@ -1,39 +1,54 @@
 # pyflyby/_log.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 from   contextlib               import contextmanager
 import logging
-from   logging                  import Formatter, Logger, StreamHandler
+from   logging                  import Handler, Logger
 import os
 import sys
 
 
-class _MultilineFormatter(Formatter):
-    def __init__(self, fmt=None, datefmt=None, prefix=None):
-        Formatter.__init__(self, fmt=fmt, datefmt=datefmt)
-        self.prefix = prefix or ""
-
-    def format(self, record):
-        formatted = Formatter.format(self, record)
-        return '\n'.join(
-            self.prefix + line for line in formatted.splitlines())
-
-
-class _HookedStreamHandler(StreamHandler):
+class _PyflybyHandler(Handler):
 
     _pre_log_function = None
     _logged_anything_during_context = False
 
-    def emit(self, record):
-        if self._pre_log_function is not None:
-            if not self._logged_anything_during_context:
-                self._pre_log_function()
-                self._logged_anything_during_context = True
-        StreamHandler.emit(self, record)
+    _interactive_prefix    = "\033[0m\033[33m[PYFLYBY]\033[0m "
+    _noninteractive_prefix = "[PYFLYBY] "
 
+    def emit(self, record):
+        """
+        Emit a log record.
+        """
+        try:
+            # Call pre-log hook.
+            if self._pre_log_function is not None:
+                if not self._logged_anything_during_context:
+                    self._pre_log_function()
+                    self._logged_anything_during_context = True
+            # Format (currently a no-op).
+            msg = self.format(record)
+            # Add prefix per line.
+            if _is_interactive(sys.stderr):
+                prefix = self._interactive_prefix
+            else:
+                prefix = self._noninteractive_prefix
+            msg = ''.join(["%s%s\n" % (prefix, line) for line in msg.splitlines()])
+            # First, flush stdout, to make sure that stdout and stderr don't get
+            # interleaved.  Normally this is automatic, but when stdout is piped,
+            # it can be necessary to force a flush to avoid interleaving.
+            sys.stdout.flush()
+            # Write log message.
+            sys.stderr.write(msg)
+            # Flush now - we don't want any interleaving of stdout/stderr.
+            sys.stderr.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
 
     @contextmanager
     def HookCtx(self, pre, post):
@@ -68,7 +83,7 @@ class _HookedStreamHandler(StreamHandler):
 
 def _is_interactive(file):
     if type(file).__module__.startswith("IPython."):
-        # Inside IPython notebook
+        # Inside IPython notebook/kernel
         return True
     try:
         fileno = file.fileno()
@@ -123,26 +138,9 @@ class PyflybyLogger(Logger):
     def __init__(self, name, level):
         Logger.__init__(self, name)
         with _NoRegisterLoggerHandlerInHandlerListCtx():
-            handler = _HookedStreamHandler()
-        if _is_interactive(handler.stream):
-            prefix = "\033[0m\033[33m[PYFLYBY]\033[0m "
-        else:
-            prefix = "[PYFLYBY] "
-        formatter = _MultilineFormatter(prefix=prefix)
-        handler.setFormatter(formatter)
+            handler = _PyflybyHandler()
         self.addHandler(handler)
         self.set_level(level)
-        self.setup_output_stream()
-
-    def setup_output_stream(self):
-        """
-        Set the handler's output stream to C{sys.stderr}.  Useful to call
-        again if C{sys.stderr} has been changed since the logger was
-        initialized.  """
-        # TODO: Make the handler always reference the current sys.stderr, so
-        # that this function is not required.
-        handler, = self.handlers
-        handler.stream = sys.stderr
 
     def set_level(self, level):
         """
