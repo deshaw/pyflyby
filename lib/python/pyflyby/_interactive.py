@@ -14,7 +14,8 @@ import re
 import subprocess
 import sys
 
-from   pyflyby._autoimp         import ScopeStack, auto_import, load_symbol
+from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
+                                        auto_import, load_symbol)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -741,7 +742,8 @@ def get_global_namespaces(ip):
         return [__builtin__.__dict__, __main__.__dict__]
 
 
-def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
+def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
+                    allow_eval=False):
     """
     Enumerate possible completions for C{fullname}.
 
@@ -785,6 +787,11 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
       C{InteractiveShell}
     @param ip:
       IPython shell instance if in IPython; C{None} to assume not in IPython.
+    @param allow_eval:
+      Whether to allow evaluating code, which is necessary to allow completing
+      e.g. 'foo[0].bar<TAB>' or 'foo().bar<TAB>'.  Note that IPython will only
+      pass such strings if IPCompleter.greedy is configured to True by the
+      user.
     @rtype:
       C{list} of C{str}
     @return:
@@ -792,13 +799,19 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
     """
     namespaces = ScopeStack(namespaces)
     logger.debug("complete_symbol(%r)", fullname)
-    # Require that the input be a prefix of a valid symbol.
-    if not is_identifier(fullname, dotted=True, prefix=True):
+    splt = fullname.rsplit(".", 1)
+    attrname = splt[-1]
+    # The right-hand-side of the split (the part to complete, possibly the
+    # fullname) must be a prefix of a valid symbol.  Otherwise don't bother
+    # generating completions.
+    # As for the left-hand-side of the split, load_symbol() will validate it
+    # or evaluate it depending on C{allow_eval}.
+    if not is_identifier(attrname, prefix=True):
         return []
     # Get the database of known imports.
     db = ImportDB.interpret_arg(db, target_filename=".")
     known = db.known_imports
-    if '.' not in fullname:
+    if len(splt) == 1:
         # Check global names, including global-level known modules and
         # importable modules.
         results = set()
@@ -809,19 +822,33 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
         results.update(known.member_names.get("", []))
         results.update([str(m) for m in ModuleHandle.list()])
         assert all('.' not in r for r in results)
-        results = sorted([r for r in results if r.startswith(fullname)])
-    else:
+        results = sorted([r for r in results if r.startswith(attrname)])
+    elif len(splt) == 2:
         # Check members, including known sub-modules and importable sub-modules.
-        splt = fullname.rsplit(".", 1)
-        pname, attrname = splt
-        try:
-            parent = load_symbol(pname, namespaces, autoimport=True, db=db,
-                                 autoimported=autoimported)
-        except AttributeError:
-            # Even after attempting auto-import, the symbol is still
-            # unavailable.  Nothing to complete.
-            logger.debug("complete_symbol(%r): couldn't load symbol %r", fullname, pname)
-            return []
+        pname = splt[0]
+        if allow_eval:
+            # Evaluate the parent, with autoimporting.
+            ns_g, ns_l = namespaces.merged_to_two()
+            # TODO: only catch exceptions around the eval, not the other stuff
+            # (loading import db, etc).
+            try:
+                parent = auto_eval(pname, globals=ns_g, locals=ns_l, db=db)
+            except Exception as e:
+                logger.debug("complete_symbol(%r): couldn't evaluate %r: %s: %s",
+                             fullname, pname, type(e).__name__, e)
+                return []
+        else:
+            try:
+                parent = load_symbol(pname, namespaces, autoimport=True, db=db,
+                                     autoimported=autoimported)
+            except LoadSymbolError as e2:
+                # Even after attempting auto-import, the symbol is still
+                # unavailable, or some other error occurred.  Nothing to complete.
+                e = getattr(e2, "__cause__", e2)
+                logger.debug("complete_symbol(%r): couldn't load symbol %r: %s: %s",
+                             fullname, pname, type(e).__name__, e)
+                return []
+        logger.debug("complete_symbol(%r): %s == %r", fullname, pname, parent)
         results = set()
         # Add current attribute members.
         results.update(_list_members_for_completion(parent, ip))
@@ -839,6 +866,8 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None):
             results.update([m.name.parts[-1] for m in pmodule.submodules])
         results = sorted([r for r in results if r.startswith(attrname)])
         results = ["%s.%s" % (pname, r) for r in results]
+    else:
+        raise AssertionError
     return results
 
 
@@ -2059,14 +2088,14 @@ class AutoImporter(object):
         with InterceptPrintsDuringPromptCtx(self._ip):
             namespaces = get_global_namespaces(self._ip)
             if on_error is not None:
-                def on_error1(fullname, namespaces, autoimported, ip):
+                def on_error1(fullname, namespaces, autoimported, ip, allow_eval):
                     return on_error(fullname)
             else:
                 on_error1 = None
             return self._safe_call(
                 complete_symbol, fullname, namespaces,
                 autoimported=self._autoimported_this_cell,
-                ip=self._ip,
+                ip=self._ip, allow_eval=True,
                 raise_on_error=raise_on_error, on_error=on_error1)
 
     def compile_with_autoimport(self, src, filename, mode, flags=0):

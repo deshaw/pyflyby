@@ -241,7 +241,10 @@ def parse_template(template):
             # by looking for the line repeated in the template.
             if template.startswith("\n"):
                 rep = template.rfind(expline)
-                assert rep >= 0
+                if rep < 0:
+                    raise AssertionError(
+                        "expected next line of template following a "
+                        "tab completion to start with %r" % (expline,))
                 repend = rep + len(expline)
                 expected.append(template[:repend])
                 template = template[repend:]
@@ -1566,6 +1569,69 @@ def test_complete_symbol_nonmodule_1(tmp):
         on the island
         Canvey
     """, PYTHONPATH=tmp.dir)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="test not implemented for old config")
+def test_complete_symbol_getitem_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: apples = ['McIntosh', 'PinkLady']
+        In [3]: apples[1].l\t
+        apples[1].ljust   apples[1].lower   apples[1].lstrip
+        In [3]: apples[1].l\x06ow\ter()
+        Out[3]: 'pinklady'
+    """, args=['--InteractiveShell.readline_remove_delims=-/~[]'])
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="test not implemented for old config")
+def test_complete_symbol_greedy_eval_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %config IPCompleter.greedy=True
+        In [3]: apple = 'Fuji'
+        In [4]: apple.lower()[0].stri\tp()
+        Out[4]: 'f'
+    """)
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 12),
+    reason="test not implemented for old config")
+def test_complete_symbol_greedy_eval_autoimport_1():
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %config IPCompleter.greedy=True
+        In [3]: os.sep.strip().lst\t
+        [PYFLYBY] import os
+        In [3]: os.sep.strip().lst\trip()
+        Out[3]: '/'
+    """)
+
+
+def test_complete_symbol_error_in_getattr_1():
+    # Verify that if there's an exception inside some custom object's getattr,
+    # we don't get confused.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: class Naughty:
+           ...:     def __getattr__(self, k):
+           ...:         1/0
+           ...:
+        In [3]: n = Naughty()
+        In [4]: n.foo.b\t\x06
+        ---------------------------------------------------------------------------
+        ZeroDivisionError                         Traceback (most recent call last)
+        ....
+        ZeroDivisionError: integer division or modulo by zero
+        In [5]: sys.settra\t
+        [PYFLYBY] import sys
+        In [5]: sys.settrace
+        Out[5]: <...settrace>
+    """)
 
 
 @pytest.mark.skipif(

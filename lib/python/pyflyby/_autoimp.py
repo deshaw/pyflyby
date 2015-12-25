@@ -110,6 +110,35 @@ class ScopeStack(tuple):
         cls = type(self)
         return tuple.__new__(cls, scopes)
 
+    def merged_to_two(self):
+        """
+        Return a 2-tuple of dicts.
+
+        These can be used for functions that take a C{globals} and C{locals}
+        argument, such as C{eval}.
+
+        If there is only one entry, then return it twice.
+
+        If there are more than two entries, then create a new dict that merges
+        the more-global ones.  The most-local stack will alias the dict from
+        the existing ScopeStack.
+
+        @rtype:
+          C{tuple} of (C{dict}, C{dict})
+        """
+        assert len(self) >= 1
+        if len(self) == 1:
+            return (self[0], self[0])
+        if len(self) == 2:
+            return tuple(self)
+        d = {}
+        for scope in self[:-1]:
+            d.update(scope)
+        # Return as a 2-tuple.  We don't cast the result to ScopeStack because
+        # it may add __builtins__ again, creating something of length 3.
+        return (d, self[-1])
+
+
 
 def symbol_needs_import(fullname, namespaces):
     """
@@ -1124,6 +1153,12 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
       L{ImportDB}
     @param db:
       Import database to use.
+    @param autoimported:
+      If not C{None}, then a dictionary of identifiers already attempted.
+      C{auto_import} will not attempt to auto-import symbols already in this
+      dictionary, and will add attempted symbols to this dictionary, with
+      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      did not succeed.
     @rtype:
       C{bool}
     @return:
@@ -1294,7 +1329,7 @@ def auto_eval(arg, filename=None, mode=None,
     @type mode:
       C{str}
     @param mode:
-      Compilation mode: "automatic", "exec", "single", or "eval".  "exec",
+      Compilation mode: C{None}, "exec", "single", or "eval".  "exec",
       "single", and "eval" work as the built-in C{compile} function do.
       If C{None}, then default to "eval" if the input is a string with a
       single expression, else "exec".
@@ -1364,6 +1399,17 @@ def auto_eval(arg, filename=None, mode=None,
     return eval(code, globals, locals)
 
 
+class LoadSymbolError(Exception):
+
+    def __str__(self):
+        r = ": ".join(map(str, self.args))
+        e = getattr(self, "__cause__", None)
+        if e:
+            r += ": %s: %s" % (type(e).__name__, e)
+        return r
+
+
+
 def load_symbol(fullname, namespaces, autoimport=False, db=None,
                 autoimported=None):
     """
@@ -1376,12 +1422,12 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
       >>> load_symbol("os.path.join.asdf", {"os": os})
       Traceback (most recent call last):
         ...
-      AttributeError: 'function' object has no attribute 'asdf'
+      LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
       >>> load_symbol("os.path.join", {})
       Traceback (most recent call last):
         ...
-      AttributeError: os
+      LoadSymbolError: os.path.join: NameError: os
 
     @type fullname:
       C{str}
@@ -1398,10 +1444,16 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
       L{ImportDB}
     @param db:
       Import database to use when C{autoimport=True}.
+    @param autoimported:
+      If not C{None}, then a dictionary of identifiers already attempted.
+      C{auto_import} will not attempt to auto-import symbols already in this
+      dictionary, and will add attempted symbols to this dictionary, with
+      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      did not succeed.
     @return:
       Object.
-    @raise AttributeError:
-      Object was not found.
+    @raise LoadSymbolError:
+      Object was not found or there was another exception.
     """
     namespaces = ScopeStack(namespaces)
     if autoimport:
@@ -1421,7 +1473,17 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
             pass
         else:
             for n in name_parts[1:]:
-                obj = getattr(obj, n) # may raise AttributeError
+                try:
+                    # Do the getattr.  This may raise AttributeError or
+                    # other exception.
+                    obj = getattr(obj, n)
+                except Exception as e:
+                    e2 = LoadSymbolError(fullname)
+                    e2.__cause__ = e
+                    raise e2, None, sys.exc_info()[2]
             return obj
     else:
-        raise AttributeError(name0) # not found in any namespace
+        # Not found in any namespace.
+        e2 = LoadSymbolError(fullname)
+        e2.__cause__ = NameError(name0)
+        raise e2

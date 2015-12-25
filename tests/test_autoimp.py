@@ -15,7 +15,7 @@ from   textwrap                 import dedent
 
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
-from   pyflyby._autoimp         import load_symbol
+from   pyflyby._autoimp         import LoadSymbolError, load_symbol
 
 
 @pytest.fixture
@@ -721,13 +721,76 @@ def test_load_symbol_2():
 
 
 def test_load_symbol_missing_1():
-    with pytest.raises(AttributeError):
+    with pytest.raises(LoadSymbolError):
         load_symbol("os.path.join.asdfasdf", {"os": os})
 
 
 def test_load_symbol_missing_2():
-    with pytest.raises(AttributeError):
+    with pytest.raises(LoadSymbolError):
         load_symbol("os.path.join", {})
+
+
+def load_symbol_eval_1():
+    assert 'a/b' == load_symbol("os.path.join('a','b')", {"os": os})
+    assert '/'   == load_symbol("os.path.join('a','b')[1]", {"os": os})
+    assert 'A'   == load_symbol("os.path.join('a','b')[0].upper()", {"os": os})
+
+
+def load_symbol_eval_2(capsys):
+    assert '/' == load_symbol("(os.path.sep[0])", {}, autoimport=True,
+                              allow_eval=True)
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import os
+    """).lstrip()
+    assert expected == out
+
+
+def load_symbol_no_eval_1():
+    with pytest.raises(LoadSymbolError):
+        load_symbol("os.path.join('a','b')", {"os": os})
+    with pytest.raises(LoadSymbolError):
+        load_symbol("os.path.join('a','b')[1]", {"os": os})
+    with pytest.raises(LoadSymbolError):
+        load_symbol("os.path.join('a','b')[0].upper", {"os": os})
+
+
+def load_symbol_wrap_exc_1():
+    class Foo89503828(object):
+        def __getattr__(self, k):
+            1/0
+    ns = [{"foo": Foo89503828()}]
+    try:
+        load_symbol("foo.bar", ns)
+    except LoadSymbolError as e:
+        assert type(e.__cause__) == ZeroDivisionError
+    else:
+        assert False
+
+
+def load_symbol_wrap_exc_eval_1():
+    def foo31617859():
+        1/0
+    ns = [{"foo": foo31617859()}]
+    try:
+        load_symbol("foo()", ns, auto_eval=True)
+    except LoadSymbolError as e:
+        assert type(e.__cause__) == ZeroDivisionError
+    else:
+        assert False
+
+
+def load_symbol_wrap_exc_eval_getattr_1():
+    class Foo15356301(object):
+        def __getattr__(self, k):
+            1/0
+    ns = [{"foo": Foo15356301()}]
+    try:
+        load_symbol("foo.bar", ns, auto_eval=True)
+    except LoadSymbolError as e:
+        assert type(e.__cause__) == ZeroDivisionError
+    else:
+        assert False
 
 
 def test_auto_eval_1():
