@@ -61,7 +61,7 @@ Features
 
   * Control-\\ (SIGQUIT) enters debugger while running (and allows continuing).
 
-  * New builtin functions such as "breakpoint()".
+  * New builtin functions such as "debugger()".
 
 Warning
 =======
@@ -192,7 +192,7 @@ Examples
 
   Find length of string (using "-" for stdin):
     $ echo hello | py len -
-    [PYFLYBY] len('hello\n')
+    [PYFLYBY] len('hello\\n')
     6
 
   Run stdin as code:
@@ -305,19 +305,18 @@ import sys
 import types
 from   types                    import FunctionType, MethodType
 
-from   pyflyby._autoimp         import (auto_import, find_missing_imports,
-                                        infer_compile_mode)
+from   pyflyby._autoimp         import auto_import, find_missing_imports
 from   pyflyby._cmdline         import print_version_and_exit, syntax
 from   pyflyby._dbg             import (add_debug_functions_to_builtins,
-                                        attach_debugger, debug_exception,
+                                        attach_debugger, debugger,
                                         enable_faulthandler,
-                                        enable_signal_handler_breakpoint,
                                         enable_sigterm_handler,
+                                        enable_signal_handler_debugger,
                                         remote_print_stack)
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (run_ipython_line_magic,print_verbose_tb,
+from   pyflyby._interactive     import (run_ipython_line_magic,
                                         start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
@@ -881,19 +880,25 @@ def _handle_user_exception(exc_info=None):
     # etc.
     if exc_info is None:
         exc_info = sys.exc_info()
-    exc_info = list(exc_info)
     if exc_info[2].tb_next:
-        exc_info[2] = exc_info[2].tb_next # skip this frame
+        exc_info = (exc_info[0], exc_info[1],
+                    exc_info[2].tb_next) # skip this traceback
     # If we're called from a tty, then debug the exception.
+    # We check isatty(1) here because we want 'py ... | cat' to never go into
+    # the debugger.  Note that debugger() also checks whether /dev/tty is
+    # usable (and if not, waits for attach).
     # TODO: make it a user option.
+    # TODO: Allow the user to control whether to allow
+    # wait_for_debugger_to_attach here.
+    # TODO: disallow debugger here under --safe.
     if os.isatty(1):
-        debug_exception(*exc_info)
-    else:
-        # TODO: consider using print_verbose_tb(*exc_info)
-        print("Traceback (most recent call last):", file=sys.stderr)
-        import traceback
-        traceback.print_tb(exc_info[2])
-        print("%s: %s" % (exc_info[0].__name__, exc_info[1]), file=sys.stderr)
+        # *** Run debugger. ***
+        debugger(exc_info)
+    # TODO: consider using print_verbose_tb(*exc_info)
+    print("Traceback (most recent call last):", file=sys.stderr)
+    import traceback
+    traceback.print_tb(exc_info[2])
+    print("%s: %s" % (exc_info[0].__name__, exc_info[1]), file=sys.stderr)
     raise SystemExit(1)
 
 
@@ -1493,7 +1498,7 @@ class _PyMain(object):
         import runpy
         if self.debug:
             # TODO: break closer to user code
-            breakpoint()
+            debugger()
         runpy.run_module(str(module.name), run_name="__main__")
 
     def heuristic_run_module(self, module, args):
@@ -1645,7 +1650,7 @@ class _PyMain(object):
     def _enable_debug_tools(self):
         # Enable a bunch of debugging tools.
         enable_faulthandler()
-        enable_signal_handler_breakpoint()
+        enable_signal_handler_debugger()
         enable_sigterm_handler()
         add_debug_functions_to_builtins()
 

@@ -7,14 +7,12 @@ from __future__ import absolute_import, division, with_statement
 from   pyflyby._autoimp         import (auto_eval, auto_import,
                                         find_missing_imports)
 from   pyflyby._dbg             import (add_debug_functions_to_builtins,
-                                        attach_debugger, breakpoint,
-                                        debug_exception, debug_on_exception,
-                                        debug_statement,
-                                        enable_exception_handler,
+                                        attach_debugger, debug_on_exception,
+                                        debug_statement, debugger,
+                                        enable_exception_handler_debugger,
                                         enable_faulthandler,
-                                        enable_signal_handler_breakpoint,
-                                        print_traceback, remote_print_stack,
-                                        waitpoint)
+                                        enable_signal_handler_debugger,
+                                        print_traceback, remote_print_stack)
 from   pyflyby._file            import Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importdb        import ImportDB
@@ -31,6 +29,13 @@ from   pyflyby._livepatch       import livepatch, xreload
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._version         import __version__
+
+# Deprecated:
+from   pyflyby._dbg             import (breakpoint, debug_exception,
+                                        debug_statement,
+                                        enable_exception_handler,
+                                        enable_signal_handler_breakpoint,
+                                        waitpoint)
 
 
 # Promote the function & classes that we've chosen to expose publicly to be

@@ -2,11 +2,10 @@
 # Copyright (C) 2009, 2010, 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-# TODO: wrap names in single global name e.g. DEBUGGER
-
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
+from   collections              import Callable
 import contextlib
 from   contextlib               import contextmanager
 import errno
@@ -16,11 +15,16 @@ import pwd
 import signal
 import sys
 import time
+from   types                    import CodeType, FrameType, TracebackType
 
 from   pyflyby._file            import Filename
 
 
-_waiting_for_breakpoint = False
+"""
+Used by wait_for_debugger_to_attach to record whether we're waiting to attach,
+and if so what.
+"""
+_waiting_for_debugger = None
 
 
 class _NoTtyError(Exception):
@@ -42,6 +46,33 @@ def _dev_tty_fd():
     if _memoized_dev_tty_fd is None:
         raise _NoTtyError
     return _memoized_dev_tty_fd
+
+
+def tty_is_usable():
+    """
+    Return whether /dev/tty is usable.
+
+    In interactive sessions, /dev/tty is usable; in non-interactive sessions,
+    /dev/tty is not usable::
+
+      $ ssh -t localhost py -q pyflyby._dbg.tty_is_usable
+      True
+
+      $ ssh -T localhost py -q pyflyby._dbg.tty_is_usable
+      False
+
+    tty_is_usable() is useful for deciding whether we are in an interactive
+    terminal.  In an interactive terminal we can enter the debugger directly;
+    in a non-interactive terminal, we need to wait_for_debugger_to_attach.
+
+    Note that this is different from doing e.g. isatty(0).  isatty would
+    return False if a program was piped, even though /dev/tty is usable.
+    """
+    try:
+        _dev_tty_fd()
+        return True
+    except _NoTtyError:
+        return False
 
 
 @contextmanager
@@ -212,25 +243,41 @@ def _get_caller_frame():
     return f
 
 
-def debug_exception(*exc_info):
+def _debug_exception(*exc_info, **kwargs):
     """
     Debug an exception -- print a stack trace and enter the debugger.
 
     Suitable to be assigned to sys.excepthook.
     """
+    from pyflyby._interactive import print_verbose_tb
+    tty = kwargs.pop("tty", "/dev/tty")
+    if kwargs:
+        raise TypeError("debug_exception(): unexpected kwargs %s"
+                        % (', '.join(sorted(kwargs.keys()))))
     if not exc_info:
         exc_info = sys.exc_info()
-    with _DebuggerCtx() as pdb:
-        print_traceback(*exc_info)
+    if len(exc_info) == 1 and type(exc_info[0]) is tuple:
+        exc_info = exc_info[0]
+    if len(exc_info) == 1 and type(exc_info[0]) is TracebackType:
+        # Allow the input to be just the traceback.  The exception instance is
+        # only used for printing the traceback.  It's not needed by the
+        # debugger.
+        # We don't know the exception in this case.  For now put "", "".  This
+        # will cause print_verbose_tb to include a line with just a colon.
+        # TODO: avoid that line.
+        exc_info = ("", "", exc_info)
+    with _DebuggerCtx(tty=tty) as pdb:
+        print_verbose_tb(*exc_info)
         pdb.interaction(None, exc_info[2])
 
 
-def debug_statement(statement, globals=None, locals=None, auto_import=True):
+def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"):
     """
     Run code under the debugger.
 
-    @type statement:
-      C{str}, C{PythonBlock}
+    @type arg:
+      C{str}, C{Callable}, C{CodeType}, C{PythonStatement}, C{PythonBlock},
+      C{FileText}
     """
     if globals is None or locals is None:
         caller_frame = _get_caller_frame()
@@ -239,38 +286,185 @@ def debug_statement(statement, globals=None, locals=None, auto_import=True):
         if locals is None:
             locals = caller_frame.f_locals
         del caller_frame
-    with _DebuggerCtx() as pdb:
+    with _DebuggerCtx(tty=tty) as pdb:
         print("Entering debugger.  Use 'n' to step, 'c' to run, 'q' to stop.")
         print("")
-        from ._parse import PythonBlock
-        # Compile the block so that we can get the right compile mode.
-        block = PythonBlock(statement)
-        # TODO: enter text into linecache
-        code = block.compile()
+        from ._parse import PythonStatement, PythonBlock, FileText
+        if isinstance(arg, (basestring, PythonStatement, PythonBlock, FileText)):
+            # Compile the block so that we can get the right compile mode.
+            arg = PythonBlock(arg)
+            # TODO: enter text into linecache
+            autoimp_arg = arg
+            code = arg.compile()
+        elif isinstance(arg, CodeType):
+            autoimp_arg = arg
+            code = arg
+        elif isinstance(arg, Callable):
+            # TODO: check argspec to make sure it's a zero-arg callable.
+            code = arg.__code__
+            autoimp_arg = code
+        else:
+            raise TypeError(
+                "debug_code(): expected a string/callable/lambda; got a %s"
+                % (type(arg).__name__,))
         if auto_import:
             from ._autoimp import auto_import as auto_import_f
-            auto_import_f(block, [globals, locals])
+            auto_import_f(autoimp_arg, [globals, locals])
         return pdb.runeval(code, globals=globals, locals=locals)
 
 
-def breakpoint(tty="/dev/tty", frame=None, on_continue=lambda: None):
-    '''
-    Break into debugger - similar to 'import pdb; pdb.set_trace()'.
-    Suitable to be called from scripts and signal handlers.
+_CURRENT_FRAME = object()
 
-    @param frame:
-      Frame to debug.  If C{None}, use non-dbg caller.
-    @param on_continue:
-      Function to call upon continuing.
+
+def debugger(*args, **kwargs):
     '''
-    global _waiting_for_breakpoint
-    _waiting_for_breakpoint = False
-    if frame is None:
-        frame = _get_caller_frame()
+    Entry point for debugging.
+
+    C{debugger()} can be used in the following ways:
+
+    1. Breakpoint mode, entering debugger in executing code::
+         >> def foo():
+         ..     bar()
+         ..     debugger()
+         ..     baz()
+
+       This allow stepping through code after the debugger() call - i.e. between
+       bar() and baz().  This is similar to 'import pdb; pdb.set_trace()'::
+
+    2. Debug a python statement::
+
+         >> def foo(x):
+         ..     ...
+         >> X = 5
+
+         >> debugger("foo(X)")
+
+       The auto-importer is run on the given python statement.
+
+    3. Debug a callable::
+
+         >> def foo(x=5):
+         ..     ...
+
+         >> debugger(foo)
+         >> debugger(lambda: foo(6))
+
+    4. Debug an exception:
+
+         >> try:
+         ..     ...
+         .. except:
+         ..     debugger(sys.exc_info())
+
+
+    If the process is waiting on for a debugger to attach to debug a frame or
+    exception traceback, then calling debugger(None) will debug that target.
+    If it is frame, then the user can step through code.  If it is an
+    exception traceback, then the debugger will operate in post-mortem mode
+    with no stepping allowed.  The process will continue running after this
+    debug session's "continue".
+
+    C{debugger()} is suitable to be called interactively, from scripts, in
+    sys.excepthook, and in signal handlers.
+
+    @param args:
+      What to debug:
+        - If a string or callable, then run it under the debugger.
+        - If a frame, then debug the frame.
+        - If a traceback, then debug the traceback.
+        - If a 3-tuple as returned by sys.exc_info(), then debug the traceback.
+        - If the process is waiting to for a debugger to attach, then attach
+          the debugger there.  This is only relevant when an external process
+          is attaching a debugger.
+        - If nothing specified, then enter the debugger at the statement
+          following the call to debug().
+    @kwarg tty:
+      Tty to connect to.  If C{None} (default): if /dev/tty is usable, then
+      use it; else call wait_for_debugger_to_attach() instead (unless
+      wait_for_attach==False).
+    @kwarg on_continue:
+      Function to call upon exiting the debugger and continuing with regular
+      execution.
+    @kwarg wait_for_attach:
+      Whether to wait for a remote terminal to attach (with 'py -d PID').
+      If C{True}, then always wait for a debugger to attach.
+      If C{False}, then never wait for a debugger to attach; debug in the
+      current terminal.
+      If unset, then defaults to true only when C{tty} is unspecified and
+      /dev/tty is not usable.
+    @kwarg background:
+      If C{False}, then pause execution to debug.
+      If C{True}, then fork a process and wait for a debugger to attach in the
+      forked child.
+    '''
+    from ._parse import PythonStatement, PythonBlock, FileText
+    if len(args) == 1:
+        arg = args[0]
+    elif len(args) == 0:
+        arg = None
+    else:
+        arg = args
+    tty             = kwargs.pop("tty"            , None)
+    on_continue     = kwargs.pop("on_continue"    , lambda: None)
+    globals         = kwargs.pop("globals"        , None)
+    locals          = kwargs.pop("locals"         , None)
+    wait_for_attach = kwargs.pop("wait_for_attach", Ellipsis)
+    background      = kwargs.pop("background"     , False)
+    if kwargs:
+        raise TypeError("debugger(): unexpected kwargs %s"
+                        % (', '.join(sorted(kwargs))))
+    if arg is None and tty is not None and wait_for_attach != True:
+        # If _waiting_for_debugger is not None, then attach to that
+        # (whether it's a frame, traceback, etc).
+        global _waiting_for_debugger
+        arg = _waiting_for_debugger
+        _waiting_for_debugger = None
+    if arg is None:
+        # Debug current frame.
+        arg = _CURRENT_FRAME
+    if background:
+        # Fork a process and wait for a debugger to attach in the background.
+        # Todo: implement on_continue()
+        wait_for_debugger_to_attach(arg, background=True)
+        return
+    if wait_for_attach == True:
+        wait_for_debugger_to_attach(arg)
+        return
+    if tty is None:
+        if tty_is_usable():
+            tty = "/dev/tty"
+        elif wait_for_attach != False:
+            # If the tty isn't usable, then default to waiting for the
+            # debugger to attach from another (interactive) terminal.
+            # Todo: implement on_continue()
+            # TODO: capture globals/locals when relevant.
+            wait_for_debugger_to_attach(arg)
+            return
+    if isinstance(arg, (basestring, PythonStatement, PythonBlock, FileText,
+                        CodeType, Callable)):
+        _debug_code(arg, globals=globals, locals=locals, tty=tty)
+        on_continue()
+        return
+    if (isinstance(arg, TracebackType) or
+        type(arg) is tuple and len(arg) == 3 and type(arg[2]) is TracebackType):
+        _debug_exception(arg, tty=tty)
+        on_continue()
+        return
+    if arg is _CURRENT_FRAME:
+        arg = _get_caller_frame()
+    if not isinstance(arg, FrameType):
+        raise TypeError(
+            "debugger(): expected a frame/traceback/str/code; got %s"
+            % (arg,))
+    frame = arg
+    if globals is not None or locals is not None:
+        raise NotImplementedError(
+            "debugger(): globals/locals only relevant when debugging code")
     pdb_context = _DebuggerCtx(tty)
     pdb = pdb_context.__enter__()
     print("Entering debugger.  Use 'n' to step, 'c' to continue running, 'q' to quit Python completely.")
     def set_continue():
+        # Continue running code outside the debugger.
         pdb.stopframe = pdb.botframe
         pdb.returnframe = None
         sys.settrace(None)
@@ -278,6 +472,11 @@ def breakpoint(tty="/dev/tty", frame=None, on_continue=lambda: None):
         pdb_context.__exit__(None, None, None)
         on_continue()
     def set_quit():
+        # Quit the program.  Note that if we're inside IPython, then this
+        # won't actually exit IPython.  We do want to call the context
+        # __exit__ here to make sure we restore sys.displayhook, etc.
+        # TODO: raise something else here if in IPython
+        pdb_context.__exit__(None, None, None)
         raise SystemExit("Quitting as requested while debugging.")
     pdb.set_continue = set_continue
     pdb.set_quit = set_quit
@@ -286,6 +485,10 @@ def breakpoint(tty="/dev/tty", frame=None, on_continue=lambda: None):
     # Note: set_trace() installs a tracer and returns; that means we can't use
     # context managers around set_trace(): the __exit__() would be called
     # right away, not after continuing/quitting.
+    # We also want this to be the very last thing called in the function (and
+    # not in a nested function).  This way the very next thing the user sees
+    # is his own code.
+
 
 
 _cached_py_commandline = None
@@ -327,30 +530,37 @@ class DebuggerAttachTimeoutError(Exception):
     pass
 
 
-def wait_for_debugger_attach(timeout=86400):
-    deadline = time.time() + timeout
-    global _waiting_for_breakpoint
-    _waiting_for_breakpoint = True
-    while _waiting_for_breakpoint:
-        if time.time() > deadline:
-            raise DebuggerAttachTimeoutError
-        time.sleep(0.5)
+def _sleep_until_debugger_attaches(arg, timeout=86400):
+    assert arg is not None
+    global _waiting_for_debugger
+    try:
+        deadline = time.time() + timeout
+        _waiting_for_debugger = arg
+        while _waiting_for_debugger is not None:
+            if time.time() > deadline:
+                raise DebuggerAttachTimeoutError
+            time.sleep(0.5)
+    finally:
+        _waiting_for_debugger = None
 
 
-# TODO: expose as parameter to breakpoint()?
-def waitpoint(frame=None, mailto=None, background=False, timeout=86400):
+def wait_for_debugger_to_attach(arg, mailto=None, background=False, timeout=86400):
     """
     Send email to user and wait for debugger to attach.
 
-    @param frame:
-      Frame to debug.  If C{None}, use non-dbg caller.
+    @param arg:
+      What to debug.  Should be a sys.exc_info() result or a sys._getframe()
+      result.
     @param mailto:
       Recipient to email.  Defaults to $USER or current user.
     @param background:
-      If True, fork a child process and continue in parent.
+      If True, fork a child process.  The parent process continues immediately
+      without waiting.  The child process waits for a debugger to attach, and
+      exits when the debugging session completes.
     @param timeout:
       Maximum number of seconds to wait for user to attach debugger.
     """
+    import traceback
     if background:
         originalpid = os.getpid()
         if os.fork() != 0:
@@ -359,24 +569,23 @@ def waitpoint(frame=None, mailto=None, background=False, timeout=86400):
         originalpid = None
     try:
         # Send email.
-        _send_email_about_waitpoint(frame, mailto, originalpid=originalpid)
-        # Wait for debugger to attach.
-        wait_for_debugger_attach(timeout=timeout)
+        _send_email_with_attach_instructions(arg, mailto, originalpid=originalpid)
+        # Sleep until the debugger to attaches.
+        _sleep_until_debugger_attaches(arg, timeout=timeout)
     except:
-        if not background:
-            raise
-        # Swallow all exceptions here (although we don't expect any).  The
-        # parent process already continued; we don't want to double any
-        # actions.  TODO: log to a log file?
-        pass
-    if background:
-        # Exit.  Note that the original process already continued.
-        os._exit(1)
+        traceback.print_exception(*sys.exc_info())
+    finally:
+        if background:
+            # Exit.  Note that the original process already continued.
+            # We do this in a 'finally' to make sure that we always exit
+            # here.  We don't want to do cleanup actions (finally clauses,
+            # atexit functions) in the parent, since that can affect the
+            # parent (e.g. deleting temp files while the parent process is
+            # still using them).
+            os._exit(1)
 
 
-
-
-def debug_on_exception(function):
+def debug_on_exception(function, background=False):
     """
     Decorator that wraps a function so that we enter a debugger upon exception.
     """
@@ -385,86 +594,137 @@ def debug_on_exception(function):
         try:
             return function(*args, **kwargs)
         except:
-            # TODO: use waitpoint if no /dev/tty
-            debug_exception()
+            debugger(sys.exc_info(), background=background)
             raise
     return wrapped_function
 
 
-
-def _send_email_about_waitpoint(frame, mailto, originalpid):
+def _send_email_with_attach_instructions(arg, mailto, originalpid):
     from   email.mime.text import MIMEText
     import smtplib
     import socket
     import traceback
-    if frame is None:
-        frame = _get_caller_frame()
+    # Prepare variables we'll use in the email.
+    d = dict()
     user = pwd.getpwuid(os.geteuid()).pw_name
-    if mailto is None:
-        mailto = user
-    hostname = socket.getfqdn()
-    py = _find_py_commandline()
-    pid = os.getpid()
     argv = ' '.join(sys.argv)
-    tb = ''.join("    %s" % (line,) for line in traceback.format_stack(frame))
-    d = dict(
-        filename    =frame.f_code.co_filename,
-        line        =frame.f_lineno,
-        hostname    =hostname,
-        username    =user,
-        py          =py,
-        originalpid =originalpid,
-        pid         =pid,
-        argv        =argv,
-        argv_abbrev =argv[:40],
-        traceback   =tb,
+    d.update(
+        argv       =argv                  ,
+        argv_abbrev=argv[:40]             ,
+        event      ="breakpoint"          ,
+        exc        =None                  ,
+        exctype    =None                  ,
+        hostname   =socket.getfqdn()      ,
+        originalpid=originalpid           ,
+        pid        =os.getpid()           ,
+        py         =_find_py_commandline(),
+        time       =time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime()),
+        traceback  =None                  ,
+        username   =user                  ,
+    )
+    frame = None
+    stacktrace = None
+    if isinstance(arg, FrameType):
+        frame       = arg
+        stacktrace = ''.join(traceback.format_stack(frame))
+    elif isinstance(arg, TracebackType):
+        frame = d['tb'].tb_frame
+        stacktrace = ''.join(traceback.format_tb(arg))
+    elif isinstance(arg, tuple) and len(arg) == 3 and isinstance(arg[2], TracebackType):
+        d.update(
+            exctype=arg[0].__name__,
+            exc    =arg[1]         ,
+            event  =arg[0].__name__,
         )
-    if originalpid is None:
-        email_body = """\
-While running {argv_abbrev}, waitpoint reached at {filename}:{line}
-
-Please run:
-    ssh -t {hostname} {py} -d {pid}
-
-As process {pid}, I am waiting for a debugger to attach.
-
-Details:
-  Host         : {hostname}
-  Process      : {pid}
-  Username     : {username}
-  Command line : {argv}
-  Traceback:
-{traceback}
-""".format(**d)
+        tb = arg[2]
+        while tb.tb_next:
+            tb = tb.tb_next
+        frame = tb.tb_frame
+        stacktrace = ''.join(traceback.format_tb(arg[2])) + (
+            "  %s: %s\n" % (arg[0].__name__, arg[1]))
+    if not frame:
+        frame = _get_caller_frame()
+    d.update(
+        function = frame.f_code.co_name    ,
+        filename = frame.f_code.co_filename,
+        line     = frame.f_lineno          ,
+    )
+    d.update(
+        filename_abbrev = _abbrev_filename(d['filename']),
+    )
+    if tb:
+        d['stacktrace'] = tb and ''.join("    %s\n" % (line,) for line in stacktrace.splitlines())
+    # Construct a template for the email body.
+    template = []
+    template += [
+        "While running {argv_abbrev}, {event} in {function} at {filename}:{line}",
+        "",
+        "Please run:",
+        "    ssh -t {hostname} {py} -d {pid}",
+        "",
+    ]
+    if d['originalpid']:
+        template += [
+            "As process {originalpid}, I have forked to process {pid} and am waiting for a debugger to attach."
+        ]
     else:
-        email_body = """\
-While running {argv_abbrev}, waitpoint reached at {filename}:{line}
-
-Please run:
-    ssh -t {hostname} {py} -p {pid}
-
-As process {originalpid}, I have forked to process {pid} and am waiting for a debugger to attach.
-
-Details:
-  Host             : {hostname}
-  Original process : {originalpid}
-  Forked process   : {pid}
-  Username         : {username}
-  Command line     : {argv}
-  Traceback:
-{traceback}
-""".format(**d)
+        template += [
+            "As process {pid}, I am waiting for a debugger to attach."
+        ]
+    template += [
+        "",
+        "Details:",
+        "  Time             : {time}",
+        "  Host             : {hostname}",
+    ]
+    if d['originalpid']:
+        template += [
+            "  Original process : {originalpid}",
+            "  Forked process   : {pid}",
+        ]
+    else:
+        template += [
+            "  Process          : {pid}",
+        ]
+    template += [
+        "  Username         : {username}",
+        "  Command line     : {argv}",
+    ]
+    if d['exc']:
+        template += [
+            "  Exception        : {exctype}: {exc}",
+        ]
+    if d['stacktrace']:
+        template += [
+            "  Traceback        :",
+            "{stacktrace}",
+        ]
+    # Build email body.
+    email_body = '\n'.join(template).format(**d)
+    # Print to stderr.
+    prefixed = "".join("[PYFLYBY] %s\n" % line
+                       for line in email_body.splitlines())
+    sys.stderr.write(prefixed)
+    # Send email.
+    if mailto is None:
+        mailto = os.getenv("USER") or user
     msg = MIMEText(email_body)
     msg['Subject'] = (
         "ssh {hostname} py -d {pid}"
-        " # breakpoint in {argv_abbrev} at {filename}:{line}"
+        " # {event} in {argv_abbrev} in {function} at {filename_abbrev}:{line}"
         ).format(**d)
     msg['From'] = user
     msg['To'] = mailto
-
     s = smtplib.SMTP("localhost")
     s.sendmail(user, [mailto], msg.as_string())
     s.quit()
+
+
+def _abbrev_filename(filename):
+    splt = filename.rsplit("/", 4)
+    if len(splt) >= 4:
+        splt[:2] = ["..."]
+    return '/'.join(splt)
 
 
 def syscall_marker(msg):
@@ -480,21 +740,21 @@ def syscall_marker(msg):
 
 _ORIG_PID = os.getpid()
 
-def _signal_handler_breakpoint(signal_number, interrupted_frame):
+def _signal_handler_debugger(signal_number, interrupted_frame):
     if os.getpid() != _ORIG_PID:
         # We're in a forked subprocess.  Ignore this SIGQUIT.
         return
     fd_tty = _dev_tty_fd()
     os.write(fd_tty, b"\nIntercepted SIGQUIT; entering debugger.  Resend ^\\ to dump core (and 'stty sane' to reset terminal settings).\n\n")
     frame = _get_caller_frame()
-    enable_signal_handler_breakpoint(False)
-    breakpoint(
-        frame=frame,
-        on_continue=enable_signal_handler_breakpoint)
-    signal.signal(signal.SIGQUIT, _signal_handler_breakpoint)
+    enable_signal_handler_debugger(False)
+    debugger(
+        frame,
+        on_continue=enable_signal_handler_debugger)
+    signal.signal(signal.SIGQUIT, _signal_handler_debugger)
 
 
-def enable_signal_handler_breakpoint(enable=True):
+def enable_signal_handler_debugger(enable=True):
     '''
     Install a signal handler for SIGQUIT so that Control-\ or external SIGQUIT
     enters debugger.  Suitable to be called from site.py.
@@ -502,17 +762,17 @@ def enable_signal_handler_breakpoint(enable=True):
     # Idea from bzrlib.breakin
     # (http://bazaar.launchpad.net/~bzr/bzr/trunk/annotate/head:/bzrlib/breakin.py)
     if enable:
-        signal.signal(signal.SIGQUIT, _signal_handler_breakpoint)
+        signal.signal(signal.SIGQUIT, _signal_handler_debugger)
     else:
         signal.signal(signal.SIGQUIT, signal.SIG_DFL)
 
 
-def enable_exception_handler():
+def enable_exception_handler_debugger():
     '''
-    Enable C{sys.excepthook = debug_exception} so that we automatically enter
+    Enable C{sys.excepthook = debugger} so that we automatically enter
     the debugger upon uncaught exceptions.
     '''
-    sys.excepthook = debug_exception
+    sys.excepthook = debugger
 
 
 # Handle SIGTERM with traceback+exit.
@@ -542,16 +802,20 @@ def enable_faulthandler():
 
 def add_debug_functions_to_builtins():
     '''
-    Install breakpoint(), etc. in the builtin global namespace.
+    Install debugger(), etc. in the builtin global namespace.
     '''
     import __builtin__
     functions_to_add = [
+        'debugger',
+        'debug_on_exception',
+        'print_traceback',
+    ]
+    # DEPRECATED: In the future, the following will not be added to builtins.
+    # Use debugger() instead.
+    functions_to_add += [
         'breakpoint',
         'debug_exception',
-        'debug_on_exception',
         'debug_statement',
-        'print_traceback',
-        #'syscall_marker'
         'waitpoint',
     ]
     for name in functions_to_add:
@@ -758,13 +1022,12 @@ def attach_debugger(pid):
     signal.signal(signal.SIGUSR1, sigusr1_handler)
     terminal = Pty()
     pyflyby_lib_path = os.path.dirname(pyflyby.__path__[0])
-    # Inject the statement 'breakpoint()' into target process.
-    # Signal ourselves that we're done.  TODO: what's a better way to
-    # do this?
+    # Inject a call to 'debugger()' into target process.
+    # Set on_continue to signal ourselves that we're done.
     on_continue = "lambda: __import__('os').kill(%d, %d)" % (os.getpid(), signal.SIGUSR1)
     gdb_pid = inject(pid, [
             "__import__('sys').path.insert(0, %r)" % (pyflyby_lib_path,),
-            ("__import__('pyflyby').breakpoint(tty=%r, on_continue=%s)"
+            ("__import__('pyflyby').debugger(tty=%r, on_continue=%s)"
              % (terminal.ttyname, on_continue)),
             ], wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
@@ -895,3 +1158,18 @@ def _remote_print_stack_to_file(pid, filename):
         "import traceback",
         "with open(%r,'w') as f: traceback.print_stack(file=f)" % str(filename)
         ], wait=True)
+
+
+
+# Deprecated wrapper for wait_for_debugger_to_attach().
+def waitpoint(frame=None, mailto=None, background=False, timeout=86400):
+    if frame is None:
+        frame = _get_caller_frame()
+    wait_for_debugger_to_attach(frame, mailto=mailto,
+                                background=background, timeout=timeout)
+
+breakpoint                       = debugger                          # deprecated alias
+debug_statement                  = debugger                          # deprecated alias
+debug_exception                  = debugger                          # deprecated alias
+enable_signal_handler_breakpoint = enable_signal_handler_debugger    # deprecated alias
+enable_exception_handler         = enable_exception_handler_debugger # deprecated alias
