@@ -5,4 +5,4 @@
 
 from __future__ import absolute_import, division, with_statement
 
-__version__ = '0.9.1'
+__version__ = '0.10.3'
