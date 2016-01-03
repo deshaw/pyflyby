@@ -459,7 +459,8 @@ def _init_ipython_dir(ipython_dir):
     if _IPYTHON_VERSION >= (0, 11):
         os.makedirs(str(ipython_dir/"profile_default"))
         os.makedirs(str(ipython_dir/"profile_default/startup"))
-        writetext(ipython_dir/"profile_default/ipython_config.py", "")
+        writetext(ipython_dir/"profile_default/ipython_config.py",
+                  "c = get_config()\n")
     elif _IPYTHON_VERSION >= (0, 10):
         writetext(ipython_dir/"ipythonrc", """
             readline_parse_and_bind tab: complete
@@ -479,6 +480,9 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     else:
         cmd += [prog]
+    if prog == "py":
+        # Needed to support --ipython-dir, etc.
+        cmd += ['ipython']
     if isinstance(args, basestring):
         args = [args]
     if args and not args[0].startswith("-"):
@@ -774,7 +778,7 @@ def IPythonNotebookCtx(**kwargs):
         # The bug is that in IPython 1.0, LevelFormatter uses super(), which
         # assumes that logging.Formatter is a subclass of object.  However,
         # this is only true in Python 2.7+, not in Python 2.6.
-        # pyflyby.enable_auto_importer() fixes that issue too, so 'autoipython
+        # pyflyby.enable_auto_importer() fixes that issue too, so 'py
         # notebook' is not affected, only 'ipython notebook'.
         assert "PYTHONPATH" not in kwargs
         extra_pythonpath = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
@@ -2423,31 +2427,31 @@ def test_ipython_notebook_reconnect_1():
         """, args=['console'], kernel=kernel)
 
 
-def test_autoipython_1():
-    # Verify that autoipython works - i.e. the autoimporter is enabled at start.
+def test_py_interactive_1():
+    # Verify that 'py' enables pyflyby autoimporter at start.
     ipython("""
         In [1]: b64deco\tde('cGlzdGFjaGlv')
         [PYFLYBY] from base64 import b64decode
         Out[1]: 'pistachio'
-    """, prog="autoipython")
+    """, prog="py")
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_console_1():
-    # Verify that autoipython console works.
+def test_py_console_1():
+    # Verify that 'py console' works.
     ipython("""
         In [1]: b64deco\tde('d2FsbnV0')
         [PYFLYBY] from base64 import b64decode
         Out[1]: 'walnut'
-    """, prog="autoipython", args=['console'])
+    """, prog="py", args=['console'])
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_kernel_1():
-    # Verify that autoipython kernel works.
-    with IPythonKernelCtx(prog="autoipython") as kernel:
-        # Run ipython console.  Note that we don't need autoipython here, as
-        # the autoimport & completion is a property of the kernel.
+def test_py_kernel_1():
+    # Verify that 'py kernel' works.
+    with IPythonKernelCtx(prog="py") as kernel:
+        # Run ipython console.  Note that we don't need to use prog='py' here,
+        # as the autoimport & completion is a property of the kernel.
         ipython("""
             In [1]: b64deco\tde('bWFjYWRhbWlh')
             [PYFLYBY] from base64 import b64decode
@@ -2456,8 +2460,8 @@ def test_autoipython_kernel_1():
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_console_existing_1():
-    # Verify that autoipython console works as usual (no extra functionality
+def test_py_console_existing_1():
+    # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
     # works normally).
     with IPythonKernelCtx() as kernel:
@@ -2467,12 +2471,12 @@ def test_autoipython_console_existing_1():
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>()
             NameError: name 'b64decode' is not defined
-        """, prog="autoipython", args=['console'], kernel=kernel)
+        """, prog="py", args=['console'], kernel=kernel)
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_notebook_1():
-    with IPythonNotebookCtx(prog="autoipython") as kernel:
+def test_py_notebook_1():
+    with IPythonNotebookCtx(prog="py") as kernel:
         # Verify that the auto importer and tab completion work.
         ipython("""
             In [1]: b64deco\tde('Y2FzaGV3')
@@ -2481,8 +2485,8 @@ def test_autoipython_notebook_1():
         """, args=['console'], kernel=kernel)
 
 
-def test_autoipython_disable_1():
-    # Verify that when using autoipython, we can disable the autoimporter, and
+def test_py_disable_1():
+    # Verify that when using 'py', we can disable the autoimporter, and
     # also re-enable it.
     ipython("""
         In [1]: b64deco\tde('aGlja29yeQ==')
@@ -2501,27 +2505,18 @@ def test_autoipython_disable_1():
         In [6]: b64encode('pecan')
         [PYFLYBY] from base64 import b64encode
         Out[6]: 'cGVjYW4='
-    """, prog="autoipython")
+    """, prog="py")
 
 
-def run_autoipython_install(ipython_dir, expect_installed=False):
-    with EnvVarCtx(IPYTHONDIR=str(ipython_dir)):
-        proc = Popen(['autoipython', '--install'], stderr=PIPE)
-    retcode = proc.wait()
-    output = proc.stderr.read()
-    assert retcode == 0, output
-    if expect_installed:
-        assert "Doing nothing" in output
-        assert "Installing" not in output
-    else:
-        assert "Doing nothing" not in output
-        assert "Installing" in output
+def _install_load_ext_pyflyby_in_config(ipython_dir):
+    with open(str(ipython_dir/"profile_default/ipython_config.py"), 'a') as f:
+        print>>f, 'c.InteractiveShellApp.extensions.append("pyflyby")'
 
 
-def test_autoipython_install_1(tmp):
-    # Verify that 'autoipython --install' works, i.e. it permanently makes the
-    # auto importer enabled at IPython startup.
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_ipython_cmdline_1(tmp):
+    # Verify that autoimport works in 'ipython' when pyflyby is installed in
+    # ipython_config.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: b64deco\tde('bWFwbGU=')
         [PYFLYBY] from base64 import b64decode
@@ -2537,11 +2532,10 @@ def test_autoipython_install_1(tmp):
     """)
 
 
-def test_autoipython_install_redundant_1(tmp):
-    # Verify that 'autoipython --install' the second time detects that it was
-    # already installed.
-    run_autoipython_install(tmp.ipython_dir)
-    run_autoipython_install(tmp.ipython_dir, expect_installed=True)
+def test_installed_in_config_redundant_1(tmp):
+    # Verify that redundant installations are fine.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: b64deco\tde('bWFwbGU=')
         [PYFLYBY] from base64 import b64decode
@@ -2558,9 +2552,10 @@ def test_autoipython_install_redundant_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_install_console_1(tmp):
-    # Verify that 'autoipython --install' + 'ipython console' works.
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_ipython_console_1(tmp):
+    # Verify that autoimport works in 'ipython console' when pyflyby is
+    # installed in ipython_config.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: b64deco\tde('c3BydWNl')
         [PYFLYBY] from base64 import b64decode
@@ -2569,9 +2564,10 @@ def test_autoipython_install_console_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_install_kernel_1(tmp):
-    # Verify that 'autoipython --install' + 'ipython kernel' works.
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_ipython_kernel_1(tmp):
+    # Verify that autoimport works in 'ipython kernel' when pyflyby is
+    # installed in ipython_config.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     with IPythonKernelCtx(ipython_dir=tmp.ipython_dir) as kernel:
         ipython("""
             In [1]: b64deco\tde('b2Fr')
@@ -2581,8 +2577,8 @@ def test_autoipython_install_kernel_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
-def test_autoipython_install_notebook_1(tmp):
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_ipython_notebook_1(tmp):
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
         ipython("""
             In [1]: b64deco\tde('c3ljYW1vcmU=')
@@ -2591,10 +2587,10 @@ def test_autoipython_install_notebook_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
-def test_autoipython_install_disable_1(tmp):
+def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
     # also re-enable.
-    run_autoipython_install(tmp.ipython_dir)
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: b64deco\tde('cGluZQ==')
         [PYFLYBY] from base64 import b64decode
@@ -2615,10 +2611,10 @@ def test_autoipython_install_disable_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-def test_autoipython_install_enable_1(tmp):
-    # Verify that manually calling enable_auto_importer() is a no-op after
-    # 'autoipython --install'.
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_enable_noop_1(tmp):
+    # Verify that manually calling enable_auto_importer() is a no-op if we've
+    # installed pyflyby in ipython_config.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: pyflyby.enable_auto_importer()
         [PYFLYBY] import pyflyby
@@ -2640,9 +2636,9 @@ def test_autoipython_install_enable_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-def test_autoipython_install_autoipython_1(tmp):
-    # Verify that 'autoipython --install' + 'autoipython' are compatible.
-    run_autoipython_install(tmp.ipython_dir)
+def test_installed_in_config_ipython_py_1(tmp):
+    # Verify that installation in ipython_config and 'py' are compatible.
+    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     ipython("""
         In [1]: b64deco\tde('YmFzc3dvb2Q=')
         [PYFLYBY] from base64 import b64decode
@@ -2660,7 +2656,7 @@ def test_autoipython_install_autoipython_1(tmp):
         In [6]: b64encode('larch')
         [PYFLYBY] from base64 import b64encode
         Out[6]: 'bGFyY2g='
-    """, prog="autoipython", ipython_dir=tmp.ipython_dir)
+    """, prog="py", ipython_dir=tmp.ipython_dir)
 
 
 @pytest.mark.skipif(

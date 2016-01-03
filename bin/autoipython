@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+
+# DEPRECATED.
+#   - to run once from command-line: py
+#   - to load once from IPython: '%load_ext pyflyby'
+#   - to configure to load every time:
+#       $ echo 'c.InteractiveShellApp.extensions.append("pyflyby")' >> ~/.ipython/profile_default/ipython_config.py
+#
+
 """
 autoipython -- run IPython with automatic importing enabled.
 

@@ -29,15 +29,19 @@ Quick start: Autoimporter + IPython
       [PYFLYBY] from scipy.stats import chisqprob
       Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
 
-To install into your IPython startup file::
-  $ autoipython --install
-      [PYFLYBY] Writing to ~/.ipython/profile_default/startup/50-pyflyby.py:
-      import pyflyby
-      pyflyby.enable_auto_importer()
+To load pyflyby into an existing IPython session as a 1-off:
+
+  $ ipython
+      In [1]: %load_ext pyflyby
+
+To configure IPython to load pyflyby on startup:
+
+  $ echo 'c.InteractiveShellApp.extensions.append("pyflyby")' \
+      >> ~/.ipython/profile_default/ipython_config.py
 
   $ ipython
       In [1]: b64decode('aGVsbG8=')
-      [AUTOIMPORT] from base64 import b64decode
+      [PYFLYBY] from base64 import b64decode
       Out[1]: 'hello'
 
 
@@ -289,9 +293,9 @@ then the per-directory .pyflyby.
 Mandatory imports
 -----------------
 
-Within a certain project you may have a policy to always certain imports.  For
-example, maybe you always want to do "from __future__ import division" in all
-files.
+Within a certain project you may have a policy to always include certain
+imports.  For example, maybe you always want to do "from __future__ import
+division" in all files.
 
 You can put the following in any file reachable from $PYFLYBY_PATH:
 

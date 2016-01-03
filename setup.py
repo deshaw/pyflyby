@@ -162,7 +162,6 @@ setup(
     scripts=[
         # TODO: convert these scripts into entry points (but leave stubs in
         # bin/ for non-installed usage)
-        'bin/autoipython',
         'bin/collect-exports',
         'bin/collect-imports',
         'bin/find-import',
