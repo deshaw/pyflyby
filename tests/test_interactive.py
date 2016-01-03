@@ -1019,6 +1019,134 @@ def test_no_autoimport_1():
     """)
 
 
+skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
+    _IPYTHON_VERSION < (0, 11),
+    reason="IPython version %s does not support %load_ext, so nothing to test")
+
+@skipif_ipython_too_old_for_load_ext
+def test_load_ext_1():
+    # Test that %load_ext works.
+    ipython("""
+        In [1]: Decimal(55479415)
+        ....
+        NameError: name 'Decimal' is not defined
+        In [2]: %load_ext pyflyby
+        In [3]: Decimal(43660783)
+        [PYFLYBY] from decimal import Decimal
+        Out[3]: Decimal('43660783')
+    """)
+
+
+@skipif_ipython_too_old_for_load_ext
+def test_unload_ext_1():
+    # Test that %unload_ext works.
+    # Autoimporting should stop working, but previously imported thi
+    ipython("""
+        In [1]: b64encode('tortoise')
+        ....
+        NameError: name 'b64encode' is not defined
+        In [2]: %load_ext pyflyby
+        In [3]: b64encode('tortoise')
+        [PYFLYBY] from base64 import b64encode
+        Out[3]: 'dG9ydG9pc2U='
+        In [4]: %unload_ext pyflyby
+        In [5]: b64decode('aGFyZQ==')
+        ....
+        NameError: name 'b64decode' is not defined
+        In [6]: b64encode('turtle')
+        Out[6]: 'dHVydGxl'
+    """)
+
+
+@skipif_ipython_too_old_for_load_ext
+def test_reload_ext_1():
+    # Test that autoimporting still works after %reload_ext.
+    ipython("""
+        In [1]: b64encode('east')
+        ....
+        NameError: name 'b64encode' is not defined
+        In [2]: %load_ext pyflyby
+        In [3]: b64encode('east')
+        [PYFLYBY] from base64 import b64encode
+        Out[3]: 'ZWFzdA=='
+        In [4]: %reload_ext pyflyby
+        In [5]: b64decode('d2VzdA==')
+        [PYFLYBY] from base64 import b64decode
+        Out[5]: 'west'
+    """)
+
+
+@skipif_ipython_too_old_for_load_ext
+def test_reload_ext_reload_importdb_1(tmp):
+    # Test that %reload_ext causes the importdb to be refreshed.
+    writetext(tmp.file, "from itertools import repeat\n")
+    ipython("""
+        In [1]: %load_ext pyflyby
+        In [2]: list(repeat(3,4))
+        [PYFLYBY] from itertools import repeat
+        Out[2]: [3, 3, 3, 3]
+        In [3]: list(combinations('abc',2))
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'combinations' is not defined
+        In [4]: with open('{tmp.file}', 'a') as f:
+           ...:   f.write('from itertools import combinations\\n')
+           ...:
+        In [5]: list(combinations('abc',2))
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'combinations' is not defined
+        In [6]: %reload_ext pyflyby
+        In [7]: list(combinations('abc',2))
+        [PYFLYBY] from itertools import combinations
+        Out[7]: [('a', 'b'), ('a', 'c'), ('b', 'c')]
+    """, PYFLYBY_PATH=tmp.file)
+
+
+@skipif_ipython_too_old_for_load_ext
+def test_reload_ext_retry_failed_imports_1(tmp):
+    # Verify that %xreload_ext causes us to retry imports that we previously
+    # decided not to retry.
+    writetext(tmp.dir / "hippo84402009.py", """
+        import sys
+        data = sys.__dict__.setdefault('hippo84402009_attempts', 0)
+        sys.hippo84402009_attempts += 1
+        print('hello from hippo84402009: attempt %d'
+              % sys.hippo84402009_attempts)
+        1/0
+    """)
+    writetext(tmp.file, 'from hippo84402009 import rhino13609135')
+    ipython("""
+        In [1]: %load_ext pyflyby
+        In [2]: rhino13609135
+        [PYFLYBY] from hippo84402009 import rhino13609135
+        hello from hippo84402009: attempt 1
+        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: integer division or modulo by zero
+        ....
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'rhino13609135' is not defined
+        In [3]: rhino13609135
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'rhino13609135' is not defined
+        In [4]: %reload_ext pyflyby
+        In [5]: rhino13609135
+        [PYFLYBY] from hippo84402009 import rhino13609135
+        hello from hippo84402009: attempt 2
+        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: integer division or modulo by zero
+        ....
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        <ipython-input> in <module>()
+        NameError: name 'rhino13609135' is not defined
+    """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
+
+
 def test_autoimport_symbol_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()

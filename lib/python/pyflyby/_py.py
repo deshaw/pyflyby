@@ -111,6 +111,12 @@ Pseudo-actions valid before, after, or without code argument:
 Examples
 ========
 
+  Start IPython with pyflyby autoimporter enabled:
+    $ py
+
+  Start IPython/Jupyter Notebook with pyflyby autoimporter enabled:
+    $ py nb
+
   Find the ASCII value of the letter "j" (apply builtin function):
     $ py ord j
     [PYFLYBY] ord('j')

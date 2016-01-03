@@ -1070,6 +1070,15 @@ _IMPORT_FAILED = set()
 Set of imports we've already attempted and failed.
 """
 
+def clear_failed_imports_cache():
+    """
+    Clear the cache of previously failed imports.
+    """
+    if _IMPORT_FAILED:
+        logger.debug("Clearing all %d entries from cache of failed imports",
+                     len(_IMPORT_FAILED))
+        _IMPORT_FAILED.clear()
+
 def _try_import(imp, namespace):
     """
     Try to execute an import.  Import the result into the namespace

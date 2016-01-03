@@ -192,6 +192,31 @@ class ImportDB(object):
     _default_cache = {}
 
     @classmethod
+    def clear_default_cache(cls):
+        """
+        Clear the class cache of default ImportDBs.
+
+        Subsequent calls to ImportDB.get_default() will not reuse previously
+        cached results.  Existing ImportDB instances are not affected by this
+        call.
+        """
+        if cls._default_cache:
+            if logger.debug_enabled:
+                allpyfiles = set()
+                for tup in cls._default_cache:
+                    if tup[0] != 2:
+                        continue
+                    for tup2 in tup[1:]:
+                        for f in tup2:
+                            assert isinstance(f, Filename)
+                            if f.ext == '.py':
+                                allpyfiles.add(f)
+                nfiles = len(allpyfiles)
+                logger.debug("ImportDB: Clearing default cache of %d files",
+                             nfiles)
+            cls._default_cache.clear()
+
+    @classmethod
     def get_default(cls, target_filename):
         """
         Return the default import library for the given target filename.
@@ -214,6 +239,9 @@ class ImportDB(object):
         # checking incrementally since the steps involve syscalls.  Since this
         # is going to potentially be executed inside the IPython interactive
         # loop, we cache as much as possible.
+        # TODO: Consider refreshing periodically.  Check if files have
+        # been touched, and if so, return new data.  Check file timestamps at
+        # most once every 60 seconds.
         cache_keys = []
         target_filename = Filename(target_filename or ".")
         if target_filename.startswith("/dev"):
@@ -221,7 +249,8 @@ class ImportDB(object):
         target_dirname = target_filename
         # TODO: with StatCache
         while True:
-            cache_keys.append((target_dirname,
+            cache_keys.append((1,
+                               target_dirname,
                                os.getenv("PYFLYBY_PATH"),
                                os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
                                os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH")))
@@ -234,7 +263,8 @@ class ImportDB(object):
             target_dirname = target_dirname.dir
         target_dirname = target_dirname.real
         if target_dirname != cache_keys[-1][0]:
-            cache_keys.append((target_dirname,
+            cache_keys.append((1,
+                               target_dirname,
                                os.getenv("PYFLYBY_PATH"),
                                os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
                                os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH")))
@@ -299,7 +329,7 @@ class ImportDB(object):
                 logger.debug(
                     "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH is deprecated.  "
                     "Use PYFLYBY_PATH and write __mandatory_imports__=['...'] in your files.")
-        cache_keys.append((filenames, mandatory_imports_filenames))
+        cache_keys.append((2, filenames, mandatory_imports_filenames))
         try:
             return cls._default_cache[cache_keys[-1]]
         except KeyError:

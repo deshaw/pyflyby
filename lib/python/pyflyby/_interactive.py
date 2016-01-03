@@ -15,7 +15,9 @@ import subprocess
 import sys
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
-                                        auto_import, load_symbol)
+                                        auto_import,
+                                        clear_failed_imports_cache,
+                                        load_symbol)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -1122,16 +1124,43 @@ class AutoImporter(object):
     The state is attached to an IPython "application".
     """
 
-    def __new__(cls, arg):
+    def __new__(cls, arg=Ellipsis):
         """
-        Get the AutoImporter for C{app}, or create and assign one.
+        Get the AutoImporter for the given app, or create and assign one.
 
         @type arg:
-          L{AutoImporter} or L{BaseIPythonApplication}
+          L{AutoImporter}, L{BaseIPythonApplication}, L{InteractiveShell}
         """
         if isinstance(arg, AutoImporter):
             return arg
-        app = arg
+        # Check the type of the arg.  Avoid isinstance because it's so hard
+        # to know where to import something from.
+        # Todo: make this more robust.
+        if arg is Ellipsis:
+            app = _get_ipython_app()
+            return cls._from_app(app)
+        clsname = type(arg).__name__
+        if "App" in clsname:
+            return cls._from_app(arg)
+        elif "Shell" in clsname:
+            # If given an C{InteractiveShell} argument, then get its parent app.
+            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
+            # 3.2, 4.0.
+            if hasattr(arg, 'parent') and getattr(arg.parent, 'shell', None) is arg:
+                app = arg.parent
+                return cls._from_app(app)
+            # Tested with IPython 0.10, 0.11, 0.12, 0.13.
+            app = _get_ipython_app()
+            if app.shell is arg:
+                return cls._from_app(app)
+            raise ValueError(
+                "Got a shell instance %r but couldn't match it to an app"
+                % (arg,))
+        else:
+            raise TypeError("AutoImporter(): unexpected %s" % (clsname,))
+
+    @classmethod
+    def _from_app(cls, app):
         subapp = getattr(app, "subapp", None)
         if subapp is not None:
             app = subapp
@@ -2148,3 +2177,66 @@ def disable_auto_importer():
         return
     auto_importer = AutoImporter(app)
     auto_importer.disable()
+
+
+def load_ipython_extension(arg=Ellipsis):
+    """
+    Turn on pyflyby features, including the auto-importer, for the given
+    IPython shell.
+
+    Clear the ImportDB cache of known-imports.
+
+    This function is used by IPython's extension mechanism.
+
+    To load pyflyby in an existing IPython session, run::
+      In [1]: %load_ext pyflyby
+
+    To refresh the imports database (if you modified ~/.pyflyby), run::
+      In [1]: %reload_ext pyflyby
+
+    To load pyflyby automatically on IPython startup, appendto
+    ~/.ipython/profile_default/ipython_config.py::
+      c.InteractiveShellApp.extensions.append("pyflyby")
+
+    @type arg:
+      C{InteractiveShell}
+    @see:
+      U{http://ipython.org/ipython-doc/dev/config/extensions/index.html}
+    """
+    logger.debug("load_ipython_extension() called for %s",
+                 os.path.dirname(__file__))
+    # Turn on the auto-importer.
+    auto_importer = AutoImporter(arg)
+    auto_importer.enable(even_if_previously_errored=True)
+    # Clear ImportDB cache.
+    ImportDB.clear_default_cache()
+    # Clear the set of errored imports.
+    clear_failed_imports_cache()
+    # Enable debugging tools.  These aren't IPython-specific, and are better
+    # put in usercustomize.py.  But this is a convenient way for them to be
+    # loaded.  They're fine to run again even if they've already been run via
+    # usercustomize.py.
+    from ._dbg import (enable_faulthandler,
+                       enable_signal_handler_debugger,
+                       enable_sigterm_handler,
+                       add_debug_functions_to_builtins)
+    enable_faulthandler()
+    enable_signal_handler_debugger()
+    enable_sigterm_handler()
+    add_debug_functions_to_builtins()
+
+
+def unload_ipython_extension(arg=Ellipsis):
+    """
+    Turn off pyflyby features, including the auto-importer.
+
+    This function is used by IPython's extension mechanism.
+
+    To unload interactively, run::
+      In [1]: %unload_ext pyflyby
+    """
+    logger.debug("unload_ipython_extension() called for %s",
+                 os.path.dirname(__file__))
+    auto_importer = AutoImporter(arg)
+    auto_importer.disable()
+    # TODO: disable signal handlers etc.
