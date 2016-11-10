@@ -556,6 +556,20 @@ def InterceptPrintsDuringPromptCtx(ip):
     """
     if not ip:
         return NullCtx()
+
+    if not hasattr(ip, 'readline'):
+        def pre():
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        def post():
+            # Re-display the current line.
+            sys.stdout.write("\n")
+            t = ip.prompts_class(ip).in_prompt_tokens()
+            ip.pt_cli.print_tokens(t)
+            sys.stdout.write(ip.pt_cli.current_buffer.document.current_line)
+            sys.stdout.flush()
+        return logger.HookCtx(pre=pre, post=post)
+
     readline = ip.readline
     if not hasattr(readline, "redisplay"):
         # May be IPython Notebook.
@@ -870,6 +884,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results = ["%s.%s" % (pname, r) for r in results]
     else:
         raise AssertionError
+    results = [unicode(s) for s in results]
     return results
 
 
@@ -1921,11 +1936,10 @@ class AutoImporter(object):
                          type(e).__name__, e)
             return False
         def HookPdbCtx():
-            def Pdb_with_autoimport(*args):
-                pdb_instance = __original__(*args)
-                _enable_pdb_hooks(pdb_instance)
-                return pdb_instance
-            return AdviceCtx(Pdb, Pdb_with_autoimport)
+            def Pdb_with_autoimport(self, *args):
+                __original__(self, *args)
+                _enable_pdb_hooks(self)
+            return AdviceCtx(Pdb.__init__, Pdb_with_autoimport)
         iptb = getattr(ip, "InteractiveTB", None)
         ok = True
         if hasattr(iptb, "debugger"):
