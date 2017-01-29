@@ -1,5 +1,5 @@
 # pyflyby/_imports2s.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011-2017 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -127,6 +127,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         @type lineno:
           C{int}
         """
+        # Given a statement 'from foo import bar', older versions of pyflakes
+        # report 'bar', while newer ones report 'foo.bar'.  Handle both.
+        # TODO: once we move from pyflakes to our own parser, simplify this
+        # logic to always take an Import or ImportStatement.
+        import_as = import_as.rsplit(".", 1)[-1]
         block = self.find_import_block_by_lineno(lineno)
         try:
             imports = block.importset.by_import_as[import_as]
