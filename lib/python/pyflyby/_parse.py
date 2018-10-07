@@ -680,7 +680,7 @@ class PythonStatement(object):
                 return arg
             arg = arg.block
             # Fall through
-        if isinstance(arg, (PythonBlock, FileText, str)):
+        if isinstance(arg, (PythonBlock, FileText, str, unicode)):
             block = PythonBlock(arg, filename=filename,
                                 startpos=startpos, flags=flags)
             statements = block.statements
@@ -849,7 +849,7 @@ class PythonBlock(object):
             flags = CompilerFlags(flags, arg.flags)
             arg = arg.text
             # Fall through
-        if isinstance(arg, (FileText, Filename, str)):
+        if isinstance(arg, (FileText, Filename, str, unicode)):
             return cls.from_text(
                 arg, filename=filename, startpos=startpos,
                 flags=flags, auto_flags=auto_flags)
