@@ -558,6 +558,11 @@ def InterceptPrintsDuringPromptCtx(ip):
         return NullCtx()
 
     if not hasattr(ip, 'readline'):
+        if type(sys.stdout).__module__.startswith("prompt_toolkit."):
+            # prompt_toolkit replaces stdout with a proxy that takes
+            # care of redrawing the prompt correctly.
+            return NullCtx()
+
         def pre():
             sys.stdout.write("\n")
             sys.stdout.flush()
