@@ -1892,6 +1892,8 @@ class AutoImporter(object):
             # 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(ip.Completer.global_matches)
             def global_matches_with_autoimport(fullname):
+                if len(fullname) == 0:
+                    return []
                 return self.complete_symbol(fullname, on_error=__original__)
             @self._advise(ip.Completer.attr_matches)
             def attr_matches_with_autoimport(fullname):
