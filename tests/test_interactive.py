@@ -482,7 +482,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd += [prog]
     if prog == "py":
         # Needed to support --ipython-dir, etc.
-        if _IPYTHON_VERSION >= (5,) and app == "console":
+        if _IPYTHON_VERSION >= (5,) and args[:1] == ["console"]:
             cmd += ['jupyter']
         else:
             cmd += ['ipython']
@@ -520,7 +520,10 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,)] + cmd
     else:
         cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
-    if app in ["terminal", "console"]:
+    if app == "terminal":
+        cmd += [opt("--no-confirm-exit")]
+        cmd += [opt("--no-banner")]
+    if app == "console":
         cmd += [opt("--no-confirm-exit")]
         if _IPYTHON_VERSION < (5,):
             cmd += [opt("--no-banner")]
@@ -984,6 +987,9 @@ def _clean_ipython_output(result):
     result = re.sub("%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, "", result)
     # Compress newlines.
     result = re.sub("\n\n+", "\n", result)
+    # Remove xterm title setting.
+    result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
+    result = result.lstrip()
     return result
 
 
