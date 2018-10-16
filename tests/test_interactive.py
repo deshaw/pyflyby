@@ -33,12 +33,19 @@ from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 
 
+def _get_Failed_class():
+    import _pytest
+    try:
+        return _pytest.outcomes.OutcomeException
+    except AttributeError:
+        return _pytest.runner.Failed
+_Failed = _get_Failed_class()
+
 def assert_fail():
     """
     Assert that pytest.fail() is called in the context.  Used to self-test.
     """
-    import _pytest
-    return pytest.raises(_pytest.runner.Failed)
+    return pytest.raises(_Failed)
 
 
 @pytest.fixture
