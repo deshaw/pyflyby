@@ -1016,6 +1016,15 @@ def test_ipython_2():
         """)
 
 
+def test_ipython_tab_1():
+    # Test that our test harness works for tabs.
+    ipython("""
+        In [1]: import os
+        In [2]: os.O_APP\tEND.__class__
+        Out[2]: int
+    """)
+
+
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
     f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
