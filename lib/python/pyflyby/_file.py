@@ -1,5 +1,5 @@
 # pyflyby/_file.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -38,7 +38,7 @@ class Filename(object):
         filename = str(filename)
         if not filename:
             raise UnsafeFilenameError("(empty string)")
-        if re.search("[^a-zA-Z0-9_=+{}/.,~-]", filename):
+        if re.search("[^a-zA-Z0-9_=+{}/.,~@-]", filename):
             raise UnsafeFilenameError(filename)
         if re.search("(^|/)~", filename):
             raise UnsafeFilenameError(filename)
