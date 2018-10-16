@@ -404,10 +404,10 @@ try:
 except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
-_IPYTHON_PROMPT1 = "\nIn \[[0-9]+\]: "
-_IPYTHON_PROMPT2 = "\n   [.][.][.]+: "
-_PYTHON_PROMPT = ">>> "
-_IPDB_PROMPT = "\nipdb> "
+_IPYTHON_PROMPT1 = r"\nIn \[[0-9]+\]: "
+_IPYTHON_PROMPT2 = r"\n   [.][.][.]+: "
+_PYTHON_PROMPT = r">>> "
+_IPDB_PROMPT = r"\nipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
@@ -542,7 +542,46 @@ PYFLYBY_HOME = Filename(__file__).real.dir.dir
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 
 
+class AnsiFilterDecoder(object):
+
+    def decode(self, arg, final=False):
+        arg = arg.replace("\x1b[J", "")             # clear to end of line
+        arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
+        arg = arg.replace("\x1b[6n", "")            # query cursor position
+        arg = arg.replace("\x1b[?1l", "")           # normal cursor keys
+        arg = arg.replace("\x1b[?7l", "")           # no wraparound mode
+        arg = arg.replace("\x1b[?12l", "")          # stop blinking cursor
+        arg = arg.replace("\x1b[?25l", "")          # hide cursor
+        arg = arg.replace("\x1b[?2004l", "")        # no bracketed paste mode
+        arg = arg.replace("\x1b[?7h", "")           # wraparound mode
+        arg = arg.replace("\x1b[?25h", "")          # show cursor
+        arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
+        arg = arg.replace("\x1b[8D\x1b[8C", "")     # left8,right8 no-op (srsly?)
+        arg = arg.replace("\x1b[9D\x1b[9C", "")     # assumes we only have up to In[999]
+        # Delete ESC[5Dabcde, under the assumption that abcde is just
+        # reiterating some previous text.
+        while True:
+            m = re.search(r"\x1b\[([0-9]+)D", arg)
+            if not m:
+                break
+            num = int(m.group(1))
+            end = m.end()
+            if end + num > len(arg):
+                break
+            arg = arg[:m.start()] + arg[end+num:]
+        return arg
+
+
+
 class MySpawn(pexpect.spawn):
+
+    def __init__(self, *args, **kwargs):
+        super(MySpawn, self).__init__(*args, **kwargs)
+        if _IPYTHON_VERSION >= (5,):
+            # Filter out various ansi nonsense
+            self._decoder = AnsiFilterDecoder()
+
+
     def setwinsize(self, rows, cols):
         """
         Override the window size in the child terminal.
@@ -557,6 +596,7 @@ class MySpawn(pexpect.spawn):
         https://github.com/pexpect/pexpect/issues/134
         """
         super(MySpawn, self).setwinsize(100, 900)
+
 
 
 class ExpectError(Exception):
@@ -925,7 +965,7 @@ def _wait_nonce(child):
 def _clean_ipython_output(result):
     """Clean up IPython output."""
     # Canonicalize newlines.
-    result = result.replace("\r\n", "\n")
+    result = re.sub("\r+\n", "\n", result)
     # Remove ANSI escape sequences.  (We already turned off IPython
     # prompt colors, but pyflyby still colorizes log output.)
     result = remove_ansi_escapes(result)
