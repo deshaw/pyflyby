@@ -527,12 +527,12 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
     if app != "notebook":
         cmd += [opt("--colors=NoColor")]
     if _IPYTHON_VERSION >= (3,0):
-        cmd += ["--InteractiveShell.autoindent=0"]
+        cmd += ["--InteractiveShell.autoindent=False"]
     else:
         cmd += [opt("--no-autoindent")]
     if autocall:
         if _IPYTHON_VERSION >= (3,0):
-            cmd += ["--InteractiveShell.autocall=1"]
+            cmd += ["--InteractiveShell.autocall=True"]
         else:
             cmd += [opt("--autocall=1")]
     return cmd
