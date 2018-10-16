@@ -2367,7 +2367,7 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 
 
 @skipif_ipython_too_old_for_kernel
-@retry(ExpectError)
+# @retry(ExpectError)
 def test_ipython_console_1():
     # Verify that autoimport and tab completion work in IPython console.
     # We retry a few times until success (via the @retry decorator) because
