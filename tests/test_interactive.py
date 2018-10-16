@@ -947,20 +947,16 @@ def _wait_nonce(child):
         # to see the nonce or the backspaces.
         child.logfile_read = None
         # Send the nonce.
-        nonce = "<SIG %s />" % (random.random())
+        nonce = "<SIG%s />" % (int(random.random()*1e9))
         child.send(nonce)
         # Wait for the nonce.
         child.expect_exact(nonce)
         data_after_tab = child.before
         # Log what came before the nonce (but not the nonce itself).
         logfile_read.write(data_after_tab)
-        # Delete the nonce we typed.  We do this one character at a time,
-        # because that causes readline to output simple "\b"s instead of using
-        # extra escape sequences.
-        backspaces = "\b" * len(nonce)
-        for bs in backspaces:
-            child.send(bs)
-            child.expect(bs)
+        # Delete the nonce we typed.
+        child.send("\b"*len(nonce))
+        child.expect(r"\x1b\[%dD" % len(nonce))
     finally:
         child.logfile_read = logfile_read
 
