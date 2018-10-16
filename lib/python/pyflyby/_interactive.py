@@ -63,14 +63,21 @@ def _get_or_create_ipython_terminal_app(use_jupyter=False):
     except ImportError as e:
         raise NoIPythonPackageError(e)
     if use_jupyter:
-        # The following has been tested on IPython 5.8.
+        # The following has been tested on IPython 5.8 / Jupyter console 5.2.
+        # Note: jupyter_console.app.JupyterApp also appears to work in some
+        # contexts, but that actually execs the script jupyter-console which
+        # uses ZMQTerminalIPythonApp.  The exec makes the target use whatever
+        # shebang line is in that script, which may be a different python
+        # major version than what we're currently running.  We want to avoid
+        # the exec in general (as a library function) and avoid changing
+        # python versions.
         try:
             import jupyter_console.app
-            JupyterApp = jupyter_console.app.JupyterApp
+            ZMQTerminalIPythonApp = jupyter_console.app.ZMQTerminalIPythonApp
         except (ImportError, AttributeError):
             pass
         else:
-            return JupyterApp.instance()
+            return ZMQTerminalIPythonApp.instance()
     # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
