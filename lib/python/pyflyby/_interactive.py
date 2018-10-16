@@ -1,5 +1,5 @@
 # pyflyby/_interactive.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -49,7 +49,7 @@ class NoActiveIPythonAppError(Exception):
     """
 
 
-def _get_or_create_ipython_terminal_app():
+def _get_or_create_ipython_terminal_app(use_jupyter=False):
     """
     Create/get the singleton IPython terminal application.
 
@@ -62,6 +62,15 @@ def _get_or_create_ipython_terminal_app():
         import IPython
     except ImportError as e:
         raise NoIPythonPackageError(e)
+    if use_jupyter:
+        # The following has been tested on IPython 5.8.
+        try:
+            import jupyter_console.app
+            JupyterApp = jupyter_console.app.JupyterApp
+        except (ImportError, AttributeError):
+            pass
+        else:
+            return JupyterApp.instance()
     # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
@@ -233,7 +242,8 @@ def start_ipython_with_autoimporter(argv=None, _user_ns=None):
     """
     Start IPython (terminal) with autoimporter enabled.
     """
-    app = _get_or_create_ipython_terminal_app()
+    use_jupyter = (argv and argv[0] == 'console')
+    app = _get_or_create_ipython_terminal_app(use_jupyter=use_jupyter)
     if _user_ns is not None:
         # Tested with IPython 1.2, 2.0, 2.1, 2.2, 2.3. 2.4, 3.0, 3.1, 3.2
         # TODO: support older versions of IPython.

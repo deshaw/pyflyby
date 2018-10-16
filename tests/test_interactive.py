@@ -482,7 +482,10 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd += [prog]
     if prog == "py":
         # Needed to support --ipython-dir, etc.
-        cmd += ['ipython']
+        if _IPYTHON_VERSION >= (5,) and app == "console":
+            cmd += ['jupyter']
+        else:
+            cmd += ['ipython']
     if isinstance(args, basestring):
         args = [args]
     if args and not args[0].startswith("-"):
@@ -519,7 +522,8 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
     if app in ["terminal", "console"]:
         cmd += [opt("--no-confirm-exit")]
-        cmd += [opt("--no-banner")]
+        if _IPYTHON_VERSION < (5,):
+            cmd += [opt("--no-banner")]
     if app != "notebook":
         cmd += [opt("--colors=NoColor")]
     if _IPYTHON_VERSION >= (3,0):
