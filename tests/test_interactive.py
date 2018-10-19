@@ -7,7 +7,6 @@ from __future__ import absolute_import, division, with_statement
 
 import IPython
 import atexit
-from   cStringIO                import StringIO
 from   contextlib               import contextmanager
 import difflib
 from   functools                import wraps
@@ -21,6 +20,8 @@ import re
 import readline
 import requests
 from   shutil                   import rmtree
+import six
+from   six.moves                import cStringIO as StringIO
 import signal
 from   subprocess               import PIPE, Popen, check_call
 import sys
@@ -453,7 +454,7 @@ def _build_pythonpath(PYTHONPATH):
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
     pypath += _extra_readline_pythonpath_dirs()
-    if isinstance(PYTHONPATH, (Filename, basestring)):
+    if isinstance(PYTHONPATH, (Filename, six.string_types)):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH
@@ -493,7 +494,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
             cmd += ['jupyter']
         else:
             cmd += ['ipython']
-    if isinstance(args, basestring):
+    if isinstance(args, six.string_types):
         args = [args]
     if args and not args[0].startswith("-"):
         app = args[0]
@@ -741,7 +742,7 @@ def ipython(template, **kwargs):
     template = template.format(**parent_vars)
     input, expected = parse_template(template)
     args = kwargs.pop("args", ())
-    if isinstance(args, basestring):
+    if isinstance(args, six.string_types):
         args = [args]
     args = list(args)
     if args and not args[0].startswith("-"):
