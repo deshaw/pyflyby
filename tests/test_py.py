@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, with_statement
 import os
 import pytest
 from   shutil                   import rmtree
+import six
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,7 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 def flatten(args):
     result = []
     for arg in args:
-        if isinstance(arg, basestring):
+        if isinstance(arg, six.string_types):
             result.append(arg)
         else:
             try:

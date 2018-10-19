@@ -23,7 +23,7 @@ def test_ImportSet_1():
         Import("from m1 import f3"),
         Import("from m2 import f1"),
         Import("from m3 import m4 as m34"))
-    print importset.imports
+    print(importset.imports)
     assert importset.imports == expected
     assert len(importset) == 5
 
@@ -108,7 +108,7 @@ def test_ImportSet_ignore_shadowed_1():
         Import("from m3 import f3"),
         Import("from m3 import f6"),
     )
-    print importset.imports
+    print(importset.imports)
     assert importset.imports == expected
     assert len(importset) == 6
 

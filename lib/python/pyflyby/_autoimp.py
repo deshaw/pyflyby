@@ -713,7 +713,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             i = i+2
             if op == EXTENDED_ARG:
                 if six.PY2:
-                    extended_arg = oparg*65536L
+                    extended_arg = oparg*long(65536)
                 else:
                     extended_arg = oparg*65536
                 continue

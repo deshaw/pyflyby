@@ -28,7 +28,7 @@ from __future__ import absolute_import, division, with_statement
 
 import re
 import six
-from   six                      import builtins
+from   six.moves                import builtins
 from   textwrap                 import dedent
 
 from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
