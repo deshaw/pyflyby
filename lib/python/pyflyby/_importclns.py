@@ -5,6 +5,7 @@
 from __future__ import absolute_import, division, with_statement
 
 from   collections              import defaultdict
+import six
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import dotted_prefixes, is_identifier
@@ -227,7 +228,7 @@ class ImportSet(object):
                 frm_imports[module_name].add(imp)
         return tuple(
             dict( (k, frozenset(v))
-                  for k, v in imports.iteritems())
+                  for k, v in six.iteritems(imports))
             for imports in [ftr_imports, pkg_imports, frm_imports])
 
     def get_statements(self, separate_from_imports=True):
@@ -260,7 +261,7 @@ class ImportSet(object):
             def union_dicts(*dicts):
                 result = {}
                 for label, dict in enumerate(dicts):
-                    for k, v in dict.iteritems():
+                    for k, v in six.iteritems(dict):
                         result[(k, label)] = v
                 return result
             groups = [groups[0], union_dicts(*groups[1:])]
@@ -316,7 +317,7 @@ class ImportSet(object):
         for imp in self._importset:
             d[imp.import_as].append(imp)
         return dict( (k, tuple(sorted(stable_unique(v))))
-                     for k, v in d.iteritems() )
+                     for k, v in six.iteritems(d) )
 
     @cached_attribute
     def member_names(self):
@@ -346,7 +347,7 @@ class ImportSet(object):
                 splt = prefix.rsplit(".", 1)
                 d[splt[0]].add(splt[1])
         return dict( (k, tuple(sorted(v)))
-                     for k, v in d.iteritems() )
+                     for k, v in six.iteritems(d) )
 
     @cached_attribute
     def conflicting_imports(self):
@@ -364,7 +365,7 @@ class ImportSet(object):
         """
         return tuple(
             k
-            for k, v in self.by_import_as.iteritems()
+            for k, v in six.iteritems(self.by_import_as)
             if len(v) > 1 and k != "*")
 
     @cached_attribute
@@ -558,10 +559,10 @@ class ImportMap(object):
         return self._data.items()
 
     def iteritems(self):
-        return self._data.iteritems()
+        return six.iteritems(self._data)
 
     def iterkeys(self):
-        return self._data.iterkeys()
+        return six.iterkeys(self._data)
 
     def keys(self):
         return self._data.keys()

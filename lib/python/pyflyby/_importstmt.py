@@ -290,6 +290,13 @@ class Import(object):
             return NotImplemented
         return cmp(self._data, other._data)
 
+    def __lt__(self, other):
+        if self is other:
+            return 0
+        if not isinstance(other, Import):
+            return NotImplemented
+        return self._data < other._data
+
 
 class ImportStatement(object):
     """

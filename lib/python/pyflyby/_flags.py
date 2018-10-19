@@ -7,6 +7,8 @@ from __future__ import absolute_import, division, with_statement
 import __future__
 import ast
 import operator
+import six
+from   six.moves                import reduce
 
 from   pyflyby._util            import cached_attribute
 
@@ -67,7 +69,7 @@ class CompilerFlags(int):
                 return cls._ZERO
             elif isinstance(arg, int):
                 return cls.from_int(arg)
-            elif isinstance(arg, basestring):
+            elif isinstance(arg, six.string_types):
                 return cls.from_str(arg)
             elif isinstance(arg, ast.AST):
                 return cls.from_ast(arg)

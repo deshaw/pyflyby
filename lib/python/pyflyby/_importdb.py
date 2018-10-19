@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, with_statement
 from   collections              import defaultdict
 import os
 import re
+import six
 
 from   pyflyby._file            import Filename, expand_py_files_from_args
 from   pyflyby._idents          import dotted_prefixes
@@ -39,7 +40,7 @@ def _get_env_var(env_var_name, default):
     '''
     assert re.match("^[A-Z_]+$", env_var_name)
     assert isinstance(default, (tuple, list))
-    value = filter(None, os.environ.get(env_var_name, '').split(':'))
+    value = list(filter(None, os.environ.get(env_var_name, '').split(':')))
     if not value:
         return default
     # Replace '-' with C{default}
@@ -496,27 +497,27 @@ class ImportDB(object):
 
     @classmethod
     def _parse_import_set(cls, arg):
-        if isinstance(arg, basestring):
+        if isinstance(arg, six.string_types):
             arg = [arg]
         if not isinstance(arg, (tuple, list)):
             raise ValueError("Expected a list, not a %s" % (type(arg).__name__,))
         for item in arg:
-            if not isinstance(item, basestring):
+            if not isinstance(item, six.string_types):
                 raise ValueError(
                     "Expected a list of str, not %s" % (type(item).__name__,))
         return ImportSet(arg)
 
     @classmethod
     def _parse_import_map(cls, arg):
-        if isinstance(arg, basestring):
+        if isinstance(arg, six.string_types):
             arg = [arg]
         if not isinstance(arg, dict):
             raise ValueError("Expected a dict, not a %s" % (type(arg).__name__,))
         for k, v in arg.items():
-            if not isinstance(k, basestring):
+            if not isinstance(k, six.string_types):
                 raise ValueError(
                     "Expected a dict of str, not %s" % (type(k).__name__,))
-            if not isinstance(v, basestring):
+            if not isinstance(v, six.string_types):
                 raise ValueError(
                     "Expected a dict of str, not %s" % (type(v).__name__,))
         return ImportMap(arg)
@@ -552,7 +553,7 @@ class ImportDB(object):
             for prefix in dotted_prefixes(imp.fullname)[:-1]:
                 d[prefix].add(Import.from_parts(prefix, prefix))
         return dict( (k, tuple(sorted(v - set(self.forget_imports.imports))))
-                     for k, v in d.iteritems())
+                     for k, v in six.iteritems(d))
 
     def __repr__(self):
         printed = self.pretty_print()

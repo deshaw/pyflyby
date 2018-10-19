@@ -2,11 +2,15 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import optparse
 import os
 import signal
+import six
+from   six                      import reraise
+from   six.moves                import input
 import sys
 from   textwrap                 import dedent
 import traceback
@@ -259,7 +263,7 @@ def print_version_and_exit(extra=None):
         msg += " (%s)" % (os.path.basename(progname),)
     print(msg)
     if extra:
-        print extra
+        print(extra)
     raise SystemExit(0)
 
 
@@ -268,7 +272,7 @@ def syntax(message=None, usage=None):
         logger.error(message)
     outmsg = ((usage or maindoc()) +
               '\n\nFor usage, see: %s --help' % (sys.argv[0],))
-    print >>sys.stderr, outmsg
+    print(outmsg, file=sys.stderr)
     raise SystemExit(1)
 
 
@@ -302,7 +306,10 @@ class Modifier(object):
     @cached_attribute
     def output_content_filename(self):
         f, fname = self._tempfile()
-        f.write(self.output_content.joined)
+        if six.PY3:
+            f.write(bytes(self.output_content.joined, "utf-8"))
+        else:
+            f.write(self.output_content.joined)
         f.flush()
         return fname
 
@@ -313,7 +320,10 @@ class Modifier(object):
         # If the input was stdin, and the user wants a diff, then we need to
         # write it to a temp file.
         f, fname = self._tempfile()
-        f.write(self.input_content)
+        if six.PY3:
+            f.write(bytes(self.input_content, "utf-8"))
+        else:
+            f.write(self.input_content)
         f.flush()
         return fname
 
@@ -326,7 +336,7 @@ class Modifier(object):
 def process_actions(filenames, actions, modify_function):
     errors = []
     def on_error_filename_arg(arg):
-        print >>sys.stderr, "%s: bad filename %s" % (sys.argv[0], arg)
+        print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
     filenames = filename_args(filenames, on_error=on_error_filename_arg)
     for filename in filenames:
@@ -338,10 +348,11 @@ def process_actions(filenames, actions, modify_function):
             continue
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
+            type_e = type(e)
             if str(filename) not in str(e):
-                e = type(e)("While processing %s: %s" % (filename, e))
+                e = type_e("While processing %s: %s" % (filename, e))
             if logger.debug_enabled:
-                raise e, None, sys.exc_info()[2]
+                reraise(type_e, e, sys.exc_info()[2])
             traceback.print_exception(*sys.exc_info())
             continue
     if errors:
@@ -389,13 +400,13 @@ def action_query(prompt="Proceed?"):
     def action(m):
         p = prompt.format(filename=m.filename)
         print
-        print "%s [y/N] " % (p),
+        print("%s [y/N] " % (p))
         try:
-            if raw_input().strip().lower().startswith('y'):
+            if input().strip().lower().startswith('y'):
                 return True
         except KeyboardInterrupt:
-            print >>sys.stderr, "KeyboardInterrupt"
+            print("KeyboardInterrupt", file=sys.stderr)
             raise SystemExit(1)
-        print "Aborted"
+        print("Aborted")
         raise AbortActions
     return action

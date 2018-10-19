@@ -301,12 +301,13 @@ $ py                                       IPython shell
 
 # TODO: add --profile, --runsnake
 
-import __builtin__
 import ast
 from   contextlib               import contextmanager
 import inspect
 import os
 import re
+import six
+from   six                      import builtins
 import sys
 import types
 from   types                    import FunctionType, MethodType
@@ -314,10 +315,10 @@ from   types                    import FunctionType, MethodType
 from   pyflyby._autoimp         import auto_import, find_missing_imports
 from   pyflyby._cmdline         import print_version_and_exit, syntax
 from   pyflyby._dbg             import (add_debug_functions_to_builtins,
-                                        attach_debugger, debugger,
-                                        enable_faulthandler,
-                                        enable_sigterm_handler,
+                                        attach_debugger, debug_statement,
+                                        debugger, enable_faulthandler,
                                         enable_signal_handler_debugger,
+                                        enable_sigterm_handler,
                                         remote_print_stack)
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
@@ -584,7 +585,7 @@ class UserExpr(object):
             if source is not None:
                 raise ValueError(
                     "UserExpr(): source argument not allowed for auto")
-            if not isinstance(arg, basestring):
+            if not isinstance(arg, six.string_types):
                 raise ValueError(
                     "UserExpr(): arg must be a string if arg_mode='auto'")
             self._original_arg_as_source = PythonBlock(arg, flags=FLAGS)
@@ -1316,8 +1317,8 @@ class _Namespace(object):
 
     def __init__(self):
         self.globals      = {"__name__": "__main__",
-                             "__builtin__": __builtin__,
-                             "__builtins__": __builtin__}
+                             "__builtin__": builtins,
+                             "__builtins__": builtins}
         self.autoimported = {}
 
     def auto_import(self, arg):

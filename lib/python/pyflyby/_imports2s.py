@@ -15,6 +15,7 @@ from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+from   six                      import exec_
 
 
 class SourceToSourceTransformationBase(object):
@@ -489,7 +490,7 @@ def fix_unused_and_missing_imports(codeblock,
         # implemented yet because this isn't necessary for __future__ imports
         # since they aren't reported as unused, and those are the only ones we
         # have by default right now.]
-        unused_imports.sort(key=lambda (import_as, lineno): (lineno, import_as))
+        unused_imports.sort(key=lambda k: (k[1], k[0]))
         for import_as, lineno in unused_imports:
             try:
                 imp = transformer.remove_import(import_as, lineno)
@@ -504,7 +505,7 @@ def fix_unused_and_missing_imports(codeblock,
                 logger.info("%s: removed unused '%s'", filename, imp)
 
     if add_missing and missing_imports:
-        missing_imports.sort(key=lambda (import_as, lineno): (lineno, import_as))
+        missing_imports.sort(key=lambda k: (k[1], k[0]))
         known = db.known_imports.by_import_as
         # Decide on where to put each import to be added.  Find the import
         # block with the longest common prefix.  Tie-break by preferring later
@@ -565,7 +566,7 @@ def remove_broken_imports(codeblock, params=None):
         for imp in list(block.importset.imports):
             ns = {}
             try:
-                exec imp.pretty_print() in ns
+                exec_(imp.pretty_print(), ns)
             except Exception as e:
                 logger.info("%s: Could not import %r; removing it: %s: %s",
                             filename, imp.fullname, type(e).__name__, e)

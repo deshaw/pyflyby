@@ -132,6 +132,7 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 import os
 import re
+import six
 import sys
 import time
 import types
@@ -364,7 +365,7 @@ def _livepatch__function(old_func, new_func, modname, cache, visit_stack):
         if type(oldcellv) != type(newcellv):
             return new_func
         if isinstance(oldcellv, (
-                types.FunctionType, types.MethodType, types.ClassType, dict)):
+                types.FunctionType, types.MethodType, six.class_types, dict)):
             # Updateable type.  (Todo: make this configured globally.)
             continue
         try:
@@ -516,15 +517,25 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
         return newobj
 
 
-_LIVEPATCH_DISPATCH_TABLE = {
-    object            : _livepatch__object,
-    dict              : _livepatch__dict,
-    type              : _livepatch__class,
-    types.ClassType   : _livepatch__class,
-    types.FunctionType: _livepatch__function,
-    types.MethodType  : _livepatch__method,
-    types.ModuleType  : _livepatch__module,
-}
+if six.PY2:
+    _LIVEPATCH_DISPATCH_TABLE = {
+        object            : _livepatch__object,
+        dict              : _livepatch__dict,
+        type              : _livepatch__class,
+        types.ClassType   : _livepatch__class,
+        types.FunctionType: _livepatch__function,
+        types.MethodType  : _livepatch__method,
+        types.ModuleType  : _livepatch__module,
+    }
+elif six.PY3:
+    _LIVEPATCH_DISPATCH_TABLE = {
+        object            : _livepatch__object,
+        dict              : _livepatch__dict,
+        type              : _livepatch__class,
+        types.FunctionType: _livepatch__function,
+        types.MethodType  : _livepatch__method,
+        types.ModuleType  : _livepatch__module,
+    }
 
 
 def _get_definition_module(obj):
@@ -542,7 +553,7 @@ def _get_definition_module(obj):
     @rtype:
       C{str}
     """
-    if isinstance(obj, (type, types.ClassType, types.FunctionType,
+    if isinstance(obj, (type, six.class_types, types.FunctionType,
                         types.MethodType)):
         return getattr(obj, "__module__", None)
     else:
@@ -560,7 +571,7 @@ def _format_age(t):
 def _interpret_module(arg):
     def mod_fn(module):
         return getattr(m, "__file__", None)
-    if isinstance(arg, basestring):
+    if isinstance(arg, six.string_types):
         try:
             return sys.modules[arg]
         except KeyError:
