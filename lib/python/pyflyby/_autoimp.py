@@ -5,11 +5,11 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-import __builtin__
 import ast
 import contextlib
 import copy
 import os
+import six
 import sys
 import types
 
@@ -21,6 +21,8 @@ from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
+from   six                      import exec_, reraise
+from   six.moves                import builtins
 
 
 class _ClassScope(dict):
@@ -64,7 +66,7 @@ class ScopeStack(tuple):
         if not all(isinstance(scope, dict) for scope in scopes):
             raise TypeError("Expected list of dicts; got a sequence of %r"
                             % ([type(x).__name__ for x in scopes]))
-        scopes = [__builtin__.__dict__] + scopes
+        scopes = [builtins.__dict__] + scopes
         result = []
         seen = set()
         # Keep only unique items, checking uniqueness by object identity.
@@ -327,8 +329,8 @@ class _MissingImportFinder(object):
                     raise TypeError(
                         "unexpected %s" %
                         (', '.join(type(v).__name__ for v in value)))
-            elif isinstance(value, (int, long, float, complex,
-                                    str, unicode, types.NoneType)):
+            elif isinstance(value, (six.integer_types, float, complex,
+                                    str, six.text_type, type(None))):
                 pass
             else:
                 raise TypeError(
@@ -710,7 +712,10 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             extended_arg = 0
             i = i+2
             if op == EXTENDED_ARG:
-                extended_arg = oparg*65536L
+                if six.PY2:
+                    extended_arg = oparg*65536L
+                else:
+                    extended_arg = oparg*65536
                 continue
 
         if pending is not None:
@@ -992,7 +997,7 @@ def find_missing_imports(arg, namespaces):
       C{list} of C{str}
     """
     namespaces = ScopeStack(namespaces)
-    if isinstance(arg, basestring):
+    if isinstance(arg, six.string_types):
         if is_identifier(arg, dotted=True):
             # The string is a single identifier.  Check directly whether it
             # needs import.  This is an optimization to not bother parsing an
@@ -1123,7 +1128,7 @@ def _try_import(imp, namespace):
     # then (3) copy into the user's namespace if it didn't already exist.
     scratch_namespace = {}
     try:
-        exec stmt in scratch_namespace
+        exec_(stmt, scratch_namespace)
         imported = scratch_namespace[name0]
     except Exception as e:
         logger.warning("Error attempting to %r: %s: %s", stmt, type(e).__name__, e,
@@ -1368,7 +1373,7 @@ def auto_eval(arg, filename=None, mode=None,
       Result of evaluation (for mode="eval")
     """
     flags = CompilerFlags(flags)
-    if isinstance(arg, (basestring, Filename, FileText, PythonBlock)):
+    if isinstance(arg, (six.string_types, Filename, FileText, PythonBlock)):
         block = PythonBlock(arg, filename=filename, flags=flags,
                             auto_flags=auto_flags)
         flags = block.flags
@@ -1489,7 +1494,7 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
                 except Exception as e:
                     e2 = LoadSymbolError(fullname)
                     e2.__cause__ = e
-                    raise e2, None, sys.exc_info()[2]
+                    reraise(LoadSymbolError, e2, sys.exc_info()[2])
             return obj
     else:
         # Not found in any namespace.

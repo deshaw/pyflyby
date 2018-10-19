@@ -4,6 +4,8 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import six
+
 
 class FormatParams(object):
     max_line_length = 79
@@ -26,7 +28,7 @@ class FormatParams(object):
         if kwargs:
             dicts.append(kwargs)
         for kwargs in dicts:
-            for key, value in kwargs.iteritems():
+            for key, value in six.iteritems(kwargs):
                 if hasattr(self, key):
                     setattr(self, key, value)
                 else:

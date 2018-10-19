@@ -13,6 +13,7 @@ from   functools                import wraps
 import os
 import pwd
 import signal
+import six
 import sys
 import time
 from   types                    import CodeType, FrameType, TracebackType
@@ -290,7 +291,7 @@ def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"
         print("Entering debugger.  Use 'n' to step, 'c' to run, 'q' to stop.")
         print("")
         from ._parse import PythonStatement, PythonBlock, FileText
-        if isinstance(arg, (basestring, PythonStatement, PythonBlock, FileText)):
+        if isinstance(arg, (six.string_types, PythonStatement, PythonBlock, FileText)):
             # Compile the block so that we can get the right compile mode.
             arg = PythonBlock(arg)
             # TODO: enter text into linecache
@@ -440,7 +441,7 @@ def debugger(*args, **kwargs):
             # TODO: capture globals/locals when relevant.
             wait_for_debugger_to_attach(arg)
             return
-    if isinstance(arg, (basestring, PythonStatement, PythonBlock, FileText,
+    if isinstance(arg, (six.string_types, PythonStatement, PythonBlock, FileText,
                         CodeType, Callable)):
         _debug_code(arg, globals=globals, locals=locals, tty=tty)
         on_continue()
@@ -904,12 +905,12 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     """
     import subprocess
     os.kill(pid, 0) # raises OSError "No such process" unless pid exists
-    if isinstance(statements, basestring):
+    if isinstance(statements, six.string_types):
         statements = (statements,)
     else:
         statements = tuple(statements)
     for statement in statements:
-        if not isinstance(statement, basestring):
+        if not isinstance(statement, six.string_types):
             raise TypeError(
                 "Expected iterable of strings, not %r" % (type(statement),))
     # Based on

@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, with_statement
 
 import os
 import re
+import six
 import sys
 
 from   pyflyby._util            import cached_attribute, memoize
@@ -27,13 +28,13 @@ class Filename(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, basestring):
+        if isinstance(arg, six.string_types):
             return cls._from_filename(arg)
         raise TypeError
 
     @classmethod
     def _from_filename(cls, filename):
-        if not isinstance(filename, basestring):
+        if not isinstance(filename, six.string_types):
             raise TypeError
         filename = str(filename)
         if not filename:
@@ -308,6 +309,18 @@ class FilePos(object):
             return NotImplemented
         return cmp(self._data, other._data)
 
+    def __lt__(self, other):
+        if self is other:
+            return 0
+        if not isinstance(other, FilePos):
+            return NotImplemented
+        return self._data < other._data
+
+    def __le__(self, other):
+        if not isinstance(other, FilePos):
+            return NotImplemented
+        return self._data <= other._data
+
     def __hash__(self):
         return hash(self._data)
 
@@ -352,7 +365,7 @@ class FileText(object):
             return cls(read_file(arg), filename=filename, startpos=startpos)
         elif hasattr(arg, "__text__"):
             return FileText(arg.__text__(), filename=filename, startpos=startpos)
-        elif isinstance(arg, basestring):
+        elif isinstance(arg, six.string_types):
             self = object.__new__(cls)
             self.joined = arg
         else:

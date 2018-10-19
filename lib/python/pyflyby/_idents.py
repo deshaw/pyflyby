@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, with_statement
 
 from   keyword                  import kwlist
 import re
+import six
 
 from   pyflyby._util            import cached_attribute
 
@@ -13,7 +14,8 @@ from   pyflyby._util            import cached_attribute
 # Don't consider "print" a keyword, in order to be compatible with user code
 # that uses "from __future__ import print_function".
 _my_kwlist = list(kwlist)
-_my_kwlist.remove("print")
+if six.PY2:
+    _my_kwlist.remove("print")
 _my_iskeyword = frozenset(_my_kwlist).__contains__
 
 
@@ -110,7 +112,7 @@ def is_identifier(s, dotted=False, prefix=False):
     @rtype:
       C{bool}
     """
-    if not isinstance(s, basestring):
+    if not isinstance(s, six.string_types):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))
     if prefix:
@@ -155,7 +157,7 @@ class DottedIdentifier(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, basestring):
+        if isinstance(arg, six.string_types):
             return cls._from_name(arg)
         if isinstance(arg, (tuple, list)):
             return cls._from_name(".".join(arg))

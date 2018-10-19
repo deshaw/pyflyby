@@ -26,8 +26,9 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import __builtin__
 import re
+import six
+from   six                      import builtins
 from   textwrap                 import dedent
 
 from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
@@ -290,7 +291,7 @@ class XrefScanner(object):
         Look in modules that we weren't explicitly asked to look in, if
         needed.
         """
-        if identifier in __builtin__.__dict__:
+        if identifier in builtins.__dict__:
             return True
         def check_container():
             if self.expanded_docindex.find(identifier, container) is not None:
@@ -348,7 +349,7 @@ class XrefScanner(object):
             return ''
 
         def scan_tree(tree):
-            if isinstance(tree, basestring):
+            if isinstance(tree, six.string_types):
                 return tree
             variables = [scan_tree(child) for child in tree.children]
             if tree.tag == 'link':

@@ -5,12 +5,13 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-import __builtin__
 import ast
 from   contextlib               import contextmanager
 import inspect
 import os
 import re
+import six
+from   six.moves                import builtins
 import subprocess
 import sys
 
@@ -348,7 +349,7 @@ def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
     same pyflyby package as the current process.
     """
     with CwdCtx("/"):
-        cmd = 'import pyflyby; print pyflyby.__path__[0]'
+        cmd = 'import pyflyby; print(pyflyby.__path__[0])'
         if sys_path_entry is not None:
             impcmd = "import sys; sys.path.insert(0, %r)\n" % (sys_path_entry,)
             cmd = impcmd + cmd
@@ -685,8 +686,8 @@ def _get_ipython_app():
         # IPython.core.interactiveshell.InteractiveShell._instance.  However,
         # that doesn't work with older versions of IPython, where the embedded
         # shell is not a singleton.)
-        if hasattr(__builtin__, "get_ipython"):
-            shell = __builtin__.get_ipython()
+        if hasattr(builtins, "get_ipython"):
+            shell = builtins.get_ipython()
         else:
             shell = None
         if shell is not None:
@@ -720,7 +721,7 @@ def _ipython_namespaces(ip):
     # 2.2 and isn't necessary anyway in earlier versions of IPython.
     return [ ('Interactive'         , ip.user_ns),
              ('Interactive (global)', ip.user_global_ns),
-             ('Python builtin'      , __builtin__.__dict__),
+             ('Python builtin'      , builtins.__dict__),
     ]
 
 
@@ -777,7 +778,7 @@ def get_global_namespaces(ip):
         return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
     else:
         import __main__
-        return [__builtin__.__dict__, __main__.__dict__]
+        return [builtins.__dict__, __main__.__dict__]
 
 
 def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
@@ -906,7 +907,8 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results = ["%s.%s" % (pname, r) for r in results]
     else:
         raise AssertionError
-    results = [unicode(s) for s in results]
+    if six.PY2:
+        results = [unicode(s) for s in results]
     return results
 
 
@@ -942,7 +944,7 @@ def _list_members_for_completion(obj, ip):
                 pass
         else:
             words = dir(obj)
-    return [w for w in words if isinstance(w, basestring)]
+    return [w for w in words if isinstance(w, six.string_types)]
 
 
 def _auto_import_in_pdb_frame(pdb_instance, arg):
@@ -1833,7 +1835,7 @@ class AutoImporter(object):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
             # 3.1, 3.2, 4.0.
             line_magics = ip.magics_manager.magics['line']
-            execmgr = line_magics['prun'].im_self
+            execmgr = six.get_method_self(line_magics['prun'])#.im_self
             if hasattr(execmgr, "_run_with_profiler"):
                 @self._advise(execmgr._run_with_profiler)
                 def run_with_profiler_with_autoimport(code, opts, namespace):
@@ -1983,7 +1985,7 @@ class AutoImporter(object):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
             # 3.1, 3.2, 4.0.
             line_magics = ip.magics_manager.magics['line']
-            execmgr = line_magics['debug'].im_self
+            execmgr = six.get_method_self(line_magics['debug'])
             if hasattr(execmgr, "_run_with_debugger"):
                 @self._advise(execmgr._run_with_debugger)
                 def run_with_debugger_with_autoimport(code, code_ns,
@@ -2016,8 +2018,9 @@ class AutoImporter(object):
             inspect.getargspec(ip.new_main_mod).args == ["self","filename","modname"]):
             @self._advise(ip.new_main_mod)
             def new_main_mod_fix_str(filename, modname):
-                if type(modname) is unicode:
-                    modname = str(modname)
+                if six.PY2:
+                    if type(modname) is unicode:
+                        modname = str(modname)
                 return __original__(filename, modname)
         return True
 

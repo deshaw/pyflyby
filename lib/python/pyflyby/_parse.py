@@ -8,6 +8,8 @@ import ast
 from   collections              import namedtuple
 from   itertools                import groupby
 import re
+import six
+from   six.moves                import range
 import sys
 from   textwrap                 import dedent
 import types
@@ -73,23 +75,32 @@ def _iter_child_nodes_in_order_internal_1(node):
         raise TypeError
     if isinstance(node, ast.Dict):
         assert node._fields == ("keys", "values")
-        yield zip(node.keys, node.values)
+        yield list(zip(node.keys, node.values))
     elif isinstance(node, ast.FunctionDef):
-        assert node._fields == ('name', 'args', 'body', 'decorator_list')
+        if six.PY2:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list')
+        else:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns')
         yield node.decorator_list, node.args, node.body
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
-        assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+        if six.PY2:
+            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+        else:
+            assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults')
         defaults = node.defaults or ()
         num_no_default = len(node.args)-len(defaults)
         yield node.args[:num_no_default]
-        yield zip(node.args[num_no_default:], defaults)
+        yield list(zip(node.args[num_no_default:], defaults))
         # node.varags and node.kwarg are strings, not AST nodes.
     elif isinstance(node, ast.IfExp):
         assert node._fields == ('test', 'body', 'orelse')
         yield node.body, node.test, node.orelse
     elif isinstance(node, ast.ClassDef):
-        assert node._fields == ('name', 'bases', 'body', 'decorator_list')
+        if six.PY2:
+            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
+        else:
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
     else:
@@ -169,12 +180,14 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
         # Ensure that the last line ends with a newline (C{ast} barfs
         # otherwise).
         source += "\n"
+    exp = None
     for flags in _flags_to_try(source, flags, auto_flags, mode):
         cflags = ast.PyCF_ONLY_AST | int(flags)
         try:
             result = compile(
                 source, filename, mode, flags=cflags, dont_inherit=1)
-        except SyntaxError:
+        except SyntaxError as e:
+            exp = e
             pass
         else:
             # Attach flags to the result.
@@ -183,7 +196,7 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
             result.flags = result.input_flags | result.source_flags
             result.text = text
             return result
-    raise # SyntaxError
+    raise exp # SyntaxError
 
 
 def _test_parse_string_literal(text, flags):
@@ -419,7 +432,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     # have much to go on to figure out that the real end_lineno is 7.  If we
     # don't find the string ending on L3, then search forward looking for the
     # real end of the string.  Yuck!
-    for end_lineno in xrange(first_end_lineno, text.endpos.lineno+1):
+    for end_lineno in range(first_end_lineno, text.endpos.lineno+1):
         # Compute possible end positions.  We're given the line we're ending
         # on, but not the column position.  Note that the ending line could
         # contain more than just the string we're looking for -- including
@@ -680,7 +693,7 @@ class PythonStatement(object):
                 return arg
             arg = arg.block
             # Fall through
-        if isinstance(arg, (PythonBlock, FileText, str, unicode)):
+        if isinstance(arg, (PythonBlock, FileText, str, six.text_type)):
             block = PythonBlock(arg, filename=filename,
                                 startpos=startpos, flags=flags)
             statements = block.statements
@@ -849,7 +862,7 @@ class PythonBlock(object):
             flags = CompilerFlags(flags, arg.flags)
             arg = arg.text
             # Fall through
-        if isinstance(arg, (FileText, Filename, str, unicode)):
+        if isinstance(arg, (FileText, Filename, str, six.text_type)):
             return cls.from_text(
                 arg, filename=filename, startpos=startpos,
                 flags=flags, auto_flags=auto_flags)
@@ -1229,7 +1242,7 @@ class PythonBlock(object):
             if (isinstance(node.body[0], ast.Expr) and
                 isinstance(node.body[0].value, ast.Str)):
                 yield node.body[0].value
-            for i in xrange(1, len(node.body)-1):
+            for i in range(1, len(node.body)-1):
                 # If a body item is an assignment and the next one is a
                 # literal string, then yield the node for the literal string.
                 n1, n2 = node.body[i], node.body[i+1]

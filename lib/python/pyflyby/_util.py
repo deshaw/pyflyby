@@ -6,6 +6,8 @@ from __future__ import absolute_import, division, with_statement
 
 from   contextlib               import contextmanager
 import os
+import six
+from   six                      import reraise
 import sys
 import types
 
@@ -53,7 +55,7 @@ class cached_attribute(object):
         try:
             result = self.method(inst)
         except AttributeError as e:
-            raise WrappedAttributeError(str(e)), None, sys.exc_info()[2]
+            reraise(WrappedAttributeError, WrappedAttributeError(str(e)), sys.exc_info()[2])
         setattr(inst, self.name, result)
         return result
 
@@ -233,11 +235,11 @@ class FunctionWithGlobals(object):
         for k in variables:
             old[k] = globals.get(k, UNSET)
         try:
-            for k, v in variables.iteritems():
+            for k, v in six.iteritems(variables):
                 globals[k] = v
             return function(*args, **kwargs)
         finally:
-            for k, v in old.iteritems():
+            for k, v in six.iteritems(old):
                 if v is UNSET:
                     del globals[k]
                 else:
@@ -326,7 +328,7 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if isinstance(joinpoint, (types.FunctionType, types.ClassType, type)):
+        if isinstance(joinpoint, (types.FunctionType, six.class_types, type)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
@@ -335,19 +337,26 @@ class Aspect(object):
             self._original  = spec
             assert spec == self._container[self._name]
         elif isinstance(joinpoint, types.MethodType):
+            method_self = six.get_method_self(joinpoint)
+            if isinstance(method_self, six.class_types):
+                joinpoint_im_class = method_self
+            else:
+                joinpoint_im_class = type(method_self)
+
+            method_fn = six.get_method_function(joinpoint)
             self._qname = "%s.%s.%s" % (
-                joinpoint.im_class.__module__,
-                joinpoint.im_class.__name__,
-                joinpoint.im_func.__name__)
-            self._name      = joinpoint.im_func.__name__
-            if joinpoint.im_self is None:
+                joinpoint_im_class.__module__,
+                joinpoint_im_class.__name__,
+                method_fn.__name__)
+            self._name      = method_fn.__name__
+            if method_self is None:
                 # Class method.
-                container_obj   = joinpoint.im_class
+                container_obj   = method_self
                 self._container = _WritableDictProxy(container_obj)
-                self._original  = spec.im_func
+                self._original  = six.get_method_function(spec)
             else:
                 # Instance method.
-                container_obj   = joinpoint.im_self
+                container_obj   = method_self
                 self._container = container_obj.__dict__
                 self._original  = spec
             assert spec == getattr(container_obj, self._name)

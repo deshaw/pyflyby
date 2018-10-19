@@ -6,6 +6,8 @@ from __future__ import absolute_import, division, with_statement
 
 import os
 import re
+import six
+from   six                      import reraise
 import sys
 import types
 
@@ -63,13 +65,13 @@ def import_module(module_name):
                      real_importerror1, real_importerror2, real_importerror3)
         if real_importerror1 and real_importerror2 and real_importerror3:
             raise
-        raise ErrorDuringImportError(
+        reraise(ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2]
+            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2])
     except Exception as e:
-        raise ErrorDuringImportError(
+        reraise(ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2]
+            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2])
 
 
 def _my_iter_modules(path, prefix=''):
@@ -124,7 +126,7 @@ class ModuleHandle(object):
             return arg
         if isinstance(arg, Filename):
             return cls._from_filename(arg)
-        if isinstance(arg, (basestring, DottedIdentifier)):
+        if isinstance(arg, (six.string_types, DottedIdentifier)):
             return cls._from_modulename(arg)
         if isinstance(arg, types.ModuleType):
             return cls._from_module(arg)
