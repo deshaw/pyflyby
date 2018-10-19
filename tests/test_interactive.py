@@ -101,8 +101,8 @@ def retry(exceptions=(Exception,), tries=5, delay=1.0, backoff=1.0):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    print "Error: %s: %s; retrying in %.1f seconds" % (
-                        type(e).__name__, e, mdelay)
+                    print("Error: %s: %s; retrying in %.1f seconds" % (
+                        type(e).__name__, e, mdelay))
                     time.sleep(mdelay)
                     mtries -= 1
                     mdelay *= backoff
@@ -672,10 +672,10 @@ def IPythonCtx(prog="ipython",
         child.ipython_dir = ipython_dir
         yield child
     except (pexpect.ExceptionPexpect) as e:
-        print "Error: %s" % (e.__class__.__name__,)
-        print "Output so far:"
+        print("Error: %s" % (e.__class__.__name__,))
+        print("Output so far:")
         result = _clean_ipython_output(output.getvalue())
-        print ''.join("    %s\n"%line for line in result.splitlines())
+        print(''.join("    %s\n"%line for line in result.splitlines()))
         # Re-raise an exception wrapped so that we don't re-catch it for the
         # wrong child.
         raise ExpectError(e, child) #, None, sys.exc_info()[2]
@@ -778,13 +778,13 @@ def ipython(template, **kwargs):
     if kernel is not None:
         args += kernel.kernel_info
         kwargs.setdefault("ipython_dir", kernel.ipython_dir)
-    print "Input:"
-    print "".join("    %s\n"%line for line in input.splitlines())
+    print("Input:")
+    print("".join("    %s\n"%line for line in input.splitlines()))
     with IPythonCtx(args=args, **kwargs) as child:
         result = _interact_ipython(child, input, exitstr=exitstr,
                                    sendeof=sendeof, waiteof=waiteof)
-    print "Output:"
-    print "".join("    %s\n"%line for line in result.splitlines())
+    print("Output:")
+    print("".join("    %s\n"%line for line in result.splitlines()))
     assert_match(result, expected, ignore_prompt_number=ignore_prompt_number)
 
 

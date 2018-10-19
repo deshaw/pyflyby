@@ -4,3 +4,4 @@
 build
 dist
 pytestdebug.log
+__pycache__

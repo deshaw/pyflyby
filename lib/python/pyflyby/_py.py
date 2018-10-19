@@ -307,7 +307,7 @@ import inspect
 import os
 import re
 import six
-from   six                      import builtins
+from   six.moves                import builtins
 import sys
 import types
 from   types                    import FunctionType, MethodType

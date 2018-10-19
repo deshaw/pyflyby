@@ -25,10 +25,10 @@ def pytest_runtest_setup(item):
 
 def pytest_report_header(config):
     import IPython
-    print "IPython %s" % (IPython.__version__)
+    print("IPython %s" % (IPython.__version__))
     import pyflyby
     dir = os.path.dirname(pyflyby.__file__)
-    print "pyflyby %s from %s" % (pyflyby.__version__, dir)
+    print("pyflyby %s from %s" % (pyflyby.__version__, dir))
 
 
 def _setup_logger():
@@ -92,7 +92,7 @@ else:
     pylib = os.path.join(PYFLYBY_HOME, "lib/python")
     sys.path.insert(0, pylib)
     os.environ["PYTHONPATH"] = ":".join(
-        [pylib] + filter(None, os.environ.get("PYTHONPATH", "").split(":")))
+        [pylib] + list(filter(None, os.environ.get("PYTHONPATH", "").split(":"))))
     import pyflyby
 
     fn = re.sub("[.]py[co]$", ".py", pyflyby.__file__)
