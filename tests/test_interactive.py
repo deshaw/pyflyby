@@ -34,6 +34,8 @@ from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 
 
+DEBUG = bool(os.getenv("DEBUG_TEST_IPYTHON"))
+
 def _get_Failed_class():
     import _pytest
     try:
@@ -596,8 +598,8 @@ class AnsiFilterDecoder(object):
             left = arg[:m.start()]
             right = '\n'.join(suffix_lines[num:]) + '\n'
         arg = left + right
-        # if arg != arg0:
-        #     print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
+        if DEBUG and arg != arg0:
+            print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
         return arg
 
 
@@ -609,6 +611,24 @@ class MySpawn(pexpect.spawn):
         if _IPYTHON_VERSION >= (5,):
             # Filter out various ansi nonsense
             self._decoder = AnsiFilterDecoder()
+
+
+    def send(self, arg):
+        if DEBUG:
+            print("MySpawn.send(%r)" % (arg,))
+        return super(MySpawn, self).send(arg)
+
+
+    def expect(self, arg):
+        if DEBUG:
+            print("MySpawn.expect(%r)" % (arg,))
+        return super(MySpawn, self).expect(arg)
+
+
+    def expect_exact(self, arg):
+        if DEBUG:
+            print("MySpawn.expect_exact(%r)" % (arg,))
+        return super(MySpawn, self).expect_exact(arg)
 
 
 
@@ -680,6 +700,8 @@ def IPythonCtx(prog="ipython",
         print("Output so far:")
         result = _clean_ipython_output(output.getvalue())
         print(''.join("    %s\n"%line for line in result.splitlines()))
+        print("Error details:")
+        print(''.join("    %s\n"%line for line in str(e).splitlines()))
         # Re-raise an exception wrapped so that we don't re-catch it for the
         # wrong child.
         raise ExpectError(e, child) #, None, sys.exc_info()[2]
