@@ -726,13 +726,22 @@ def _interact_ipython(child, input, exitstr="exit()\n",
     for line in lines:
         # Wait for the "In [N]:" prompt.
         child.expect(_IPYTHON_PROMPTS)
-        # Clear the line via ^U.  This is needed in IPython 5+ because it
-        # is no longer possible to turn off autoindent.  (IPython now
-        # relies on bracketed paste mode; they assumed that was the only
-        # reason to turn off autoindent.  Another idea is to use bracket paste
-        # mode, i.e. ESC[200~blahESC[201~.  But that won't work well when we
-        # want to tab.  Easier to just send ^U.)
-        child.send("\x15") # ^U
+        if line.startswith(" ") and _IPYTHON_VERSION >= (5,):
+            # Clear the line via ^U.  This is needed in IPython 5+ because it
+            # is no longer possible to turn off autoindent.  (IPython now
+            # relies on bracketed paste mode; they assumed that was the only
+            # reason to turn off autoindent.  Another idea is to use bracket
+            # paste mode, i.e. ESC[200~blahESC[201~.  But that causes IPython
+            # to not print a "...:" prompt that it would be nice to see.)
+            # We also sleep afterwards to make sure that IPython doesn't
+            # optimize the output.
+            # For example, without the sleep, if IPython defaulted 4 spaces and
+            # we wanted 1 space, we would send "^U blah"; after IPython printed
+            # out the 4 spaces it would backspace 3 of them and ultimately do
+            # "    ESC[3D   ESC[3Dblah".  That's hard for us to match.  It's
+            # better if it sends out "     ESC[4D    ESC[4D blah".
+            child.send("\x15") # ^U
+            time.sleep(0.02)
         while line:
             left, tab, right = line.partition("\t")
             # Send the input (up to tab or newline).
@@ -1002,13 +1011,41 @@ def _wait_nonce(child):
         child.logfile_read = logfile_read
 
 
+def _clean_backspace(arg):
+    # Handle foo123\b\b\bbar => foobar
+    left = ""
+    right = arg
+    while right:
+        m = re.search("\x08+", right)
+        if not m:
+            break
+        left = left + right[:m.start()]
+        count = m.end() - m.start()
+        left = left[:-count]
+        right = right[m.end():]
+    arg = left + right
+    # Handle foo123\x1b[3Dbar => foobar
+    left = ""
+    right = arg
+    while right:
+        m = re.search(r"\x1b\[([0-9]+)D", right)
+        if not m:
+            break
+        left = left + right[:m.start()]
+        count = int(m.group(1))
+        left = left[:-count]
+        right = right[m.end():]
+    arg = left + right
+    return arg
+
+
+
 def _clean_ipython_output(result):
     """Clean up IPython output."""
     # Canonicalize newlines.
     result = re.sub("\r+\n", "\n", result)
-    # Remove ANSI escape sequences.  (We already turned off IPython
-    # prompt colors, but pyflyby still colorizes log output.)
-    result = remove_ansi_escapes(result)
+    # Clean things like "    ESC[4D".
+    result = _clean_backspace(result)
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(r"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), "<ipython-input>", result)
     result = re.sub(re.compile(r"^----> .*?\n", re.M), "", result)
@@ -1027,6 +1064,8 @@ def _clean_ipython_output(result):
     # Remove xterm title setting.
     result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
     result = result.lstrip()
+    if DEBUG:
+        print("_clean_ipython_output(): => %r" % (result,))
     return result
 
 
@@ -1050,11 +1089,57 @@ def test_ipython_assert_fail_1():
         """)
 
 
-def test_ipython_indented_block_1():
+def test_ipython_indented_block_4spaces_1():
+    # Test that indented blocks work vs IPython's autoindent.
+    # 4 spaces is the IPython default auotindent.
     ipython("""
         In [1]: if 1:
            ...:      print 6*7
            ...:      print 6*9
+           ...:
+        42
+        54
+        In [2]: 6*8
+        Out[2]: 48
+    """)
+
+
+def test_ipython_indented_block_5spaces_1():
+    # Test that indented blocks work vs IPython's autoindent.
+    ipython("""
+        In [1]: if 1:
+           ...:       print 6*7
+           ...:       print 6*9
+           ...:
+        42
+        54
+        In [2]: 6*8
+        Out[2]: 48
+    """)
+
+
+def test_ipython_indented_block_3spaces_1():
+    # Test that indented blocks work vs IPython's autoindent.
+    # Using ^U plus 3 spaces causes IPython to output "    \x08".
+    ipython("""
+        In [1]: if 1:
+           ...:     print 6*7
+           ...:     print 6*9
+           ...:
+        42
+        54
+        In [2]: 6*8
+        Out[2]: 48
+    """)
+
+
+def test_ipython_indented_block_2spaces_1():
+    # Test that indented blocks work vs IPython's autoindent.
+    # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
+    ipython("""
+        In [1]: if 1:
+           ...:    print 6*7
+           ...:    print 6*9
            ...:
         42
         54
