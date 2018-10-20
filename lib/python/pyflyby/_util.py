@@ -337,26 +337,19 @@ class Aspect(object):
             self._original  = spec
             assert spec == self._container[self._name]
         elif isinstance(joinpoint, types.MethodType):
-            method_self = six.get_method_self(joinpoint)
-            if isinstance(method_self, six.class_types):
-                joinpoint_im_class = method_self
-            else:
-                joinpoint_im_class = type(method_self)
-
-            method_fn = six.get_method_function(joinpoint)
             self._qname = "%s.%s.%s" % (
-                joinpoint_im_class.__module__,
-                joinpoint_im_class.__name__,
-                method_fn.__name__)
-            self._name      = method_fn.__name__
-            if method_self is None:
+                joinpoint.im_class.__module__,
+                joinpoint.im_class.__name__,
+                joinpoint.im_func.__name__)
+            self._name      = joinpoint.im_func.__name__
+            if joinpoint.im_self is None:
                 # Class method.
-                container_obj   = method_self
+                container_obj   = joinpoint.im_class
                 self._container = _WritableDictProxy(container_obj)
-                self._original  = six.get_method_function(spec)
+                self._original  = spec.im_func
             else:
                 # Instance method.
-                container_obj   = method_self
+                container_obj   = joinpoint.im_self
                 self._container = container_obj.__dict__
                 self._original  = spec
             assert spec == getattr(container_obj, self._name)
