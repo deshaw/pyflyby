@@ -1805,9 +1805,10 @@ def test_complete_symbol_nonmodule_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
+# TODO: figure out IPython5 equivalent for readline_remove_delims
 @pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="test not implemented for old config")
+    _IPYTHON_VERSION < (0, 12) or _IPYTHON_VERSION >= (5,),
+    reason="test not implemented for this version")
 def test_complete_symbol_getitem_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
