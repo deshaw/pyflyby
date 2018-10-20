@@ -611,22 +611,6 @@ class MySpawn(pexpect.spawn):
             self._decoder = AnsiFilterDecoder()
 
 
-    def setwinsize(self, rows, cols):
-        """
-        Override the window size in the child terminal.
-
-        We need to do this after the forkpty but before the child IPython
-        process is execed.  As of pexpect version 3.3, overriding this method
-        is the only way to do that.
-
-        If we don't change the default from 80 columns, then Readline outputs
-        an annoying extra " \r" after 80 characters of prompt+input.
-
-        https://github.com/pexpect/pexpect/issues/134
-        """
-        super(MySpawn, self).setwinsize(100, 900)
-
-
 
 class ExpectError(Exception):
     def __init__(self, e, child):
@@ -678,7 +662,8 @@ def IPythonCtx(prog="ipython",
         # Spawn IPython.
         with EnvVarCtx(**env):
             print("# Spawning: %s" % (' '.join(cmd)))
-            child = MySpawn(cmd[0], cmd[1:], echo=True, timeout=10.0)
+            child = MySpawn(cmd[0], cmd[1:], echo=True,
+                            dimensions=(100,900), timeout=10.0)
         # Log output to a StringIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
         # commands, since we used echo=True.  (Using logfile=StringIO and
