@@ -537,7 +537,14 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
             cmd += [opt("--no-banner")]
     if app != "notebook":
         cmd += [opt("--colors=NoColor")]
-    if _IPYTHON_VERSION >= (3,0):
+    if _IPYTHON_VERSION >= (5,):
+        # As of IPython 5, IPython doesn't support turning off autoindent.  It
+        # has various command-line options which toggle the internal
+        # shell.autoindent flag, but turning that internal flag off doesn't do
+        # anything.  Instead we'll just have to send a ^U at the beginning of
+        # each line to defeat the autoindent.
+        pass
+    elif _IPYTHON_VERSION >= (3,):
         cmd += ["--InteractiveShell.autoindent=False"]
     else:
         cmd += [opt("--no-autoindent")]
@@ -556,6 +563,8 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 class AnsiFilterDecoder(object):
 
     def decode(self, arg, final=False):
+        arg0 = arg
+        arg = re.sub("\r+\n", "\n", arg)
         arg = arg.replace("\x1b[J", "")             # clear to end of line
         arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
         arg = arg.replace("\x1b[6n", "")            # query cursor position
@@ -567,19 +576,28 @@ class AnsiFilterDecoder(object):
         arg = arg.replace("\x1b[?7h", "")           # wraparound mode
         arg = arg.replace("\x1b[?25h", "")          # show cursor
         arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
-        arg = arg.replace("\x1b[8D\x1b[8C", "")     # left8,right8 no-op (srsly?)
-        arg = arg.replace("\x1b[9D\x1b[9C", "")     # assumes we only have up to In[999]
-        # Delete ESC[5Dabcde, under the assumption that abcde is just
-        # reiterating some previous text.
-        while True:
-            m = re.search(r"\x1b\[([0-9]+)D", arg)
+        arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
+        # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
+        arg = re.sub(r"\x1b\[[0-9]+D.*?\n", "\n", arg)
+        # Assume ESC[3A\nline1\nline2\nline3\n is rewriting previous text;
+        # delete it.
+        left = ""
+        right = arg
+        while right:
+            m = re.search(r"\x1b\[([0-9]+)A\n", right)
             if not m:
                 break
             num = int(m.group(1))
             end = m.end()
-            if end + num > len(arg):
+            suffix = right[end:]
+            suffix_lines = suffix.splitlines(True)
+            if len(suffix_lines) < num:
                 break
-            arg = arg[:m.start()] + arg[end+num:]
+            left = arg[:m.start()]
+            right = '\n'.join(suffix_lines[num:]) + '\n'
+        arg = left + right
+        # if arg != arg0:
+        #     print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
         return arg
 
 
@@ -701,6 +719,13 @@ def _interact_ipython(child, input, exitstr="exit()\n",
     for line in lines:
         # Wait for the "In [N]:" prompt.
         child.expect(_IPYTHON_PROMPTS)
+        # Clear the line via ^U.  This is needed in IPython 5+ because it
+        # is no longer possible to turn off autoindent.  (IPython now
+        # relies on bracketed paste mode; they assumed that was the only
+        # reason to turn off autoindent.  Another idea is to use bracket paste
+        # mode, i.e. ESC[200~blahESC[201~.  But that won't work well when we
+        # want to tab.  Easier to just send ^U.)
+        child.send("\x15") # ^U
         while line:
             left, tab, right = line.partition("\t")
             # Send the input (up to tab or newline).
@@ -711,6 +736,7 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                 # Send the tab.
                 child.send(tab)
                 # Wait for response to tab.
+                time.sleep(0.02)
                 _wait_nonce(child)
             line = right
         child.send("\n")
@@ -1007,7 +1033,7 @@ def test_ipython_1():
     """)
 
 
-def test_ipython_2():
+def test_ipython_assert_fail_1():
     with assert_fail():
         ipython("""
             In [1]: print 6*7
@@ -1015,6 +1041,19 @@ def test_ipython_2():
             In [2]: 6*9
             Out[2]: 53
         """)
+
+
+def test_ipython_indented_block_1():
+    ipython("""
+        In [1]: if 1:
+           ...:      print 6*7
+           ...:      print 6*9
+           ...:
+        42
+        54
+        In [2]: 6*8
+        Out[2]: 48
+    """)
 
 
 def test_ipython_tab_1():
