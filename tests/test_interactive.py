@@ -51,6 +51,24 @@ def assert_fail():
     return pytest.raises(_Failed)
 
 
+def pytest_generate_tests(metafunc):
+    # IPython 4 and earlier only had readline frontend.
+    # IPython 5.0 through 5.3 only allow prompt_toolkit.
+    # IPython 5.4+ defaults to prompt_toolkit, but allows choosing readline.
+    if 'frontend' in metafunc.fixturenames:
+        if _IPYTHON_VERSION >= (5,4):
+            try:
+                import rlipython
+            except ImportError:
+                raise ImportError("test_interactive requires rlipython installed.  "
+                                  "Please try: pip install rlipython")
+            metafunc.parametrize('frontend', ['readline', 'prompt_toolkit'])
+        elif _IPYTHON_VERSION >= (5,0):
+            metafunc.parametrize('frontend', [            'prompt_toolkit'])
+        else:
+            metafunc.parametrize('frontend', ['readline'])
+
+
 @pytest.fixture
 def tmp(request):
     return _TmpFixture(request)
@@ -202,6 +220,9 @@ def assert_match(result, expected, ignore_prompt_number=False):
     regexp = re.compile(regexp)
     result = '\n'.join(line.rstrip() for line in result.splitlines())
     result = result.strip()
+    if DEBUG:
+        print("expected: %r" % (expected,))
+        print("result  : %r" % (result,))
     if not regexp.match(result):
         msg = []
         msg.append("Expected:")
@@ -479,7 +500,7 @@ def _init_ipython_dir(ipython_dir):
         writetext(ipython_dir/"ipy_user_conf.py", "")
 
 
-def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
+def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, frontend=None):
     """
     Prepare the command to run IPython.
     """
@@ -539,8 +560,8 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
             cmd += [opt("--no-banner")]
     if app != "notebook" and _IPYTHON_VERSION < (5,):
         cmd += [opt("--colors=NoColor")]
-    if _IPYTHON_VERSION >= (5,):
-        # As of IPython 5, IPython doesn't support turning off autoindent.  It
+    if frontend == 'prompt_toolkit':
+        # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
         # has various command-line options which toggle the internal
         # shell.autoindent flag, but turning that internal flag off doesn't do
         # anything.  Instead we'll just have to send a ^U at the beginning of
@@ -555,6 +576,23 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
             cmd += ["--InteractiveShell.autocall=True"]
         else:
             cmd += [opt("--autocall=1")]
+    if frontend == 'readline':
+        if _IPYTHON_VERSION >= (5,4):
+            cmd += ["--TerminalIPythonApp.interactive_shell_class=rlipython.TerminalInteractiveShell"]
+        elif _IPYTHON_VERSION >= (5,0):
+            raise ValueError("IPython 5.0 through 5.3 only support prompt_toolkit")
+        else:
+            # For IPython 4 and earlier, readline is the default and only option.
+            pass
+    elif frontend == 'prompt_toolkit':
+        if _IPYTHON_VERSION >= (5,):
+            # For IPython >= 5.0, prompt_toolkit is the default option (and
+            # for 5.0-5.3, the only option).
+            pass
+        else:
+            raise ValueError("IPython 4 and earlier only support readline")
+    else:
+        raise ValueError("bad frontend=%r" % (frontend,))
     return cmd
 
 
@@ -619,16 +657,16 @@ class MySpawn(pexpect.spawn):
         return super(MySpawn, self).send(arg)
 
 
-    def expect(self, arg):
+    def expect(self, arg, timeout=-1):
         if DEBUG:
             print("MySpawn.expect(%r)" % (arg,))
-        return super(MySpawn, self).expect(arg)
+        return super(MySpawn, self).expect(arg, timeout=timeout)
 
 
-    def expect_exact(self, arg):
+    def expect_exact(self, arg, timeout=-1):
         if DEBUG:
             print("MySpawn.expect_exact(%r)" % (arg,))
-        return super(MySpawn, self).expect_exact(arg)
+        return super(MySpawn, self).expect_exact(arg, timeout=timeout)
 
 
 
@@ -647,12 +685,20 @@ class ExpectError(Exception):
 def IPythonCtx(prog="ipython",
                args=[],
                autocall=False,
+               frontend=None,
                ipython_dir=None,
                PYTHONPATH=[],
                PYFLYBY_PATH=PYFLYBY_PATH,
                PYFLYBY_LOG_LEVEL=""):
     """
     Spawn IPython in a pty subprocess.  Send it input and expect output.
+
+    @param frontend:
+      Which terminal frontend to use: readline (default for IPython <5) or
+      prompt_toolkit (default for IPython >=5).
+      IPython 4 and earlier only support readline.
+      IPython 5.0 through 5.3 only support prompt_toolkit.
+      IPython 5.4 and later support both readline and prompt_toolkit.
     """
     __tracebackhide__ = True
     if hasattr(PYFLYBY_PATH, "write"):
@@ -668,6 +714,8 @@ def IPythonCtx(prog="ipython",
     # in $HOME.
     mplconfigdir = mkdtemp(prefix="pyflyby_test_matplotlib_", suffix=".tmp")
     cleanup_dirs.append(mplconfigdir)
+    # Figure out frontend to use.
+    frontend = _interpret_frontend_arg(frontend)
     child = None
     output = StringIO()
     try:
@@ -678,12 +726,15 @@ def IPythonCtx(prog="ipython",
         env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
         env["PYTHONSTARTUP"]     = ""
         env["MPLCONFIGDIR"]      = mplconfigdir
-        cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall)
+        cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
+                                 frontend=frontend)
         # Spawn IPython.
         with EnvVarCtx(**env):
             print("# Spawning: %s" % (' '.join(cmd)))
             child = MySpawn(cmd[0], cmd[1:], echo=True,
                             dimensions=(100,900), timeout=10.0)
+        # Record frontend for others.
+        child.ipython_frontend = frontend
         # Log output to a StringIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
         # commands, since we used echo=True.  (Using logfile=StringIO and
@@ -715,6 +766,7 @@ def IPythonCtx(prog="ipython",
 
 def _interact_ipython(child, input, exitstr="exit()\n",
                       sendeof=False, waiteof=True):
+    is_prompt_toolkit = child.ipython_frontend == "prompt_toolkit"
     # Canonicalize input lines.
     input = dedent(input)
     input = re.sub("^\n+", "", input)
@@ -726,15 +778,16 @@ def _interact_ipython(child, input, exitstr="exit()\n",
     for line in lines:
         # Wait for the "In [N]:" prompt.
         child.expect(_IPYTHON_PROMPTS)
-        if line.startswith(" ") and _IPYTHON_VERSION >= (5,):
-            # Clear the line via ^U.  This is needed in IPython 5+ because it
-            # is no longer possible to turn off autoindent.  (IPython now
-            # relies on bracketed paste mode; they assumed that was the only
-            # reason to turn off autoindent.  Another idea is to use bracket
-            # paste mode, i.e. ESC[200~blahESC[201~.  But that causes IPython
-            # to not print a "...:" prompt that it would be nice to see.)
-            # We also sleep afterwards to make sure that IPython doesn't
-            # optimize the output.
+        if line.startswith(" ") and is_prompt_toolkit:
+            # Clear the line via ^U.  This is needed with prompt_toolkit
+            # (IPython 5+) because it is no longer possible to turn off
+            # autoindent.  (IPython now relies on bracketed paste mode; they
+            # assumed that was the only reason to turn off autoindent.
+            # Another idea is to use bracket paste mode,
+            # i.e. ESC[200~blahESC[201~.  But that causes IPython to not print
+            # a "...:" prompt that it would be nice to see.)  We also sleep
+            # afterwards to make sure that IPython doesn't optimize the
+            # output.
             # For example, without the sleep, if IPython defaulted 4 spaces and
             # we wanted 1 space, we would send "^U blah"; after IPython printed
             # out the 4 spaces it would backspace 3 of them and ultimately do
@@ -752,8 +805,15 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                 # Send the tab.
                 child.send(tab)
                 # Wait for response to tab.
-                time.sleep(0.02)
-                _wait_nonce(child)
+                # if _IPYTHON_VERSION >= (5,):
+                if is_prompt_toolkit:
+                    # When using prompt_toolkit (default for IPython 5+), we
+                    # need to wait for output.
+                    _wait_for_output(child, timeout=1.0)
+                else:
+                    # When using readline (only option for IPython 4 and
+                    # earlier), we can use the nonce trick.
+                    _wait_nonce(child)
             line = right
         child.send("\n")
     # We're finished sending input commands.  Wait for process to complete.
@@ -768,6 +828,18 @@ def _interact_ipython(child, input, exitstr="exit()\n",
     result = output.getvalue()
     result = _clean_ipython_output(result)
     return result
+
+
+def _interpret_frontend_arg(frontend):
+    if frontend is None:
+        if _IPYTHON_VERSION >= (5,0):
+            frontend = "prompt_toolkit"
+        else:
+            # IPython 4 and earlier only support readline.
+            frontend = "readline"
+    if frontend not in ["readline", "prompt_toolkit"]:
+        raise ValueError("bad frontend=%r" % (frontend,))
+    return frontend
 
 
 def ipython(template, **kwargs):
@@ -954,6 +1026,31 @@ def IPythonNotebookCtx(**kwargs):
             cleanup()
 
 
+def _wait_for_output(child, timeout):
+    """
+    Wait up to C{timeout} seconds for output.
+    """
+    # In IPython 5, we cannot send any output before IPython responds to the
+    # tab, else it won't respond to the tab.  The purpose of this function is
+    # to wait for IPython to respond to a tab.  As an expedience we just use
+    # expect(".") to wait for an arbitrary character.  We tried other
+    # techniques.  We tried select([child.child_fd],...).  But that doesn't
+    # work because IPython always emits some ansi control character stuff
+    # before it responds to the tab, and we don't want to hardcode exactly
+    # what it outputs before it responds to the tab.  The downside of the
+    # approach we use now is that it eats up a character from the input.
+    # Another approach we could try is: do a raw read, run it through the ansi
+    # filter, check that it turns nonzero number of raw characters into zero
+    # filtered characters, then select the fd.
+    if DEBUG:
+        print("_wait_for_output()")
+    try:
+        child.expect(".", timeout=timeout)
+    except pexpect.TIMEOUT:
+        if DEBUG:
+            print("_wait_for_output(): timeout")
+
+
 def _wait_nonce(child):
     """
     Send a nonce to the child, then wait for the nonce, then backspace it.
@@ -1006,7 +1103,9 @@ def _wait_nonce(child):
         logfile_read.write(data_after_tab)
         # Delete the nonce we typed.
         child.send("\b"*len(nonce))
-        child.expect(r"\x1b\[%dD" % len(nonce))
+        child.expect([r"\x1b\[%dD" % len(nonce),    # IPython <  5
+                      r"\x08\x1b\[K" * len(nonce)]) # IPython >= 5 + rlipython
+
     finally:
         child.logfile_read = logfile_read
 
@@ -1069,27 +1168,27 @@ def _clean_ipython_output(result):
     return result
 
 
-def test_ipython_1():
+def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
         In [1]: print 6*7
         42
         In [2]: 6*9
         Out[2]: 54
-    """)
+    """, frontend=frontend)
 
 
-def test_ipython_assert_fail_1():
+def test_ipython_assert_fail_1(frontend):
     with assert_fail():
         ipython("""
             In [1]: print 6*7
             42
             In [2]: 6*9
             Out[2]: 53
-        """)
+        """, frontend=frontend)
 
 
-def test_ipython_indented_block_4spaces_1():
+def test_ipython_indented_block_4spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # 4 spaces is the IPython default auotindent.
     ipython("""
@@ -1101,10 +1200,10 @@ def test_ipython_indented_block_4spaces_1():
         54
         In [2]: 6*8
         Out[2]: 48
-    """)
+    """, frontend=frontend)
 
 
-def test_ipython_indented_block_5spaces_1():
+def test_ipython_indented_block_5spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
         In [1]: if 1:
@@ -1115,10 +1214,10 @@ def test_ipython_indented_block_5spaces_1():
         54
         In [2]: 6*8
         Out[2]: 48
-    """)
+    """, frontend=frontend)
 
 
-def test_ipython_indented_block_3spaces_1():
+def test_ipython_indented_block_3spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
     ipython("""
@@ -1130,10 +1229,10 @@ def test_ipython_indented_block_3spaces_1():
         54
         In [2]: 6*8
         Out[2]: 48
-    """)
+    """, frontend=frontend)
 
 
-def test_ipython_indented_block_2spaces_1():
+def test_ipython_indented_block_2spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
     ipython("""
@@ -1145,16 +1244,44 @@ def test_ipython_indented_block_2spaces_1():
         54
         In [2]: 6*8
         Out[2]: 48
-    """)
+    """, frontend=frontend)
 
 
-def test_ipython_tab_1():
+def test_ipython_tab_1(frontend):
     # Test that our test harness works for tabs.
     ipython("""
         In [1]: import os
         In [2]: os.O_APP\tEND.__class__
         Out[2]: int
-    """)
+    """, frontend=frontend)
+
+
+def test_ipython_tab_fail_1(frontend):
+    # Test that our test harness works for tab when it should match nothing.
+    ipython("""
+        In [1]: import os
+        In [2]: os.foo27817796\t()
+        ---------------------------------------------------------------------------
+        AttributeError                            Traceback (most recent call last)
+        <ipython-input> in <module>()
+        AttributeError: 'module' object has no attribute 'foo27817796'
+    """, frontend=frontend)
+
+
+def test_ipython_tab_multi_1(frontend):
+    # Test that our test harness works for tab when there are multiple matches
+    # for tab completion.
+    if frontend == "prompt_toolkit": pytest.skip()
+    # Currently our test harness is only able to test this using rlipython.
+    ipython("""
+        In [1]: def foo(): pass
+        In [2]: foo.xyz1 = 111
+        In [3]: foo.xyz2 = 222
+        In [4]: foo.xy\t
+        foo.xyz1  foo.xyz2
+        In [4]: foo.xyz\x062
+        Out[4]: 222
+    """, frontend=frontend)
 
 
 def test_pyflyby_file_1():
@@ -1404,7 +1531,8 @@ def test_autoimport_multiline_continued_statement_1():
     """)
 
 
-def test_autoimport_multiline_continued_statement_fake_1():
+def test_autoimport_multiline_continued_statement_fake_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1424,7 +1552,7 @@ def test_autoimport_multiline_continued_statement_fake_1():
         In [4]: print b64decode('YmFzZWJhbGw=')
         [PYFLYBY] from base64 import b64decode
         baseball
-    """)
+    """, frontend=frontend)
 
 
 def test_autoimport_pyflyby_path_1(tmp):
@@ -1631,7 +1759,8 @@ def test_complete_symbol_basic_1():
     """)
 
 
-def test_complete_symbol_multiple_1():
+def test_complete_symbol_multiple_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print b64\t
@@ -1639,10 +1768,11 @@ def test_complete_symbol_multiple_1():
         In [2]: print b64\x06decode
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
-    """)
+    """, frontend=frontend)
 
 
-def test_complete_symbol_partial_multiple_1():
+def test_complete_symbol_partial_multiple_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print b6\t
@@ -1650,7 +1780,7 @@ def test_complete_symbol_partial_multiple_1():
         In [2]: print b64\x06d\tecode
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
-    """)
+    """, frontend=frontend)
 
 
 def test_complete_symbol_import_check_1():
@@ -1685,7 +1815,8 @@ def test_complete_symbol_instance_identity_1():
     """)
 
 
-def test_complete_symbol_member_1():
+def test_complete_symbol_member_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     # Verify that tab completion in members works.
     # We expect "base64.b64d" to be reprinted again after the [PYFLYBY] log
     # line.  (This differs from the "b64deco\t" case: in that case, nothing
@@ -1699,10 +1830,11 @@ def test_complete_symbol_member_1():
         [PYFLYBY] import base64
         In [2]: base64.b64decode('bW9udHk=')
         Out[2]: 'monty'
-    """)
+    """, frontend=frontend)
 
 
-def test_complete_symbol_member_multiple_1():
+def test_complete_symbol_member_multiple_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print base64.b64\t
@@ -1714,10 +1846,11 @@ def test_complete_symbol_member_multiple_1():
         AttributeError                            Traceback (most recent call last)
         <ipython-input> in <module>()
         AttributeError: 'module' object has no attribute 'b64'
-    """)
+    """, frontend=frontend)
 
 
-def test_complete_symbol_member_partial_multiple_1():
+def test_complete_symbol_member_partial_multiple_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print base64.b6\t
@@ -1729,7 +1862,7 @@ def test_complete_symbol_member_partial_multiple_1():
         AttributeError                            Traceback (most recent call last)
         <ipython-input> in <module>()
         AttributeError: 'module' object has no attribute 'b64'
-    """)
+    """, frontend=frontend)
 
 
 def test_complete_symbol_import_module_as_1(tmp):
@@ -1770,7 +1903,8 @@ def test_complete_symbol_multiline_statement_1():
     """)
 
 
-def test_complete_symbol_multiline_statement_member_1():
+def test_complete_symbol_multiline_statement_member_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1784,7 +1918,7 @@ def test_complete_symbol_multiline_statement_member_1():
         In [3]: print b64d\tecode('bGlvbg==')
         [PYFLYBY] from base64 import b64decode
         lion
-    """)
+    """, frontend=frontend)
 
 
 def test_complete_symbol_autocall_arg_1():
@@ -1899,9 +2033,10 @@ def test_complete_symbol_nonmodule_1(tmp):
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims
 @pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12) or _IPYTHON_VERSION >= (5,),
+    _IPYTHON_VERSION < (0, 12),
     reason="test not implemented for this version")
-def test_complete_symbol_getitem_1():
+def test_complete_symbol_getitem_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: apples = ['McIntosh', 'PinkLady']
@@ -1909,7 +2044,8 @@ def test_complete_symbol_getitem_1():
         apples[1].ljust   apples[1].lower   apples[1].lstrip
         In [3]: apples[1].l\x06ow\ter()
         Out[3]: 'pinklady'
-    """, args=['--InteractiveShell.readline_remove_delims=-/~[]'])
+    """, args=['--InteractiveShell.readline_remove_delims=-/~[]'],
+            frontend=frontend)
 
 
 @pytest.mark.skipif(
