@@ -537,7 +537,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False):
         cmd += [opt("--no-confirm-exit")]
         if _IPYTHON_VERSION < (5,):
             cmd += [opt("--no-banner")]
-    if app != "notebook":
+    if app != "notebook" and _IPYTHON_VERSION < (5,):
         cmd += [opt("--colors=NoColor")]
     if _IPYTHON_VERSION >= (5,):
         # As of IPython 5, IPython doesn't support turning off autoindent.  It
