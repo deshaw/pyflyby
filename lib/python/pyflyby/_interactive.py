@@ -599,7 +599,19 @@ def InterceptPrintsDuringPromptCtx(ip):
         return NullCtx()
     redisplay = readline.redisplay
     get_prompt = None
-    if hasattr(ip, "prompt_manager"):
+    if type(ip).__module__ == "rlipython.shell":
+        # IPython 5.4 with
+        # interactive_shell_class=rlipython.TerminalInteractiveShell
+        def get_prompt_rlipython():
+            pdb_instance = _get_pdb_if_is_in_pdb()
+            if pdb_instance is not None:
+                return pdb_instance.prompt
+            elif _ipython_in_multiline(ip):
+                return ip.prompt_in2
+            else:
+                return ip.separate_in + ip.prompt_in1.format(ip.execution_count)
+        get_prompt = get_prompt_rlipython
+    elif hasattr(ip, "prompt_manager"):
         # IPython >= 0.12 (known to work including up to 1.2, 2.1)
         prompt_manager = ip.prompt_manager
         def get_prompt_ipython_012():
