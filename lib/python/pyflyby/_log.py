@@ -1,5 +1,5 @@
 # pyflyby/_log.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -82,7 +82,8 @@ class _PyflybyHandler(Handler):
 
 
 def _is_interactive(file):
-    if type(file).__module__.startswith("IPython."):
+    filemod = type(file).__module__
+    if filemod.startswith("IPython.") or filemod.startswith("prompt_toolkit."):
         # Inside IPython notebook/kernel
         return True
     try:
