@@ -2458,11 +2458,11 @@ def test_timeit_1():
     # Verify that %timeit works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %timeit -n 1 -r 1 b64decode('TWljaGVsYW5nZWxv')
+        In [2]: %timeit -n 2 -r 1 b64decode('TWljaGVsYW5nZWxv')
         [PYFLYBY] from base64 import b64decode
-        1 loops, best of 1: ... per loop
-        In [3]: %timeit -n 1 -r 1 b64decode('RGF2aWQ=')
-        1 loops, best of 1: ... per loop
+        2 loops, best of 1: ... per loop
+        In [3]: %timeit -n 2 -r 1 b64decode('RGF2aWQ=')
+        2 loops, best of 1: ... per loop
     """)
 
 
@@ -2470,9 +2470,9 @@ def test_timeit_complete_1():
     # Verify that tab completion works with %timeit.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %timeit -n 1 -r 1 b64de\tcode('cGlsbG93')
+        In [2]: %timeit -n 2 -r 1 b64de\tcode('cGlsbG93')
         [PYFLYBY] from base64 import b64decode
-        1 loops, best of 1: ... per loop
+        2 loops, best of 1: ... per loop
     """)
 
 
@@ -2480,23 +2480,23 @@ def test_timeit_complete_menu_1():
     # Verify that menu tab completion works with %timeit.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: timeit -n 1 -r 1 b64\t
+        In [2]: timeit -n 2 -r 1 b64\t
         b64decode  b64encode
-        In [2]: timeit -n 1 -r 1 b64\x06d\tecode('YmxhbmtldA==')
+        In [2]: timeit -n 2 -r 1 b64\x06d\tecode('YmxhbmtldA==')
         [PYFLYBY] from base64 import b64decode
-        1 loops, best of 1: ... per loop
+        2 loops, best of 1: ... per loop
     """)
 
 
 def test_timeit_complete_autoimport_member_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: timeit -n 1 -r 1 base64.b6\t
+        In [2]: timeit -n 2 -r 1 base64.b6\t
         [PYFLYBY] import base64
-        In [2]: timeit -n 1 -r 1 base64.b6
+        In [2]: timeit -n 2 -r 1 base64.b6
         base64.b64decode  base64.b64encode
-        In [2]: timeit -n 1 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
-        1 loops, best of 1: ... per loop
+        In [2]: timeit -n 2 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
+        2 loops, best of 1: ... per loop
     """)
 
 
