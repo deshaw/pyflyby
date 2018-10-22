@@ -406,12 +406,6 @@ def test_lazy_import_ipython_1():
     check_call(["python", "-c", pycmd])
 
 
-def remove_ansi_escapes(s):
-    s = re.sub("\x1B\[[?]?[0-9;]*[a-zA-Z]", "", s)
-    s = re.sub("[\x01\x02]", "", s)
-    return s
-
-
 def _parse_version(version_string):
     """
       >>> _parse_version("1.2.3")
@@ -636,8 +630,11 @@ class AnsiFilterDecoder(object):
             left = arg[:m.start()]
             right = '\n'.join(suffix_lines[num:]) + '\n'
         arg = left + right
-        if DEBUG and arg != arg0:
-            print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
+        if DEBUG:
+            if arg != arg0:
+                print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
+            else:
+                print("AnsiFilterDecoder: %r [no change]" % (arg,))
         return arg
 
 
@@ -646,9 +643,8 @@ class MySpawn(pexpect.spawn):
 
     def __init__(self, *args, **kwargs):
         super(MySpawn, self).__init__(*args, **kwargs)
-        if _IPYTHON_VERSION >= (5,):
-            # Filter out various ansi nonsense
-            self._decoder = AnsiFilterDecoder()
+        # Filter out various ansi nonsense
+        self._decoder = AnsiFilterDecoder()
 
 
     def send(self, arg):
