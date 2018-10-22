@@ -1865,7 +1865,8 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
     """, frontend=frontend)
 
 
-def test_complete_symbol_import_module_as_1(tmp):
+def test_complete_symbol_import_module_as_1(frontend, tmp):
+    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "import base64 as b64\n")
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1873,7 +1874,7 @@ def test_complete_symbol_import_module_as_1(tmp):
         [PYFLYBY] import base64 as b64
         In [2]: b64.b64decode('cm9zZWJ1ZA==')
         Out[2]: 'rosebud'
-    """, PYFLYBY_PATH=tmp.file)
+    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
 def test_complete_symbol_statement_1():
@@ -1932,7 +1933,7 @@ def test_complete_symbol_autocall_arg_1():
     """, autocall=True)
 
 
-def test_complete_symbol_any_module_1(tmp):
+def test_complete_symbol_any_module_1(frontend, tmp):
     # Verify that completion and autoimport works for an arbitrary module in
     # $PYTHONPATH.
     writetext(tmp.dir/"m18908697_foo.py", """
@@ -1943,12 +1944,13 @@ def test_complete_symbol_any_module_1(tmp):
         In [2]: m18908697_\tfoo.f_68421204()
         [PYFLYBY] import m18908697_foo
         Out[2]: 'good'
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-def test_complete_symbol_any_module_member_1(tmp):
+def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
     # $PYTHONPATH.
+    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"m51145108_foo.py", """
         def f_76313558_59577191(): return 'ok'
     """)
@@ -1958,7 +1960,7 @@ def test_complete_symbol_any_module_member_1(tmp):
         [PYFLYBY] import m51145108_foo
         In [2]: m51145108_foo.f_76313558_59577191()
         Out[2]: 'ok'
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
 def test_complete_symbol_bad_1(tmp):
