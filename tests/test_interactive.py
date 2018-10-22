@@ -500,6 +500,8 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     """
     ipython_dir = Filename(ipython_dir)
     cmd = []
+    if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args[:1] == ["console"]:
+        prog = "jupyter"
     if '/.tox/' in sys.prefix:
         # Get the ipython from our (tox virtualenv) path.
         cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
@@ -507,7 +509,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
         cmd += [prog]
     if prog == "py":
         # Needed to support --ipython-dir, etc.
-        if _IPYTHON_VERSION >= (5,) and args[:1] == ["console"]:
+        if _IPYTHON_VERSION >= (4,) and args[:1] == ["console"]:
             cmd += ['jupyter']
         else:
             cmd += ['ipython']
@@ -550,7 +552,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
         cmd += [opt("--no-banner")]
     if app == "console":
         cmd += [opt("--no-confirm-exit")]
-        if _IPYTHON_VERSION < (5,):
+        if _IPYTHON_VERSION < (4,):
             cmd += [opt("--no-banner")]
     if app != "notebook" and _IPYTHON_VERSION < (5,):
         cmd += [opt("--colors=NoColor")]
