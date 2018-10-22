@@ -42,9 +42,14 @@ class _PyflybyHandler(Handler):
             # it can be necessary to force a flush to avoid interleaving.
             sys.stdout.flush()
             # Write log message.
-            sys.stderr.write(msg)
-            # Flush now - we don't want any interleaving of stdout/stderr.
-            sys.stderr.flush()
+            if sys.stderr.__class__.__module__.startswith("prompt_toolkit"):
+                with _PromptToolkitStdoutProxyRawCtx(sys.stderr):
+                    sys.stderr.write(msg)
+                    sys.stderr.flush()
+            else:
+                sys.stderr.write(msg)
+                # Flush now - we don't want any interleaving of stdout/stderr.
+                sys.stderr.flush()
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -91,6 +96,48 @@ def _is_interactive(file):
     except Exception:
         return False # dunno
     return os.isatty(fileno)
+
+
+@contextmanager
+def _PromptToolkitStdoutProxyRawCtx(proxy):
+    """
+    Hack to defeat the "feature" where
+    prompt_toolkit.interface._StdoutProxy(sys.stderr) causes ANSI escape codes
+    to not be written.
+    """
+    # prompt_toolkit replaces sys.stderr with a proxy object.  This proxy
+    # object replaces ESC (\xb1) with '?'.  That breaks our colorization of
+    # the [PYFLYBY] log prefix.  To work around this, we need to temporarily
+    # set _StdoutProxy._raw to True during the write() call.  However, the
+    # write() call actually just stores a lambda to be executed later, and
+    # that lambda references self._raw by reference.  So we can't just set
+    # _raw before we call sys.stderr.write(), since the _raw variable is not
+    # read yet at that point.  We need to hook the internals so that we store
+    # a wrapped lambda which temporarily sets _raw to True.  Yuck, this is so
+    # brittle.  Tested with prompt_toolkit 1.0.15.
+    if not hasattr(type(proxy), '_do') or not hasattr(proxy, '_raw'):
+        yield
+        return
+    MISSING = object()
+    prev = proxy.__dict__.get('_do', MISSING)
+    original_do = proxy._do
+    def wrapped_do_raw(self, func):
+        def wrapped_func():
+            prev_raw = self._raw
+            try:
+                self._raw = True
+                func()
+            finally:
+                self._raw = prev_raw
+        original_do(wrapped_func)
+    try:
+        proxy._do = wrapped_do_raw.__get__(proxy)
+        yield
+    finally:
+        if prev is MISSING:
+            proxy.__dict__.pop('_do', None)
+        else:
+            proxy.__dict__ = prev
 
 
 @contextmanager
