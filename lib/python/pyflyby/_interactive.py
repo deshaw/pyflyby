@@ -2026,14 +2026,24 @@ class AutoImporter(object):
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
         if (sys.version_info < (3,) and
-            hasattr(ip, "new_main_mod") and
-            inspect.getargspec(ip.new_main_mod).args == ["self","filename","modname"]):
-            @self._advise(ip.new_main_mod)
-            def new_main_mod_fix_str(filename, modname):
-                if six.PY2:
-                    if type(modname) is unicode:
-                        modname = str(modname)
-                return __original__(filename, modname)
+            hasattr(ip, "new_main_mod")):
+            try:
+                args = inspect.getargspec(ip.new_main_mod).args
+            except Exception as e:
+                # getargspec fails if we already advised.
+                # For now just skip under the assumption that we already
+                # advised (or the code changed in some way that doesn't
+                # require advising?)
+                # Minor todo: Ideally we would be relying on _advise to check
+                # that we haven't already advised.
+                args = None
+            if args == ["self","filename","modname"]:
+                @self._advise(ip.new_main_mod)
+                def new_main_mod_fix_str(filename, modname):
+                    if six.PY2:
+                        if type(modname) is unicode:
+                            modname = str(modname)
+                    return __original__(filename, modname)
         return True
 
     def _enable_ipython_bugfixes(self):
