@@ -8,6 +8,7 @@ from   contextlib               import contextmanager
 import logging
 from   logging                  import Handler, Logger
 import os
+from   six.moves                import builtins
 import sys
 
 
@@ -32,7 +33,7 @@ class _PyflybyHandler(Handler):
             # Format (currently a no-op).
             msg = self.format(record)
             # Add prefix per line.
-            if _is_interactive(sys.stderr):
+            if _is_ipython() or _is_interactive(sys.stderr):
                 prefix = self._interactive_prefix
             else:
                 prefix = self._noninteractive_prefix
@@ -96,6 +97,22 @@ def _is_interactive(file):
     except Exception:
         return False # dunno
     return os.isatty(fileno)
+
+
+def _is_ipython():
+    """
+    Returns true if we're currently running inside IPython.
+    """
+    # This currently only works for versions of IPython that are modern enough
+    # to install 'builtins.get_ipython()'.
+    if 'IPython' not in sys.modules:
+        return False
+    if not hasattr(builtins, "get_ipython"):
+        return False
+    ip = builtins.get_ipython()
+    if ip is None:
+        return False
+    return True
 
 
 @contextmanager
