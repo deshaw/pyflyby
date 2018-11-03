@@ -430,7 +430,8 @@ try:
 except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
-_IPYTHON_PROMPT1 = r"\nIn \[[0-9]+\]: "
+# Prompts that we expect for.
+_IPYTHON_PROMPT1 = r"\nIn \[([0-9]+)\]: "
 _IPYTHON_PROMPT2 = r"\n   [.][.][.]+: "
 _PYTHON_PROMPT = r">>> "
 _IPDB_PROMPT = r"\nipdb> "
@@ -438,6 +439,8 @@ _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
                     _IPDB_PROMPT]
+# Currently _interact_ipython() assumes the first is "In [nn]:"
+assert "In " in _IPYTHON_PROMPTS[0]
 
 
 @memoize
@@ -777,10 +780,25 @@ def _interact_ipython(child, input, exitstr="exit()\n",
     input += "\n"
     input += exitstr
     lines = input.splitlines(False)
+    prev_prompt_in_idx = None
     # Loop over lines.
     for line in lines:
         # Wait for the "In [N]:" prompt.
-        child.expect(_IPYTHON_PROMPTS)
+        while True:
+            expect_result = child.expect(_IPYTHON_PROMPTS)
+            if expect_result == 0:
+                # We got "In [N]:".
+                # Check if we got the same prompt as before.  If so then keep
+                # looking for the next prompt.
+                in_idx = child.match.group(1)
+                if in_idx == prev_prompt_in_idx:
+                    # This is still the same In[N] that we previously saw.
+                    continue
+                prev_prompt_in_idx = in_idx
+                break
+            else:
+                # We got ">>>", "...:" etc.
+                break
         if line.startswith(" ") and is_prompt_toolkit:
             # Clear the line via ^U.  This is needed with prompt_toolkit
             # (IPython 5+) because it is no longer possible to turn off
@@ -1844,7 +1862,6 @@ def test_complete_symbol_instance_identity_1():
 
 
 def test_complete_symbol_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     # Verify that tab completion in members works.
     # We expect "base64.b64d" to be reprinted again after the [PYFLYBY] log
     # line.  (This differs from the "b64deco\t" case: in that case, nothing
@@ -1894,7 +1911,6 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
 
 
 def test_complete_symbol_import_module_as_1(frontend, tmp):
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "import base64 as b64\n")
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2030,7 +2046,6 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
     # TODO: Fix that.  We can't avoid pyflyby evaluating the property.  But is
     # there some way to intercept ipython's subsequent evaluation and reuse
     # the same result?
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"gravesend60063393.py", """
         import sys
         river = 'Thames'
@@ -2054,7 +2069,7 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
         in the river
         in the river
         Medway
-        In [3]: print gravesend60063\t393.is\tland
+        In [3]: print gravesend600633\t93.is\tland
         on the island
         on the island
         Canvey
@@ -2111,7 +2126,6 @@ def test_complete_symbol_greedy_eval_autoimport_1(frontend):
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
     # we don't get confused.
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: class Naughty:
