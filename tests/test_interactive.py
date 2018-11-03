@@ -34,6 +34,7 @@ from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 
 
+# To debug test_interactive.py itself, set the env var DEBUG_TEST_IPYTHON.
 DEBUG = bool(os.getenv("DEBUG_TEST_IPYTHON"))
 
 def _get_Failed_class():
@@ -645,7 +646,11 @@ class MySpawn(pexpect.spawn):
 
     def __init__(self, *args, **kwargs):
         super(MySpawn, self).__init__(*args, **kwargs)
-        # Filter out various ansi nonsense
+        # Filter out various ansi nonsense.  Override self._decoder.  This is
+        # called by pexpect.spawnbase.SpawnBase.read_nonblocking.  This is
+        # normally initialized by SpawnBase.__init__ intended for unicode
+        # decoding.  This is a bit hacky because it's an internal thing that
+        # could change.
         self._decoder = AnsiFilterDecoder()
 
 
@@ -1030,23 +1035,40 @@ def _wait_for_output(child, timeout):
     """
     # In IPython 5, we cannot send any output before IPython responds to the
     # tab, else it won't respond to the tab.  The purpose of this function is
-    # to wait for IPython to respond to a tab.  As an expedience we just use
-    # expect(".") to wait for an arbitrary character.  We tried other
-    # techniques.  We tried select([child.child_fd],...).  But that doesn't
-    # work because IPython always emits some ansi control character stuff
-    # before it responds to the tab, and we don't want to hardcode exactly
-    # what it outputs before it responds to the tab.  The downside of the
-    # approach we use now is that it eats up a character from the input.
-    # Another approach we could try is: do a raw read, run it through the ansi
-    # filter, check that it turns nonzero number of raw characters into zero
-    # filtered characters, then select the fd.
+    # to wait for IPython to respond to a tab.
     if DEBUG:
         print("_wait_for_output()")
-    try:
-        child.expect(".", timeout=timeout)
-    except pexpect.TIMEOUT:
+    got_data_already = False
+    # Read C{BLOCKSIZE} bytes at a time.  Note that currently our ansi filter
+    # won't work across block boundaries, so currently this blocksize needs to
+    # be large enough that we don't span an ANSI sequence across two blocks.
+    BLOCKSIZE = 16*4096
+    deadline = time.time() + timeout
+    while True:
+        if child.flag_eof:
+            break
+        if got_data_already:
+            # If we previously got any data (after ansi filtering), then keep
+            # going while there's pending data.
+            remaining_timeout = 0.05
+        else:
+            # Wait until timeout.  This condition applies if it's the first
+            # loop, or if we've gotten some non-empty data after ansi
+            # filtering.
+            remaining_timeout = deadline - time.time()
+        try:
+            data = child.read_nonblocking(BLOCKSIZE, timeout=remaining_timeout)
+        except pexpect.TIMEOUT:
+            if DEBUG:
+                print("_wait_for_output(): timeout")
+            break
         if DEBUG:
-            print("_wait_for_output(): timeout")
+            print("_wait_for_output(): got %r" % (data,))
+        # Keep the data in case we need to expect on it later.
+        child._buffer.write(data)
+        # We got some raw data.  Check if it's non-empty after ansi filtering.
+        if data:
+            got_data_already = True
 
 
 def _wait_nonce(child):
@@ -1130,8 +1152,14 @@ def _clean_backspace(arg):
             break
         left = left + right[:m.start()]
         count = int(m.group(1))
-        left = left[:-count]
         right = right[m.end():]
+        if right.startswith("[PYFLYBY]"):
+            # For purposes of comparing IPython output in prompt_toolkit mode,
+            # include the pre-backspace stuff as a separate line.  TODO: do
+            # this in a more less hacky way.
+            left = left + "\n"
+        else:
+            left = left[:-count]
     arg = left + right
     return arg
 
@@ -1139,6 +1167,7 @@ def _clean_backspace(arg):
 
 def _clean_ipython_output(result):
     """Clean up IPython output."""
+    result0 = result
     # Canonicalize newlines.
     result = re.sub("\r+\n", "\n", result)
     # Clean things like "    ESC[4D".
@@ -1162,7 +1191,7 @@ def _clean_ipython_output(result):
     result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
     result = result.lstrip()
     if DEBUG:
-        print("_clean_ipython_output(): => %r" % (result,))
+        print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
 
 
@@ -1949,7 +1978,6 @@ def test_complete_symbol_any_module_1(frontend, tmp):
 def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
     # $PYTHONPATH.
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"m51145108_foo.py", """
         def f_76313558_59577191(): return 'ok'
     """)
