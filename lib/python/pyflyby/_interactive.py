@@ -754,7 +754,7 @@ def _get_pdb_if_is_in_pdb():
             return None
         modname = frame.f_globals.get("__name__", None) or ""
         # print("## _get_pdb_if_is_in_pdb(): frame.modname=%s" % (modname,))
-        if modname.startswith("pyflyby.") or modname.startswith("IPython."):
+        if modname.startswith("pyflyby.") or modname.startswith("IPython.") or modname.startswith("rlipython."):
             frame = frame.f_back
             continue
         elif modname in ["cmd", "contextlib"]:
@@ -921,6 +921,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         raise AssertionError
     if six.PY2:
         results = [unicode(s) for s in results]
+    logger.debug("complete_symbol(%r) => %r", fullname, results)
     return results
 
 
@@ -970,13 +971,18 @@ def _auto_import_in_pdb_frame(pdb_instance, arg):
 
 
 def _enable_pdb_hooks(pdb_instance):
+    # Enable hooks in pdb.Pdb.
+    # Should be called after pdb.Pdb.__init__().
+    logger.debug("_enable_pdb_hooks(%r)", pdb_instance)
     # Patch Pdb._getval() to use auto_eval.
+    # This supports 'ipdb> p foo'.
     @advise(pdb_instance._getval)
     def _getval_with_autoimport(arg):
         logger.debug("Pdb._getval(%r)", arg)
         _auto_import_in_pdb_frame(pdb_instance, arg)
         return __original__(arg)
     # Patch Pdb.default() to use auto_import.
+    # This supports 'ipdb> foo()'.
     @advise(pdb_instance.default)
     def default_with_autoimport(arg):
         logger.debug("Pdb.default(%r)", arg)
@@ -986,9 +992,20 @@ def _enable_pdb_hooks(pdb_instance):
         return __original__(arg)
 
 
+def _enable_terminal_pdb_hooks(pdb_instance, auto_importer=None):
+    # Should be called after TerminalPdb.__init__().
+    # Tested with IPython 5.8 with prompt_toolkit.
+    logger.debug("_enable_terminal_pdb_hooks(%r)", pdb_instance)
+    ptcomp = getattr(pdb_instance, "_ptcomp", None)
+    completer = getattr(ptcomp, "ipy_completer", None)
+    logger.debug("_enable_terminal_pdb_hooks(): completer=%r", completer)
+    if completer is not None and auto_importer is not None:
+        auto_importer._enable_completer_hooks(completer)
+
+
 def _get_IPdb_class():
     """
-    Get the IPython Pdb class.
+    Get the IPython (core) Pdb class.
     """
     try:
         import IPython
@@ -1014,6 +1031,27 @@ def _get_IPdb_class():
         "IPython.__version__=%r" % (IPython.__version__))
 
 
+def _get_TerminalPdb_class():
+    """
+    Get the IPython TerminalPdb class.
+    """
+    # The TerminalPdb subclasses the (core) Pdb class.  If the TerminalPdb
+    # class is being used, then in that case we only need to advise
+    # TerminalPdb stuff, not (core) Pdb stuff.  However, in some cases the
+    # TerminalPdb class is not used even if it exists, so we advise the (core)
+    # Pdb class separately.
+    try:
+        import IPython
+    except ImportError:
+        raise NoIPythonPackageError()
+    try:
+        from IPython.terminal.debugger import TerminalPdb
+        return TerminalPdb
+    except ImportError:
+        pass
+    raise RuntimeError("Couldn't get TerminalPdb")
+
+
 def new_IPdb_instance():
     """
     Create a new Pdb instance.
@@ -1028,6 +1066,7 @@ def new_IPdb_instance():
     @rtype:
       L{Pdb}
     """
+    logger.debug("new_IPdb_instance()")
     try:
         app = get_ipython_terminal_app_with_autoimporter()
     except NoIPythonPackageError as e:
@@ -1035,11 +1074,14 @@ def new_IPdb_instance():
         from pdb import Pdb
         pdb_instance = Pdb()
         _enable_pdb_hooks(pdb_instance)
+        _enable_terminal_pdb_hooks(pdb_instance)
         return pdb_instance
     pdb_class = _get_IPdb_class()
+    logger.debug("new_IPdb_instance(): pdb_class=%s", pdb_class)
     color_scheme = _get_ipython_color_scheme(app)
     pdb_instance = pdb_class(color_scheme)
     _enable_pdb_hooks(pdb_instance)
+    _enable_terminal_pdb_hooks(pdb_instance)
     return pdb_instance
 
 
@@ -1895,10 +1937,7 @@ class AutoImporter(object):
             logger.debug("Couldn't enable prun hook")
             return False
 
-    def _enable_completion_hook(self, ip):
-        """
-        Enable a tab-completion hook.
-        """
+    def _enable_completer_hooks(self, completer):
         # There are a few different places within IPython we can consider
         # hooking/advising:
         #   * ip.completer.custom_completers / ip.set_hook("complete_command")
@@ -1917,17 +1956,19 @@ class AutoImporter(object):
         # global_matches() and attr_matches() instead of python_matches()
         # because a few other functions call global_matches/attr_matches
         # directly.)
-        completer = getattr(ip, "Completer", None)
+        logger.debug("_enable_completer_hooks(%r)", completer)
         if hasattr(completer, "global_matches"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
-            # 2.4, 3.0, 3.1, 3.2, 4.0.
-            @self._advise(ip.Completer.global_matches)
+            # 2.4, 3.0, 3.1, 3.2, 4.0, 5.8.
+            @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 if len(fullname) == 0:
                     return []
+                logger.debug("global_matches_with_autoimport(%r)", fullname)
                 return self.complete_symbol(fullname, on_error=__original__)
-            @self._advise(ip.Completer.attr_matches)
+            @self._advise(completer.attr_matches)
             def attr_matches_with_autoimport(fullname):
+                logger.debug("attr_matches_with_autoimport(%r)", fullname)
                 return self.complete_symbol(fullname, on_error=__original__)
             return True
         elif hasattr(completer, "complete_request"):
@@ -1936,6 +1977,12 @@ class AutoImporter(object):
         else:
             logger.debug("Couldn't enable completion hook")
             return False
+
+    def _enable_completion_hook(self, ip):
+        """
+        Enable a tab-completion hook.
+        """
+        return self._enable_completer_hooks(getattr(ip, "Completer", None))
 
     def _enable_run_hook(self, ip):
         """
@@ -1973,11 +2020,26 @@ class AutoImporter(object):
             logger.debug("Couldn't locate Pdb class: %s: %s",
                          type(e).__name__, e)
             return False
+        try:
+            TerminalPdb = _get_TerminalPdb_class()
+        except Exception as e:
+            logger.debug("Couldn't locate TerminalPdb class: %s: %s",
+                         type(e).__name__, e)
+            TerminalPdb = None
+        @contextmanager
         def HookPdbCtx():
-            def Pdb_with_autoimport(self, *args):
-                __original__(self, *args)
-                _enable_pdb_hooks(self)
-            return AdviceCtx(Pdb.__init__, Pdb_with_autoimport)
+            def Pdb_with_autoimport(self_pdb, *args):
+                __original__(self_pdb, *args)
+                _enable_pdb_hooks(self_pdb)
+            def TerminalPdb_with_autoimport(self_pdb, *args):
+                __original__(self_pdb, *args)
+                _enable_terminal_pdb_hooks(self_pdb, self)
+            with AdviceCtx(Pdb.__init__, Pdb_with_autoimport):
+                if TerminalPdb is None:
+                    yield
+                else:
+                    with AdviceCtx(TerminalPdb.__init__, TerminalPdb_with_autoimport):
+                        yield
         iptb = getattr(ip, "InteractiveTB", None)
         ok = True
         if hasattr(iptb, "debugger"):
@@ -1995,7 +2057,7 @@ class AutoImporter(object):
             # Hook ExecutionMagics._run_with_debugger().  This implements auto
             # importing for "%debug <statement>".
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
-            # 3.1, 3.2, 4.0.
+            # 3.1, 3.2, 4.0, 5.8.
             line_magics = ip.magics_manager.magics['line']
             execmgr = six.get_method_self(line_magics['debug'])
             if hasattr(execmgr, "_run_with_debugger"):

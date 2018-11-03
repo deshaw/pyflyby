@@ -1511,7 +1511,8 @@ def test_autoimport_multiline_statement_1():
     """)
 
 
-def test_autoimport_multiline_continued_statement_1():
+def test_autoimport_multiline_continued_statement_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1526,7 +1527,7 @@ def test_autoimport_multiline_continued_statement_1():
         microphone
         In [3]: print b64decode('bG91ZHNwZWFrZXI=')
         loudspeaker
-    """)
+    """, frontend=frontend)
 
 
 def test_autoimport_multiline_continued_statement_fake_1(frontend):
@@ -1961,7 +1962,7 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-def test_complete_symbol_bad_1(tmp):
+def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
     writetext(tmp.file, "import foo_31221052_bar\n")
     ipython("""
@@ -1974,10 +1975,10 @@ def test_complete_symbol_bad_1(tmp):
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
         NameError: name 'foo_31221052_bar' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
-def test_complete_symbol_bad_as_1(tmp):
+def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1989,10 +1990,10 @@ def test_complete_symbol_bad_as_1(tmp):
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>()
         NameError: name 'bar_98073069_quux' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
-def test_complete_symbol_nonmodule_1(tmp):
+def test_complete_symbol_nonmodule_1(frontend, tmp):
     # Verify that completion works even if a module replaced itself in
     # sys.modules with a pseudo-module (perhaps in order to get module
     # properties).  E.g. psutil, https://github.com/josiahcarlson/mprop.
@@ -2001,6 +2002,7 @@ def test_complete_symbol_nonmodule_1(tmp):
     # TODO: Fix that.  We can't avoid pyflyby evaluating the property.  But is
     # there some way to intercept ipython's subsequent evaluation and reuse
     # the same result?
+    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"gravesend60063393.py", """
         import sys
         river = 'Thames'
@@ -2028,7 +2030,7 @@ def test_complete_symbol_nonmodule_1(tmp):
         on the island
         on the island
         Canvey
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims
@@ -2037,6 +2039,7 @@ def test_complete_symbol_nonmodule_1(tmp):
     reason="test not implemented for this version")
 def test_complete_symbol_getitem_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
+    if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: apples = ['McIntosh', 'PinkLady']
@@ -2064,7 +2067,9 @@ def test_complete_symbol_greedy_eval_1():
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="test not implemented for old config")
-def test_complete_symbol_greedy_eval_autoimport_1():
+def test_complete_symbol_greedy_eval_autoimport_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
+    if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %config IPCompleter.greedy=True
@@ -2072,12 +2077,13 @@ def test_complete_symbol_greedy_eval_autoimport_1():
         [PYFLYBY] import os
         In [3]: os.sep.strip().lst\trip()
         Out[3]: '/'
-    """)
+    """, frontend=frontend)
 
 
-def test_complete_symbol_error_in_getattr_1():
+def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
     # we don't get confused.
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: class Naughty:
@@ -2094,7 +2100,7 @@ def test_complete_symbol_error_in_getattr_1():
         [PYFLYBY] import sys
         In [5]: sys.settrace
         Out[5]: <...settrace>
-    """)
+    """, frontend=frontend)
 
 
 @pytest.mark.skipif(
@@ -2225,7 +2231,8 @@ def test_error_during_auto_import_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-def test_error_during_completion_1(tmp):
+def test_error_during_completion_1(frontend, tmp):
+    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "3+")
     ipython("""
         In [1]: import pyflyby
@@ -2250,7 +2257,7 @@ def test_error_during_completion_1(tmp):
         NameError: name 'unknown_symbol_69697066_foo' is not defined
         In [7]: 300
         Out[7]: 300
-    """, PYFLYBY_PATH=tmp.file)
+    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
 def test_syntax_error_in_user_code_1():
@@ -2468,18 +2475,19 @@ def test_timeit_1():
     """)
 
 
-def test_timeit_complete_1():
+def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %timeit -n 2 -r 1 b64de\tcode('cGlsbG93')
         [PYFLYBY] from base64 import b64decode
         2 loops, best of 1: ... per loop
-    """)
+    """, frontend=frontend)
 
 
-def test_timeit_complete_menu_1():
+def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 b64\t
@@ -2487,10 +2495,11 @@ def test_timeit_complete_menu_1():
         In [2]: timeit -n 2 -r 1 b64\x06d\tecode('YmxhbmtldA==')
         [PYFLYBY] from base64 import b64decode
         2 loops, best of 1: ... per loop
-    """)
+    """, frontend=frontend)
 
 
-def test_timeit_complete_autoimport_member_1():
+def test_timeit_complete_autoimport_member_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 base64.b6\t
@@ -2499,7 +2508,7 @@ def test_timeit_complete_autoimport_member_1():
         base64.b64decode  base64.b64encode
         In [2]: timeit -n 2 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
         2 loops, best of 1: ... per loop
-    """)
+    """, frontend=frontend)
 
 
 def test_noninteractive_timeit_unaffected_1():
@@ -2517,7 +2526,7 @@ def test_noninteractive_timeit_unaffected_1():
     """)
 
 
-def test_time_1():
+def test_time_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2526,10 +2535,10 @@ def test_time_1():
         CPU times: ...
         Wall time: ...
         Out[2]: 'telephone'
-    """)
+    """, frontend=frontend)
 
 
-def test_time_repeat_1():
+def test_time_repeat_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2542,10 +2551,10 @@ def test_time_repeat_1():
         CPU times: ...
         Wall time: ...
         Out[3]: 'email'
-    """)
+    """, frontend=frontend)
 
 
-def test_time_complete_1():
+def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2554,11 +2563,12 @@ def test_time_complete_1():
         CPU times: ...
         Wall time: ...
         Out[2]: 'shirt'
-    """)
+    """, frontend=frontend)
 
 
-def test_time_complete_menu_1():
+def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time b64\t
@@ -2568,10 +2578,11 @@ def test_time_complete_menu_1():
         CPU times: ...
         Wall time: ...
         Out[2]: 'pants'
-    """)
+    """, frontend=frontend)
 
 
-def test_time_complete_autoimport_member_1():
+def test_time_complete_autoimport_member_1(frontend):
+    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time base64.b6\t
@@ -2582,7 +2593,7 @@ def test_time_complete_autoimport_member_1():
         CPU times: ...
         Wall time: ...
         Out[2]: 'jacket'
-    """)
+    """, frontend=frontend)
 
 
 def test_prun_1():
@@ -3138,7 +3149,7 @@ def test_cmdline_enable_exec_files_1(tmp):
         '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])
 
 
-def test_debug_baseline_1():
+def test_debug_baseline_1(frontend):
     # Verify that we can test ipdb without any pyflyby involved.
     ipython("""
         In [1]: 82318215/0
@@ -3149,10 +3160,10 @@ def test_debug_baseline_1():
         ipdb> p 43405728 + 69642968
         113048696
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_without_autoimport_1():
+def test_debug_without_autoimport_1(frontend):
     # Verify that without autoimport, we get a NameError.
     ipython("""
         In [1]: 70506357/0
@@ -3163,10 +3174,10 @@ def test_debug_without_autoimport_1():
         ipdb> p b64decode("QXVkdWJvbg==")
         *** NameError: NameError("name 'b64decode' is not defined",)
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_auto_import_p_1():
+def test_debug_auto_import_p_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: 17839239/0
@@ -3178,10 +3189,10 @@ def test_debug_auto_import_p_1():
         [PYFLYBY] from base64 import b64decode
         'Kensington'
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_auto_import_pp_1():
+def test_debug_auto_import_pp_1(frontend):
     # Verify that auto importing works with "pp foo".
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3194,10 +3205,10 @@ def test_debug_auto_import_pp_1():
         [PYFLYBY] from base64 import b64decode
         'Garden'
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_auto_import_default_1():
+def test_debug_auto_import_default_1(frontend):
     # Verify that auto importing works with "foo(...)".
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3210,10 +3221,10 @@ def test_debug_auto_import_default_1():
         [PYFLYBY] from base64 import b64decode
         'Prospect'
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_auto_import_print_1():
+def test_debug_auto_import_print_1(frontend):
     # Verify that auto importing works with "print foo".  (This is executed as
     # a statement; a special case of "default".)
     ipython("""
@@ -3227,10 +3238,10 @@ def test_debug_auto_import_print_1():
         [PYFLYBY] from base64 import b64decode
         Montgomery
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_auto_import_bang_default_1():
+def test_debug_auto_import_bang_default_1(frontend):
     # Verify that "!blah" works with auto importing.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3244,10 +3255,10 @@ def test_debug_auto_import_bang_default_1():
         ipdb> !q
         'Hawthorne'
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_postmortem_auto_import_1():
+def test_debug_postmortem_auto_import_1(frontend):
     # Verify that %debug postmortem mode works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3265,10 +3276,10 @@ def test_debug_postmortem_auto_import_1():
         [PYFLYBY] from base64 import b64decode
         Bowcraft@Mountain
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_tab_completion_db_1():
+def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3281,10 +3292,10 @@ def test_debug_tab_completion_db_1():
         [PYFLYBY] from base64 import b64decode
         Garfield
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_tab_completion_module_1(tmp):
+def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
         randolph = 14164598
@@ -3301,10 +3312,10 @@ def test_debug_tab_completion_module_1(tmp):
         ipdb> print thornton60097181.rando\tlph
         14164598
         ipdb> q
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-def test_debug_tab_completion_multiple_1(tmp):
+def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
     writetext(tmp.dir/"sturbridge9088333.py", """
         nebula_41695458 = 1
@@ -3324,10 +3335,10 @@ def test_debug_tab_completion_multiple_1(tmp):
         ipdb> print sturbridge9088333.nebula_
         *** AttributeError: 'module' object has no attribute 'nebula_'
         ipdb> q
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-def test_debug_postmortem_tab_completion_1():
+def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3346,10 +3357,10 @@ def test_debug_postmortem_tab_completion_1():
         ipdb> print x + base64.b64decode("Lw==") + y
         Camden/Hopkinson
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_namespace_1():
+def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
     ipython("""
@@ -3375,10 +3386,10 @@ def test_debug_namespace_1():
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
         Out[5]: 'HillLake'
-    """)
+    """, frontend=frontend)
 
 
-def test_debug_second_1():
+def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
     ipython("""
@@ -3410,13 +3421,13 @@ def test_debug_second_1():
         [PYFLYBY] from base64 import b64decode
         Crocus
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
-def test_debug_auto_import_string_1():
+def test_debug_auto_import_string_1(frontend):
     # Verify that auto importing works inside the debugger after running
     # "%debug <string>".
     ipython("""
@@ -3428,13 +3439,13 @@ def test_debug_auto_import_string_1():
         [PYFLYBY] from base64 import b64decode
         'Linsley'
         ipdb> q
-    """)
+    """, frontend=frontend)
 
 
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
-def test_debug_auto_import_of_string_1(tmp):
+def test_debug_auto_import_of_string_1(frontend, tmp):
     # Verify that auto importing works for the string to be debugged.
     writetext(tmp.dir/"peekskill43666930.py", """
         def hollow(x):
@@ -3448,13 +3459,13 @@ def test_debug_auto_import_of_string_1(tmp):
         > <string>(1)<module>()
         ipdb> c
         135316282
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
-def test_debug_auto_import_statement_step_1(tmp):
+def test_debug_auto_import_statement_step_1(frontend, tmp):
     # Verify that step functionality isn't broken.
     writetext(tmp.dir/"taconic72383428.py", """
         def pudding(x):
@@ -3477,7 +3488,7 @@ def test_debug_auto_import_statement_step_1(tmp):
         [PYFLYBY] import os.path
         ipdb> c
         /////
-    """, PYTHONPATH=tmp.dir)
+    """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 # TODO: test embedded mode.  Something like this:
 #         >>> sys = 86176104
