@@ -1981,6 +1981,13 @@ class AutoImporter(object):
             return False
 
     def _enable_completer_hooks(self, completer):
+        # Hook a completer instance.
+        #
+        # This is called:
+        #   - initially when enabling pyflyby
+        #   - each time we enter the debugger, since each Pdb instance has its
+        #     own completer
+        #
         # There are a few different places within IPython we can consider
         # hooking/advising:
         #   * ip.completer.custom_completers / ip.set_hook("complete_command")
@@ -2003,16 +2010,34 @@ class AutoImporter(object):
         if hasattr(completer, "global_matches"):
             # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
             # 2.4, 3.0, 3.1, 3.2, 4.0, 5.8.
+            try:
+                completer.shell.pt_cli
+                is_pt = True
+            except AttributeError:
+                is_pt = False
+            if is_pt:
+                def get_completer_namespaces():
+                    return [completer.namespace, completer.global_namespace]
+            else:
+                def get_completer_namespaces():
+                    # For non-prompt_toolkit, (1) completer.namespace is not
+                    # reliable inside pdb, and (2) _get_pdb_if_is_in_pdb() is
+                    # reliable inside pdb because no threading.
+                    # Use get_global_namespaces(), which relies on
+                    # _get_pdb_if_is_in_pdb().
+                    return None
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 if len(fullname) == 0:
                     return []
                 logger.debug("global_matches_with_autoimport(%r)", fullname)
-                return self.complete_symbol(fullname, on_error=__original__)
+                namespaces = get_completer_namespaces()
+                return self.complete_symbol(fullname, namespaces, on_error=__original__)
             @self._advise(completer.attr_matches)
             def attr_matches_with_autoimport(fullname):
                 logger.debug("attr_matches_with_autoimport(%r)", fullname)
-                return self.complete_symbol(fullname, on_error=__original__)
+                namespaces = get_completer_namespaces()
+                return self.complete_symbol(fullname, namespaces, on_error=__original__)
             return True
         elif hasattr(completer, "complete_request"):
             # This is a ZMQCompleter, so nothing to do.
@@ -2280,10 +2305,11 @@ class AutoImporter(object):
             autoimported=self._autoimported_this_cell,
             raise_on_error=raise_on_error, on_error=on_error)
 
-    def complete_symbol(self, fullname,
+    def complete_symbol(self, fullname, namespaces,
                         raise_on_error='if_debug', on_error=None):
         with InterceptPrintsDuringPromptCtx(self._ip):
-            namespaces = get_global_namespaces(self._ip)
+            if namespaces is None:
+                namespaces = get_global_namespaces(self._ip)
             if on_error is not None:
                 def on_error1(fullname, namespaces, autoimported, ip, allow_eval):
                     return on_error(fullname)
