@@ -1,5 +1,5 @@
 # pyflyby/_dbg.py.
-# Copyright (C) 2009, 2010, 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -423,6 +423,8 @@ def debugger(*args, **kwargs):
     if arg is None:
         # Debug current frame.
         arg = _CURRENT_FRAME
+    if arg is _CURRENT_FRAME:
+        arg = _get_caller_frame()
     if background:
         # Fork a process and wait for a debugger to attach in the background.
         # Todo: implement on_continue()
@@ -451,8 +453,6 @@ def debugger(*args, **kwargs):
         _debug_exception(arg, tty=tty)
         on_continue()
         return
-    if arg is _CURRENT_FRAME:
-        arg = _get_caller_frame()
     if not isinstance(arg, FrameType):
         raise TypeError(
             "debugger(): expected a frame/traceback/str/code; got %s"
@@ -623,6 +623,7 @@ def _send_email_with_attach_instructions(arg, mailto, originalpid):
         traceback  =None                  ,
         username   =user                  ,
     )
+    tb = None
     frame = None
     stacktrace = None
     if isinstance(arg, FrameType):
@@ -695,7 +696,7 @@ def _send_email_with_attach_instructions(arg, mailto, originalpid):
         template += [
             "  Exception        : {exctype}: {exc}",
         ]
-    if d['stacktrace']:
+    if d.get('stacktrace'):
         template += [
             "  Traceback        :",
             "{stacktrace}",
