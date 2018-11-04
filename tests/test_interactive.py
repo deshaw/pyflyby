@@ -1219,6 +1219,11 @@ def _clean_ipython_output(result):
     # Remove xterm title setting.
     result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
     result = result.lstrip()
+    if _IPYTHON_VERSION >= (5,):
+        # In IPython 5 kernel/console/etc, it seems to be impossible to turn
+        # off the banner.  For now just delete the output up to the first
+        # prompt.
+        result = re.sub(".*?(In \[1\])", "\\1", result, flags=re.S)
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
