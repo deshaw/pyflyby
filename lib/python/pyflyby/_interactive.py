@@ -740,6 +740,24 @@ def _ipython_namespaces(ip):
 # TODO class NamespaceList(tuple):
 
 
+_IS_PDB_IGNORE_PKGS = frozenset([
+    'IPython',
+    'cmd',
+    'contextlib',
+    'prompt_toolkit',
+    'pyflyby',
+    'rlipython',
+])
+
+_IS_PDB_IGNORE_PKGS_OTHER_THREADS = frozenset([
+    'IPython',
+    'cmd',
+    'contextlib',
+    'prompt_toolkit',
+    'pyflyby',
+    'threading',
+])
+
 def _get_pdb_if_is_in_pdb():
     """
     Return the current Pdb instance, if we're currently called from Pdb.
@@ -748,27 +766,50 @@ def _get_pdb_if_is_in_pdb():
       C{pdb.Pdb} or C{NoneType}
     """
     # This is kludgy.  Todo: Is there a better way to do this?
-    frame = sys._getframe(1)
+    pframe, pkgname = _skip_frames(sys._getframe(1), _IS_PDB_IGNORE_PKGS)
+    if pkgname == "threading":
+        # _skip_frames skipped all the way back to threading.__bootstrap.
+        # prompt_toolkit calls completion in a separate thread.
+        # Search all other threads for pdb.
+        # TODO: make this less kludgy.
+        import threading
+        current_tid = threading.current_thread().ident
+        pframes = [_skip_frames(frame, _IS_PDB_IGNORE_PKGS_OTHER_THREADS)
+                   for tid, frame in sys._current_frames().items()
+                   if tid != current_tid]
+    else:
+        pframes = [(pframe, pkgname)]
+    logger.debug("_get_pdb_if_is_in_pdb(): pframes = %r", pframes)
+    del pframe, pkgname
+    pdb_frames = [pframe for pframe,pkgname in pframes
+                  if pkgname == "pdb"]
+    if not pdb_frames:
+        return None
+    # Found a pdb frame.
+    pdb_frame = pdb_frames[0]
+    import pdb
+    pdb_instance = pdb_frame.f_locals.get("self", None)
+    if (type(pdb_instance).__name__ == "Pdb" or
+        isinstance(pdb_instance, pdb.Pdb)):
+        return pdb_instance
+    else:
+        return None
+
+
+def _skip_frames(frame, ignore_pkgs):
+    # import traceback;print("".join(traceback.format_stack(frame)))
     while True:
         if frame is None:
-            return None
+            return None, None
         modname = frame.f_globals.get("__name__", None) or ""
-        # print("## _get_pdb_if_is_in_pdb(): frame.modname=%s" % (modname,))
-        if modname.startswith("pyflyby.") or modname.startswith("IPython.") or modname.startswith("rlipython."):
+        pkgname = modname.split(".",1)[0]
+        # logger.debug("_skip_frames: frame: %r %r", frame, modname)
+        if pkgname in ignore_pkgs:
             frame = frame.f_back
             continue
-        elif modname in ["cmd", "contextlib"]:
-            frame = frame.f_back
-            continue
-        elif modname == "pdb":
-            import pdb
-            pdb_instance = frame.f_locals.get("self", None)
-            if (type(pdb_instance).__name__ == "Pdb" or
-                isinstance(pdb_instance, pdb.Pdb)):
-                return pdb_instance
-            else:
-                return None
-        return None
+        break
+    # logger.debug("_skip_frames: => %r %r", frame, pkgname)
+    return frame, pkgname
 
 
 def get_global_namespaces(ip):
@@ -782,7 +823,9 @@ def get_global_namespaces(ip):
     @rtype:
       C{list} of C{dict}
     """
+    # logger.debug("get_global_namespaces()")
     pdb_instance = _get_pdb_if_is_in_pdb()
+    # logger.debug("get_global_namespaces(): pdb_instance=%r", pdb_instance)
     if pdb_instance:
         frame = pdb_instance.curframe
         return [frame.f_globals, frame.f_locals]
