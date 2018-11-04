@@ -797,7 +797,16 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                 prev_prompt_in_idx = in_idx
                 break
             else:
-                # We got ">>>", "...:" etc.
+                # We got ">>>", "...:", "ipdb>", etc.
+                if is_prompt_toolkit:
+                    # prompt_toolkit might rewrite "ipdb>" etc multiple times.
+                    # Make sure we eat up all the output so that the next
+                    # expect("ipdb>") doesn't get the rewritten "ipdb>" from
+                    # the previous line.  For "In [N]", we can rely on the
+                    # counter to do that.  For prompts without a counter, we
+                    # just try our best to eat up pending output.  Todo:
+                    # is there a better way?
+                    _wait_for_output(child, timeout=0.05)
                 break
         if line.startswith(" ") and is_prompt_toolkit:
             # Clear the line via ^U.  This is needed with prompt_toolkit
@@ -3361,6 +3370,7 @@ def test_debug_tab_completion_module_1(frontend, tmp):
 
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
+    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"sturbridge9088333.py", """
         nebula_41695458 = 1
         nebula_10983840 = 2
