@@ -504,7 +504,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     """
     ipython_dir = Filename(ipython_dir)
     cmd = []
-    if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args[:1] == ["console"]:
+    if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
     if '/.tox/' in sys.prefix:
         # Get the ipython from our (tox virtualenv) path.
@@ -964,13 +964,14 @@ def IPythonNotebookCtx(**kwargs):
     __tracebackhide__ = True
     args = kwargs.pop("args", [])
     args = args + ['notebook', '--no-browser', '--ip=127.0.0.1']
-    passwd_plaintext = rand_chars()
-    passwd_hashed = IPython.lib.passwd(passwd_plaintext)
-    args += ['--NotebookApp.password=%s' % passwd_hashed]
+    if _IPYTHON_VERSION < (5,):
+        passwd_plaintext = rand_chars()
+        passwd_hashed = IPython.lib.passwd(passwd_plaintext)
+        args += ['--NotebookApp.password=%s' % passwd_hashed]
     notebook_dir = kwargs.pop("notebook_dir", None)
     cleanups = []
     if not notebook_dir:
-        notebook_dir = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
+        notebook_dir = mkdtemp(prefix="pyflyby_test_notebooks_", suffix=".tmp")
         cleanups.append(lambda: rmtree(notebook_dir))
     if (kwargs.get("prog", "ipython") == "ipython" and
         (1, 0) <= _IPYTHON_VERSION < (1, 2) and
@@ -999,19 +1000,43 @@ def IPythonNotebookCtx(**kwargs):
     try:
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:
-            # Get the base URL from the notebook app.
-            child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-            baseurl = child.match.group(1)
-            # Login.
-            response = requests.post(
-                baseurl + "/login",
-                data=dict(password=passwd_plaintext),
-                allow_redirects=False
-            )
-            assert response.status_code == 302
-            cookies = response.cookies
-            # Create a new notebook.
-            if _IPYTHON_VERSION >= (2,):
+            if _IPYTHON_VERSION >= (5,):
+                # Get the base URL from the notebook app.
+                child.expect(r"to login with a token:(?:\n|\s)*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
+                baseurl = child.match.group(1)
+                token = child.match.group(2)
+                params = dict(token=token)
+                response = requests.post(baseurl + "/api/contents",
+                                         params=params)
+                assert response.status_code == 201
+                # Get the notebook path & name for the new notebook.
+                text = response.text
+                response_data = json.loads(text)
+                path = response_data['path']
+                name = response_data['name']
+                # Create a session & kernel for the new notebook.
+                request_data = json.dumps(
+                    dict(notebook=dict(path=path, name=name)))
+                response = requests.post(baseurl + "/api/sessions",
+                                         data=request_data, params=params)
+                assert response.status_code == 201
+                # Get the kernel_id for the new kernel.
+                text = response.text
+                response_data = json.loads(text)
+                kernel_id = response_data['kernel']['id']
+            elif _IPYTHON_VERSION >= (2,):
+                # Get the base URL from the notebook app.
+                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
+                baseurl = child.match.group(1)
+                # Login.
+                response = requests.post(
+                    baseurl + "/login",
+                    data=dict(password=passwd_plaintext),
+                    allow_redirects=False
+                )
+                assert response.status_code == 302
+                cookies = response.cookies
+                # Create a new notebook.
                 # Get notebooks.
                 response = requests.post(baseurl + "/api/notebooks", cookies=cookies)
                 expected = 200 if _IPYTHON_VERSION >= (3,) else 201
@@ -1032,6 +1057,18 @@ def IPythonNotebookCtx(**kwargs):
                 response_data = json.loads(text)
                 kernel_id = response_data['kernel']['id']
             elif _IPYTHON_VERSION >= (0, 12):
+                # Get the base URL from the notebook app.
+                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
+                baseurl = child.match.group(1)
+                # Login.
+                response = requests.post(
+                    baseurl + "/login",
+                    data=dict(password=passwd_plaintext),
+                    allow_redirects=False
+                )
+                assert response.status_code == 302
+                cookies = response.cookies
+                # Create a new notebook.
                 response = requests.get(baseurl + "/new")
                 assert response.status_code == 200
                 # Get the notebook_id for the new notebook.
@@ -2777,6 +2814,19 @@ def test_ipython_kernel_console_multiple_existing_1():
             [PYFLYBY] from base64 import b64decode
             Out[3]: 'almond'
         """, args=['console'], kernel=kernel)
+
+
+@skipif_ipython_too_old_for_kernel
+def test_ipython_notebook_basic_1():
+    with IPythonNotebookCtx() as kernel:
+        ipython(
+            # Verify that the auto importer isn't enabled yet.
+            """
+            In [1]: 3+4
+            Out[1]: 7
+            In [2]: 33+44
+            Out[2]: 77
+            """, args=['console'], kernel=kernel)
 
 
 @skipif_ipython_too_old_for_kernel
