@@ -818,6 +818,8 @@ def _interact_ipython(child, input, exitstr="exit()\n",
             time.sleep(0.02)
         while line:
             left, tab, right = line.partition("\t")
+            # if DEBUG:
+            #     print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
             # Send the input (up to tab or newline).
             child.send(left)
             # Check that the client IPython gets the input.
@@ -3351,7 +3353,7 @@ def test_debug_tab_completion_module_1(frontend, tmp):
         ....
         ipdb> print thornton60097\t181.rando\t
         [PYFLYBY] import thornton60097181
-        ipdb> print thornton60097181.rando\tlph
+        ipdb> print thornton60097181.randolph
         14164598
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
