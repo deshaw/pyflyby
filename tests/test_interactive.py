@@ -3405,12 +3405,14 @@ def test_debug_postmortem_tab_completion_1(frontend):
 def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
+    # In this example, in the local namespace, 'base64' is a variable (which
+    # is a string), and shouldn't refer to the global 'base64'.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: def foo(x, base64):
            ...:     return x / base64
            ...:
-        In [3]: foo("Lexington", "Atlantic")
+        In [3]: foo("Lexington", "atlantic")
         ---------------------------------------------------------------------------
         TypeError                                 Traceback (most recent call last)
         ....
