@@ -403,6 +403,7 @@ def test_fix_unused_and_missing_imports_doctests_1():
     assert output == expected
 
 
+@pytest.mark.xfail
 def test_fix_unused_and_missing_imports_doctests_2():
     input = PythonBlock(dedent('''
         from m1 import f1, f2, f3
