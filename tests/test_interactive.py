@@ -511,12 +511,6 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
         cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     else:
         cmd += [prog]
-    if prog == "py":
-        # Needed to support --ipython-dir, etc.
-        if _IPYTHON_VERSION >= (4,) and args[:1] == ["console"]:
-            cmd += ['jupyter']
-        else:
-            cmd += ['ipython']
     if isinstance(args, six.string_types):
         args = [args]
     if args and not args[0].startswith("-"):
@@ -545,20 +539,15 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     else:
         raise NotImplementedError("Don't know how to test IPython version %s"
                                   % (_IPYTHON_VERSION,))
-    if _IPYTHON_VERSION >= (4,) and app in ["console", "notebook"]:
-        # Argh! How do you set it on the command line in Jupyter console?
-        # InteractiveShell.ipython_dir, etc. don't work.
-        cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,)] + cmd
-    else:
-        cmd += [opt("--ipython-dir=%s" % (ipython_dir,))]
-    if app == "terminal":
+    cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,)] + cmd
+    if app == "terminal" and prog != "py":
         cmd += [opt("--no-confirm-exit")]
         cmd += [opt("--no-banner")]
-    if app == "console":
+    if app == "console" and prog != "py":
         cmd += [opt("--no-confirm-exit")]
         if _IPYTHON_VERSION < (4,):
             cmd += [opt("--no-banner")]
-    if app != "notebook" and _IPYTHON_VERSION < (5,):
+    if app != "notebook" and _IPYTHON_VERSION < (5,) and prog != "py":
         cmd += [opt("--colors=NoColor")]
     if frontend == 'prompt_toolkit':
         # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
