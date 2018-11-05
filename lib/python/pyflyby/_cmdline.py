@@ -1,5 +1,5 @@
 # pyflyby/_cmdline.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -400,7 +400,7 @@ def action_query(prompt="Proceed?"):
     def action(m):
         p = prompt.format(filename=m.filename)
         print
-        print("%s [y/N] " % (p))
+        print("%s [y/N] " % (p), end="")
         try:
             if input().strip().lower().startswith('y'):
                 return True
