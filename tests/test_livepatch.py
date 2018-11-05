@@ -1586,7 +1586,7 @@ def test_xreload_class_hook_1(tpp):
     from signature99720031 import chemical
     assert chemical.taste() == 82727001
 
-    XXX
+    # XXX TODO
 
 
 
