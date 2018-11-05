@@ -1,5 +1,5 @@
 # pyflyby/_imports2s.py.
-# Copyright (C) 2011-2017 Karl Chen.
+# Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -417,7 +417,7 @@ def find_unused_and_missing_imports(codeblock):
         # which match a string literal brace identifier.
         unused_imports = [
             (import_as, lineno) for import_as, lineno in unused_imports
-            if import_as not in literal_brace_identifiers ]
+            if import_as.rsplit(".",1)[-1] not in literal_brace_identifiers ]
     return unused_imports, missing_imports
 
 
