@@ -897,26 +897,33 @@ def ipython(template, **kwargs):
         app = "terminal"
     kernel = kwargs.pop("kernel", None)
     if app == "console":
-        if _IPYTHON_VERSION >= (3,2) and kernel is not None:
-            # IPython console 3.2+ kills the kernel upon exit, unless you
-            # explicitly ask to keep it open.  If we're connecting to an
-            # existing kernel, default to keeping it alive upon exit.
-            kwargs.setdefault("exitstr", "exit(keep_kernel=True)\n")
-            kwargs.setdefault("sendeof", False)
-        elif _IPYTHON_VERSION >= (3,) and kernel is not None:
-            # IPython console 3.0, 3.1 always kill the kernel upon exit.
-            # There's a purported option exit(keep_kernel=True) but it's not
-            # implemented in these versions.
-            # https://github.com/ipython/ipython/issues/8482
-            # https://github.com/ipython/ipython/pull/8483
-            # Instead of cleanly telling the client to exit, we'll just kill
-            # it with SIGKILL (in the 'finally' clause of IPythonCtx).
-            kwargs.setdefault("exitstr", "")
-            kwargs.setdefault("sendeof", False)
-            kwargs.setdefault("waiteof", False)
+        if kernel is not None:
+            if _IPYTHON_VERSION >= (3,2):
+                # IPython console 3.2+ kills the kernel upon exit, unless you
+                # explicitly ask to keep it open.  If we're connecting to an
+                # existing kernel, default to keeping it alive upon exit.
+                kwargs.setdefault("exitstr", "exit(keep_kernel=True)\n")
+                kwargs.setdefault("sendeof", False)
+            elif _IPYTHON_VERSION >= (3,):
+                # IPython console 3.0, 3.1 always kill the kernel upon exit.
+                # There's a purported option exit(keep_kernel=True) but it's not
+                # implemented in these versions.
+                # https://github.com/ipython/ipython/issues/8482
+                # https://github.com/ipython/ipython/pull/8483
+                # Instead of cleanly telling the client to exit, we'll just kill
+                # it with SIGKILL (in the 'finally' clause of IPythonCtx).
+                kwargs.setdefault("exitstr", "")
+                kwargs.setdefault("sendeof", False)
+                kwargs.setdefault("waiteof", False)
+            else:
+                kwargs.setdefault("sendeof", True)
+                kwargs.setdefault("exitstr", "" if kwargs['sendeof'] else "exit()")
         else:
-            kwargs.setdefault("exitstr", "")
-            kwargs.setdefault("sendeof", True)
+            if _IPYTHON_VERSION >= (5,):
+                kwargs.setdefault("sendeof", False)
+            else:
+                kwargs.setdefault("sendeof", True)
+            kwargs.setdefault("exitstr", "" if kwargs['sendeof'] else "exit()")
         kwargs.setdefault("ignore_prompt_number", True)
     exitstr              = kwargs.pop("exitstr"             , "exit()\n")
     sendeof              = kwargs.pop("sendeof"             , False)
@@ -2752,7 +2759,8 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
-def test_ipython_console_1():
+@pytest.mark.parametrize('sendeof', [False, True])
+def test_ipython_console_1(sendeof):
     # Verify that autoimport and tab completion work in IPython console.
     # We retry a few times until success (via the @retry decorator) because
     # for some versions of ipython, in some configurations, 'ipython console'
@@ -2763,6 +2771,7 @@ def test_ipython_console_1():
     # console occasionally doesn't print the first output (i.e. Out[1]).  We
     # work around this by first running something where we don't expect an
     # Out[1].
+    if sendeof and _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: x = 91976012
         In [2]: 'acorn'
@@ -2771,7 +2780,7 @@ def test_ipython_console_1():
         In [4]: b64deco\tde('cGVhbnV0')
         [PYFLYBY] from base64 import b64decode
         Out[4]: 'peanut'
-    """, args='console', sendeof=True)
+    """, args='console', sendeof=sendeof)
 
 
 @skipif_ipython_too_old_for_kernel
