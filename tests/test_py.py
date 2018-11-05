@@ -2011,7 +2011,6 @@ def test_heuristic_run_module_under_package_1(tmp):
     assert expected == result
 
 
-@pytest.mark.xfail # TODO FIXME: fix order
 def test_heuristic_run_module_under_package_2(tmp):
     os.mkdir("%s/bard22402805" % tmp.dir)
     os.mkdir("%s/bard22402805/douglas" % tmp.dir)
