@@ -594,8 +594,12 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 
 class AnsiFilterDecoder(object):
 
+    def __init__(self):
+        self._buffer = ""
+
     def decode(self, arg, final=False):
-        arg0 = arg
+        arg0 = arg = self._buffer + arg
+        self._buffer = ""
         arg = re.sub("\r+\n", "\n", arg)
         arg = arg.replace("\x1b[J", "")             # clear to end of line
         arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
@@ -610,7 +614,20 @@ class AnsiFilterDecoder(object):
         arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
-        arg = re.sub(r"\x1b\[[0-9]+D.*?\n", "\n", arg)
+        # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
+        # hacky way to handle this without hardcoding '[PYFLYBY]'.
+        left = ""
+        right = arg
+        while right:
+            m = re.search(r"\x1b\[[0-9]+D.*?\n", right)
+            if not m:
+                break
+            if '[PYFLYBY]' in m.group():
+                left += right[:m.end()]
+            else:
+                left += right[:m.start()] + '\n'
+            right = right[m.end():]
+        arg = left + right
         # Assume ESC[3A\nline1\nline2\nline3\n is rewriting previous text;
         # delete it.
         left = ""
@@ -623,13 +640,17 @@ class AnsiFilterDecoder(object):
             end = m.end()
             suffix = right[end:]
             suffix_lines = suffix.splitlines(True)
+            left = left + right[:m.start()]
             if len(suffix_lines) < num:
+                self._buffer += right[m.start():]
+                right = ""
                 break
-            left = arg[:m.start()]
             right = '\n'.join(suffix_lines[num:]) + '\n'
         arg = left + right
         if DEBUG:
-            if arg != arg0:
+            if self._buffer:
+                print("AnsiFilterDecoder: %r => %r, pending: %r" % (arg0,arg,self._buffer))
+            elif arg != arg0:
                 print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
             else:
                 print("AnsiFilterDecoder: %r [no change]" % (arg,))
