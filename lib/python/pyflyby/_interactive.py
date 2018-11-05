@@ -50,7 +50,7 @@ class NoActiveIPythonAppError(Exception):
     """
 
 
-def _get_or_create_ipython_terminal_app(use_jupyter=False):
+def _get_or_create_ipython_terminal_app():
     """
     Create/get the singleton IPython terminal application.
 
@@ -63,22 +63,6 @@ def _get_or_create_ipython_terminal_app(use_jupyter=False):
         import IPython
     except ImportError as e:
         raise NoIPythonPackageError(e)
-    if use_jupyter:
-        # The following has been tested on IPython 5.8 / Jupyter console 5.2.
-        # Note: jupyter_console.app.JupyterApp also appears to work in some
-        # contexts, but that actually execs the script jupyter-console which
-        # uses ZMQTerminalIPythonApp.  The exec makes the target use whatever
-        # shebang line is in that script, which may be a different python
-        # major version than what we're currently running.  We want to avoid
-        # the exec in general (as a library function) and avoid changing
-        # python versions.
-        try:
-            import jupyter_console.app
-            ZMQTerminalIPythonApp = jupyter_console.app.ZMQTerminalIPythonApp
-        except (ImportError, AttributeError):
-            pass
-        else:
-            return ZMQTerminalIPythonApp.instance()
     # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
@@ -250,8 +234,34 @@ def start_ipython_with_autoimporter(argv=None, _user_ns=None):
     """
     Start IPython (terminal) with autoimporter enabled.
     """
-    use_jupyter = (argv and argv[0] == 'console')
-    app = _get_or_create_ipython_terminal_app(use_jupyter=use_jupyter)
+    app = None
+    subcmd = argv and argv[0]
+    if subcmd == 'console':
+        # The following has been tested on IPython 5.8 / Jupyter console 5.2.
+        # Note: jupyter_console.app.JupyterApp also appears to work in some
+        # contexts, but that actually execs the script jupyter-console which
+        # uses ZMQTerminalIPythonApp.  The exec makes the target use whatever
+        # shebang line is in that script, which may be a different python
+        # major version than what we're currently running.  We want to avoid
+        # the exec in general (as a library function) and avoid changing
+        # python versions.
+        try:
+            from jupyter_console.app import ZMQTerminalIPythonApp
+        except (ImportError, AttributeError):
+            pass
+        else:
+            app = ZMQTerminalIPythonApp.instance()
+            argv = argv[1:]
+    elif subcmd == 'notebook':
+        try:
+            from notebook.notebookapp import NotebookApp
+        except (ImportError, AttributeError):
+            pass
+        else:
+            app = NotebookApp.instance()
+            argv = argv[1:]
+    if app is None:
+        app = _get_or_create_ipython_terminal_app()
     if _user_ns is not None:
         # Tested with IPython 1.2, 2.0, 2.1, 2.2, 2.3. 2.4, 3.0, 3.1, 3.2
         # TODO: support older versions of IPython.
@@ -1112,13 +1122,16 @@ def new_IPdb_instance():
     logger.debug("new_IPdb_instance()")
     try:
         app = get_ipython_terminal_app_with_autoimporter()
-    except NoIPythonPackageError as e:
-        logger.debug("%s: %s", type(e).__name__, e)
-        from pdb import Pdb
-        pdb_instance = Pdb()
-        _enable_pdb_hooks(pdb_instance)
-        _enable_terminal_pdb_hooks(pdb_instance)
-        return pdb_instance
+    except Exception as e:
+        if isinstance(e, NoIPythonPackageError) or e.__class__.__name__ == "MultipleInstanceError":
+            logger.debug("%s: %s", type(e).__name__, e)
+            from pdb import Pdb
+            pdb_instance = Pdb()
+            _enable_pdb_hooks(pdb_instance)
+            _enable_terminal_pdb_hooks(pdb_instance)
+            return pdb_instance
+        else:
+            raise
     pdb_class = _get_IPdb_class()
     logger.debug("new_IPdb_instance(): pdb_class=%s", pdb_class)
     color_scheme = _get_ipython_color_scheme(app)
@@ -1504,6 +1517,7 @@ class AutoImporter(object):
         if getattr(app, "kernel_manager_class", None) is not None:
             @self._advise((app, "kernel_manager_class"))
             def kernel_manager_class_with_autoimport(*args, **kwargs):
+                logger.debug("kernel_manager_class_with_autoimport()")
                 kernel_manager = __original__(*args, **kwargs)
                 self._enable_start_kernel_hook(kernel_manager)
                 return kernel_manager
@@ -1544,7 +1558,9 @@ class AutoImporter(object):
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
                     logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
-                    if result[1:3] == ['-m', 'ipykernel']:
+                    if (len(result) >= 3 and
+                        result[1] == '-m' and
+                        result[2] in ['ipykernel', 'ipykernel_launcher']):
                         result[1:3] = new_cmd
                         logger.debug("intercepting format_kernel_cmd(): new = %r", result)
                         return result

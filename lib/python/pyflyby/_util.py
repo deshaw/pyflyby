@@ -1,5 +1,5 @@
 # pyflyby/_util.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -359,6 +359,11 @@ class Aspect(object):
             if isinstance(container, dict):
                 self._original  = container[name]
                 self._container = container
+                self._qname = name
+            elif name in container.__dict__.get('_trait_values', ()):
+                # traitlet stuff from IPython
+                self._container = container._trait_values
+                self._original = self._container[name]
                 self._qname = name
             elif isinstance(container.__dict__, types.DictProxyType):
                 original = getattr(container, name)
