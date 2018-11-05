@@ -34,8 +34,8 @@ from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 
 
-# To debug test_interactive.py itself, set the env var DEBUG_TEST_IPYTHON.
-DEBUG = bool(os.getenv("DEBUG_TEST_IPYTHON"))
+# To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
+DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
 
 def _get_Failed_class():
     import _pytest
@@ -233,6 +233,9 @@ def assert_match(result, expected, ignore_prompt_number=False):
         msg.append("Diff:")
         msg.extend("   %s"%line for line in difflib.ndiff(
             expected.splitlines(), result.splitlines()))
+        if DEBUG:
+            msg.append("Expected repr: %r" % (expected,))
+            msg.append("Result   repr: %r" % (result  ,))
         msg = "\n".join(msg)
         pytest.fail(msg)
 
