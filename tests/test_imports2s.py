@@ -929,3 +929,34 @@ def test_fix_unused_imports_dunder_file_1(capsys):
     captured = capsys.readouterr()
     assert "undefined name '__asdf__'"     in captured.out
     assert "undefined name '__file__'" not in captured.out
+
+
+def test_fix_unused_imports_submodule_1():
+    input = PythonBlock(dedent('''
+        import m2.y
+        m2.x + m2.y + m3.x
+    '''))
+    db = ImportDB("import m2, m3, m4")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        import m2.y
+        import m3
+        m2.x + m2.y + m3.x
+    '''))
+    assert expected == output
+
+
+def test_fix_unused_imports_submodule_importas_1():
+    input = PythonBlock(dedent('''
+        import m2.y as m2y
+        m2.x + m2y + m3.x
+    '''))
+    db = ImportDB("import m2, m3, m4")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        import m2
+        import m3
+        from m2 import y as m2y
+        m2.x + m2y + m3.x
+    '''))
+    assert expected == output

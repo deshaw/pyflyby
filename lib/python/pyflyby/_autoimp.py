@@ -571,14 +571,17 @@ class _MissingImportFinder(object):
 
     def _visit_StoreImport(self, node, modulename):
         name = node.asname or node.name
+        logger.debug("_visit_StoreImport(asname=%r,name=%r)",
+                     node.asname, node.name)
+        if not node.asname:
+            # Handle leading prefixes so we don't think they're unused
+            for prefix in DottedIdentifier(node.name).prefixes:
+                self._visit_Store(str(prefix), None)
         if self.unused_imports is None:
-            logger.debug("_visit_StoreImport(asname=%r,name=%r)",
-                         node.asname, node.name)
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))
-            logger.debug("_visit_StoreImport(asname=%r,name=%r) => %r",
-                         node.asname, node.name, imp)
+            logger.debug("_visit_StoreImport(): imp = %r", imp)
             # Keep track of whether we've used this import.
             value = _UseChecker(name, imp, self._lineno)
             # Always consider __future__ imports to be used.
