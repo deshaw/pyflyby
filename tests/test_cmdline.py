@@ -6,6 +6,8 @@
 from __future__ import absolute_import, division, with_statement
 
 import os
+import pexpect
+from   six.moves                import cStringIO as StringIO
 import subprocess
 import tempfile
 from   textwrap                 import dedent
@@ -331,3 +333,92 @@ def test_py_file_1():
         [%r, 'a', 'b']
     """).strip() % (f.name,)
     assert result == expected
+
+
+def test_tidy_imports_query_no_change_1():
+    input = dedent('''
+        from __future__ import absolute_import, division
+        import x1
+        x1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = StringIO()
+        # We expect no "Replace [y/N]" query, since nothing changed.
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert proc_output == ""
+    assert output == input
+
+
+def test_tidy_imports_query_y_1():
+    input = dedent('''
+        from __future__ import absolute_import, division
+        import x1, x2
+        x1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = StringIO()
+        child.expect_exact(" [y/N]")
+        child.send("y\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert "[y/N] y" in proc_output
+    expected = dedent("""
+        from __future__ import absolute_import, division
+        import x1
+        x1
+    """)
+    assert output == expected
+
+
+def test_tidy_imports_query_n_1():
+    input = dedent('''
+        from __future__ import absolute_import, division
+        import x1, x2
+        x1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = StringIO()
+        child.expect_exact(" [y/N]")
+        child.send("n\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert "[y/N] n" in proc_output
+    assert output == input
+
+
+def test_tidy_imports_query_junk_1():
+    input = dedent('''
+        from __future__ import absolute_import, division
+        import x1, x2
+        x1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = StringIO()
+        child.expect_exact(" [y/N]")
+        child.send("zxcv\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert "[y/N] zxcv" in proc_output
+    assert "Aborted" in proc_output
+    assert output == input
