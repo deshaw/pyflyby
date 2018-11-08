@@ -103,3 +103,5 @@
 - Spyder: Fix pyflyby output coming during tab completion messing up the
   display.  May need to fix in Spyder itself.
 
+- Handle comments between concatenate strings, e.g.: 'myvar =
+  ("xx"\n#blah\n"yy")', e.g. in test_interactive.py.
