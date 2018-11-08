@@ -29,6 +29,9 @@ class _ClassScope(dict):
     pass
 
 
+_builtins2 = {"__file__": None}
+
+
 class ScopeStack(tuple):
     """
     A stack of namespace scopes, as a tuple of C{dict}s.
@@ -66,7 +69,7 @@ class ScopeStack(tuple):
         if not all(isinstance(scope, dict) for scope in scopes):
             raise TypeError("Expected list of dicts; got a sequence of %r"
                             % ([type(x).__name__ for x in scopes]))
-        scopes = [builtins.__dict__] + scopes
+        scopes = [builtins.__dict__, _builtins2] + scopes
         result = []
         seen = set()
         # Keep only unique items, checking uniqueness by object identity.

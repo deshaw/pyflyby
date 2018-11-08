@@ -914,3 +914,18 @@ def test_fix_unused_imports_repeated_1():
         foo1, foo2
     '''))
     assert expected == output
+
+
+def test_fix_unused_imports_dunder_file_1(capsys):
+    input = PythonBlock(dedent('''
+        __file__, __asdf__
+    '''))
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        __file__, __asdf__
+    '''))
+    assert expected == output
+    captured = capsys.readouterr()
+    assert "undefined name '__asdf__'"     in captured.out
+    assert "undefined name '__file__'" not in captured.out
