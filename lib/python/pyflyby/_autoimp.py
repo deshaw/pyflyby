@@ -510,19 +510,44 @@ class _MissingImportFinder(object):
         # visit the comprehension node(s) before the elt node.
         # (generic_visit() would visit the elt first, because that comes first
         # in ListComp._fields).
-        # We intentionally don't enter a new scope here, because a list
-        # comprehensive _does_ leak variables out of its scope (unlike
+        # For Python2, we intentionally don't enter a new scope here, because
+        # a list comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
+        # For Python3, we do need to enter a new scope here.  TODO: figure out
+        # how to tell if we should be using py3 mode or py2 mode.
         self.visit(node.generators)
         self.visit(node.elt)
 
+    def visit_DictComp(self, node):
+        # Visit a dict comprehension node.
+        # This is similar to the generic visit, except:
+        #  - We visit the comprehension node(s) before the elt node.
+        #  - We create a new scope for the variables.
+        # We do enter a new scope (for both py2 and py3).  A dict comprehension
+        # does _not_ leak variables out of its scope (unlike py2 list
+        # comprehensions).
+        with self._NewScopeCtx(include_class_scopes=True):
+            self.visit(node.generators)
+            self.visit(node.key)
+            self.visit(node.value)
+
+    def visit_SetComp(self, node):
+        # Visit a set comprehension node.
+        # We do enter a new scope (for both py2 and py3).  A set comprehension
+        # does _not_ leak variables out of its scope (unlike py2 list
+        # comprehensions).
+        with self._NewScopeCtx(include_class_scopes=True):
+            self.visit(node.generators)
+            self.visit(node.elt)
+
     def visit_GeneratorExp(self, node):
         # Visit a generator expression node.
-        # This is just like a ListComp, except that we enter a new scope,
-        # because a generator expression does _not_ leak variables out of its
-        # scope (unlike list comprehensions).
+        # We do enter a new scope (for both py2 and py3).  A generator
+        # expression does _not_ leak variables out of its scope (unlike py2
+        # list comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
-            self.visit_ListComp(node)
+            self.visit(node.generators)
+            self.visit(node.elt)
 
     def visit_ImportFrom(self, node):
         modulename = "." * node.level + (node.module or "")

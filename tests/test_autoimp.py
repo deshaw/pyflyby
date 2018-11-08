@@ -15,8 +15,10 @@ from   textwrap                 import dedent
 
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
-from   pyflyby._autoimp         import LoadSymbolError, load_symbol
+from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
+                                        scan_for_import_issues)
 from   pyflyby._idents          import DottedIdentifier
+from   pyflyby._importstmt      import Import
 
 
 @pytest.fixture
@@ -815,6 +817,46 @@ def test_find_missing_imports_code_loop_1():
     result   = _dilist2strlist(result)
     expected = ['use', 'y']
     assert expected == result
+
+
+def test_scan_for_import_issues_dictcomp_missing_1():
+    code = dedent("""
+        y1 = y2 = 1234
+        {(x1,y1,z1): (x2,y2,z2) for x1,x2 in []}
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == [(3, DottedIdentifier('z1')), (3, DottedIdentifier('z2'))]
+
+
+def test_scan_for_import_issues_dictcomp_unused_1():
+    code = dedent("""
+        import x1, x2, x3
+        {123:x3 for x1,x2 in []}
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == [(2, Import('import x1')), (2, Import('import x2'))]
+
+
+def test_scan_for_import_issues_setcomp_missing_1():
+    code = dedent("""
+        y1 = 1234
+        {(x1,y1,z1) for x1,x2 in []}
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == [(3, DottedIdentifier('z1'))]
+
+
+def test_scan_for_import_issues_setcomp_unused_1():
+    code = dedent("""
+        import x1, x2
+        {x2 for x1 in []}
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == [(2, Import('import x1'))]
 
 
 def test_load_symbol_1():
