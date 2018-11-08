@@ -1,5 +1,5 @@
 # pyflyby/_py.py
-# Copyright (C) 2014, 2015 Karl Chen.
+# Copyright (C) 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 """
@@ -1335,7 +1335,7 @@ class _Namespace(object):
         block = PythonBlock(block, flags=FLAGS, auto_flags=True)
         if auto_import and not self.auto_import(block):
             missing = find_missing_imports(block, [self.globals])
-            mstr = ", ".join(map(repr, missing))
+            mstr = ", ".join(repr(str(x)) for x in missing)
             if len(missing) == 1:
                 msg = "name %s is not defined and not importable" % mstr
             elif len(missing) > 1:

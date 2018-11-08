@@ -471,6 +471,20 @@ def test_fix_unused_and_missing_imports_decorator_2():
     assert output == expected
 
 
+def test_fix_unused_imports_funcall_1():
+    input = PythonBlock(dedent('''
+        from m1 import X1, X2
+        def F1(X1): X1, X2
+    ''').lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m1 import X2
+        def F1(X1): X1, X2
+    ''').lstrip())
+    assert output == expected
+
+
 def test_fix_unused_and_missing_imports_funcall_1():
     input = PythonBlock(dedent('''
         from m1 import X1, X3, X9
@@ -489,6 +503,103 @@ def test_fix_unused_and_missing_imports_funcall_1():
         def F3(a1): a1
         def F4(): a1
     ''').lstrip())
+    assert output == expected
+
+
+def test_fix_missing_imports_funcall_1():
+    input = PythonBlock(dedent('''
+        def F1(x1): x1, x2, y1
+    ''').lstrip())
+    db = ImportDB("from m2 import x1, x2, x3, x4")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m2 import x2
+
+    ''').lstrip() + str(input))
+    assert output == expected
+
+
+def test_fix_missing_imports_funcall_and_really_missing_1():
+    input = PythonBlock(dedent('''
+        def F1(x1, x2, x3): x1, x2, x3, x4, y1
+        x1
+    ''').lstrip())
+    db = ImportDB("from m2 import x1, x2, x3, x4, x5")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m2 import x1, x4
+
+    ''').lstrip() + str(input))
+    assert output == expected
+
+
+def test_fix_unused_imports_local_1():
+    input = PythonBlock(dedent('''
+        from m1 import X1, X2
+        def F1():
+            X1 = 5
+            X1, X2
+    ''').lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m1 import X2
+        def F1():
+            X1 = 5
+            X1, X2
+    ''').lstrip())
+    assert output == expected
+
+
+def test_fix_missing_imports_local_1():
+    input = PythonBlock(dedent('''
+        def F1():
+            x1 = 5
+            x1, x2
+    ''').lstrip())
+    db = ImportDB("from m2 import x1, x2, x3")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m2 import x2
+
+        def F1():
+            x1 = 5
+            x1, x2
+    ''').lstrip())
+    assert output == expected
+
+
+def test_fix_missing_imports_nonlocal_post_store_1():
+    input = PythonBlock(dedent('''
+        def F1():
+            x1 = None
+            def F2():
+                x1, x2, x3, y1
+            x2 = None
+    ''').lstrip())
+    db = ImportDB("from m2 import x1, x2, x3, x4, x5")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m2 import x3
+
+    ''').lstrip() + str(input))
+    assert output == expected
+
+
+def test_fix_missing_imports_nonlocal_post_del_1():
+    input = PythonBlock(dedent('''
+        def F1():
+            x1 = x2 = None
+            def F2():
+                x1, x2, x3, y1
+            del x2
+    ''').lstrip())
+    db = ImportDB("from m2 import x1, x2, x3, x4")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from m2 import x2, x3
+
+    ''').lstrip() + str(input))
     assert output == expected
 
 
@@ -544,6 +655,15 @@ def test_fix_unused_and_missing_continutation_1():
         c#' + d
     ''').lstrip())
     assert output == expected
+
+
+def test_fix_unused_import_future_is_not_unused_1():
+    input = PythonBlock(dedent(r'''
+        from __future__ import division
+    ''').lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    assert output == input
 
 
 def test_fix_unused_and_missing_print_function_1():
@@ -777,4 +897,20 @@ def test_with_multi_1():
         with       aa as xx  , bb as yy, cc as zz:
             pass
     ''').lstrip())
+    assert expected == output
+
+
+def test_fix_unused_imports_repeated_1():
+    input = PythonBlock(dedent('''
+        import foo1, foo2, foo1, foo1
+        import foo1, foo2, foo3
+        foo1, foo2
+    '''))
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        import foo1
+        import foo2
+        foo1, foo2
+    '''))
     assert expected == output

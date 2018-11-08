@@ -5,8 +5,6 @@
 - Allow options in .pyflyby files such as __options__ = '--uniform'
 - Allow an option in .pyflyby files that means "stop processing further
   database files"
-- Pyflakes reports unused "import foo.bar" as "foo" making it hard to remove
-  unused "foo.bar" (there could be other imports on the same line).
 - Heuristically guess alignment style from existing code
 - Grouping: Teach tidy-imports to canonicalize import groups.  3 possiblities:
   (1) Follow PEP8 standard library imports, then third-party imports, then
@@ -14,7 +12,6 @@
   default. (2) The Eclipse way: for each top-level package, if there is more
   than one import statement, then make those a group.  (3) User-configured
   grouping.
-- Remove pyflakes dependency - use our own AST parser
 - Use rope?
 - Allow comments in a file to specify imports that shouldn't be removed,
   including "*" to mean don't-remove-any.
@@ -23,8 +20,6 @@
 - Preserve comments on import lines (as much as possible anyway - may need to
   make them standalone comments).
 - Preserve line ending style (\r\n).
-- If a function is defined twice, pyflakes complains about it (as expected);
-  pyflyby misinterprets this as an unused import.
 - Merge share/pyflyby/*.py into a single file.
 - Make sure etc/pyflyby works for both systemwide installation and virtualenv
   installation

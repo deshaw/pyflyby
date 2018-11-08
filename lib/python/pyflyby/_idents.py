@@ -1,5 +1,5 @@
 # pyflyby/_idents.py.
-# Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -167,9 +167,13 @@ class DottedIdentifier(object):
     def _from_name(cls, name):
         self = object.__new__(cls)
         self.name = str(name)
-        self.parts = tuple(self.name.split('.'))
         if not is_identifier(self.name, dotted=True):
-            raise BadDottedIdentifierError("Invalid python symbol name %r" % (name,))
+            if len(self.name) > 20:
+                raise BadDottedIdentifierError("Invalid python symbol name")
+            else:
+                raise BadDottedIdentifierError("Invalid python symbol name %r"
+                                               % (name,))
+        self.parts = tuple(self.name.split('.'))
         return self
 
     @cached_attribute

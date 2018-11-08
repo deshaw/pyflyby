@@ -16,6 +16,7 @@ from   textwrap                 import dedent
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
 from   pyflyby._autoimp         import LoadSymbolError, load_symbol
+from   pyflyby._idents          import DottedIdentifier
 
 
 @pytest.fixture
@@ -47,80 +48,99 @@ def writetext(filename, text, mode='w'):
     return filename
 
 
+def _dilist2strlist(arg):
+    assert type(arg) is list
+    assert all(type(x) is DottedIdentifier for x in arg)
+    return map(str, arg)
+
+
 def test_find_missing_imports_basic_1():
     result   = find_missing_imports("os.path.join", namespaces=[{}])
+    result   = _dilist2strlist(result)
     expected = ["os.path.join"]
     assert expected == result
 
 
 def test_find_missing_imports_in_namespace_1():
     result   = find_missing_imports("os.path.join", namespaces=[{"os":os}])
+    result   = _dilist2strlist(result)
     expected = []
     assert expected == result
 
 
 def test_find_missing_imports_builtins_1():
     result   = find_missing_imports("os, sys, eval", [{"os": os}])
+    result   = _dilist2strlist(result)
     expected = ['sys']
     assert expected == result
 
 
 def test_find_missing_imports_undefined_1():
     result   = find_missing_imports("numpy.arange(x) + arange(y)", [{"y": 3}])
+    result   = _dilist2strlist(result)
     expected = ['arange', 'numpy.arange', 'x']
     assert expected == result
 
 
 def test_find_missing_imports_in_scope_1():
     result   = find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [{}])
+    result   = _dilist2strlist(result)
     expected = ['arange', 'x']
     assert expected == result
 
 
 def test_find_missing_imports_in_scope_2():
     result   = find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])
+    result   = _dilist2strlist(result)
     expected = ['numpy.pi', 'x']
     assert expected == result
 
 
 def test_find_missing_imports_in_scope_3():
     result   = find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])
+    result   = _dilist2strlist(result)
     expected = ['numpy.arange']
     assert expected == result
 
 
 def test_find_missing_imports_in_scope_funcall_1():
     result   = find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])
+    result   = _dilist2strlist(result)
     expected = ['foo2.bar', 'func']
     assert expected == result
 
 
 def test_find_missing_imports_in_scope_assign_attr_1():
     result   = find_missing_imports("a.b.y = 1; a.b.x, a.b.y, a.b.z", [{}])
+    result   = _dilist2strlist(result)
     expected = ['a.b.x', 'a.b.z']
     assert expected == result
 
 
 def test_find_missing_imports_lambda_1():
     result   = find_missing_imports("(lambda x: x*x)(7)", [{}])
+    result   = _dilist2strlist(result)
     expected = []
     assert expected == result
 
 
 def test_find_missing_imports_lambda_2():
     result   = find_missing_imports("(lambda x: x*x)(7) + x", [{}])
+    result   = _dilist2strlist(result)
     expected = ['x']
     assert expected == result
 
 
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
+    result   = _dilist2strlist(result)
     expected = ['z']
     assert expected == result
 
 
 def test_find_missing_imports_list_comprehension_nested_tuple_1():
     result   = find_missing_imports("[w+x+y+z for x,(y,z) in []]", [{}])
+    result   = _dilist2strlist(result)
     expected = ['w']
     assert expected == result
 
@@ -128,18 +148,21 @@ def test_find_missing_imports_list_comprehension_nested_tuple_1():
 def test_find_missing_imports_list_comprehension_nested_tuple_2():
     result   = find_missing_imports(
         "[a+A+b+B+c+C+d+D+e+E+f+F+g+G for a,((b,c),d,[e,f,(g,)]) in []]", [{}])
+    result   = _dilist2strlist(result)
     expected = ['A','B','C','D','E','F','G']
     assert expected == result
 
 
 def test_find_missing_imports_generator_expression_1():
     result   = find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])
+    result   = _dilist2strlist(result)
     expected = ['y', 'z']
     assert expected == result
 
 
 def test_find_missing_imports_qualified_1():
     result   = find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])
+    result   = _dilist2strlist(result)
     expected = ['a.b.x.y', 'c', 'd']
     assert expected == result
 
@@ -147,6 +170,7 @@ def test_find_missing_imports_qualified_1():
 def test_find_missing_imports_ast_1():
     node = ast.parse("import numpy; numpy.arange(x) + arange(x)")
     result   = find_missing_imports(node, [{}])
+    result   = _dilist2strlist(result)
     expected = ['arange', 'x']
     assert expected == result
 
@@ -157,6 +181,7 @@ def test_find_missing_imports_print_function_1():
         "print (42, file=sys.stdout)\n"
     )
     result   = find_missing_imports(node, [{}])
+    result   = _dilist2strlist(result)
     expected = ['sys.stdout']
     assert expected == result
 
@@ -169,6 +194,7 @@ def test_find_missing_imports_assignment_1():
             y = 2
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y', 'z']
     assert expected == result
 
@@ -181,6 +207,7 @@ def test_find_missing_imports_function_body_1():
         x3 = 3
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['x2']
     assert expected == result
 
@@ -193,6 +220,7 @@ def test_find_missing_imports_function_paramlist_1():
         X3 = 3
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['X2', 'X3']
     assert expected == result
 
@@ -204,6 +232,7 @@ def test_find_missing_imports_function_defaults_1():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['a', 'b', 'c', 'd']
     assert expected == result
 
@@ -214,6 +243,7 @@ def test_find_missing_imports_function_defaults_kwargs_1():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['args', 'kwargs', 'y']
     assert expected == result
 
@@ -226,6 +256,7 @@ def test_find_missing_imports_function_defaults_kwargs_2():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -240,6 +271,7 @@ def test_find_missing_imports_function_paramlist_local_1():
         x1, x2, x3, x4, x5
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['x3', 'x5']
     assert expected == result
 
@@ -252,6 +284,7 @@ def test_find_missing_imports_function_paramlist_selfref_1():
         f3 = 'x'
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['f2', 'f3']
     assert expected == result
 
@@ -264,6 +297,7 @@ def test_find_missing_imports_function_paramlist_lambda_1():
         X3 = 3
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['X2']
     assert expected == result
 
@@ -279,6 +313,7 @@ def test_find_missing_imports_decorator_1():
         deco3 = 'x'
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['deco2', 'deco3']
     assert expected == result
 
@@ -293,6 +328,7 @@ def test_find_missing_imports_decorator_selfref_1():
         func3 = 'x'
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['func2', 'func3']
     assert expected == result
 
@@ -307,8 +343,45 @@ def test_find_missing_imports_decorator_paramlist_1():
         p3 = 3
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['p1', 'p3']
     assert expected == result
+
+
+def test_find_missing_imports_delattr_1():
+    code = dedent("""
+        foo1 = 1
+        del foo1.bar, foo2.bar
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['foo2']
+    assert expected == result
+
+
+def test_find_missing_imports_delitem_lhs_1():
+    code = dedent("""
+        foo1 = 1
+        del foo1[123], foo2[123]
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['foo2']
+    assert expected == result
+
+
+def test_find_missing_imports_delitem_rhs_1():
+    code = dedent("""
+        foo1 = 1
+        bar1 = 1
+        del foo1[bar1], foo1[bar2]
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['bar2']
+    assert expected == result
+
+# TODO: unit tests for local, nonlocal
 
 
 def test_find_missing_imports_classdef_1():
@@ -320,6 +393,7 @@ def test_find_missing_imports_classdef_1():
         Mahopac, Carmel, Gleneida
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Carmel']
     assert expected == result
 
@@ -331,6 +405,7 @@ def test_find_missing_imports_class_base_1():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Crom']
     assert expected == result
 
@@ -345,6 +420,7 @@ def test_find_missing_imports_class_name_1():
             Rockton = Passall, Corinne, Bobtail, Chippewa
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Bobtail', 'Passall']
     assert expected == result
 
@@ -356,6 +432,7 @@ def test_find_missing_imports_class_members_1():
             z = x, y
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -368,6 +445,7 @@ def test_find_missing_imports_class_member_vs_function_1():
                 return x, y
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['x', 'y']
     assert expected == result
 
@@ -381,6 +459,7 @@ def test_find_missing_imports_class_member_vs_function_2():
                 return Wayne, Connaught, Windsor
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Windsor']
     assert expected == result
 
@@ -396,6 +475,7 @@ def test_find_missing_imports_class_member_vs_lambda_1():
         x5 = 5
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['x2', 'x4', 'x6']
     assert expected == result
 
@@ -409,6 +489,7 @@ def test_find_missing_imports_class_member_vs_paramlist_1():
             duck3 = 3
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['duck1', 'duck3']
     assert expected == result
 
@@ -427,6 +508,7 @@ def test_find_missing_imports_class_member_vs_paramlist_lambda_1():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['corn1', 'corn2']
     assert expected == result
 
@@ -442,6 +524,7 @@ def test_find_missing_imports_class_member_vs_paramlist_local_1():
             y = x1, x2, x3, x4, x5
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['x3', 'x5']
     assert expected == result
 
@@ -459,6 +542,7 @@ def test_find_missing_imports_class_member_vs_decorator_1():
                 pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['panther2', 'panther3']
     assert expected == result
 
@@ -474,6 +558,7 @@ def test_find_missing_imports_inner_class_method_1():
             pass
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Dirt', 'Silicon']
     assert expected == result
 
@@ -487,6 +572,7 @@ def test_find_missing_imports_inner_class_attribute_1():
                 b = x + a
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['a']
     assert expected == result
 
@@ -498,6 +584,7 @@ def test_find_missing_imports_class_member_function_ref_1():
             g = f1, f2
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['f2']
     assert expected == result
 
@@ -514,6 +601,7 @@ def test_find_missing_imports_class_member_generator_expression_1():
             h = [y1, y2]
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y1']
     assert expected == result
 
@@ -525,6 +613,7 @@ def test_find_missing_imports_latedef_def_1():
         z = 100
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -535,6 +624,7 @@ def test_find_missing_imports_latedef_lambda_1():
         z = 100
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -547,6 +637,7 @@ def test_find_missing_imports_latedef_def_def_1():
             return 100
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['cannon', 'sterling']
     assert expected == result
 
@@ -560,6 +651,7 @@ def test_find_missing_imports_latedef_innerdef_1():
         v = 200
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -576,6 +668,7 @@ def test_find_missing_imports_latedef_innerdef_2():
         v = 200
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y', 'z']
     assert expected == result
 
@@ -591,6 +684,7 @@ def test_find_missing_imports_latedef_classdef_1():
         z = 100
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['b', 'x', 'y']
     assert expected == result
 
@@ -605,6 +699,7 @@ def test_find_missing_imports_latedef_func_class_func_1():
         Kirk = 200
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['Alfred', 'Grover']
     assert expected == result
 
@@ -618,6 +713,7 @@ def test_find_missing_imports_latedef_if_1():
             x = 1
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -629,6 +725,7 @@ def test_find_missing_imports_class_scope_comprehension_1():
             z = list(1 for t in x+y)
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -641,6 +738,7 @@ def test_find_missing_imports_global_1():
         x = 1
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -650,6 +748,7 @@ def test_find_missing_imports_complex_1():
         x = 3+4j+5L+k+u'a'
     """)
     result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['k']
     assert expected == result
 
@@ -657,6 +756,7 @@ def test_find_missing_imports_complex_1():
 def test_find_missing_imports_code_1():
     f = lambda: foo.bar(x) + baz(y)
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['baz', 'foo.bar', 'x', 'y']
     assert expected == result
 
@@ -665,6 +765,7 @@ def test_find_missing_imports_code_args_1():
     def f(x, y, *a, **k):
         return g(x, y, z, a, k)
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['g', 'z']
     assert expected == result
 
@@ -674,6 +775,7 @@ def test_find_missing_imports_code_use_after_import_1():
         import foo
         foo.bar()
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = []
     assert expected == result
 
@@ -681,6 +783,7 @@ def test_find_missing_imports_code_use_after_import_1():
 def test_find_missing_imports_code_lambda_scope_1():
     f = lambda x: (lambda: x+y)
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
 
@@ -695,6 +798,7 @@ def test_find_missing_imports_code_conditional_1():
         x3 + y0
         y1 + y2
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['c', 'x0', 'x1', 'x2', 'x3']
     assert expected == result
 
@@ -708,6 +812,7 @@ def test_find_missing_imports_code_loop_1():
             else:
                 x = "hello"
     result   = find_missing_imports(f.func_code, [{}])
+    result   = _dilist2strlist(result)
     expected = ['use', 'y']
     assert expected == result
 

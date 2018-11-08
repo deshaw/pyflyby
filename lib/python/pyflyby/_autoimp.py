@@ -1,5 +1,5 @@
 # pyflyby/_autoimp.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -8,21 +8,21 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 import contextlib
 import copy
-import os
 import six
+from   six                      import exec_, reraise
+from   six.moves                import builtins
 import sys
 import types
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
-from   pyflyby._idents          import DottedIdentifier, is_identifier
+from   pyflyby._idents          import (BadDottedIdentifierError,
+                                        DottedIdentifier, brace_identifiers)
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
-from   six                      import exec_, reraise
-from   six.moves                import builtins
 
 
 class _ClassScope(dict):
@@ -175,7 +175,7 @@ def symbol_needs_import(fullname, namespaces):
     fullname = DottedIdentifier(fullname)
     partial_names = fullname.prefixes[::-1]
     # Iterate over local scopes.
-    for ns_idx, ns in enumerate(namespaces):
+    for ns_idx, ns in reversed(list(enumerate(namespaces))):
         # Iterate over partial names: "foo.bar.baz.quux", "foo.bar.baz", ...
         for partial_name in partial_names:
             # Check if this partial name was imported/assigned in this
@@ -185,6 +185,10 @@ def symbol_needs_import(fullname, namespaces):
                 var = ns[str(partial_name)]
             except KeyError:
                 continue
+            # If we're doing static analysis where we also care about which
+            # imports are unused, then mark the used ones now.
+            if type(var) is _UseChecker:
+                var.used = True
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
             # the scope vars (most commonly this means it was imported
@@ -243,6 +247,19 @@ def symbol_needs_import(fullname, namespaces):
     return True
 
 
+class _UseChecker(object):
+    """
+    An object that can check whether it was used.
+    """
+    used = False
+
+    def __init__(self, name, source, lineno):
+        self.name = name
+        self.source = source # generally an Import
+        self.lineno = lineno
+
+
+
 class _MissingImportFinder(object):
     """
     A helper class to be used only by L{_find_missing_imports_in_ast}.
@@ -260,7 +277,8 @@ class _MissingImportFinder(object):
 
     """
 
-    def __init__(self, scopestack):
+    def __init__(self, scopestack, find_unused_imports=False,
+                 parse_docstrings=False):
         """
         Construct the AST visitor.
 
@@ -278,17 +296,72 @@ class _MissingImportFinder(object):
         scopestack = scopestack.with_new_scope()
         self.scopestack = scopestack
         # Create data structure to hold the result.
-        self.missing_imports = set()
+        # missing_imports is a list of (lineno, DottedIdentifier) tuples.
+        self.missing_imports = []
+        # unused_imports is a list of (lineno, Import) tuples, if enabled.
+        self.unused_imports = [] if find_unused_imports else None
+        self.parse_docstrings = parse_docstrings
         # Function bodies that we need to check after defining names in this
         # function scope.
         self._deferred_load_checks = []
         # Whether we're currently in a FunctionDef.
         self._in_FunctionDef = False
+        # Current lineno.
+        self._lineno = None
 
     def find_missing_imports(self, node):
+        self._scan_node(node)
+        return sorted(set(imp for lineno,imp in self.missing_imports))
+
+    def _scan_node(self, node):
+        myglobals = self.scopestack[-1]
         self.visit(node)
         self._finish_deferred_load_checks()
-        return sorted(self.missing_imports)
+        assert self.scopestack[-1] is myglobals
+
+    def scan_for_import_issues(self, codeblock):
+        # See global L{scan_for_import_issues}
+        codeblock = PythonBlock(codeblock)
+        node = codeblock.ast_node
+        self._scan_node(node)
+        # Get missing imports now, before handling docstrings.  We don't want
+        # references in doctests to be noted as missing-imports.  For now we
+        # just let the code accumulate into self.missing_imports and ignore
+        # the result.
+        missing_imports = list(self.missing_imports)
+        if self.parse_docstrings and self.unused_imports is not None:
+            doctest_blocks = codeblock.get_doctests()
+            # Parse each doctest.  Don't report missing imports in doctests,
+            # but do treat existing imports as 'used' if they are used in
+            # doctests.  The linenos are currently wrong, but we don't use
+            # them so it's not important to fix.
+            for block in doctest_blocks:
+                # There are doctests.  Parse them.
+                # Doctest blocks inherit the global scope after parsing all
+                # non-doctest code, and each doctest block individually creates a new
+                # scope (not shared between doctest blocks).
+                # TODO: Theoretically we should clone the entire scopestack,
+                # not just add a new scope, in case the doctest uses 'global'.
+                # Currently we don't support the 'global' keyword anyway so
+                # this doesn't matter yet, and it's uncommon to use 'global'
+                # in a doctest, so this is low priority to fix.
+                oldstack = self.scopestack
+                self.scopestack = self.scopestack.with_new_scope()
+                self._scan_node(block.ast_node)
+                self.scopestack = oldstack
+            # Find literal brace identifiers like "... L{Foo} ...".
+            # TODO: Do this inline: (1) faster; (2) can use proper scope of vars
+            # Once we do that, use _check_load() with new args
+            # check_missing_imports=False, check_unused_imports=True
+            literal_brace_identifiers = set(
+                iden
+                for f in codeblock.string_literals()
+                for iden in brace_identifiers(f.s))
+            if literal_brace_identifiers:
+                for ident in literal_brace_identifiers:
+                    symbol_needs_import(ident, self.scopestack)
+        self._scan_unused_imports()
+        return missing_imports, self.unused_imports
 
     def visit(self, node):
         """
@@ -297,7 +370,11 @@ class _MissingImportFinder(object):
         @type node:
           C{ast.AST} or C{list} of C{ast.AST}
         """
-        # Modification of ast.NodeVisitor.visit(): support list inputs.
+        # Modification of ast.NodeVisitor.visit().  Support list inputs.
+        logger.debug("_MissingImportFinder.visit(%r)", node)
+        lineno = getattr(node, 'lineno', None)
+        if lineno:
+            self._lineno = lineno
         if isinstance(node, list):
             for item in node:
                 self.visit(item)
@@ -444,14 +521,21 @@ class _MissingImportFinder(object):
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit_ListComp(node)
 
-    def visit_alias(self, node):
+    def visit_ImportFrom(self, node):
+        modulename = "." * node.level + (node.module or "")
+        logger.debug("visit_ImportFrom(%r, ...)", modulename)
+        for alias_node in node.names:
+            self.visit_alias(alias_node, modulename)
+
+    def visit_alias(self, node, modulename=None):
+        # Visit an import alias node.
         # TODO: Currently we treat 'import foo' the same as if the user did
         # 'foo = 123', i.e. we treat it as a black box (non-module).  This is
         # to avoid actually importing it yet.  But this means we won't know
         # whether foo.bar is available so we won't auto-import it.  Maybe we
         # should give up on not importing it and just import it in a scratch
         # namespace, so we can check.
-        self._visit_Store(node.asname or node.name)
+        self._visit_StoreImport(node, modulename)
         self.generic_visit(node)
 
     def visit_Name(self, node):
@@ -459,7 +543,6 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_Attribute(self, node):
-        logger.debug("visit_Attribute(%r)", node.attr)
         name_revparts = []
         n = node
         while isinstance(n, ast.Attribute):
@@ -474,6 +557,7 @@ class _MissingImportFinder(object):
         name_revparts.append(n.id)
         name_parts = name_revparts[::-1]
         fullname = ".".join(name_parts)
+        logger.debug("visit_Attribute(%r): fullname=%r, ctx=%r", node.attr, fullname, node.ctx)
         self._visit_fullname(fullname, node.ctx)
 
     def _visit_fullname(self, fullname, ctx):
@@ -482,9 +566,57 @@ class _MissingImportFinder(object):
         elif isinstance(ctx, ast.Load):
             self._visit_Load(fullname)
 
-    def _visit_Store(self, fullname):
+    def _visit_StoreImport(self, node, modulename):
+        name = node.asname or node.name
+        if self.unused_imports is None:
+            logger.debug("_visit_StoreImport(asname=%r,name=%r)",
+                         node.asname, node.name)
+            value = None
+        else:
+            imp = Import.from_split((modulename, node.name, name))
+            logger.debug("_visit_StoreImport(asname=%r,name=%r) => %r",
+                         node.asname, node.name, imp)
+            # Keep track of whether we've used this import.
+            value = _UseChecker(name, imp, self._lineno)
+            # Always consider __future__ imports to be used.
+            if imp.split.module_name == "__future__":
+                value.used = True
+        self._visit_Store(name, value)
+
+    def _visit_Store(self, fullname, value=None):
         logger.debug("_visit_Store(%r)", fullname)
-        self.scopestack[-1][fullname] = None
+        scope = self.scopestack[-1]
+        if self.unused_imports is not None:
+            # If we're redefining something, and it has not been used, then
+            # record it as unused.
+            oldvalue = scope.get(fullname)
+            if type(oldvalue) is _UseChecker and not oldvalue.used:
+                self.unused_imports.append((oldvalue.lineno, oldvalue.source))
+        scope[fullname] = value
+
+    def visit_Delete(self, node):
+        scope = self.scopestack[-1]
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                # 'del foo'
+                if target.id not in scope:
+                    # 'del x' without 'x' in current scope.  Should we warn?
+                    continue
+                del scope[target.id]
+            elif isinstance(target, ast.Attribute):
+                # 'del foo.bar.baz', 'del foo().bar', etc
+                # We ignore the 'del ...bar' part and just visit the
+                # left-hand-side of the delattr.  We need to do this explicitly
+                # instead of relying on a generic_visit on C{node} itself.
+                # Reason: We want visit_Attribute process a getattr for
+                # 'foo.bar'.
+                self.visit(target.value)
+            else:
+                # 'del foo.bar[123]' (ast.Subscript), etc.
+                # We can generically-visit the entire target node here.
+                self.visit(target)
+        # Don't call generic_visit(node) here.  Reason: We already visit the
+        # parts above, if relevant.
 
     def _visit_Load(self, fullname):
         logger.debug("_visit_Load(%r)", fullname)
@@ -509,23 +641,77 @@ class _MissingImportFinder(object):
             # On the other hand, we intentionally alias the other scopes
             # rather than cloning them, because the point is to allow them to
             # be modified until we do the check at the end.
-            data = (fullname, self.scopestack.clone_top())
+            data = (fullname, self.scopestack.clone_top(), self._lineno)
             self._deferred_load_checks.append(data)
         else:
             # We're not in a FunctionDef.  Deferring would give us the same
             # result; we do the check now to avoid the overhead of cloning the
             # stack.
-            self._check_load(fullname, self.scopestack)
+            self._check_load(fullname, self.scopestack, self._lineno)
 
-    def _check_load(self, fullname, scopestack):
+    def _check_load(self, fullname, scopestack, lineno):
+        # Check if the symbol needs import.  (As a side effect, if the object
+        # is a _UseChecker, this will mark it as used.  TODO: It would be
+        # better to refactor symbol_needs_import so that it just returns the
+        # object it found, and we mark it as used here.)
+        fullname = DottedIdentifier(fullname)
         if symbol_needs_import(fullname, scopestack):
-            self.missing_imports.add(fullname)
+            self.missing_imports.append((lineno,fullname))
 
     def _finish_deferred_load_checks(self):
-        for fullname, scopestack in self._deferred_load_checks:
-            self._check_load(fullname, scopestack)
+        for fullname, scopestack, lineno in self._deferred_load_checks:
+            self._check_load(fullname, scopestack, lineno)
         self._deferred_load_checks = []
 
+    def _scan_unused_imports(self):
+        # If requested, then check which of our imports were unused.
+        # For now we only scan the top level.  If we wanted to support
+        # non-global unused-import checking, then we should check this
+        # whenever popping a scopestack.
+        unused_imports = self.unused_imports
+        if unused_imports is None:
+            return
+        scope = self.scopestack[-1]
+        for name, value in six.iteritems(scope):
+            if type(value) is not _UseChecker:
+                continue
+            if value.used:
+                continue
+            unused_imports.append(( value.lineno, value.source ))
+        unused_imports.sort()
+
+
+
+def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings=False):
+    """
+    Find missing and unused imports, by lineno.
+
+      >>> arg = "import numpy, aa.bb as cc\\nnumpy.arange(x)\\narange(x)"
+      >>> missing, unused = scan_for_import_issues(arg)
+      >>> missing
+      [(2, DottedIdentifier('x')), (3, DottedIdentifier('arange')), (3, DottedIdentifier('x'))]
+      >>> unused
+      [(1, Import('from aa import bb as cc'))]
+
+    @type codeblock:
+      C{PythonBlock}
+    @type namespaces:
+      C{dict} or C{list} of C{dict}
+    @param parse_docstrings:
+      Whether to parse docstrings.
+      In the following example, 'bar' is not considered unused because there is
+      a string that references it in braces:
+      >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n")
+      ([(Import('import baz'), 1)], []) XXX
+
+    """
+    logger.debug("scan_for_import_issues()")
+    codeblock = PythonBlock(codeblock)
+    namespaces = ScopeStack([{}])
+    finder = _MissingImportFinder(namespaces,
+                                  find_unused_imports=find_unused_imports,
+                                  parse_docstrings=parse_docstrings)
+    return finder.scan_for_import_issues(codeblock)
 
 
 def _find_missing_imports_in_ast(node, namespaces):
@@ -535,14 +721,14 @@ def _find_missing_imports_in_ast(node, namespaces):
 
       >>> node = ast.parse("import numpy; numpy.arange(x) + arange(x)")
       >>> _find_missing_imports_in_ast(node, [{}])
-      ['arange', 'x']
+      [DottedIdentifier('arange'), DottedIdentifier('x')]
 
     @type node:
       C{ast.AST}
     @type namespaces:
       C{dict} or C{list} of C{dict}
     @rtype:
-      C{list} of C{str}
+      C{list} of C{DottedIdentifier}
     """
     if not isinstance(node, ast.AST):
         raise TypeError
@@ -564,12 +750,12 @@ def _find_missing_imports_in_code(co, namespaces):
     Helper function to L{find_missing_imports}.
 
       >>> f = lambda: foo.bar(x) + baz(y)
-      >>> _find_missing_imports_in_code(f.func_code, [{}])
+      >>> map(str, _find_missing_imports_in_code(f.func_code, [{}]))
       ['baz', 'foo.bar', 'x', 'y']
 
       >>> f = lambda x: (lambda: x+y)
       >>> _find_missing_imports_in_code(f.func_code, [{}])
-      ['y']
+      [DottedIdentifier('y')]
 
     @type co:
       C{types.CodeType}
@@ -581,7 +767,7 @@ def _find_missing_imports_in_code(co, namespaces):
     loads_without_stores = set()
     _find_loads_without_stores_in_code(co, loads_without_stores)
     missing_imports = [
-        fullname for fullname in sorted(loads_without_stores)
+        DottedIdentifier(fullname) for fullname in sorted(loads_without_stores)
         if symbol_needs_import(fullname, namespaces)
         ]
     return missing_imports
@@ -994,11 +1180,15 @@ def find_missing_imports(arg, namespaces):
     @param namespaces:
       Stack of namespaces of symbols that exist per scope.
     @rtype:
-      C{list} of C{str}
+      C{list} of C{DottedIdentifier}
     """
     namespaces = ScopeStack(namespaces)
-    if isinstance(arg, six.string_types):
-        if is_identifier(arg, dotted=True):
+    if isinstance(arg, (DottedIdentifier, six.string_types)):
+        try:
+            arg = DottedIdentifier(arg)
+        except BadDottedIdentifierError:
+            pass
+        else:
             # The string is a single identifier.  Check directly whether it
             # needs import.  This is an optimization to not bother parsing an
             # AST.
@@ -1006,11 +1196,10 @@ def find_missing_imports(arg, namespaces):
                 return [arg]
             else:
                 return []
-        else:
-            # Parse the string into an AST.
-            node = ast.parse(arg) # may raise SyntaxError
-            # Get missing imports from AST.
-            return _find_missing_imports_in_ast(node, namespaces)
+        # Parse the string into an AST.
+        node = ast.parse(arg) # may raise SyntaxError
+        # Get missing imports from AST.
+        return _find_missing_imports_in_ast(node, namespaces)
     elif isinstance(arg, PythonBlock):
         return _find_missing_imports_in_ast(arg.ast_node, namespaces)
     elif isinstance(arg, ast.AST):

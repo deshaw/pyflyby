@@ -4,17 +4,16 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import re
-
+from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
-from   pyflyby._idents          import brace_identifiers
 from   pyflyby._importclns      import ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+import re
 from   six                      import exec_
 
 
@@ -119,23 +118,18 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             raise LineNumberAmbiguousError(lineno)
         return results[0]
 
-    def remove_import(self, import_as, lineno):
+    def remove_import(self, imp, lineno):
         """
         Remove the given import.
 
-        @type import_as:
-          C{str}
+        @type imp:
+          L{Import}
         @type lineno:
           C{int}
         """
-        # Given a statement 'from foo import bar', older versions of pyflakes
-        # report 'bar', while newer ones report 'foo.bar'.  Handle both.
-        # TODO: once we move from pyflakes to our own parser, simplify this
-        # logic to always take an Import or ImportStatement.
-        import_as = import_as.rsplit(".", 1)[-1]
         block = self.find_import_block_by_lineno(lineno)
         try:
-            imports = block.importset.by_import_as[import_as]
+            imports = block.importset.by_import_as[imp.import_as]
         except KeyError:
             raise NoSuchImportError
         assert len(imports)
@@ -296,131 +290,6 @@ def ImportPathForRelativeImportsCtx(codeblock):
     return ImportPathCtx(str(codeblock.filename.dir))
 
 
-def _pyflakes_version():
-    import pyflakes
-    m = re.match("([0-9]+[.][0-9]+)", pyflakes.__version__)
-    if not m:
-        raise Exception(
-            "Can't get pyflakes version from %r" % (pyflakes.__version__,))
-    return float(m.group(1))
-
-
-def _pyflakes_checker(codeblock):
-    from pyflakes.checker import Checker
-    codeblock = PythonBlock(codeblock)
-    version = _pyflakes_version()
-    if version <= 0.4:
-        # pyflakes 0.4 uses the 'compiler' module.
-        return Checker(codeblock.parse_tree)
-    elif version >= 0.5:
-        # pyflakes 0.5 uses the 'ast' module.
-        return Checker(codeblock.ast_node)
-    else:
-        raise Exception("Unknown pyflakes version %r" % (version,))
-
-
-def _pyflakes_find_unused_and_missing_imports(codeblock):
-    """
-    Find unused imports and missing imports, using Pyflakes to statically
-    analyze for unused and missing imports.
-
-    'bar' is unused and 'blah' is undefined:
-
-      >>> find_unused_and_missing_imports("import foo as bar\\nblah\\n")
-      ([('bar', 1)], [('blah', 2)])
-
-    @type codeblock:
-      L{PythonBlock} or convertible
-    @return:
-      C{(unused_imports, missing_imports)} where C{unused_imports} and
-      C{missing_imports} each are sequences of C{(import_as, lineno)} tuples.
-    """
-    from pyflakes import messages as M
-    codeblock = PythonBlock(codeblock)
-    messages = _pyflakes_checker(codeblock).messages
-    unused_imports = []
-    missing_imports = []
-    for message in messages:
-        if isinstance(message, M.RedefinedWhileUnused):
-            # Ignore redefinitions in inner scopes.
-            if codeblock.text[message.lineno].startswith(" "):
-                continue
-            import_as, orig_lineno = message.message_args
-            unused_imports.append( (import_as, orig_lineno) )
-        elif isinstance(message, M.UnusedImport):
-            import_as, = message.message_args
-            unused_imports.append( (import_as, message.lineno) )
-        elif isinstance(message, M.UndefinedName):
-            import_as, = message.message_args
-            missing_imports.append( (import_as, message.lineno) )
-    return unused_imports, missing_imports
-
-
-def find_unused_and_missing_imports(codeblock):
-    """
-    Find unused imports and missing imports, taking docstrings into account.
-
-    Pyflakes is used to statically analyze for unused and missing imports.
-    Doctests in docstrings are analyzed as code and epydoc references in
-    docstrings also prevent removal.
-
-    In the following example, 'bar' is not considered unused because there is
-    a string that references it in braces:
-
-      >>> find_unused_and_missing_imports("import foo as bar, baz\\n'{bar}'\\n")
-      ([('baz', 1)], [])
-
-    @type codeblock:
-      L{PythonBlock} or convertible
-    @return:
-      C{(unused_imports, missing_imports)} where C{unused_imports} and
-      C{missing_imports} each are sequences of C{(import_as, lineno)} tuples.
-    """
-    # TODO: rewrite this using our own AST parser.
-    # Once we do that we can also process doctests and literal brace
-    # identifiers at the proper scope level.  We should treat both doctests
-    # and literal brace identifiers as "soft" uses that don't trigger missing
-    # imports but do trigger as used imports.
-    codeblock = PythonBlock(codeblock)
-    # Run pyflakes on the main code.
-    unused_imports, missing_imports = (
-        _pyflakes_find_unused_and_missing_imports(codeblock))
-    # Find doctests.
-    doctest_blocks = codeblock.get_doctests()
-    if doctest_blocks:
-        # There are doctests.  Re-run pyflakes on main code + doctests.  Don't
-        # report missing imports in doctests, but do treat existing imports as
-        # 'used' if they are used in doctests.
-        # Create one data structure to pass to pyflakes.  This is going to
-        # screw up linenos but we won't use them, so it doesn't matter.
-        bigblock = PythonBlock.concatenate([codeblock] + doctest_blocks,
-                                           assume_contiguous=True)
-        wdt_unused_imports, _ = ( # wdt = with doc tests
-            _pyflakes_find_unused_and_missing_imports(bigblock))
-        wdt_unused_asimports = set(
-            import_as for import_as, lineno in wdt_unused_imports)
-        # Keep only the intersection of unused imports.
-        unused_imports = [
-            (import_as, lineno) for import_as, lineno in unused_imports
-            if import_as in wdt_unused_asimports ]
-    # Find literal brace identifiers like "... L{Foo} ...".
-    # TODO: merge this into our own AST-based missing/unused-import-finder
-    # (replacing pyflakes).
-    literal_brace_identifiers = set(
-        iden
-        for f in codeblock.string_literals()
-        for iden in brace_identifiers(f.s))
-    if literal_brace_identifiers:
-        # Pyflakes doesn't look at docstrings containing references like
-        # "L{foo}" which require an import, nor at C{str.format} strings like
-        # '''"{foo}".format(...)'''.  Don't remove supposedly-unused imports
-        # which match a string literal brace identifier.
-        unused_imports = [
-            (import_as, lineno) for import_as, lineno in unused_imports
-            if import_as.rsplit(".",1)[-1] not in literal_brace_identifiers ]
-    return unused_imports, missing_imports
-
-
 def fix_unused_and_missing_imports(codeblock,
                                    add_missing=True,
                                    remove_unused="AUTOMATIC",
@@ -428,8 +297,7 @@ def fix_unused_and_missing_imports(codeblock,
                                    db=None,
                                    params=None):
     r"""
-    Using C{pyflakes}, check for unused and missing imports, and fix them
-    automatically.
+    Check for unused and missing imports, and fix them automatically.
 
     Also formats imports.
 
@@ -467,19 +335,18 @@ def fix_unused_and_missing_imports(codeblock,
     params = ImportFormatParams(params)
     db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
     # Do a first pass reformatting the imports to get rid of repeated or
-    # shadowed imports.  This is a kludge to deal with pyflakes complaining
-    # about L1 here:
+    # shadowed imports, e.g. L1 here:
     #   import foo  # L1
     #   import foo  # L2
     #   foo         # L3
-    # TODO: use our own AST parser which will have many benefits including
-    # avoiding this kludge.
     codeblock = reformat_import_statements(codeblock, params=params)
 
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
-    unused_imports, missing_imports = find_unused_and_missing_imports(codeblock)
-
+    missing_imports, unused_imports = scan_for_import_issues(
+        codeblock, find_unused_imports=remove_unused, parse_docstrings=True)
+    logger.debug("missing_imports = %r", missing_imports)
+    logger.debug("unused_imports = %r", unused_imports)
     if remove_unused and unused_imports:
         # Go through imports to remove.  [This used to be organized by going
         # through import blocks and removing all relevant blocks from there,
@@ -490,17 +357,16 @@ def fix_unused_and_missing_imports(codeblock,
         # implemented yet because this isn't necessary for __future__ imports
         # since they aren't reported as unused, and those are the only ones we
         # have by default right now.]
-        unused_imports.sort(key=lambda k: (k[1], k[0]))
-        for import_as, lineno in unused_imports:
+        for lineno, imp in unused_imports:
             try:
-                imp = transformer.remove_import(import_as, lineno)
+                imp = transformer.remove_import(imp, lineno)
             except NoSuchImportError:
                 logger.error(
-                    "%s: couldn't remove import %r", filename, import_as,)
+                    "%s: couldn't remove import %r", filename, imp,)
             except LineNumberNotFoundError as e:
                 logger.error(
                     "%s: unused import %r on line %d not global",
-                    filename, import_as, e.args[0])
+                    filename, str(imp), e.args[0])
             else:
                 logger.info("%s: removed unused '%s'", filename, imp)
 
@@ -511,7 +377,8 @@ def fix_unused_and_missing_imports(codeblock,
         # block with the longest common prefix.  Tie-break by preferring later
         # blocks.
         added_imports = set()
-        for import_as, lineno in missing_imports:
+        for lineno, ident in missing_imports:
+            import_as = ident.parts[0]
             try:
                 imports = known[import_as]
             except KeyError:
