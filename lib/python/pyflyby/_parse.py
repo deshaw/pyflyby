@@ -1,5 +1,5 @@
 # pyflyby/_parse.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -1159,22 +1159,6 @@ class PythonBlock(object):
           L{CompilerFlags}
         """
         return self.ast_node.flags
-
-    @cached_attribute
-    def parse_tree(self):
-        """
-        Return an C{AST} as returned by the C{compiler} module.
-        """
-        # Note that the 'compiler' module is deprecated, which is why we use
-        # the C{compile} built-in above.  This is for interfacing with
-        # pyflakes 0.4 and earlier.
-        import compiler
-        joined = self.text.joined
-        if not joined.endswith("\n"):
-            # Ensure that the last line ends with a newline (C{parse} barfs
-            # otherwise).
-            joined += "\n"
-        return compiler.parse(joined)
 
     def groupby(self, predicate):
         """
