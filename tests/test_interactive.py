@@ -23,7 +23,7 @@ from   shutil                   import rmtree
 import six
 from   six.moves                import cStringIO as StringIO
 import signal
-from   subprocess               import PIPE, Popen, check_call
+from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
 from   textwrap                 import dedent
@@ -60,6 +60,7 @@ def pytest_generate_tests(metafunc):
         if _IPYTHON_VERSION >= (5,4):
             try:
                 import rlipython
+                rlipython # used
             except ImportError:
                 raise ImportError("test_interactive requires rlipython installed.  "
                                   "Please try: pip install rlipython")
