@@ -859,6 +859,43 @@ def test_scan_for_import_issues_setcomp_unused_1():
     assert unused == [(2, Import('import x1'))]
 
 
+def test_scan_for_import_issues_class_subclass_imported_class_1():
+    code = dedent("""
+        from m1 import C1
+        class C1(C1): pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
+# This is currently buggy.
+# The problem is that we postpone the check for C1.base = m1.C1, and by the
+# time we check it, we've already replaced the thing in the scope.
+@pytest.mark.xfail
+def test_scan_for_import_issues_class_subclass_imported_class_in_func_1():
+    code = dedent("""
+        def f1():
+            from m1 import C1
+            class C1(C1): pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_use_then_del_in_func_1():
+    code = dedent("""
+        def f1():
+            x1 = 1
+            x1
+            del x1
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
