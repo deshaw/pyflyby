@@ -43,6 +43,8 @@ class ScopeStack(tuple):
     Duplicates are removed.
     """
 
+    _cached_has_star_import = False
+
     def __new__(cls, arg):
         """
         Interpret argument as a C{ScopeStack}.
@@ -142,6 +144,24 @@ class ScopeStack(tuple):
         # Return as a 2-tuple.  We don't cast the result to ScopeStack because
         # it may add __builtins__ again, creating something of length 3.
         return (d, self[-1])
+
+
+    def has_star_import(self):
+        """
+        Return whether there are any star-imports in this ScopeStack.
+        Only relevant in AST-based static analysis mode.
+        """
+        if self._cached_has_star_import:
+            return True
+        if any('*' in scope for scope in self):
+            # There was a star import.  Cache that fact before returning.  We
+            # can cache a positive result because a star import can't be undone.
+            self._cached_has_star_import = True
+            return True
+        else:
+            # There was no star import yet.  We can't cache that fact because
+            # there might be a star import later.
+            return False
 
 
 
@@ -317,10 +337,15 @@ class _MissingImportFinder(object):
         return sorted(set(imp for lineno,imp in self.missing_imports))
 
     def _scan_node(self, node):
+        oldscopestack = self.scopestack
         myglobals = self.scopestack[-1]
-        self.visit(node)
-        self._finish_deferred_load_checks()
-        assert self.scopestack[-1] is myglobals
+        try:
+            self.visit(node)
+            self._finish_deferred_load_checks()
+            assert self.scopestack is oldscopestack
+            assert self.scopestack[-1] is myglobals
+        finally:
+            self.scopestack = oldscopestack
 
     def scan_for_import_issues(self, codeblock):
         # See global L{scan_for_import_issues}
@@ -331,7 +356,7 @@ class _MissingImportFinder(object):
         # references in doctests to be noted as missing-imports.  For now we
         # just let the code accumulate into self.missing_imports and ignore
         # the result.
-        missing_imports = list(self.missing_imports)
+        missing_imports = sorted(self.missing_imports)
         if self.parse_docstrings and self.unused_imports is not None:
             doctest_blocks = codeblock.get_doctests()
             # Parse each doctest.  Don't report missing imports in doctests,
@@ -602,20 +627,21 @@ class _MissingImportFinder(object):
         name = node.asname or node.name
         logger.debug("_visit_StoreImport(asname=%r,name=%r)",
                      node.asname, node.name)
-        if not node.asname:
+        is_star = node.name == '*'
+        if is_star:
+            logger.debug("Got star import: line %s: 'from %s import *'",
+                         self._lineno, modulename)
+        if not node.asname and not is_star:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes:
                 self._visit_Store(str(prefix), None)
-        if self.unused_imports is None:
+        if self.unused_imports is None or is_star or modulename == "__future__":
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))
             logger.debug("_visit_StoreImport(): imp = %r", imp)
             # Keep track of whether we've used this import.
             value = _UseChecker(name, imp, self._lineno)
-            # Always consider __future__ imports to be used.
-            if imp.split.module_name == "__future__":
-                value.used = True
         self._visit_Store(name, value)
 
     def _visit_Store(self, fullname, value=None):
@@ -690,7 +716,7 @@ class _MissingImportFinder(object):
         # better to refactor symbol_needs_import so that it just returns the
         # object it found, and we mark it as used here.)
         fullname = DottedIdentifier(fullname)
-        if symbol_needs_import(fullname, scopestack):
+        if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             self.missing_imports.append((lineno,fullname))
 
     def _finish_deferred_load_checks(self):

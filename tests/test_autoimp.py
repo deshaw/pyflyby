@@ -942,6 +942,47 @@ def test_scan_for_import_issues_brace_identifiers_bad_1():
     assert unused == [(2, Import('import x2'))]
 
 
+def test_scan_for_import_issues_star_import_1():
+    code = dedent("""
+        import x1, y1
+        x1, x2
+        from m2 import *
+        x3
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(3, DottedIdentifier('x2'))]
+    assert unused == [(2, Import('import y1'))]
+
+
+def test_scan_for_import_issues_star_import_deferred_1():
+    code = dedent("""
+        import x1, y1
+        def f1():
+            x1, x2
+        from m2 import *
+        def f1():
+            x3
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import y1'))]
+
+
+def test_scan_for_import_issues_star_import_local_1():
+    code = dedent("""
+        import x1, y1
+        def f1():
+            from m2 import *
+            x2
+        def f2():
+            x3
+        x1, x4
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(7, DottedIdentifier('x3')), (8, DottedIdentifier('x4'))]
+    assert unused == [(2, Import('import y1'))]
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
