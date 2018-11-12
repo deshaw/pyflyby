@@ -896,6 +896,30 @@ def test_scan_for_import_issues_use_then_del_in_func_1():
     assert unused == []
 
 
+def test_scan_for_import_issues_use_then_del_in_func_2():
+    code = dedent("""
+        def f1():
+            x1 = 123
+            print(x1); print(x2)
+            del x1
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(4, DottedIdentifier('x2'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_del_in_func_then_use_1():
+    code = dedent("""
+        def f1():
+            x1 = 123
+            del x1
+            print(x1); print(x2)
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(5, DottedIdentifier('x1')), (5, DottedIdentifier('x2'))]
+    assert unused == []
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
