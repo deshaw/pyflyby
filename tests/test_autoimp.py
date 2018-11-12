@@ -920,6 +920,28 @@ def test_scan_for_import_issues_del_in_func_then_use_1():
     assert unused == []
 
 
+def test_scan_for_import_issues_brace_identifiers_1():
+    code = dedent("""
+        import x1, x2, x3
+        def f():
+            '''{x1} {x3}'''
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import x2'))]
+
+
+def test_scan_for_import_issues_brace_identifiers_bad_1():
+    code = dedent("""
+        import x1, x2, x3
+        def f():
+            '''{x1} {x3} {if}'''
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import x2'))]
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 

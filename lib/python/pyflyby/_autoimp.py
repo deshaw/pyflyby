@@ -362,6 +362,10 @@ class _MissingImportFinder(object):
                 for iden in brace_identifiers(f.s))
             if literal_brace_identifiers:
                 for ident in literal_brace_identifiers:
+                    try:
+                        ident = DottedIdentifier(ident)
+                    except BadDottedIdentifierError:
+                        continue
                     symbol_needs_import(ident, self.scopestack)
         self._scan_unused_imports()
         return missing_imports, self.unused_imports
