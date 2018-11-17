@@ -983,6 +983,136 @@ def test_scan_for_import_issues_star_import_local_1():
     assert unused == [(2, Import('import y1'))]
 
 
+def test_scan_for_import_issues_comprehension_subscript_1():
+    code = dedent("""
+        x = []
+        [123 for x[0] in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_subscript_missing_1():
+    code = dedent("""
+        [123 for x[0] in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(2, DottedIdentifier('x'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_subscript_complex_1():
+    code = dedent("""
+        dd = []
+        [(aa,bb) for (bb, cc[0], dd[0]) in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(3, DottedIdentifier('aa')),
+                       (3, DottedIdentifier('cc'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_attribute_1():
+    code = dedent("""
+        xx = []
+        [123 for xx.yy in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+@pytest.mark.xfail
+def test_scan_for_import_issues_comprehension_attribute_missing_1():
+    code = dedent("""
+        [123 for xx.yy in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(3, DottedIdentifier('xx'))]
+    assert unused == []
+
+
+@pytest.mark.xfail
+def test_scan_for_import_issues_comprehension_attribute_complex_1():
+    code = dedent("""
+        dd = []
+        [(aa,bb) for (bb, cc.cx, dd.dx) in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(3, DottedIdentifier('aa')),
+                       (3, DottedIdentifier('cc.cx'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_attribute_subscript_1():
+    code = dedent("""
+        xx = []
+        [123 for xx.yy[0] in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_attribute_subscript_missing_1():
+    code = dedent("""
+        [123 for xx.yy[0] in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(2, DottedIdentifier('xx.yy'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_subscript_attribute_1():
+    code = dedent("""
+        xx = []
+        [123 for xx[0].yy in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_comprehension_subscript_attribute_missing_1():
+    code = dedent("""
+        [123 for xx[0].yy in []]
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == [(2, DottedIdentifier('xx'))]
+    assert unused == []
+
+
+def test_scan_for_import_issues_generator_comprehension_subscript_attribute_1():
+    code = dedent("""
+        xx = []
+        (123 for xx[0].yy in [])
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_set_comprehension_subscript_attribute_1():
+    code = dedent("""
+        xx = []
+        {123 for xx[0].yy in []}
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_dict_comprehension_subscript_attribute_1():
+    code = dedent("""
+        xx = []
+        {123:456 for xx[0].yy in []}
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 

@@ -528,8 +528,11 @@ class _MissingImportFinder(object):
                 for elt in target.elts:
                     visit_target(elt)
             else:
-                raise AssertionError(
-                    "unexpected %s in comprehension" % (type(target).__name__))
+                # Unusual stuff like:
+                #   [f(x) for x[0] in mylist]
+                #   [f(x) for x.foo in mylist]
+                #   [f(x) for x.foo[0].foo in mylist]
+                self.visit(target)
         visit_target(node.target)
         self.visit(node.ifs)
 
