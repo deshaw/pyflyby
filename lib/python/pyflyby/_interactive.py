@@ -591,6 +591,10 @@ def InterceptPrintsDuringPromptCtx(ip):
             # care of redrawing the prompt correctly.
             return NullCtx()
 
+        if not hasattr(ip, "prompts_class"):
+            # This could be a Jupyter console/notebook.
+            return NullCtx()
+
         def pre():
             sys.stdout.write("\n")
             sys.stdout.flush()
