@@ -378,7 +378,7 @@ def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
         return False
 
 
-def install_in_ipython_startup_file():
+def install_in_ipython_config_file():
     """
     Install the call to 'pyflyby.enable_auto_importer()' to the default
     IPython startup file.
@@ -393,7 +393,7 @@ def install_in_ipython_startup_file():
     except AttributeError:
         pass
     else:
-        _install_in_ipython_startup_file_40()
+        _install_in_ipython_config_file_40()
         return
     # The following has been tested on IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1,
     # 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
@@ -402,7 +402,7 @@ def install_in_ipython_startup_file():
     except AttributeError:
         pass
     else:
-        _install_in_ipython_startup_file_012()
+        _install_in_ipython_config_file_012()
         return
     # The following has been tested on IPython 0.11.
     try:
@@ -410,14 +410,14 @@ def install_in_ipython_startup_file():
     except AttributeError:
         pass
     else:
-        _install_in_ipython_startup_file_011()
+        _install_in_ipython_config_file_011()
         return
     try:
         IPython.genutils.get_ipython_dir
     except AttributeError:
         pass
     else:
-        _install_in_ipython_startup_file_010()
+        _install_in_ipython_config_file_010()
         return
     raise RuntimeError(
         "Couldn't install pyflyby autoimporter in IPython.  "
@@ -468,9 +468,9 @@ def _generate_enabler_code():
     return contents
 
 
-def _install_in_ipython_startup_file_40():
+def _install_in_ipython_config_file_40():
     """
-    Implementation of L{install_in_ipython_startup_file} for IPython 4.0+.
+    Implementation of L{install_in_ipython_config_file} for IPython 4.0+.
     """
     import IPython
     ipython_dir = Filename(IPython.paths.get_ipython_dir())
@@ -538,9 +538,9 @@ def _install_in_ipython_startup_file_40():
         logger.info("[DONE] Removed old file %s (moved to %s)", old_fn, trash_fn)
 
 
-def _install_in_ipython_startup_file_012():
+def _install_in_ipython_config_file_012():
     """
-    Implementation of L{install_in_ipython_startup_file} for IPython 0.12+.
+    Implementation of L{install_in_ipython_config_file} for IPython 0.12+.
     Tested with IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
     3.1, 3.2, 4.0.
     """
@@ -576,9 +576,9 @@ def _install_in_ipython_startup_file_012():
     atomic_write_file(fn, contents)
 
 
-def _install_in_ipython_startup_file_011():
+def _install_in_ipython_config_file_011():
     """
-    Implementation of L{install_in_ipython_startup_file} for IPython 0.11.
+    Implementation of L{install_in_ipython_config_file} for IPython 0.11.
     """
     import IPython
     ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
@@ -603,9 +603,9 @@ def _install_in_ipython_startup_file_011():
     atomic_write_file(fn, contents)
 
 
-def _install_in_ipython_startup_file_010():
+def _install_in_ipython_config_file_010():
     """
-    Implementation of L{install_in_ipython_startup_file} for IPython 0.10.
+    Implementation of L{install_in_ipython_config_file} for IPython 0.10.
     """
     import IPython
     ipython_dir = Filename(IPython.genutils.get_ipython_dir())
