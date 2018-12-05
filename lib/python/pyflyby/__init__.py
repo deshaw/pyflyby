@@ -1,5 +1,5 @@
 # pyflyby/__init__.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
@@ -25,6 +25,7 @@ from   pyflyby._importstmt      import (Import, ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._interactive     import (disable_auto_importer,
                                         enable_auto_importer,
+                                        install_in_ipython_config_file,
                                         load_ipython_extension,
                                         unload_ipython_extension)
 from   pyflyby._livepatch       import livepatch, xreload

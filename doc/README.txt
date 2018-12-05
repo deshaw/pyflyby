@@ -34,8 +34,10 @@ To load pyflyby into an existing IPython session as a 1-off:
   $ ipython
       In [1]: %load_ext pyflyby
 
-To configure IPython to load pyflyby on startup:
+To configure IPython/Jupyter Notebook to load pyflyby automatically:
 
+  $ py pyflyby.install_in_ipython_config_file
+     or
   $ echo 'c.InteractiveShellApp.extensions.append("pyflyby")' \
       >> ~/.ipython/profile_default/ipython_config.py
 
