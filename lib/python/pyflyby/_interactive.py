@@ -481,8 +481,10 @@ def _install_in_ipython_startup_file_40():
     # Add to extensions list in ~/.ipython/profile_default/ipython_config.py
     config_fn = ipython_dir / "profile_default" / "ipython_config.py"
     if not config_fn.exists:
-        raise RuntimeError(
-            "Couldn't find IPython config file.  Tried %s" % (config_fn,))
+        subprocess.call(['ipython', 'profile', 'create'])
+        if not config_fn.exists:
+            raise RuntimeError(
+                "Couldn't find IPython config file.  Tried %s" % (config_fn,))
     old_config_blob = read_file(config_fn)
     # This is the line we'll add.
     line_to_add = 'c.InteractiveShellApp.extensions.append("pyflyby")'
