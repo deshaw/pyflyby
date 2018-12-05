@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import ast
 from   contextlib               import contextmanager
+import errno
 import inspect
 import os
 import re
@@ -386,6 +387,14 @@ def install_in_ipython_startup_file():
     with the autoimporter already enabled.
     """
     import IPython
+    # The following has been tested on IPython 4.0, 5.0
+    try:
+        IPython.paths
+    except AttributeError:
+        pass
+    else:
+        _install_in_ipython_startup_file_40()
+        return
     # The following has been tested on IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1,
     # 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
     try:
@@ -457,6 +466,74 @@ def _generate_enabler_code():
         "del __pyflyby_enable_auto_importer_60321389\n"
     )
     return contents
+
+
+def _install_in_ipython_startup_file_40():
+    """
+    Implementation of L{install_in_ipython_startup_file} for IPython 4.0+.
+    """
+    import IPython
+    ipython_dir = Filename(IPython.paths.get_ipython_dir())
+    if not ipython_dir.isdir:
+        raise RuntimeError(
+            "Couldn't find IPython config dir.  Tried %s" % (ipython_dir,))
+
+    # Add to extensions list in ~/.ipython/profile_default/ipython_config.py
+    config_fn = ipython_dir / "profile_default" / "ipython_config.py"
+    if not config_fn.exists:
+        raise RuntimeError(
+            "Couldn't find IPython config file.  Tried %s" % (config_fn,))
+    old_config_blob = read_file(config_fn)
+    # This is the line we'll add.
+    line_to_add = 'c.InteractiveShellApp.extensions.append("pyflyby")'
+    non_comment_lines = [re.sub("#.*", "", line) for line in old_config_blob.lines]
+    if any(line_to_add in line for line in non_comment_lines):
+        logger.info("[NOTHING TO DO] File %s already loads pyflyby", config_fn)
+    elif any("pyflyby" in line for line in non_comment_lines):
+        logger.info("[NOTHING TO DO] File %s already references pyflyby in some nonstandard way, assuming you configured it manually", config_fn)
+    else:
+        # Add pyflyby to config file.
+        lines_to_add = [line_to_add]
+        # Check whether we need to include the path in sys.path, and if so, add
+        # that to the contents.  This is only needed if pyflyby is running out
+        # of a home directory rather than site-packages/virtualenv/etc.
+        # TODO: we should use tidy-imports to insert the 'import sys', if
+        # needed, at the top, rather than always appending it at the bottom.
+        import pyflyby
+        pyflyby_path = pyflyby.__path__[0]
+        if not _python_can_import_pyflyby(pyflyby_path):
+            path_entry = os.path.dirname(os.path.realpath(pyflyby_path))
+            assert _python_can_import_pyflyby(pyflyby_path, path_entry)
+            lines_to_add = [
+                "import sys",
+                "sys.path.append(%r)" % (path_entry,)
+            ] + lines_to_add
+        lines_to_add.insert(0, "# Pyflyby")
+        blob_to_add = "\n\n" + "\n".join(lines_to_add) + "\n"
+        new_config_blob = old_config_blob.joined.rstrip() + blob_to_add
+        atomic_write_file(config_fn, new_config_blob)
+        logger.info("[DONE] Appended to %s: %s", config_fn, line_to_add)
+
+    # Delete file installed with older approach.
+    startup_dir = ipython_dir / "profile_default" / "startup"
+    old_fn = startup_dir / "50-pyflyby.py"
+    if old_fn.exists:
+        trash_dir = old_fn.dir / ".TRASH"
+        trash_fn = trash_dir / old_fn.base
+        try:
+            os.mkdir(str(trash_dir))
+        except EnvironmentError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                raise RuntimeError("Couldn't mkdir %s: %s: %s"
+                                   % (trash_dir, type(e).__name__, e))
+        try:
+            os.rename(str(old_fn), str(trash_fn))
+        except EnvironmentError as e:
+            raise RuntimeError("Couldn't rename %s to %s: %s: %s"
+                               % (old_fn, trash_fn, type(e).__name__, e))
+        logger.info("[DONE] Removed old file %s (moved to %s)", old_fn, trash_fn)
 
 
 def _install_in_ipython_startup_file_012():
