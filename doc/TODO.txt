@@ -105,3 +105,13 @@
 
 - Handle comments between concatenate strings, e.g.: 'myvar =
   ("xx"\n#blah\n"yy")', e.g. in test_interactive.py.
+
+- Function & interactive command to automatically add interactively-typed
+  imports to ~/.pyflyby.
+
+- Store all interactively-typed imports to an area that can be consulted to
+  print out but don't automatically use
+
+- Integration with search pydoc index for where to get import - but don't use
+  it automatically, just print it out and ask user if he wants to add it to
+  database
