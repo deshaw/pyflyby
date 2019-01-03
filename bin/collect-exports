@@ -64,7 +64,7 @@ def main():
             continue
         if options.ignore_known:
             db = ImportDB.get_default(module.__file__)
-            imports = imports.without_imports(db, strict=False)
+            imports = imports.without_imports(db)
         sys.stdout.write(imports.pretty_print(
                 allow_conflicts=True, params=options.params))
     if bad_module_names:
