@@ -50,7 +50,7 @@ def main():
         importset = ImportSet([imp for imp in importset if match(imp)])
     if options.ignore_known:
         db = ImportDB.get_default(".")
-        importset = importset.without_imports(db.known_imports, strict=False)
+        importset = importset.without_imports(db.known_imports)
     sys.stdout.write(importset.pretty_print(
             allow_conflicts=True, params=options.params))
 
