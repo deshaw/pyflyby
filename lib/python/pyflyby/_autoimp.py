@@ -636,7 +636,7 @@ class _MissingImportFinder(object):
                          self._lineno, modulename)
         if not node.asname and not is_star:
             # Handle leading prefixes so we don't think they're unused
-            for prefix in DottedIdentifier(node.name).prefixes:
+            for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
         if self.unused_imports is None or is_star or modulename == "__future__":
             value = None
