@@ -1,5 +1,5 @@
 # pyflyby/_autoimp.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import (absolute_import, division, print_function,
@@ -763,10 +763,13 @@ def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings
       C{dict} or C{list} of C{dict}
     @param parse_docstrings:
       Whether to parse docstrings.
-      In the following example, 'bar' is not considered unused because there is
-      a string that references it in braces:
-      >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n")
-      ([(Import('import baz'), 1)], []) XXX
+      Compare the following examples.  When parse_docstrings=True, 'bar' is
+      not considered unused because there is a string that references it in
+      braces:
+        >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n")
+        ([], [(1, Import('import baz')), (1, Import('import foo as bar'))])
+        >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n", parse_docstrings=True)
+        ([], [(1, Import('import baz'))])
 
     """
     logger.debug("scan_for_import_issues()")
