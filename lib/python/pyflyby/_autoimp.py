@@ -1179,7 +1179,7 @@ def find_missing_imports(arg, namespaces):
 
     For example, if we use an empty list of namespaces, then "os.path.join" is
     a symbol that requires import:
-      >>> find_missing_imports("os.path.join", namespaces=[{}])
+      >>> [str(m) for m in find_missing_imports("os.path.join", namespaces=[{}])]
       ['os.path.join']
 
     But if the global namespace already has the "os" module imported, then we
@@ -1190,28 +1190,28 @@ def find_missing_imports(arg, namespaces):
       []
 
     Builtins are always included:
-      >>> find_missing_imports("os, sys, eval", [{"os": os}])
+      >>> [str(m) for m in find_missing_imports("os, sys, eval", [{"os": os}])]
       ['sys']
 
     All symbols that are not defined are included:
-      >>> find_missing_imports("numpy.arange(x) + arange(y)", [{"y": 3}])
+      >>> [str(m) for m in find_missing_imports("numpy.arange(x) + arange(y)", [{"y": 3}])]
       ['arange', 'numpy.arange', 'x']
 
     If something is imported/assigned/etc within the scope, then we assume it
     doesn't require importing:
-      >>> find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [{}])
+      >>> [str(m) for m in find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [{}])]
       ['arange', 'x']
 
-      >>> find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])
+      >>> [str(m) for m in find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])]
       ['numpy.pi', 'x']
 
-      >>> find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])
+      >>> [str(m) for m in find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])]
       ['numpy.arange']
 
-      >>> find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])
+      >>> [str(m) for m in find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])]
       ['foo2.bar', 'func']
 
-      >>> find_missing_imports("a.b.y = 1; a.b.x, a.b.y, a.b.z", [{}])
+      >>> [str(m) for m in find_missing_imports("a.b.y = 1; a.b.x, a.b.y, a.b.z", [{}])]
       ['a.b.x', 'a.b.z']
 
     find_missing_imports() parses the AST, so it understands scoping.  In the
@@ -1220,20 +1220,20 @@ def find_missing_imports(arg, namespaces):
       []
 
     but this example, C{x} is undefined at global scope:
-      >>> find_missing_imports("(lambda x: x*x)(7) + x", [{}])
+      >>> [str(m) for m in find_missing_imports("(lambda x: x*x)(7) + x", [{}])]
       ['x']
 
     The (unintuitive) rules for generator expressions and list comprehensions
     are handled correctly:
-      >>> find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])]
       ['z']
 
-      >>> find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])
+      >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
       ['y', 'z']
 
     Only fully-qualified names starting at top-level are included:
 
-      >>> find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])
+      >>> [str(m) for m in find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])]
       ['a.b.x.y', 'c', 'd']
 
     @type arg:
