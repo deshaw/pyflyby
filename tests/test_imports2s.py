@@ -361,6 +361,20 @@ def test_fix_unused_and_missing_imports_shadowed_1():
     assert output == expected
 
 
+def test_fix_unused_and_missing_imports_reassigned_first_reference_1():
+    input = PythonBlock(dedent('''
+        from bar import foo1, foo2
+        foo2 = foo2 + 0
+    ''').lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from bar import foo2
+        foo2 = foo2 + 0
+    ''').lstrip())
+    assert output == expected
+
+
 def test_fix_unused_and_missing_imports_midfile_1():
     input = PythonBlock(dedent('''
         import m1, m2

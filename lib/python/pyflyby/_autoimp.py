@@ -462,6 +462,27 @@ class _MissingImportFinder(object):
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
+    def visit_Assign(self, node):
+        # Visit an assignment statement (lhs = rhs).  This implementation of
+        # visit_Assign is just like the generic one, but we make sure we visit
+        # node.value (RHS of assignment operator), then node.targets (LHS of
+        # assignment operator).  The default would have been to visit LHS,
+        # then RHS.  The reason we need to visit RHS first is the following.
+        # If the code is 'foo = foo + 1', we want to first process the Load
+        # for foo (RHS) before we process the Store for foo (LHS).  If we
+        # visited LHS then RHS, we would have a bug in the following sample
+        # code:
+        #    from bar import foo  # L1
+        #    foo = foo + 1        # L2
+        # The good RHS-then-LHS visit-order would see the Load('foo') on L2,
+        # understand that it got used before the Store('foo') overwrote it.
+        # The bad LHS-then-RHS visit-order would visit Store('foo') on L2, and
+        # think that foo was never referenced before it was overwritten, and
+        # therefore think that the 'import foo' on L1 could be removed.
+        self.visit(node.value)
+        self.visit(node.targets)
+
+
     def visit_ClassDef(self, node):
         self.visit(node.bases)
         self.visit(node.decorator_list)
