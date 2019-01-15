@@ -69,7 +69,7 @@ class ScopeStack(tuple):
         if not len(scopes):
             raise TypeError("ScopeStack: no scopes given")
         if not all(isinstance(scope, dict) for scope in scopes):
-            raise TypeError("Expected list of dicts; got a sequence of %r"
+            raise TypeError("ScopeStack: Expected list of dicts; got a sequence of %r"
                             % ([type(x).__name__ for x in scopes]))
         scopes = [builtins.__dict__, _builtins2] + scopes
         result = []
