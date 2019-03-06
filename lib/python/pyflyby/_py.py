@@ -1,5 +1,5 @@
 # pyflyby/_py.py
-# Copyright (C) 2014, 2015, 2018 Karl Chen.
+# Copyright (C) 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 """
@@ -323,8 +323,9 @@ from   pyflyby._dbg             import (add_debug_functions_to_builtins,
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (run_ipython_line_magic,
-                                        start_ipython_with_autoimporter)
+from   pyflyby._interactive     import (
+    get_ipython_terminal_app_with_autoimporter, run_ipython_line_magic,
+    start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
@@ -1367,6 +1368,7 @@ class _PyMain(object):
         self.main_args = args
         self.namespace = _Namespace()
         self.result = None
+        self.ipython_app = None
 
     def exec_stdin(self, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
@@ -1570,9 +1572,17 @@ class _PyMain(object):
         usage = _get_help(expr, verbosity)
         print(usage)
 
+    def create_ipython_app(self):
+        """
+        Create an IPython application and initialize it, but don't start it.
+        """
+        assert self.ipython_app is None
+        self.ipython_app = get_ipython_terminal_app_with_autoimporter()
+
     def start_ipython(self, args=[]):
         user_ns = self.namespace.globals
-        start_ipython_with_autoimporter(args, _user_ns=user_ns)
+        start_ipython_with_autoimporter(args, _user_ns=user_ns,
+                                        app=self.ipython_app)
         # Don't need to do another interactive session after this one
         # (i.e. make 'py --interactive' the same as 'py').
         self.interactive = False
@@ -1610,6 +1620,13 @@ class _PyMain(object):
                 novalue()
                 self.interactive = True
                 del args[0]
+                # Create and initialize the IPython app now (but don't start
+                # it yet).  We'll use it later.  The reason to initialize it
+                # now is that the code that we're running might check if it's
+                # running in interactive mode based on whether an IPython app
+                # has been initialized.  Some user code even initializes
+                # things differently at module import time based on this.
+                self.create_ipython_app()
             elif argname in ["debug", "pdb", "ipdb", "dbg", "d"]:
                 novalue()
                 self.debug = True
@@ -1807,7 +1824,7 @@ class _PyMain(object):
             # Start IPython nbconvert.  (autoimporter is irrelevant.)
             if equalsign:
                 args.insert(0, cmdarg)
-            start_ipython_with_autoimporter(["nbconvert"] + args)
+            launch_ipython_with_autoimporter(["nbconvert"] + args)
         elif action in ["timeit"]:
             # TODO: make --timeit and --time flags which work with any mode
             # and heuristic, instead of only eval.
@@ -1926,6 +1943,7 @@ class _PyMain(object):
 
     def _pre_exit_interactive_shell(self):
         if self.interactive:
+            assert self.ipython_app is not None
             self.namespace.globals["_"] = self.result
             self.start_ipython()
 

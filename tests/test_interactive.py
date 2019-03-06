@@ -2909,6 +2909,20 @@ def test_py_interactive_1():
     """, prog="py")
 
 
+def test_py_i_interactive_1(tmp):
+    # Test that 'py -i' initializes IPython before running the commandline
+    # code.
+    # (The converse is tested by test_py.py:test_no_ipython_for_eval_1.)
+    writetext(tmp.dir / "m32622167.py", """
+        import pyflyby
+        ipython_app = pyflyby._interactive._get_ipython_app()
+    """)
+    ipython("""
+        In [1]: bool(m32622167.ipython_app)
+        Out[1]: True
+    """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
+
+
 @skipif_ipython_too_old_for_kernel
 def test_py_console_1():
     # Verify that 'py console' works.

@@ -227,40 +227,45 @@ def get_ipython_terminal_app_with_autoimporter():
     app = _get_or_create_ipython_terminal_app()
     AutoImporter(app).enable()
     if not _app_is_initialized(app):
-        app.initialize([])
+        old_display_banner = app.display_banner
+        try:
+            app.display_banner = False
+            app.initialize([])
+        finally:
+            app.display_banner = old_display_banner
     return app
 
 
-def start_ipython_with_autoimporter(argv=None, _user_ns=None):
+def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
     """
     Start IPython (terminal) with autoimporter enabled.
     """
-    app = None
-    subcmd = argv and argv[0]
-    if subcmd == 'console':
-        # The following has been tested on IPython 5.8 / Jupyter console 5.2.
-        # Note: jupyter_console.app.JupyterApp also appears to work in some
-        # contexts, but that actually execs the script jupyter-console which
-        # uses ZMQTerminalIPythonApp.  The exec makes the target use whatever
-        # shebang line is in that script, which may be a different python
-        # major version than what we're currently running.  We want to avoid
-        # the exec in general (as a library function) and avoid changing
-        # python versions.
-        try:
-            from jupyter_console.app import ZMQTerminalIPythonApp
-        except (ImportError, AttributeError):
-            pass
-        else:
-            app = ZMQTerminalIPythonApp.instance()
-            argv = argv[1:]
-    elif subcmd == 'notebook':
-        try:
-            from notebook.notebookapp import NotebookApp
-        except (ImportError, AttributeError):
-            pass
-        else:
-            app = NotebookApp.instance()
-            argv = argv[1:]
+    if app is None:
+        subcmd = argv and argv[0]
+        if subcmd == 'console':
+            # The following has been tested on IPython 5.8 / Jupyter console 5.2.
+            # Note: jupyter_console.app.JupyterApp also appears to work in some
+            # contexts, but that actually execs the script jupyter-console which
+            # uses ZMQTerminalIPythonApp.  The exec makes the target use whatever
+            # shebang line is in that script, which may be a different python
+            # major version than what we're currently running.  We want to avoid
+            # the exec in general (as a library function) and avoid changing
+            # python versions.
+            try:
+                from jupyter_console.app import ZMQTerminalIPythonApp
+            except (ImportError, AttributeError):
+                pass
+            else:
+                app = ZMQTerminalIPythonApp.instance()
+                argv = argv[1:]
+        elif subcmd == 'notebook':
+            try:
+                from notebook.notebookapp import NotebookApp
+            except (ImportError, AttributeError):
+                pass
+            else:
+                app = NotebookApp.instance()
+                argv = argv[1:]
     if app is None:
         app = _get_or_create_ipython_terminal_app()
     if _user_ns is not None:
@@ -317,7 +322,8 @@ def _initialize_and_start_app_with_autoimporter(app, argv):
             except KeyError:
                 pass
     # Initialize the app.
-    app.initialize(argv)
+    if not _app_is_initialized(app):
+        app.initialize(argv)
     if user_ns is not None:
         user_ns.update(saved_user_ns)
     # Start the app mainloop.
@@ -335,7 +341,8 @@ def run_ipython_line_magic(arg):
     app = _get_or_create_ipython_terminal_app()
     AutoImporter(app).enable()
     # TODO: only initialize if not already initialized.
-    app.initialize([])
+    if not _app_is_initialized(app):
+        app.initialize([])
     ip = app.shell
     if hasattr(ip, "magic"):
         # IPython 0.11+.
