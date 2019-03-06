@@ -1290,7 +1290,7 @@ def print_result(result, output_mode):
             output_mode = "pprint-if-not-none"
         else:
             result = idisp()
-            output_mode = "result-if-not-none"
+            output_mode = "print-if-not-none"
         # Fall through.
     if output_mode == "str":
         print(str(result))
@@ -1302,6 +1302,9 @@ def print_result(result, output_mode):
     elif output_mode == "repr-if-not-none":
         if result is not None:
             print(repr(result))
+    elif output_mode == "print-if-not-none":
+        if result is not None:
+            print(result)
     elif output_mode == "pprint-if-not-none":
         if result is not None:
             import pprint
