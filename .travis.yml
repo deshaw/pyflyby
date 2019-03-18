@@ -16,6 +16,7 @@ matrix:
       sudo: true
 
 install:
+  - set -e
   - pip install "pexpect>=3.3" pyflakes pytest epydoc rlipython
 
 script:
