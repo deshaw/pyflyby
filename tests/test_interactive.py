@@ -613,6 +613,8 @@ class AnsiFilterDecoder(object):
         arg = arg.replace("\x1b[?7h", "")           # wraparound mode
         arg = arg.replace("\x1b[?25h", "")          # show cursor
         arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
+        arg = arg.replace('\x07', '')               # BEL
+        arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
         # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
