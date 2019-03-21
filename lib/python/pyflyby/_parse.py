@@ -17,7 +17,7 @@ import types
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, cmp
 
 
 def _is_comment_or_blank(line):

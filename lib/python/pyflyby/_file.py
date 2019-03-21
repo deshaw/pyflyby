@@ -9,7 +9,7 @@ import re
 import six
 import sys
 
-from   pyflyby._util            import cached_attribute, memoize
+from   pyflyby._util            import cached_attribute, memoize, cmp
 
 class UnsafeFilenameError(ValueError):
     pass

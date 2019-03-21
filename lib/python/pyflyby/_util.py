@@ -455,3 +455,7 @@ def AdviceCtx(joinpoint, hook):
         yield
     finally:
         advice.unadvise()
+
+# For Python 2/3 compatibility. cmp isn't included with six.
+def cmp(a, b):
+    return (a > b) - (a < b)

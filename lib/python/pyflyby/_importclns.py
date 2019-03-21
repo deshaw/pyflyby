@@ -14,7 +14,7 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         NonImportStatementError)
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, partition,
-                                        stable_unique)
+                                        stable_unique, cmp)
 
 
 class NoSuchImportError(ValueError):

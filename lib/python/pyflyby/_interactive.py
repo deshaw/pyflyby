@@ -28,7 +28,7 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         FunctionWithGlobals, NullCtx, advise,
-                                        indent)
+                                        indent, cmp)
 
 
 if False:

@@ -12,7 +12,7 @@ from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
 from   pyflyby._parse           import PythonStatement
 from   pyflyby._util            import (Inf, cached_attribute,
-                                        longest_common_prefix)
+                                        longest_common_prefix, cmp)
 
 
 class ImportFormatParams(FormatParams):

@@ -8,7 +8,7 @@ from   keyword                  import kwlist
 import re
 import six
 
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, cmp
 
 
 # Don't consider "print" a keyword, in order to be compatible with user code

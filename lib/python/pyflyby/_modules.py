@@ -15,7 +15,7 @@ from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
-                                        cached_attribute, memoize, prefixes)
+                                        cached_attribute, memoize, prefixes, cmp)
 
 
 class ErrorDuringImportError(ImportError):
