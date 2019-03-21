@@ -7,7 +7,6 @@ from   shutil                   import rmtree
 import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
-import types
 
 from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError

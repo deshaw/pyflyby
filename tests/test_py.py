@@ -15,6 +15,8 @@ import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 
+from six import string_types
+
 import pyflyby
 from   pyflyby._file            import Filename
 from   pyflyby._util            import cached_attribute
@@ -94,7 +96,7 @@ def _build_pythonpath(PYTHONPATH):
       C{str}
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    if isinstance(PYTHONPATH, (Filename, basestring)):
+    if isinstance(PYTHONPATH, (Filename,) + string_types):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH

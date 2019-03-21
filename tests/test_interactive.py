@@ -1408,7 +1408,7 @@ def test_ipython_tab_multi_1(frontend):
 
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
-    f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
+    os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
     ipython("""
         In [1]: import os, pyflyby
         In [2]: print os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
@@ -1427,7 +1427,7 @@ def test_pyflyby_version_1():
 
 def test_ipython_file_1():
     # Verify that our test setup is getting the right IPython.
-    f = os.path.realpath(IPython.__file__)
+    os.path.realpath(IPython.__file__)
     ipython("""
         In [1]: import IPython, os
         In [2]: print os.path.realpath(IPython.__file__)
@@ -2571,7 +2571,7 @@ def test_run_name_main_1(tmp):
 
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
-    f = writetext(tmp.dir/"f81564382.py", """
+    writetext(tmp.dir/"f81564382.py", """
         print b64encode(__name__)
     """)
     ipython("""
