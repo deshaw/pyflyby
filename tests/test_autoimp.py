@@ -53,7 +53,7 @@ def writetext(filename, text, mode='w'):
 def _dilist2strlist(arg):
     assert type(arg) is list
     assert all(type(x) is DottedIdentifier for x in arg)
-    return map(str, arg)
+    return list(map(str, arg))
 
 
 def test_find_missing_imports_basic_1():

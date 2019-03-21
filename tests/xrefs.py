@@ -12,7 +12,7 @@ L{undefined_xref_from_module}
 
 from __future__ import absolute_import, division, with_statement
 
-class FooClass:
+class FooClass(object):
     """
     Blah.
     L{undefined_xref_from_class}
