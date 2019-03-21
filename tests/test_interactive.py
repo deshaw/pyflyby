@@ -4,6 +4,7 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 import IPython
 import atexit
@@ -2999,7 +3000,7 @@ def test_py_disable_1():
 
 def _install_load_ext_pyflyby_in_config(ipython_dir):
     with open(str(ipython_dir/"profile_default/ipython_config.py"), 'a') as f:
-        print>>f, 'c.InteractiveShellApp.extensions.append("pyflyby")'
+        print('c.InteractiveShellApp.extensions.append("pyflyby")', file=f)
 
 
 def test_installed_in_config_ipython_cmdline_1(tmp):

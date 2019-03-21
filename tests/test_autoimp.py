@@ -757,7 +757,7 @@ def test_find_missing_imports_complex_1():
 
 def test_find_missing_imports_code_1():
     f = lambda: foo.bar(x) + baz(y)
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['baz', 'foo.bar', 'x', 'y']
     assert expected == result
@@ -766,7 +766,7 @@ def test_find_missing_imports_code_1():
 def test_find_missing_imports_code_args_1():
     def f(x, y, *a, **k):
         return g(x, y, z, a, k)
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['g', 'z']
     assert expected == result
@@ -776,7 +776,7 @@ def test_find_missing_imports_code_use_after_import_1():
     def f():
         import foo
         foo.bar()
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = []
     assert expected == result
@@ -784,7 +784,7 @@ def test_find_missing_imports_code_use_after_import_1():
 
 def test_find_missing_imports_code_lambda_scope_1():
     f = lambda x: (lambda: x+y)
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['y']
     assert expected == result
@@ -799,7 +799,7 @@ def test_find_missing_imports_code_conditional_1():
             y2 = x2 + y0
         x3 + y0
         y1 + y2
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['c', 'x0', 'x1', 'x2', 'x3']
     assert expected == result
@@ -813,7 +813,7 @@ def test_find_missing_imports_code_loop_1():
                 use(y)
             else:
                 x = "hello"
-    result   = find_missing_imports(f.func_code, [{}])
+    result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['use', 'y']
     assert expected == result

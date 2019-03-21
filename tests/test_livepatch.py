@@ -605,8 +605,8 @@ def test_xreload_oldstyle_to_newstyle_1(tpp):
     Bride = m.Bride
     assert   Bride().judge() == 13184519
     assert m.Bride().judge() == 13184519
-    assert     isinstance(  Bride, types.ClassType)
-    assert     isinstance(m.Bride, types.ClassType)
+    assert     isinstance(  Bride, type)
+    assert     isinstance(m.Bride, type)
     writetext(tpp/"elite49829216.py", """
         class Bride(object):
             def judge(self): return 21901074
@@ -614,8 +614,8 @@ def test_xreload_oldstyle_to_newstyle_1(tpp):
     xreload("elite49829216")
     assert   Bride().judge() == 13184519
     assert m.Bride().judge() == 21901074
-    assert     isinstance(  Bride, types.ClassType)
-    assert not isinstance(m.Bride, types.ClassType)
+    assert     isinstance(  Bride, type)
+    assert not isinstance(m.Bride, type)
 
 
 def test_xreload_newstyle_to_oldstyle_1(tpp):
@@ -629,8 +629,8 @@ def test_xreload_newstyle_to_oldstyle_1(tpp):
     Child = m.Child
     assert   Child().peach() == 14071526
     assert m.Child().peach() == 14071526
-    assert not isinstance(  Child, types.ClassType)
-    assert not isinstance(m.Child, types.ClassType)
+    assert not isinstance(  Child, type)
+    assert not isinstance(m.Child, type)
     writetext(tpp/"display5888706449829216.py", """
         class Child():
             def peach(self): return 27893050
@@ -638,8 +638,8 @@ def test_xreload_newstyle_to_oldstyle_1(tpp):
     xreload("display5888706449829216")
     assert   Child().peach() == 14071526
     assert m.Child().peach() == 27893050
-    assert not isinstance(  Child, types.ClassType)
-    assert     isinstance(m.Child, types.ClassType)
+    assert not isinstance(  Child, type)
+    assert     isinstance(m.Child, type)
 
 
 def test_xreload_classmethod_1(tpp):

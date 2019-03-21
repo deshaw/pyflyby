@@ -4,6 +4,7 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importstmt      import Import, ImportStatement
