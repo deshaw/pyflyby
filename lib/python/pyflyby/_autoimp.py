@@ -24,6 +24,8 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
+if six.PY2:
+    long = int
 
 class _ClassScope(dict):
     pass
@@ -986,10 +988,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             extended_arg = 0
             i = i+2
             if op == EXTENDED_ARG:
-                if six.PY2:
-                    extended_arg = oparg*long(65536)
-                else:
-                    extended_arg = oparg*65536
+                extended_arg = oparg*long(65536)
                 continue
 
         if pending is not None:

@@ -12,6 +12,7 @@ import inspect
 import os
 import re
 import six
+from six import text_type as unicode
 from   six.moves                import builtins
 import subprocess
 import sys
@@ -28,7 +29,7 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         FunctionWithGlobals, NullCtx, advise,
-                                        indent, cmp)
+                                        indent)
 
 
 if False:
@@ -1185,6 +1186,7 @@ def _get_TerminalPdb_class():
     # Pdb class separately.
     try:
         import IPython
+        del IPython
     except ImportError:
         raise NoIPythonPackageError()
     try:
@@ -1632,19 +1634,19 @@ class AutoImporter(object):
         ]
         try:
             # Tested with Jupyter/IPython 4.0
-            from jupyter_client.manager import KernelManager
+            from jupyter_client.manager import KernelManager as JupyterKernelManager
         except ImportError:
             pass
         else:
             @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport(*args, **kwargs):
+            def start_kernel_with_autoimport_jupyter(*args, **kwargs):
                 logger.debug("start_kernel()")
                 # Advise format_kernel_cmd(), which is the function that
                 # computes the command line for a subprocess to run a new
                 # kernel.  Note that we advise the method on the class, rather
                 # than this instance of kernel_manager, because start_kernel()
                 # actually creates a *new* KernelInstance for this.
-                @advise(KernelManager.format_kernel_cmd)
+                @advise(JupyterKernelManager.format_kernel_cmd)
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
                     logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
@@ -1665,19 +1667,19 @@ class AutoImporter(object):
         try:
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
             # 3.2.
-            from IPython.kernel.manager import KernelManager
+            from IPython.kernel.manager import KernelManager as IPythonKernelManager
         except ImportError:
             pass
         else:
             @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport(*args, **kwargs):
+            def start_kernel_with_autoimport_ipython(*args, **kwargs):
                 logger.debug("start_kernel()")
                 # Advise format_kernel_cmd(), which is the function that
                 # computes the command line for a subprocess to run a new
                 # kernel.  Note that we advise the method on the class, rather
                 # than this instance of kernel_manager, because start_kernel()
                 # actually creates a *new* KernelInstance for this.
-                @advise(KernelManager.format_kernel_cmd)
+                @advise(IPythonKernelManager.format_kernel_cmd)
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
                     logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
@@ -2265,7 +2267,7 @@ class AutoImporter(object):
             hasattr(ip, "new_main_mod")):
             try:
                 args = inspect.getargspec(ip.new_main_mod).args
-            except Exception as e:
+            except Exception:
                 # getargspec fails if we already advised.
                 # For now just skip under the assumption that we already
                 # advised (or the code changed in some way that doesn't

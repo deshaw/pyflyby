@@ -137,6 +137,8 @@ import sys
 import time
 import types
 
+from six.moves import reload_module
+
 import inspect
 from   pyflyby._log             import logger
 
@@ -570,7 +572,7 @@ def _format_age(t):
 
 def _interpret_module(arg):
     def mod_fn(module):
-        return getattr(m, "__file__", None)
+        return getattr(module, "__file__", None)
     if isinstance(arg, six.string_types):
         try:
             return sys.modules[arg]
@@ -639,7 +641,7 @@ def _xreload_module(module, filename, force=False):
     if not filename or not filename.endswith(".py"):
         # If there's no *.py source file for this module, then fallback to
         # built-in reload().
-        return reload(module)
+        return reload_module(module)
     # Compare mtime of the file with the load time of the module.  If the file
     # wasn't touched, we don't need to do anything.
     try:

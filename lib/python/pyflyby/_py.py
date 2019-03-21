@@ -239,6 +239,8 @@ Examples
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
+from pyflyby._util import cmp
+
 usage = """
 py --- command-line python multitool with automatic importing
 
@@ -1230,7 +1232,7 @@ def _interpret_arg_mode(arg, default="auto"):
     """
     if arg is None:
         arg = default
-    if arg is "auto" or arg is "eval" or arg is "string":
+    if arg == "auto" or arg == "eval" or arg == "string":
         return arg # optimization for interned strings
     rarg = str(arg).strip().lower()
     if rarg in ["eval", "evaluate", "exprs", "expr", "expressions", "expression", "e"]:
