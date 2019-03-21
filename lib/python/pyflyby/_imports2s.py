@@ -565,14 +565,14 @@ def transform_imports(codeblock, transformations, params=None):
         # Transform a block of imports.
         # TODO: optimize
         # TODO: handle transformations containing both a.b=>x and a.b.c=>y
-        for k, v in transformations.iteritems():
+        for k, v in transformations.items():
             imp = imp.replace(k, v)
         return imp
     def transform_block(block):
         # Do a crude string replacement in the PythonBlock.
         block = PythonBlock(block)
         s = block.text.joined
-        for k, v in transformations.iteritems():
+        for k, v in transformations.items():
             s = re.sub("\\b%s\\b" % (re.escape(k)), v, s)
         return PythonBlock(s, flags=block.flags)
     # Loop over transformer blocks.

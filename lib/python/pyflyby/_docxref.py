@@ -99,7 +99,7 @@ def get_string_linenos(module, searchstring, within_string):
             "Found superstring in %r but not substring %r within superstring"
             % (module.filename, searchstring))
     # Try a full text search.
-    for lineno, orig_full_string in map.itervalues():
+    for lineno, orig_full_string in map.values():
         scan_within_string(results, lineno, orig_full_string)
     if results:
         return tuple(sorted(results))
