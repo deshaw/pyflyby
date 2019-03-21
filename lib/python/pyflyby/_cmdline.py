@@ -399,7 +399,7 @@ def action_external_command(command):
 def action_query(prompt="Proceed?"):
     def action(m):
         p = prompt.format(filename=m.filename)
-        print
+        print()
         print("%s [y/N] " % (p), end="")
         try:
             if input().strip().lower().startswith('y'):

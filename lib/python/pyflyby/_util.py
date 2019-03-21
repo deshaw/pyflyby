@@ -338,18 +338,18 @@ class Aspect(object):
             assert spec == self._container[self._name]
         elif isinstance(joinpoint, types.MethodType):
             self._qname = "%s.%s.%s" % (
-                joinpoint.im_class.__module__,
-                joinpoint.im_class.__name__,
-                joinpoint.im_func.__name__)
-            self._name      = joinpoint.im_func.__name__
-            if joinpoint.im_self is None:
+                joinpoint.__self__.__class__.__module__,
+                joinpoint.__self__.__class__.__name__,
+                joinpoint.__func__.__name__)
+            self._name      = joinpoint.__func__.__name__
+            if joinpoint.__self__ is None:
                 # Class method.
-                container_obj   = joinpoint.im_class
+                container_obj   = joinpoint.__self__.__class__
                 self._container = _WritableDictProxy(container_obj)
-                self._original  = spec.im_func
+                self._original  = spec.__func__
             else:
                 # Instance method.
-                container_obj   = joinpoint.im_self
+                container_obj   = joinpoint.__self__
                 self._container = container_obj.__dict__
                 self._original  = spec
             assert spec == getattr(container_obj, self._name)
@@ -369,7 +369,7 @@ class Aspect(object):
                 original = getattr(container, name)
                 if hasattr(original, "im_func"):
                     # TODO: generalize this to work for all cases, not just classmethod
-                    original = original.im_func
+                    original = original.__func__
                     self._wrapper = classmethod
                 self._original = original
                 self._container = _WritableDictProxy(container)

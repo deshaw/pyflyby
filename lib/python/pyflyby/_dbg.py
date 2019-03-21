@@ -227,7 +227,7 @@ def _get_caller_frame():
     @rtype:
       C{FrameType}
     '''
-    this_filename = _get_caller_frame.func_code.co_filename
+    this_filename = _get_caller_frame.__code__.co_filename
     f = sys._getframe()
     while (f.f_back and (
             f.f_code.co_filename == this_filename or

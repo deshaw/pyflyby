@@ -11,6 +11,7 @@ import six
 from   six.moves                import reduce
 
 from   pyflyby._util            import cached_attribute
+from functools import reduce
 
 
 # Initialize mappings from compiler_flag to feature name and vice versa.

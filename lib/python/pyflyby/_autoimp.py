@@ -1297,11 +1297,11 @@ def find_missing_imports(arg, namespaces):
     elif callable(arg):
         # Find the code object.
         try:
-            co = arg.func_code
+            co = arg.__code__
         except AttributeError:
             # User-defined callable
             try:
-                co = arg.__call__.func_code
+                co = arg.__call__.__code__
             except AttributeError:
                 # Built-in function; no auto importing needed.
                 return []

@@ -345,7 +345,7 @@ def _get_argspec(arg, _recurse=False):
         return getargspec(arg)
     elif isinstance(arg, MethodType):
         argspec = getargspec(arg)
-        if arg.im_self is not None:
+        if arg.__self__ is not None:
             # For bound methods, ignore the "self" argument.
             return ArgSpec(argspec.args[1:], *argspec[1:])
         return argspec
@@ -356,7 +356,7 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    elif isinstance(arg, types.ClassType):
+    elif isinstance(arg, type):
         argspec = _get_argspec(arg.__init__)
         return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):

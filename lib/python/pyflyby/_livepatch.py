@@ -396,7 +396,7 @@ def _livepatch__method(old_method, new_method, modname, cache, visit_stack):
     """
     Livepatch a method.
     """
-    _livepatch__function(old_method.im_func, new_method.im_func,
+    _livepatch__function(old_method.__func__, new_method.__func__,
                          modname=modname,
                          cache=cache, visit_stack=visit_stack)
     return old_method
@@ -522,7 +522,7 @@ if six.PY2:
         object            : _livepatch__object,
         dict              : _livepatch__dict,
         type              : _livepatch__class,
-        types.ClassType   : _livepatch__class,
+        type   : _livepatch__class,
         types.FunctionType: _livepatch__function,
         types.MethodType  : _livepatch__method,
         types.ModuleType  : _livepatch__module,

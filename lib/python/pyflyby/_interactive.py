@@ -2300,8 +2300,8 @@ class AutoImporter(object):
         except ImportError:
             return True
         if (not issubclass(LevelFormatter, object) and
-            "super" in LevelFormatter.format.im_func.func_code.co_names and
-            "logging" not in LevelFormatter.format.im_func.func_code.co_names):
+            "super" in LevelFormatter.format.__func__.__code__.co_names and
+            "logging" not in LevelFormatter.format.__func__.__code__.co_names):
             # In IPython 1.0, LevelFormatter uses super(), which assumes
             # that logging.Formatter is a subclass of object.  However,
             # this is only true in Python 2.7+, not in Python 2.6.  So
