@@ -616,6 +616,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace('\x07', '')               # BEL
         arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
+        arg = arg.replace('\x1b[?1034h', '')        # meta key
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
         # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
         # hacky way to handle this without hardcoding '[PYFLYBY]'.
