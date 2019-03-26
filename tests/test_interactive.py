@@ -621,6 +621,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace('\x1b[?1034h', '')        # meta key
+        arg = arg.replace('\x1b>', '')              # keypad numeric mode (???)
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
         arg = re.sub(r"\x1b\[\?1049h.*?\x1b\[\?1049l", "", arg)
