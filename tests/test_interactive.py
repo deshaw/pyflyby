@@ -606,7 +606,8 @@ class AnsiFilterDecoder(object):
         arg0 = arg = self._buffer + arg
         self._buffer = ""
         arg = re.sub("\r+\n", "\n", arg)
-        arg = arg.replace("\x1b[J", "")             # clear to end of line
+        arg = arg.replace("\x1b[J", "")             # clear to end of display
+        arg = arg.replace("\x1b[K", "")             # clear to end of line
         arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
         arg = arg.replace("\x1b[6n", "")            # query cursor position
         arg = arg.replace("\x1b[?1l", "")           # normal cursor keys
