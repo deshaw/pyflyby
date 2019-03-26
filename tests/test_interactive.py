@@ -618,7 +618,6 @@ class AnsiFilterDecoder(object):
         arg = arg.replace("\x1b[?7h", "")           # wraparound mode
         arg = arg.replace("\x1b[?25h", "")          # show cursor
         arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
-        arg = arg.replace('\x07', '')               # BEL
         arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace('\x1b[?1034h', '')        # meta key
@@ -1286,7 +1285,9 @@ def _clean_ipython_output(result):
     # Compress newlines.
     result = re.sub("\n\n+", "\n", result)
     # Remove xterm title setting.
-    result = re.sub("\x1b]0;[^\x1b\x07]*\x07?", "", result)
+    result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
+    # Remove BELs (done after the above codes, which use \x07 as a delimiter)
+    result = result.replace('\x07', '')
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
