@@ -624,7 +624,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace('\x1b>', '')              # keypad numeric mode (???)
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
-        arg = re.sub(r"\x1b\[\?1049h.*\x1b\[\?1049l", "", arg)
+        arg = re.sub("\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", "", arg)
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
         # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
         # hacky way to handle this without hardcoding '[PYFLYBY]'.
