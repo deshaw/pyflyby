@@ -1283,7 +1283,7 @@ def _clean_ipython_output(result):
     # Compress newlines.
     result = re.sub("\n\n+", "\n", result)
     # Remove xterm title setting.
-    result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
+    result = re.sub("\x1b]0;[^\x1b\x07]*\x07?", "", result)
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
