@@ -19,6 +19,7 @@ matrix:
 install:
   - set -e
   - pip install "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter
+  - pip list
 
 script:
   - set -e
