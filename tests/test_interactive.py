@@ -2732,12 +2732,12 @@ def test_prun_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %prun b64decode("RWluc3RlaW4=")
         [PYFLYBY] from base64 import b64decode
-        ... function calls in ... seconds
+        .... function calls in ... seconds
         ....
         In [3]: b64decode("SGF3a2luZw==")
         Out[3]: 'Hawking'
         In [4]: %prun b64decode("TG9yZW50eg==")
-        ... function calls in ... seconds
+        .... function calls in ... seconds
         ....
     """)
 
