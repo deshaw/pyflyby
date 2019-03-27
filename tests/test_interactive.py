@@ -547,7 +547,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     else:
         raise NotImplementedError("Don't know how to test IPython version %s"
                                   % (_IPYTHON_VERSION,))
-    cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,), 'INPUTRC='] + cmd
+    cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,), 'INPUTRC=none'] + cmd
     if app == "terminal" and prog != "py":
         cmd += [opt("--no-confirm-exit")]
         cmd += [opt("--no-banner")]
