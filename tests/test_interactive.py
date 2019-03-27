@@ -607,7 +607,6 @@ class AnsiFilterDecoder(object):
         self._buffer = ""
         arg = re.sub("\r+\n", "\n", arg)
         arg = arg.replace("\x1b[J", "")             # clear to end of display
-        arg = arg.replace("\x1b[K", "")             # clear to end of line
         arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
         arg = arg.replace("\x1b[6n", "")            # query cursor position
         arg = arg.replace("\x1b[?1l", "")           # normal cursor keys
@@ -1290,6 +1289,9 @@ def _clean_ipython_output(result):
     result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
     # Remove BELs (done after the above codes, which use \x07 as a delimiter)
     result = result.replace('\x07', '')
+    # Remove code to clear to end of line. This is done here instead of in
+    # decode() because _wait_nonce looks for this code.
+    result = result.replace("\x1b[K", "")
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
