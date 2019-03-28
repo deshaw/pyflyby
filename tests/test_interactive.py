@@ -234,13 +234,10 @@ def assert_match(result, expected, ignore_prompt_number=False):
         msg.append("Diff:")
         msg.extend("   %s"%line for line in difflib.ndiff(
             expected.splitlines(), result.splitlines()))
-        if '\x1b' in expected or '\x1b' in result:
+        if DEBUG or any(ord(i) < 0x20 for i in expected+result):
             msg.append("Diff Repr:")
             msg.extend("   %r"%line for line in difflib.ndiff(
                 expected.splitlines(), result.splitlines()))
-        if DEBUG:
-            msg.append("Expected repr: %r" % (expected,))
-            msg.append("Result   repr: %r" % (result  ,))
         msg = "\n".join(msg)
         pytest.fail(msg)
 
