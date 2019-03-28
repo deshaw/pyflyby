@@ -1031,7 +1031,7 @@ def IPythonNotebookCtx(**kwargs):
         with IPythonCtx(args=args, **kwargs) as child:
             if _IPYTHON_VERSION >= (5,):
                 # Get the base URL from the notebook app.
-                child.expect(r"to login with a token:(?:\n|\s)*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
+                child.expect(r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
                 baseurl = child.match.group(1)
                 token = child.match.group(2)
                 params = dict(token=token)
