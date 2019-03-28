@@ -1132,15 +1132,16 @@ def SysArgvCtx(*args):
             pass
         else:
             if nargs == 1:
-                msg = ("the command-line argument was not used: %s"
+                msg = ("You specified a command-line argument, but your code didn't use it: %s"
                        % (unaccessed[0],))
             elif len(unaccessed) == nargs:
-                msg = ("all %d command-line arguments were not used: %s"
+                msg = ("You specified %d command-line arguments, but your code didn't use them: %s"
                        % (len(unaccessed), " ".join(unaccessed)))
             else:
-                msg = ("%d of %d command-line arguments were not used: %s"
-                       % (len(unaccessed), nargs, " ".join(unaccessed)))
-            logger.error(msg)
+                msg = ("You specified %d command-line arguments, but your code didn't use %d of them: %s"
+                       % (nargs, len(unaccessed), " ".join(unaccessed)))
+            msg2 = "\nIf this is intentional, access 'sys.argv[:]' somewhere in your code."
+            logger.error(msg + msg2)
             raise SystemExit(1)
     finally:
         sys.argv = orig_argv
