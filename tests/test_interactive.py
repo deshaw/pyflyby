@@ -591,7 +591,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
 
 PYFLYBY_HOME = Filename(__file__).real.dir.dir
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
-
+PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 
 class AnsiFilterDecoder(object):
 
@@ -746,6 +746,7 @@ def IPythonCtx(prog="ipython",
         env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
         env["PYTHONSTARTUP"]     = ""
         env["MPLCONFIGDIR"]      = mplconfigdir
+        env["PATH"]              = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
                                  frontend=frontend)
         # Spawn IPython.
