@@ -1156,7 +1156,7 @@ def _wait_for_output(child, timeout):
             data = child.read_nonblocking(BLOCKSIZE, timeout=remaining_timeout)
         except pexpect.TIMEOUT:
             if DEBUG:
-                print("_wait_for_output(): timeout")
+                print("_wait_for_output(): timeout after %s seconds" % remaining_timeout)
             break
         if DEBUG:
             print("_wait_for_output(): got %r" % (data,))
