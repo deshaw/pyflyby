@@ -234,7 +234,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
         msg.append("Diff:")
         msg.extend("   %s"%line for line in difflib.ndiff(
             expected.splitlines(), result.splitlines()))
-        if DEBUG or any(ord(i) < 0x20 for i in expected+result):
+        if DEBUG or any(i in '\x1b\x07\b\t' for i in expected+result):
             msg.append("Diff Repr:")
             msg.extend("   %r"%line for line in difflib.ndiff(
                 expected.splitlines(), result.splitlines()))
