@@ -25,4 +25,5 @@ install:
 script:
   - set -e
   - set -x
+  - export DEBUG_TEST_PYFLYBY=1
   - pytest --doctest-modules lib tests
