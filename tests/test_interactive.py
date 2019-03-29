@@ -1146,7 +1146,7 @@ def _wait_for_output(child, timeout):
         if got_data_already:
             # If we previously got any data (after ansi filtering), then keep
             # going while there's pending data.
-            remaining_timeout = 0.05
+            remaining_timeout = 0.04
         else:
             # Wait until timeout.  This condition applies if it's the first
             # loop, or if we've gotten some non-empty data after ansi
