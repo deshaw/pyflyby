@@ -829,7 +829,7 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                     # counter to do that.  For prompts without a counter, we
                     # just try our best to eat up pending output.  Todo:
                     # is there a better way?
-                    _wait_for_output(child, timeout=0.2)
+                    _wait_for_output(child, timeout=0.5)
                 break
         if line.startswith(" ") and is_prompt_toolkit:
             # Clear the line via ^U.  This is needed with prompt_toolkit
