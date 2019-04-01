@@ -112,6 +112,9 @@ class _TmpFixture(object):
         return Filename(f)
 
 
+# Some tests randomly fail, especially on Travis, with the prompt-toolkit
+# frontend not showing the In prompt. Since these only fail sometimes, we
+# automatically retry them with the flaky plugin.
 retry = flaky.flaky(max_runs=5)
 
 def writetext(filename, text, mode='w'):
