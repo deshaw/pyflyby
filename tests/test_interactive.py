@@ -9,7 +9,7 @@ import IPython
 import atexit
 from   contextlib               import contextmanager
 import difflib
-from   functools                import wraps
+import flaky
 import inspect
 import json
 import os
@@ -112,27 +112,7 @@ class _TmpFixture(object):
         return Filename(f)
 
 
-def retry(exceptions=(Exception,), tries=5, delay=1.0, backoff=1.0):
-    """
-    Decorator that retries a function upon exception.
-    """
-    def deco_retry(f):
-        @wraps(f)
-        def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
-            while mtries > 1:
-                try:
-                    return f(*args, **kwargs)
-                except exceptions as e:
-                    print("Error: %s: %s; retrying in %.1f seconds" % (
-                        type(e).__name__, e, mdelay))
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return f(*args, **kwargs)
-        return f_retry  # true decorator
-    return deco_retry
-
+retry = flaky.flaky(max_runs=5)
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
@@ -1301,7 +1281,7 @@ def _clean_ipython_output(result):
     return result
 
 
-@retry()
+@retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
@@ -1351,7 +1331,7 @@ def test_ipython_indented_block_5spaces_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_ipython_indented_block_3spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
@@ -1537,7 +1517,7 @@ def test_reload_ext_1():
 
 
 @skipif_ipython_too_old_for_load_ext
-@retry()
+@retry
 def test_reload_ext_reload_importdb_1(tmp):
     # Test that %reload_ext causes the importdb to be refreshed.
     writetext(tmp.file, "from itertools import repeat\n")
@@ -1567,7 +1547,7 @@ def test_reload_ext_reload_importdb_1(tmp):
 
 
 @skipif_ipython_too_old_for_load_ext
-@retry()
+@retry
 def test_reload_ext_retry_failed_imports_1(tmp):
     # Verify that %xreload_ext causes us to retry imports that we previously
     # decided not to retry.
@@ -1618,7 +1598,7 @@ def test_autoimport_symbol_1():
     """)
 
 
-@retry()
+@retry
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1841,7 +1821,7 @@ def test_autoimport_multiple_candidates_ofind_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@retry()
+@retry
 def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     # Verify that the autoimport menu is only printed once, even when multiple
     # joinpoints apply (autocall=>ofind and ast_importer).
@@ -1889,7 +1869,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     """, PYFLYBY_PATH=tmp.file, autocall=True)
 
 
-@retry()
+@retry
 def test_complete_symbol_basic_1():
     # Verify that tab completion works.
     ipython("""
@@ -1924,7 +1904,7 @@ def test_complete_symbol_partial_multiple_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
     # then b64decode should be imported into the namespace, but base64 should
@@ -2219,7 +2199,7 @@ def test_complete_symbol_greedy_eval_autoimport_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
     # we don't get confused.
@@ -2264,7 +2244,7 @@ def test_property_no_superfluous_access_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
-@retry()
+@retry
 def test_disable_reenable_autoimport_1():
     ipython("""
         In [1]: import pyflyby
@@ -2429,7 +2409,7 @@ def test_run_1(tmp):
     """)
 
 
-@retry()
+@retry
 def test_run_repeat_1(tmp):
     # Test that repeated %run works, and continues autoimporting, since we
     # start from a fresh namespace each time (since no "-i" option to %run).
@@ -2591,7 +2571,7 @@ def test_run_name_main_1(tmp):
     """)
 
 
-@retry()
+@retry
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
     f = writetext(tmp.dir/"f81564382.py", """
@@ -2696,7 +2676,7 @@ def test_time_repeat_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
     ipython("""
@@ -2756,7 +2736,7 @@ def test_prun_1():
     """)
 
 
-@retry()
+@retry
 def test_noninteractive_profile_unaffected_1():
     # Verify that the profile module itself is not affected (i.e. verify that
     # we only hook the IPython usage of it).
@@ -2937,7 +2917,7 @@ def test_py_interactive_1():
     """, prog="py")
 
 
-@retry()
+@retry
 def test_py_i_interactive_1(tmp):
     # Test that 'py -i' initializes IPython before running the commandline
     # code.
@@ -3001,7 +2981,7 @@ def test_py_notebook_1():
         """, args=['console'], kernel=kernel)
 
 
-@retry()
+@retry
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
     # also re-enable it.
@@ -3128,7 +3108,7 @@ def test_installed_in_config_disable_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-@retry()
+@retry
 def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
     # installed pyflyby in ipython_config.
@@ -3276,7 +3256,7 @@ def test_manual_install_ipy_user_conf_1(tmp):
 @pytest.mark.skipif(
     (0, 11) <= _IPYTHON_VERSION < (0, 12),
     reason="IPython 0.11 doesn't support -c")
-@retry()
+@retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Zm94aG91bmQ=')
@@ -3340,7 +3320,7 @@ def test_debug_baseline_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_debug_without_autoimport_1(frontend):
     # Verify that without autoimport, we get a NameError.
     ipython("""
@@ -3370,7 +3350,7 @@ def test_debug_auto_import_p_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_debug_auto_import_pp_1(frontend):
     # Verify that auto importing works with "pp foo".
     ipython("""
@@ -3403,7 +3383,7 @@ def test_debug_auto_import_default_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_debug_auto_import_print_1(frontend):
     # Verify that auto importing works with "print foo".  (This is executed as
     # a statement; a special case of "default".)
@@ -3541,7 +3521,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3573,7 +3553,7 @@ def test_debug_namespace_1(frontend):
     """, frontend=frontend)
 
 
-@retry()
+@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
@@ -3612,7 +3592,7 @@ def test_debug_second_1(frontend):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
-@retry()
+@retry
 def test_debug_auto_import_string_1(frontend):
     # Verify that auto importing works inside the debugger after running
     # "%debug <string>".
@@ -3651,7 +3631,7 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
-@retry()
+@retry
 def test_debug_auto_import_statement_step_1(frontend, tmp):
     # Verify that step functionality isn't broken.
     writetext(tmp.dir/"taconic72383428.py", """
