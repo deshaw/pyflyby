@@ -524,7 +524,7 @@ if six.PY2:
         object            : _livepatch__object,
         dict              : _livepatch__dict,
         type              : _livepatch__class,
-        type   : _livepatch__class,
+        types.ClassType   : _livepatch__class,
         types.FunctionType: _livepatch__function,
         types.MethodType  : _livepatch__method,
         types.ModuleType  : _livepatch__module,
