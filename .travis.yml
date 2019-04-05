@@ -19,7 +19,11 @@ matrix:
 install:
   - set -e
   - pip install -U pip
-  - pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+        pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky;
+    else
+        pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky;
+    fi
   - pip list
 
 script:
