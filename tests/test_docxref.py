@@ -7,9 +7,6 @@ from __future__ import absolute_import, division, with_statement
 
 import sys
 
-from   pyflyby._docxref         import find_bad_doc_cross_references
-from   pyflyby._modules         import ModuleHandle
-
 from   .                        import xrefs
 
 import pytest
@@ -18,6 +15,9 @@ if sys.version_info[0] > 2:
     pytestmark = pytest.mark.skip("Epydoc does not support Python 3")
 
 def test_find_bad_doc_cross_references_1():
+    from   pyflyby._docxref         import find_bad_doc_cross_references
+    from   pyflyby._modules         import ModuleHandle
+
     result = find_bad_doc_cross_references([xrefs])
     expected = (
         (ModuleHandle('tests.xrefs'), (3,), 'tests.xrefs', u'undefined_xref_from_module'),
