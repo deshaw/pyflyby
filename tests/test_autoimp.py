@@ -99,7 +99,7 @@ def test_find_missing_imports_in_scope_2():
 
 
 def test_find_missing_imports_in_scope_3():
-    result   = find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])
+    result   = find_missing_imports("for x in range(3): print(numpy.arange(x))", [{}])
     result   = _dilist2strlist(result)
     expected = ['numpy.arange']
     assert expected == result
@@ -190,9 +190,11 @@ def test_find_missing_imports_print_function_1():
 
 def test_find_missing_imports_assignment_1():
     code = dedent("""
+        from __future__ import print_function
+
         def f():
             x = 1
-            print x, y, z
+            print(x, y, z)
             y = 2
     """)
     result   = find_missing_imports(code, [{}])
@@ -746,9 +748,14 @@ def test_find_missing_imports_global_1():
 
 
 def test_find_missing_imports_complex_1():
-    code = dedent("""
-        x = 3+4j+5L+k+u'a'
-    """)
+    if sys.version_info[0] == 2:
+        code = dedent("""
+            x = 3+4j+5L+k+u'a'
+        """)
+    else:
+        code = dedent("""
+            x = 3+4j+5+k+u'a'
+        """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
     expected = ['k']
@@ -1234,16 +1241,23 @@ def test_auto_eval_exec_1():
 
 
 def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
-    auto_eval("print 3.00", flags=0, auto_flags=False)
-    out, _ = capsys.readouterr()
-    assert out == "3.0\n"
-
+    if sys.version_info[0] == 2:
+        auto_eval("print 3.00", flags=0, auto_flags=False)
+        out, _ = capsys.readouterr()
+        assert out == "3.0\n"
+    else:
+        auto_eval("print(3.00)", flags=0, auto_flags=False)
+        out, _ = capsys.readouterr()
+        assert out == "3.0\n"
 
 def test_auto_eval_no_auto_flags_ps_flag_pf1():
     with pytest.raises(SyntaxError):
         auto_eval("print 3.00", flags="print_function", auto_flags=False)
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] == 3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_auto_eval_no_auto_flags_pf_flagps_1():
     with pytest.raises(SyntaxError):
         auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=False)
@@ -1257,11 +1271,17 @@ def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
 
 
 def test_auto_eval_auto_flags_ps_flagps_1(capsys):
-    auto_eval("print 3.00", flags=0, auto_flags=True)
-    out, _ = capsys.readouterr()
-    assert out == "3.0\n"
+    if sys.version_info[0] == 2:
+        auto_eval("print 3.00", flags=0, auto_flags=True)
+        out, _ = capsys.readouterr()
+        assert out == "3.0\n"
+    else:
+        with pytest.raises(SyntaxError):
+            auto_eval("print 3.00", flags=0, auto_flags=True)
 
-
+@pytest.mark.skipif(
+    sys.version_info[0] == 3,
+    reason="print not as a function cannot be valid syntax in Python 3.")
 def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
     auto_eval("print 3.00", flags="print_function", auto_flags=True)
     out, _ = capsys.readouterr()
