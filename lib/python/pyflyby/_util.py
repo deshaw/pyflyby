@@ -343,8 +343,10 @@ class Aspect(object):
                 joinpoint.__func__.__name__)
             self._name      = joinpoint.__func__.__name__
             if joinpoint.__self__ is None:
-                # Class method.
-                container_obj   = joinpoint.__self__.__class__
+                # Python 2 only. In Python 3, there are no unbound methods
+                # (they are just functions).
+                # Unbound method.
+                container_obj   = joinpoint.im_class
                 self._container = _WritableDictProxy(container_obj)
                 self._original  = spec.__func__
             else:
