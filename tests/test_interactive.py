@@ -10,7 +10,7 @@ import IPython
 import atexit
 from   contextlib               import contextmanager
 import difflib
-from   functools                import wraps
+import flaky
 import inspect
 import json
 import os
@@ -113,27 +113,10 @@ class _TmpFixture(object):
         return Filename(f)
 
 
-def retry(exceptions=(Exception,), tries=5, delay=1.0, backoff=1.0):
-    """
-    Decorator that retries a function upon exception.
-    """
-    def deco_retry(f):
-        @wraps(f)
-        def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
-            while mtries > 1:
-                try:
-                    return f(*args, **kwargs)
-                except exceptions as e:
-                    print("Error: %s: %s; retrying in %.1f seconds" % (
-                        type(e).__name__, e, mdelay))
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return f(*args, **kwargs)
-        return f_retry  # true decorator
-    return deco_retry
-
+# Some tests randomly fail, especially on Travis, with the prompt-toolkit
+# frontend not showing the In prompt. Since these only fail sometimes, we
+# automatically retry them with the flaky plugin.
+retry = flaky.flaky(max_runs=5)
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
@@ -235,9 +218,10 @@ def assert_match(result, expected, ignore_prompt_number=False):
         msg.append("Diff:")
         msg.extend("   %s"%line for line in difflib.ndiff(
             expected.splitlines(), result.splitlines()))
-        if DEBUG:
-            msg.append("Expected repr: %r" % (expected,))
-            msg.append("Result   repr: %r" % (result  ,))
+        if DEBUG or any(i in '\x1b\x07\b\t' for i in expected+result):
+            msg.append("Diff Repr:")
+            msg.extend("   %r"%line for line in difflib.ndiff(
+                expected.splitlines(), result.splitlines()))
         msg = "\n".join(msg)
         pytest.fail(msg)
 
@@ -303,6 +287,7 @@ def parse_template(template):
     return input, expected
 
 
+@retry
 def test_selftest_parse_template_1():
     template = """
         In [1]: hello
@@ -320,6 +305,7 @@ def test_selftest_parse_template_1():
         "In [2]: foo\n   ...: bar\n   ...:\nbaz")
 
 
+@retry
 def test_selftest_parse_template_tab_punctuation_1():
     template = """
         In [1]: hello\t_there(3)
@@ -330,6 +316,7 @@ def test_selftest_parse_template_tab_punctuation_1():
     assert expected == ("In [1]: hello_there(3)\ngoodbye")
 
 
+@retry
 def test_selftest_parse_template_tab_newline_():
     template = """
         In [1]: hello_\tthere
@@ -340,6 +327,7 @@ def test_selftest_parse_template_tab_newline_():
     assert expected == ("In [1]: hello_there\ngoodbye")
 
 
+@retry
 def test_selftest_parse_template_tab_continue_1():
     template = """
         In [1]: hello\t_the\x06re(3)
@@ -350,6 +338,7 @@ def test_selftest_parse_template_tab_continue_1():
     assert expected == ("In [1]: hello_there(3)\ngoodbye")
 
 
+@retry
 def test_selftest_parse_template_tab_log_1():
     template = """
         In [1]: hello\t
@@ -370,6 +359,7 @@ def test_selftest_parse_template_tab_log_1():
         "goodbye")
 
 
+@retry
 def test_selftest_assert_match_1():
     expected = """
         hello
@@ -388,6 +378,7 @@ def test_selftest_assert_match_1():
     assert_match(result, expected)
 
 
+@retry
 def test_selftest_assert_match_2():
     result = """
         hello
@@ -406,6 +397,7 @@ def test_selftest_assert_match_2():
         assert_match(result, expected)
 
 
+@retry
 def test_lazy_import_ipython_1():
     # Verify that "import pyflyby" doesn't imply "import IPython".
     pycmd = 'import pyflyby, sys; sys.exit("IPython" in sys.modules)'
@@ -544,7 +536,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     else:
         raise NotImplementedError("Don't know how to test IPython version %s"
                                   % (_IPYTHON_VERSION,))
-    cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,), 'INPUTRC='] + cmd
+    cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,), 'INPUTRC=none'] + cmd
     if app == "terminal" and prog != "py":
         cmd += [opt("--no-confirm-exit")]
         cmd += [opt("--no-banner")]
@@ -592,7 +584,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
 
 PYFLYBY_HOME = Filename(__file__).real.dir.dir
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
-
+PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 
 class AnsiFilterDecoder(object):
 
@@ -603,7 +595,7 @@ class AnsiFilterDecoder(object):
         arg0 = arg = self._buffer + arg
         self._buffer = ""
         arg = re.sub("\r+\n", "\n", arg)
-        arg = arg.replace("\x1b[J", "")             # clear to end of line
+        arg = arg.replace("\x1b[J", "")             # clear to end of display
         arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
         arg = arg.replace("\x1b[6n", "")            # query cursor position
         arg = arg.replace("\x1b[?1l", "")           # normal cursor keys
@@ -614,9 +606,14 @@ class AnsiFilterDecoder(object):
         arg = arg.replace("\x1b[?7h", "")           # wraparound mode
         arg = arg.replace("\x1b[?25h", "")          # show cursor
         arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
-        arg = arg.replace('\x07', '')               # BEL
         arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
         arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
+        arg = arg.replace('\x1b[?1034h', '')        # meta key
+        arg = arg.replace('\x1b>', '')              # keypad numeric mode (???)
+        # Cursor movement. We assume this is used only for places that have '...'
+        # in the tests.
+        # arg = re.sub("\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", "", arg)
+
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
         # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
         # hacky way to handle this without hardcoding '[PYFLYBY]'.
@@ -749,6 +746,7 @@ def IPythonCtx(prog="ipython",
         env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
         env["PYTHONSTARTUP"]     = ""
         env["MPLCONFIGDIR"]      = mplconfigdir
+        env["PATH"]              = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
                                  frontend=frontend)
         # Spawn IPython.
@@ -1026,7 +1024,7 @@ def IPythonNotebookCtx(**kwargs):
         with IPythonCtx(args=args, **kwargs) as child:
             if _IPYTHON_VERSION >= (5,):
                 # Get the base URL from the notebook app.
-                child.expect(r"to login with a token:(?:\n|\s)*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
+                child.expect(r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
                 baseurl = child.match.group(1)
                 token = child.match.group(2)
                 params = dict(token=token)
@@ -1140,7 +1138,7 @@ def _wait_for_output(child, timeout):
         if got_data_already:
             # If we previously got any data (after ansi filtering), then keep
             # going while there's pending data.
-            remaining_timeout = 0.05
+            remaining_timeout = timeout
         else:
             # Wait until timeout.  This condition applies if it's the first
             # loop, or if we've gotten some non-empty data after ansi
@@ -1150,7 +1148,7 @@ def _wait_for_output(child, timeout):
             data = child.read_nonblocking(BLOCKSIZE, timeout=remaining_timeout)
         except pexpect.TIMEOUT:
             if DEBUG:
-                print("_wait_for_output(): timeout")
+                print("_wait_for_output(): timeout after %s seconds" % remaining_timeout)
             break
         if DEBUG:
             print("_wait_for_output(): got %r" % (data,))
@@ -1279,6 +1277,11 @@ def _clean_ipython_output(result):
     result = re.sub("\n\n+", "\n", result)
     # Remove xterm title setting.
     result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
+    # Remove BELs (done after the above codes, which use \x07 as a delimiter)
+    result = result.replace('\x07', '')
+    # Remove code to clear to end of line. This is done here instead of in
+    # decode() because _wait_nonce looks for this code.
+    result = result.replace("\x1b[K", "")
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
@@ -1290,6 +1293,7 @@ def _clean_ipython_output(result):
     return result
 
 
+@retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
@@ -1300,6 +1304,7 @@ def test_ipython_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_assert_fail_1(frontend):
     with assert_fail():
         ipython("""
@@ -1310,6 +1315,7 @@ def test_ipython_assert_fail_1(frontend):
         """, frontend=frontend)
 
 
+@retry
 def test_ipython_indented_block_4spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # 4 spaces is the IPython default auotindent.
@@ -1325,6 +1331,7 @@ def test_ipython_indented_block_4spaces_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_indented_block_5spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
@@ -1339,6 +1346,7 @@ def test_ipython_indented_block_5spaces_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_indented_block_3spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
@@ -1354,6 +1362,7 @@ def test_ipython_indented_block_3spaces_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_indented_block_2spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
@@ -1369,6 +1378,7 @@ def test_ipython_indented_block_2spaces_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_tab_1(frontend):
     # Test that our test harness works for tabs.
     ipython("""
@@ -1378,6 +1388,7 @@ def test_ipython_tab_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_tab_fail_1(frontend):
     # Test that our test harness works for tab when it should match nothing.
     ipython("""
@@ -1390,6 +1401,7 @@ def test_ipython_tab_fail_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_ipython_tab_multi_1(frontend):
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion.
@@ -1406,6 +1418,7 @@ def test_ipython_tab_multi_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
     os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
@@ -1416,6 +1429,7 @@ def test_pyflyby_file_1():
     """)
 
 
+@retry
 def test_pyflyby_version_1():
     # Verify that our test setup is getting the right pyflyby.
     ipython("""
@@ -1425,6 +1439,7 @@ def test_pyflyby_version_1():
     """)
 
 
+@retry
 def test_ipython_file_1():
     # Verify that our test setup is getting the right IPython.
     os.path.realpath(IPython.__file__)
@@ -1435,6 +1450,7 @@ def test_ipython_file_1():
     """)
 
 
+@retry
 def test_ipython_version_1():
     # Verify that our test setup is getting the right IPython.
     ipython("""
@@ -1444,6 +1460,7 @@ def test_ipython_version_1():
     """)
 
 
+@retry
 def test_autoimport_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1453,6 +1470,7 @@ def test_autoimport_1():
     """)
 
 
+@retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
     # really a test that our testing infrastructure is OK and not accidentally
@@ -1471,6 +1489,7 @@ skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
     reason="IPython version %s does not support %load_ext, so nothing to test")
 
 @skipif_ipython_too_old_for_load_ext
+@retry
 def test_load_ext_1():
     # Test that %load_ext works.
     ipython("""
@@ -1485,6 +1504,7 @@ def test_load_ext_1():
 
 
 @skipif_ipython_too_old_for_load_ext
+@retry
 def test_unload_ext_1():
     # Test that %unload_ext works.
     # Autoimporting should stop working, but previously imported thi
@@ -1506,6 +1526,7 @@ def test_unload_ext_1():
 
 
 @skipif_ipython_too_old_for_load_ext
+@retry
 def test_reload_ext_1():
     # Test that autoimporting still works after %reload_ext.
     ipython("""
@@ -1524,6 +1545,7 @@ def test_reload_ext_1():
 
 
 @skipif_ipython_too_old_for_load_ext
+@retry
 def test_reload_ext_reload_importdb_1(tmp):
     # Test that %reload_ext causes the importdb to be refreshed.
     writetext(tmp.file, "from itertools import repeat\n")
@@ -1553,6 +1575,7 @@ def test_reload_ext_reload_importdb_1(tmp):
 
 
 @skipif_ipython_too_old_for_load_ext
+@retry
 def test_reload_ext_retry_failed_imports_1(tmp):
     # Verify that %xreload_ext causes us to retry imports that we previously
     # decided not to retry.
@@ -1594,6 +1617,7 @@ def test_reload_ext_retry_failed_imports_1(tmp):
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_symbol_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1603,6 +1627,7 @@ def test_autoimport_symbol_1():
     """)
 
 
+@retry
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1612,6 +1637,7 @@ def test_autoimport_statement_1():
     """)
 
 
+@retry
 def test_autoimport_multiple_imports_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1622,6 +1648,7 @@ def test_autoimport_multiple_imports_1():
     """)
 
 
+@retry
 def test_autoimport_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1635,6 +1662,7 @@ def test_autoimport_multiline_statement_1():
     """)
 
 
+@retry
 def test_autoimport_multiline_continued_statement_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1654,6 +1682,7 @@ def test_autoimport_multiline_continued_statement_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_autoimport_multiline_continued_statement_fake_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1678,6 +1707,7 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_autoimport_pyflyby_path_1(tmp):
     writetext(tmp.file, "from itertools import product\n")
     ipython("""
@@ -1693,6 +1723,7 @@ def test_autoimport_pyflyby_path_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
     ipython("""
@@ -1704,6 +1735,7 @@ def test_autoimport_autocall_arg_1():
     """, autocall=True)
 
 
+@retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
     ipython("""
@@ -1715,6 +1747,7 @@ def test_autoimport_autocall_function_1():
     """, autocall=True)
 
 
+@retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     # Verify that we print out all candidate autoimports, when there are
     # multiple.
@@ -1737,6 +1770,7 @@ def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_multiple_candidates_repeated_1(tmp):
     # Verify that we print out the candidate list for another cell.
     writetext(tmp.file, """
@@ -1764,6 +1798,7 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     # Verify that if an expression contains multiple ambiguous imports, we
     # report each one.
@@ -1789,6 +1824,7 @@ def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     # Verify that if an expression contains an ambiguous import twice, we only
     # report it once.
@@ -1809,6 +1845,7 @@ def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_multiple_candidates_ofind_1(tmp):
     # Verify that the multi-candidate menu works even with ofind.
     writetext(tmp.file, """
@@ -1825,6 +1862,7 @@ def test_autoimport_multiple_candidates_ofind_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     # Verify that the autoimport menu is only printed once, even when multiple
     # joinpoints apply (autocall=>ofind and ast_importer).
@@ -1845,6 +1883,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     """, PYFLYBY_PATH=tmp.file, autocall=True)
 
 
+@retry
 def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     # We should report the multiple candidate issue again if asked again.
     writetext(tmp.file, """
@@ -1872,6 +1911,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     """, PYFLYBY_PATH=tmp.file, autocall=True)
 
 
+@retry
 def test_complete_symbol_basic_1():
     # Verify that tab completion works.
     ipython("""
@@ -1882,6 +1922,7 @@ def test_complete_symbol_basic_1():
     """)
 
 
+@retry
 def test_complete_symbol_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1894,6 +1935,7 @@ def test_complete_symbol_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_partial_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1906,6 +1948,7 @@ def test_complete_symbol_partial_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
     # then b64decode should be imported into the namespace, but base64 should
@@ -1926,6 +1969,7 @@ def test_complete_symbol_import_check_1():
     """)
 
 
+@retry
 def test_complete_symbol_instance_identity_1():
     # Verify that automatic symbols give the same instance (i.e., no proxy
     # objects involved).
@@ -1938,6 +1982,7 @@ def test_complete_symbol_instance_identity_1():
     """)
 
 
+@retry
 def test_complete_symbol_member_1(frontend):
     # Verify that tab completion in members works.
     # We expect "base64.b64d" to be reprinted again after the [PYFLYBY] log
@@ -1955,6 +2000,7 @@ def test_complete_symbol_member_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_member_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1971,6 +2017,7 @@ def test_complete_symbol_member_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -1987,6 +2034,7 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_import_module_as_1(frontend, tmp):
     writetext(tmp.file, "import base64 as b64\n")
     ipython("""
@@ -1998,6 +2046,7 @@ def test_complete_symbol_import_module_as_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_statement_1():
     # Verify that tab completion in statements works.  This requires a more
     # sophisticated code path than test_complete_symbol_basic_1.
@@ -2010,6 +2059,7 @@ def test_complete_symbol_statement_1():
     """)
 
 
+@retry
 def test_complete_symbol_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2025,6 +2075,7 @@ def test_complete_symbol_multiline_statement_1():
     """)
 
 
+@retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -2043,6 +2094,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
     ipython("""
@@ -2054,6 +2106,7 @@ def test_complete_symbol_autocall_arg_1():
     """, autocall=True)
 
 
+@retry
 def test_complete_symbol_any_module_1(frontend, tmp):
     # Verify that completion and autoimport works for an arbitrary module in
     # $PYTHONPATH.
@@ -2068,6 +2121,7 @@ def test_complete_symbol_any_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
     # $PYTHONPATH.
@@ -2083,6 +2137,7 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
     writetext(tmp.file, "import foo_31221052_bar\n")
@@ -2099,6 +2154,7 @@ def test_complete_symbol_bad_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
     ipython("""
@@ -2114,6 +2170,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_nonmodule_1(frontend, tmp):
     # Verify that completion works even if a module replaced itself in
     # sys.modules with a pseudo-module (perhaps in order to get module
@@ -2174,6 +2231,7 @@ def test_complete_symbol_getitem_1(frontend):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="test not implemented for old config")
+@retry
 def test_complete_symbol_greedy_eval_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2200,6 +2258,7 @@ def test_complete_symbol_greedy_eval_autoimport_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
     # we don't get confused.
@@ -2244,6 +2303,7 @@ def test_property_no_superfluous_access_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
+@retry
 def test_disable_reenable_autoimport_1():
     ipython("""
         In [1]: import pyflyby
@@ -2266,6 +2326,7 @@ def test_disable_reenable_autoimport_1():
     """)
 
 
+@retry
 def test_disable_reenable_completion_1():
     ipython("""
         In [1]: import pyflyby
@@ -2288,6 +2349,7 @@ def test_disable_reenable_completion_1():
     """)
 
 
+@retry
 def test_pinfo_1(tmp):
     # Test that pinfo (ofind hook) works.
     writetext(tmp.dir/"m17426814.py", """
@@ -2304,6 +2366,7 @@ def test_pinfo_1(tmp):
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_error_during_auto_import_symbol_1(tmp):
     writetext(tmp.file, "3+")
     ipython("""
@@ -2327,6 +2390,7 @@ def test_error_during_auto_import_symbol_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_error_during_auto_import_expression_1(tmp):
     writetext(tmp.file, "3+")
     ipython("""
@@ -2350,6 +2414,7 @@ def test_error_during_auto_import_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
+@retry
 def test_error_during_completion_1(frontend, tmp):
     if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "3+")
@@ -2379,6 +2444,7 @@ def test_error_during_completion_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@retry
 def test_syntax_error_in_user_code_1():
     # Verify that we don't inadvertently disable the autoimporter due to
     # a syntax error in the interactive command.
@@ -2393,6 +2459,7 @@ def test_syntax_error_in_user_code_1():
     """)
 
 
+@retry
 def test_run_1(tmp):
     # Test that %run works and autoimports.
     writetext(tmp.file, """
@@ -2408,6 +2475,7 @@ def test_run_1(tmp):
     """)
 
 
+@retry
 def test_run_repeat_1(tmp):
     # Test that repeated %run works, and continues autoimporting, since we
     # start from a fresh namespace each time (since no "-i" option to %run).
@@ -2425,6 +2493,7 @@ def test_run_repeat_1(tmp):
     """)
 
 
+@retry
 def test_run_separate_script_namespace_1(tmp):
     # Another explicit test that we start %run from a fresh namespace
     writetext(tmp.file, """
@@ -2441,6 +2510,7 @@ def test_run_separate_script_namespace_1(tmp):
     """)
 
 
+@retry
 def test_run_separate_script_namespace_2(tmp):
     # Another explicit test that we start %run from a fresh namespace, not
     # inheriting even explicitly defined functions.
@@ -2460,6 +2530,7 @@ def test_run_separate_script_namespace_2(tmp):
     """)
 
 
+@retry
 def test_run_modify_interactive_namespace_1(tmp):
     # Verify that %run does affect the interactive namespace.
     writetext(tmp.file, """
@@ -2476,6 +2547,7 @@ def test_run_modify_interactive_namespace_1(tmp):
     """)
 
 
+@retry
 def test_run_i_auto_import_1(tmp):
     # Verify that '%run -i' works and autoimports.
     writetext(tmp.file, """
@@ -2491,6 +2563,7 @@ def test_run_i_auto_import_1(tmp):
     """)
 
 
+@retry
 def test_run_i_already_imported_1(tmp):
     # Verify that '%run -i' inherits the interactive namespace.
     writetext(tmp.file, """
@@ -2507,6 +2580,7 @@ def test_run_i_already_imported_1(tmp):
     """)
 
 
+@retry
 def test_run_i_repeated_1(tmp):
     # Verify that '%run -i' affects the next namespace of the next '%run -i'.
     writetext(tmp.file, """
@@ -2522,6 +2596,7 @@ def test_run_i_repeated_1(tmp):
     """)
 
 
+@retry
 def test_run_i_locally_defined_1(tmp):
     # Verify that '%run -i' can inherit interactively defined symbols.
     writetext(tmp.file, """
@@ -2537,6 +2612,7 @@ def test_run_i_locally_defined_1(tmp):
     """)
 
 
+@retry
 def test_run_syntax_error_1(tmp):
     # Verify that a syntax error in a user-run script doesn't affect
     # autoimporter functionality.
@@ -2556,6 +2632,7 @@ def test_run_syntax_error_1(tmp):
     """)
 
 
+@retry
 def test_run_name_main_1(tmp):
     # Verify that __name__ == "__main__" in a %run script.
     writetext(tmp.file, """
@@ -2569,6 +2646,7 @@ def test_run_name_main_1(tmp):
     """)
 
 
+@retry
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
     writetext(tmp.dir/"f81564382.py", """
@@ -2582,6 +2660,7 @@ def test_run_name_not_main_1(tmp):
     """)
 
 
+@retry
 def test_timeit_1():
     # Verify that %timeit works.
     ipython("""
@@ -2594,6 +2673,7 @@ def test_timeit_1():
     """)
 
 
+@retry
 def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
     ipython("""
@@ -2604,6 +2684,7 @@ def test_timeit_complete_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
     if frontend == "prompt_toolkit": pytest.skip()
@@ -2617,6 +2698,7 @@ def test_timeit_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_timeit_complete_autoimport_member_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -2630,6 +2712,7 @@ def test_timeit_complete_autoimport_member_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_noninteractive_timeit_unaffected_1():
     # Verify that the regular timeit module is unaffected, i.e. that we only
     # hooked the IPython wrapper.
@@ -2645,6 +2728,7 @@ def test_noninteractive_timeit_unaffected_1():
     """)
 
 
+@retry
 def test_time_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
@@ -2657,6 +2741,7 @@ def test_time_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_time_repeat_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
@@ -2673,6 +2758,7 @@ def test_time_repeat_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
     ipython("""
@@ -2685,6 +2771,7 @@ def test_time_complete_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
     if frontend == "prompt_toolkit": pytest.skip()
@@ -2700,6 +2787,7 @@ def test_time_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_time_complete_autoimport_member_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
@@ -2715,6 +2803,7 @@ def test_time_complete_autoimport_member_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_prun_1():
     # Verify that %prun works, autoimports the first time, but not the second
     # time.
@@ -2722,16 +2811,17 @@ def test_prun_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %prun b64decode("RWluc3RlaW4=")
         [PYFLYBY] from base64 import b64decode
-        ... function calls in ... seconds
+        .... function calls in ... seconds
         ....
         In [3]: b64decode("SGF3a2luZw==")
         Out[3]: 'Hawking'
         In [4]: %prun b64decode("TG9yZW50eg==")
-        ... function calls in ... seconds
+        .... function calls in ... seconds
         ....
     """)
 
 
+@retry
 def test_noninteractive_profile_unaffected_1():
     # Verify that the profile module itself is not affected (i.e. verify that
     # we only hook the IPython usage of it).
@@ -2747,6 +2837,7 @@ def test_noninteractive_profile_unaffected_1():
     """)
 
 
+@retry
 def test_error_during_enable_1():
     # Verify that if an error occurs during enabling, that we disable the
     # autoimporter.  Verify that we don't attempt to re-enable again.
@@ -2801,6 +2892,7 @@ def test_ipython_console_1(sendeof):
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
     # started independently.
@@ -2816,6 +2908,7 @@ def test_ipython_kernel_console_existing_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_ipython_kernel_console_multiple_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
     # the auto importer is enabled from a different console.
@@ -2843,6 +2936,7 @@ def test_ipython_kernel_console_multiple_existing_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_ipython_notebook_basic_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -2856,6 +2950,7 @@ def test_ipython_notebook_basic_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -2878,6 +2973,7 @@ def test_ipython_notebook_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_ipython_notebook_reconnect_1():
     # Verify that we can reconnect to the same kernel, and pyflyby is still
     # enabled.
@@ -2903,6 +2999,7 @@ def test_ipython_notebook_reconnect_1():
         """, args=['console'], kernel=kernel)
 
 
+@retry
 def test_py_interactive_1():
     # Verify that 'py' enables pyflyby autoimporter at start.
     ipython("""
@@ -2912,6 +3009,7 @@ def test_py_interactive_1():
     """, prog="py")
 
 
+@retry
 def test_py_i_interactive_1(tmp):
     # Test that 'py -i' initializes IPython before running the commandline
     # code.
@@ -2927,6 +3025,7 @@ def test_py_i_interactive_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_py_console_1():
     # Verify that 'py console' works.
     ipython("""
@@ -2937,6 +3036,7 @@ def test_py_console_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_py_kernel_1():
     # Verify that 'py kernel' works.
     with IPythonKernelCtx(prog="py") as kernel:
@@ -2950,6 +3050,7 @@ def test_py_kernel_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
@@ -2965,6 +3066,7 @@ def test_py_console_existing_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_py_notebook_1():
     with IPythonNotebookCtx(prog="py") as kernel:
         # Verify that the auto importer and tab completion work.
@@ -2975,6 +3077,7 @@ def test_py_notebook_1():
         """, args=['console'], kernel=kernel)
 
 
+@retry
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
     # also re-enable it.
@@ -3003,6 +3106,7 @@ def _install_load_ext_pyflyby_in_config(ipython_dir):
         print('c.InteractiveShellApp.extensions.append("pyflyby")', file=f)
 
 
+@retry
 def test_installed_in_config_ipython_cmdline_1(tmp):
     # Verify that autoimport works in 'ipython' when pyflyby is installed in
     # ipython_config.
@@ -3022,6 +3126,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
     """)
 
 
+@retry
 def test_installed_in_config_redundant_1(tmp):
     # Verify that redundant installations are fine.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3042,6 +3147,7 @@ def test_installed_in_config_redundant_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
     # installed in ipython_config.
@@ -3054,6 +3160,7 @@ def test_installed_in_config_ipython_console_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_installed_in_config_ipython_kernel_1(tmp):
     # Verify that autoimport works in 'ipython kernel' when pyflyby is
     # installed in ipython_config.
@@ -3067,6 +3174,7 @@ def test_installed_in_config_ipython_kernel_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@retry
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
@@ -3077,6 +3185,7 @@ def test_installed_in_config_ipython_notebook_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
+@retry
 def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
     # also re-enable.
@@ -3101,6 +3210,7 @@ def test_installed_in_config_disable_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@retry
 def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
     # installed pyflyby in ipython_config.
@@ -3126,6 +3236,7 @@ def test_installed_in_config_enable_noop_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@retry
 def test_installed_in_config_ipython_py_1(tmp):
     # Verify that installation in ipython_config and 'py' are compatible.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3167,6 +3278,7 @@ def test_manual_install_profile_startup_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support ipython_config.py")
+@retry
 def test_manual_install_ipython_config_direct_1(tmp):
     # Verify that manually installing in ipython_config.py works when enabling
     # at top level.
@@ -3248,6 +3360,7 @@ def test_manual_install_ipy_user_conf_1(tmp):
 @pytest.mark.skipif(
     (0, 11) <= _IPYTHON_VERSION < (0, 12),
     reason="IPython 0.11 doesn't support -c")
+@retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Zm94aG91bmQ=')
@@ -3259,6 +3372,7 @@ def test_cmdline_enable_c_i_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support InteractiveShellApp config")
+@retry
 def test_cmdline_enable_code_to_run_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cm90dHdlaWxlcg==')
@@ -3271,6 +3385,7 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support InteractiveShellApp config")
+@retry
 def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cG9vZGxl')
@@ -3297,6 +3412,7 @@ def test_cmdline_enable_exec_files_1(tmp):
         '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])
 
 
+@retry
 def test_debug_baseline_1(frontend):
     # Verify that we can test ipdb without any pyflyby involved.
     ipython("""
@@ -3311,6 +3427,7 @@ def test_debug_baseline_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_without_autoimport_1(frontend):
     # Verify that without autoimport, we get a NameError.
     ipython("""
@@ -3325,6 +3442,7 @@ def test_debug_without_autoimport_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_auto_import_p_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3340,6 +3458,7 @@ def test_debug_auto_import_p_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_auto_import_pp_1(frontend):
     # Verify that auto importing works with "pp foo".
     ipython("""
@@ -3356,6 +3475,7 @@ def test_debug_auto_import_pp_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_auto_import_default_1(frontend):
     # Verify that auto importing works with "foo(...)".
     ipython("""
@@ -3372,6 +3492,7 @@ def test_debug_auto_import_default_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_auto_import_print_1(frontend):
     # Verify that auto importing works with "print foo".  (This is executed as
     # a statement; a special case of "default".)
@@ -3389,6 +3510,7 @@ def test_debug_auto_import_print_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_auto_import_bang_default_1(frontend):
     # Verify that "!blah" works with auto importing.
     ipython("""
@@ -3406,6 +3528,7 @@ def test_debug_auto_import_bang_default_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_postmortem_auto_import_1(frontend):
     # Verify that %debug postmortem mode works.
     ipython("""
@@ -3427,6 +3550,7 @@ def test_debug_postmortem_auto_import_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
@@ -3443,6 +3567,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
@@ -3463,6 +3588,7 @@ def test_debug_tab_completion_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
     if frontend == "prompt_toolkit": pytest.skip()
@@ -3487,6 +3613,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     ipython("""
@@ -3509,6 +3636,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3540,6 +3668,7 @@ def test_debug_namespace_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
@@ -3578,6 +3707,7 @@ def test_debug_second_1(frontend):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
+@retry
 def test_debug_auto_import_string_1(frontend):
     # Verify that auto importing works inside the debugger after running
     # "%debug <string>".
@@ -3616,6 +3746,7 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (1, 0),
     reason="old IPython doesn't support debug <statement>")
+@retry
 def test_debug_auto_import_statement_step_1(frontend, tmp):
     # Verify that step functionality isn't broken.
     writetext(tmp.dir/"taconic72383428.py", """

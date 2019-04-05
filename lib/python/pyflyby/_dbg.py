@@ -788,8 +788,38 @@ def _sigterm_handler(signum, frame):
     os._exit(99) # shouldn't get here
 
 
-def enable_sigterm_handler():
-    signal.signal(signal.SIGTERM, _sigterm_handler)
+def enable_sigterm_handler(on_existing_handler='raise'):
+    """
+    Install a handler for SIGTERM that causes Python to print a stack trace
+    before exiting.
+
+    @param on_existing_handler:
+      What to do when a SIGTERM handler was already registered.
+        - If C{"raise"}, then keep the existing handler and raise an exception.
+        - If C{"keep_existing"}, then silently keep the existing handler.
+        - If C{"warn_and_override"}, then override the existing handler and log a warning.
+        - If C{"silently_override"}, then silently override the existing handler.
+    """
+    old_handler = signal.signal(signal.SIGTERM, _sigterm_handler)
+    if old_handler == signal.SIG_DFL or old_handler == _sigterm_handler:
+        return
+    if on_existing_handler == "silently_override":
+        return
+    if on_existing_handler == "warn_and_override":
+        from ._log import logger
+        logger.warning("enable_sigterm_handler(): Overriding existing SIGTERM handler")
+        return
+    signal.signal(signal.SIGTERM, old_handler)
+    if on_existing_handler == "keep_existing":
+        return
+    elif on_existing_handler == "raise":
+        raise ValueError(
+            "enable_sigterm_handler(on_existing_handler='raise'): SIGTERM handler already exists")
+    else:
+        raise ValueError(
+            "enable_sigterm_handler(): SIGTERM handler already exists, "
+            "and invalid on_existing_handler=%r"
+            % (on_existing_handler,))
 
 
 def enable_faulthandler():
