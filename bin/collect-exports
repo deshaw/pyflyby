@@ -50,7 +50,7 @@ def main():
         db = ImportDB.get_default(".")
         known = db.known_imports.imports
         args += sorted(set(
-                filter(None, [i.split.module_name for i in known])))
+                [_f for _f in [i.split.module_name for i in known] if _f]))
     bad_module_names = []
     for module_name in args:
         module = ModuleHandle(module_name)
