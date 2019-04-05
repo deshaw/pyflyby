@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, with_statement
 from   keyword                  import kwlist
 import re
 import six
+from functools import total_ordering
 
 from   pyflyby._util            import cached_attribute, cmp
 
@@ -153,6 +154,7 @@ class BadDottedIdentifierError(ValueError):
 
 
 # TODO: Use in various places, esp where e.g. dotted_prefixes is used.
+@total_ordering
 class DottedIdentifier(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -228,6 +230,12 @@ class DottedIdentifier(object):
         if not isinstance(other, DottedIdentifier):
             return NotImplemented
         return self.name != other.name
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, DottedIdentifier):
+            return NotImplemented
+        return self.name < other.name
 
     def __cmp__(self, other):
         if self is other:
