@@ -11,11 +11,6 @@ matrix:
       dist: xenial
       sudo: true
 
-  allow_failures:
-    - python: 3.7
-      dist: xenial
-      sudo: true
-
 install:
   - set -e
   - pip install -U pip
