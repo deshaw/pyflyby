@@ -895,12 +895,7 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
-    parent_frame = inspect.currentframe().f_back
-    parent_globals = parent_frame.f_globals
-    parent_locals = parent_frame.f_locals
-    parent_vars = dict(parent_globals, **parent_locals)
     template = dedent(template).strip()
-    template = template.format(**parent_vars)
     input, expected = parse_template(template)
     args = kwargs.pop("args", ())
     if isinstance(args, six.string_types):
@@ -1421,12 +1416,12 @@ def test_ipython_tab_multi_1(frontend):
 @retry
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
-    os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
+    f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
     ipython("""
         In [1]: import os, pyflyby
         In [2]: print os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
         {f}
-    """)
+    """.format(f=f))
 
 
 @retry
@@ -1436,18 +1431,18 @@ def test_pyflyby_version_1():
         In [1]: import pyflyby
         In [2]: print pyflyby.__version__
         {pyflyby.__version__}
-    """)
+    """.format(pyflyby=pyflyby))
 
 
 @retry
 def test_ipython_file_1():
     # Verify that our test setup is getting the right IPython.
-    os.path.realpath(IPython.__file__)
+    f = os.path.realpath(IPython.__file__)
     ipython("""
         In [1]: import IPython, os
         In [2]: print os.path.realpath(IPython.__file__)
         {f}
-    """)
+    """.format(f=f))
 
 
 @retry
@@ -1457,7 +1452,7 @@ def test_ipython_version_1():
         In [1]: import IPython
         In [2]: print IPython.__version__
         {IPython.__version__}
-    """)
+    """.format(IPython=IPython))
 
 
 @retry
@@ -1571,7 +1566,7 @@ def test_reload_ext_reload_importdb_1(tmp):
         In [7]: list(combinations('abc',2))
         [PYFLYBY] from itertools import combinations
         Out[7]: [('a', 'b'), ('a', 'c'), ('b', 'c')]
-    """, PYFLYBY_PATH=tmp.file)
+    """.format(tmp=tmp), PYFLYBY_PATH=tmp.file)
 
 
 @skipif_ipython_too_old_for_load_ext
@@ -2472,7 +2467,7 @@ def test_run_1(tmp):
         [PYFLYBY] from base64 import b64decode
         hello
         Euclid
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2490,7 +2485,7 @@ def test_run_repeat_1(tmp):
         In [3]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Cantor
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2507,7 +2502,7 @@ def test_run_separate_script_namespace_1(tmp):
         In [3]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Riemann
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2527,7 +2522,7 @@ def test_run_separate_script_namespace_2(tmp):
         In [4]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Hilbert
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2544,7 +2539,7 @@ def test_run_modify_interactive_namespace_1(tmp):
         Out[3]: 'Fermat'
         In [4]: b64decode('TGFwbGFjZQ==')
         Out[4]: 'Laplace'
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2560,7 +2555,7 @@ def test_run_i_auto_import_1(tmp):
         Descartes
         In [3]: print b64decode('R2F1c3M=')
         Gauss
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2577,7 +2572,7 @@ def test_run_i_already_imported_1(tmp):
         In [3]: k = 'QXJjaGltZWRlcw=='
         In [4]: run -i {tmp.file}
         Archimedes
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2593,7 +2588,7 @@ def test_run_i_repeated_1(tmp):
         Kolmogorov
         In [3]: run -i {tmp.file}
         Kolmogorov
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2609,7 +2604,7 @@ def test_run_i_locally_defined_1(tmp):
            ...:
         In [3]: run -i {tmp.file}
         Bernoulli
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2629,7 +2624,7 @@ def test_run_syntax_error_1(tmp):
         In [3]: print b64decode('Q29ud2F5')
         [PYFLYBY] from base64 import b64decode
         Conway
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
@@ -2643,13 +2638,13 @@ def test_run_name_main_1(tmp):
         In [2]: run {tmp.file}
         [PYFLYBY] from base64 import b64encode
         X19tYWluX18=
-    """)
+    """.format(tmp=tmp))
 
 
 @retry
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
-    writetext(tmp.dir/"f81564382.py", """
+    f = writetext(tmp.dir/"f81564382.py", """
         print b64encode(__name__)
     """)
     ipython("""
@@ -2657,7 +2652,7 @@ def test_run_name_not_main_1(tmp):
         In [2]: run -n {f}
         [PYFLYBY] from base64 import b64encode
         ZjgxNTY0Mzgy
-    """)
+    """.format(f=f))
 
 
 @retry
