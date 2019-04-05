@@ -5,10 +5,17 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import sys
+
 from   pyflyby._docxref         import find_bad_doc_cross_references
 from   pyflyby._modules         import ModuleHandle
 
 from   .                        import xrefs
+
+import pytest
+
+if sys.version_info > (2,):
+    pytest.skip("Epydoc does not support Python 3")
 
 def test_find_bad_doc_cross_references_1():
     result = find_bad_doc_cross_references([xrefs])
