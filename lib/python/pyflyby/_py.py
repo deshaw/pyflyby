@@ -358,7 +358,9 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    elif isinstance(arg, type):
+    # Old style class. Should only run in Python 2. types.ClassType doesn't
+    # exist in Python 3.
+    elif isinstance(arg, getattr(types, 'ClassType', type)):
         argspec = _get_argspec(arg.__init__)
         return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):
