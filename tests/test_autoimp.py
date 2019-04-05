@@ -1203,20 +1203,20 @@ def load_symbol_wrap_exc_eval_getattr_1():
 
 def test_auto_eval_1():
     result = auto_eval("b64decode('aGVsbG8=')")
-    assert result == 'hello'
+    assert result == b'hello'
 
 
 def test_auto_eval_locals_import_1():
     mylocals = {}
     result = auto_eval("b64decode('aGVsbG8=')", locals=mylocals)
-    assert result == 'hello'
+    assert result == b'hello'
     assert mylocals["b64decode"] is __import__("base64").b64decode
 
 
 def test_auto_eval_globals_import_1():
     myglobals = {}
     result = auto_eval("b64decode('aGVsbG8=')", globals=myglobals)
-    assert result == 'hello'
+    assert result == b'hello'
     assert myglobals["b64decode"] is __import__("base64").b64decode
 
 
@@ -1236,7 +1236,7 @@ def test_auto_eval_exec_1():
     mylocals = dict(x=[])
     auto_eval("if True: x.append(b64decode('aGVsbG8='))",
               locals=mylocals)
-    assert mylocals['x'] == ['hello']
+    assert mylocals['x'] == [b'hello']
     assert mylocals["b64decode"] is __import__("base64").b64decode
 
 
