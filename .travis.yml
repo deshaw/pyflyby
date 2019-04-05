@@ -18,9 +18,12 @@ matrix:
 
 install:
   - set -e
-  - pip install "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter
+  - pip install -U pip
+  - pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky
+  - pip list
 
 script:
   - set -e
   - set -x
+  - export DEBUG_TEST_PYFLYBY=1
   - pytest --doctest-modules lib tests
