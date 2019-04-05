@@ -15,6 +15,7 @@ Print the result to stdout.
 
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 import sys
 
@@ -68,8 +69,8 @@ def main():
         sys.stdout.write(imports.pretty_print(
                 allow_conflicts=True, params=options.params))
     if bad_module_names:
-        print >>sys.stderr, "collect-exports: there were problems with: %s" % (
-            ' '.join(bad_module_names))
+        print("collect-exports: there were problems with: %s" % (
+            ' '.join(bad_module_names)), file=sys.stderr)
         sys.exit(1)
 
 

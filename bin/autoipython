@@ -41,6 +41,7 @@ Or, you can manually add 'pyflyby.enable_auto_importer()' wherever you prefer.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 import sys
 
@@ -51,10 +52,10 @@ from   pyflyby._interactive     import (install_in_ipython_config_file,
 
 def main(args):
     if any(a in ["--help", "-help", "-h"] for a in args):
-        print maindoc()
-        print
-        print "----------------------------------------------------------------------"
-        print
+        print(maindoc())
+        print()
+        print("----------------------------------------------------------------------")
+        print()
         start_ipython_with_autoimporter(["--help"])
         return
     if args and args[0] in ["--install", "-install", "install"]:
