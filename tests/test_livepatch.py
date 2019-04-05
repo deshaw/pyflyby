@@ -7,6 +7,7 @@ from   shutil                   import rmtree
 import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
+import types
 
 from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError
@@ -592,7 +593,9 @@ def test_xreload_change_inheritance_1(tpp):
     xreload("shoulder77076723")
     assert t.rock() == 23495306
 
-
+@pytest.mark.skipif(
+    sys.version_info[0] == 3,
+    reason="Python 3 doesn't have old style classes")
 def test_xreload_oldstyle_to_newstyle_1(tpp):
     # Verify that when a class changes from old-style to new-style we fallback
     # to not patching.
@@ -604,8 +607,8 @@ def test_xreload_oldstyle_to_newstyle_1(tpp):
     Bride = m.Bride
     assert   Bride().judge() == 13184519
     assert m.Bride().judge() == 13184519
-    assert     isinstance(  Bride, type)
-    assert     isinstance(m.Bride, type)
+    assert     isinstance(  Bride, types.ClassType)
+    assert     isinstance(m.Bride, types.ClassType)
     writetext(tpp/"elite49829216.py", """
         class Bride(object):
             def judge(self): return 21901074
@@ -613,10 +616,12 @@ def test_xreload_oldstyle_to_newstyle_1(tpp):
     xreload("elite49829216")
     assert   Bride().judge() == 13184519
     assert m.Bride().judge() == 21901074
-    assert     isinstance(  Bride, type)
-    assert not isinstance(m.Bride, type)
+    assert     isinstance(  Bride, types.ClassType)
+    assert not isinstance(m.Bride, types.ClassType)
 
-
+@pytest.mark.skipif(
+    sys.version_info[0] == 3,
+    reason="Python 3 doesn't have old style classes")
 def test_xreload_newstyle_to_oldstyle_1(tpp):
     # Verify that when a class changes from new-style to old-style we fallback
     # to not patching.
@@ -628,8 +633,8 @@ def test_xreload_newstyle_to_oldstyle_1(tpp):
     Child = m.Child
     assert   Child().peach() == 14071526
     assert m.Child().peach() == 14071526
-    assert not isinstance(  Child, type)
-    assert not isinstance(m.Child, type)
+    assert not isinstance(  Child, types.ClassType)
+    assert not isinstance(m.Child, types.ClassType)
     writetext(tpp/"display5888706449829216.py", """
         class Child():
             def peach(self): return 27893050
@@ -637,8 +642,8 @@ def test_xreload_newstyle_to_oldstyle_1(tpp):
     xreload("display5888706449829216")
     assert   Child().peach() == 14071526
     assert m.Child().peach() == 27893050
-    assert not isinstance(  Child, type)
-    assert     isinstance(m.Child, type)
+    assert not isinstance(  Child, types.ClassType)
+    assert     isinstance(m.Child, types.ClassType)
 
 
 def test_xreload_classmethod_1(tpp):
