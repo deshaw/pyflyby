@@ -17,7 +17,7 @@ def pipe(command, stdin=""):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
-    ).communicate(stdin)[0].strip()
+    ).communicate(stdin)[0].strip().decode('utf-8')
 
 
 def test_pytest_version_1():
@@ -49,7 +49,7 @@ def test_pyflyby_tox_path_1():
 
 def test_pyflyby_subprocess_file_1():
     # Check that our test setup is getting the right pyflyby.
-    cmd = "import os, pyflyby; print os.path.realpath(pyflyby.__file__)"
+    cmd = "import os, pyflyby; print(os.path.realpath(pyflyby.__file__))"
     result = pipe([sys.executable, '-c', cmd]).replace(".pyc", ".py")
     expected = os.path.realpath(pyflyby.__file__).replace(".pyc", ".py")
     assert expected == result
@@ -57,7 +57,7 @@ def test_pyflyby_subprocess_file_1():
 
 def test_pyflyby_subprocess_version_1():
     # Check that our test setup is getting the right pyflyby.
-    cmd = "import pyflyby; print pyflyby.__version__"
+    cmd = "import pyflyby; print(pyflyby.__version__)"
     result = pipe([sys.executable, '-c', cmd])
     expected = pyflyby.__version__
     assert expected == result
