@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import io
 import os
 import re
 import six
@@ -632,7 +633,7 @@ def read_file(filename):
     if filename == Filename.STDIN:
         data = sys.stdin.read()
     else:
-        with open(str(filename), 'rU') as f:
+        with io.open(str(filename), 'r') as f:
             data = f.read()
     return FileText(data, filename=filename)
 
