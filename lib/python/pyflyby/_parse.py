@@ -413,8 +413,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         start_line_colno = (text.startpos.colno
                             if start_lineno==text.startpos.lineno else 1)
         startpos_candidates.extend([
-            (m.group()[-1], FilePos(start_lineno, m.start()+start_line_colno))
-            for m in re.finditer("[bBrRuU]*[\"\']", start_line)])
+            (_m.group()[-1], FilePos(start_lineno, _m.start()+start_line_colno))
+            for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
@@ -441,8 +441,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         end_line_startcol = (
             text.startpos.colno if end_lineno==text.startpos.lineno else 1)
         endpos_candidates = [
-            (m.group(), FilePos(end_lineno,m.start()+end_line_startcol+1))
-            for m in re.finditer("[\"\']", end_line)]
+            (_m.group(), FilePos(end_lineno,_m.start()+end_line_startcol+1))
+            for _m in re.finditer("[\"\']", end_line)]
         if not endpos_candidates:
             # We found no endpos_candidates.  This should not happen for
             # first_end_lineno because there should be _some_ string that ends

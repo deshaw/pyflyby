@@ -763,7 +763,7 @@ def test_find_missing_imports_complex_1():
 
 
 def test_find_missing_imports_code_1():
-    f = lambda: foo.bar(x) + baz(y)
+    f = lambda: foo.bar(x) + baz(y) # noqa: F821
     result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['baz', 'foo.bar', 'x', 'y']
@@ -772,7 +772,7 @@ def test_find_missing_imports_code_1():
 
 def test_find_missing_imports_code_args_1():
     def f(x, y, *a, **k):
-        return g(x, y, z, a, k)
+        return g(x, y, z, a, k) # noqa: F821
     result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['g', 'z']
@@ -790,7 +790,7 @@ def test_find_missing_imports_code_use_after_import_1():
 
 
 def test_find_missing_imports_code_lambda_scope_1():
-    f = lambda x: (lambda: x+y)
+    f = lambda x: (lambda: x+y) # noqa: F821
     result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['y']
@@ -799,12 +799,12 @@ def test_find_missing_imports_code_lambda_scope_1():
 
 def test_find_missing_imports_code_conditional_1():
     def f():
-        y0 = x0
-        if c:
-            y1 = y0 + x1
+        y0 = x0          # noqa: F821
+        if c:            # noqa: F821
+            y1 = y0 + x1 # noqa: F821
         else:
-            y2 = x2 + y0
-        x3 + y0
+            y2 = x2 + y0 # noqa: F821
+        x3 + y0          # noqa: F821
         y1 + y2
     result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
@@ -816,10 +816,10 @@ def test_find_missing_imports_code_loop_1():
     def f():
         for i in range(10):
             if i > 0:
-                use(x)
-                use(y)
+                use(x)     # noqa: F821
+                use(y)     # noqa: F821
             else:
-                x = "hello"
+                x = "hello" # noqa: F841
     result   = find_missing_imports(f.__code__, [{}])
     result   = _dilist2strlist(result)
     expected = ['use', 'y']

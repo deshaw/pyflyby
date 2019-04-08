@@ -11,7 +11,6 @@ import atexit
 from   contextlib               import contextmanager
 import difflib
 import flaky
-import inspect
 import json
 import os
 import pexpect
