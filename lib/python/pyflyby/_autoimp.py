@@ -1225,7 +1225,7 @@ def find_missing_imports(arg, namespaces):
       >>> [str(m) for m in find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])]
       ['numpy.pi', 'x']
 
-      >>> [str(m) for m in find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])]
+      >>> [str(m) for m in find_missing_imports("for x in range(3): print(numpy.arange(x))", [{}])]
       ['numpy.arange']
 
       >>> [str(m) for m in find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])]
@@ -1600,7 +1600,7 @@ def auto_eval(arg, filename=None, mode=None,
 
     C{auto_eval} will default the compilation C{mode} to "exec" if the input
     is not a single expression:
-      >>> auto_eval("if True: print b64decode('aGVsbG8=')")
+      >>> auto_eval("if True: print(b64decode('aGVsbG8='))")
       [PYFLYBY] from base64 import b64decode
       hello
 
