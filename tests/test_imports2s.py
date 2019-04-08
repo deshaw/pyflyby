@@ -815,13 +815,13 @@ def test_transform_imports_1():
         from m import x
         from m import x as X
         import m.x
-        print m.x, m.xx
+        print(m.x, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     output = transform_imports(input, {"m.x": "m.y.z"})
     expected = PythonBlock(dedent('''
         import m.y.z
         from m.y import z as X, z as x
-        print m.y.z, m.xx
+        print(m.y.z, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
@@ -831,7 +831,7 @@ def test_canonicalize_imports_1():
         from m import x
         from m import x as X
         import m.x
-        print m.x, m.xx
+        print(m.x, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     db = ImportDB("""
         __canonical_imports__ = {"m.x": "m.y.z"}
@@ -840,7 +840,7 @@ def test_canonicalize_imports_1():
     expected = PythonBlock(dedent('''
         import m.y.z
         from m.y import z as X, z as x
-        print m.y.z, m.xx
+        print(m.y.z, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
