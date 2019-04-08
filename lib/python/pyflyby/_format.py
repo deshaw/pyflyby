@@ -99,18 +99,18 @@ def pyfill(prefix, tokens, params=FormatParams()):
     """
     Fill a Python statement.
 
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]))
       print foo.bar, baz, quux, quuuuux
 
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=15)),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
+      ...        FormatParams(max_line_length=15)))
       print (foo.bar,
              baz,
              quux,
              quuuuux)
 
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=14)),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
+      ...        FormatParams(max_line_length=14)))
       print (
           foo.bar,
           baz, quux,

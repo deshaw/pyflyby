@@ -244,7 +244,7 @@ class ImportSet(object):
           ...     from _hello import world
           ... ''')
 
-          >>> for s in importset.get_statements(): print s
+          >>> for s in importset.get_statements(): print(s)
           from __future__ import division
           import a
           import b as B

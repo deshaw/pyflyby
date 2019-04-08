@@ -250,12 +250,12 @@ def reformat_import_statements(codeblock, params=None):
     'import' (or 'from ... import') statements.  Other lines, including blanks
     and comment lines, are not touched.
 
-      >>> print reformat_import_statements(
+      >>> print(reformat_import_statements(
       ...     'from foo import bar2 as bar2x, bar1\n'
       ...     'import foo.bar3 as bar3x\n'
       ...     'import foo.bar4\n'
       ...     '\n'
-      ...     'import foo.bar0 as bar0\n').text.joined
+      ...     'import foo.bar0 as bar0\n').text.joined)
       import foo.bar4
       from foo import bar1, bar2 as bar2x, bar3 as bar3x
       <BLANKLINE>
@@ -309,7 +309,7 @@ def fix_unused_and_missing_imports(codeblock,
       ...     'from foo import m1, m2, m3, m4\n'
       ...     'm2, m4, np.foo', filename="/tmp/foo.py")
 
-      >>> print fix_unused_and_missing_imports(codeblock, add_mandatory=False)
+      >>> print(fix_unused_and_missing_imports(codeblock, add_mandatory=False))
       [PYFLYBY] /tmp/foo.py: removed unused 'from foo import m1'
       [PYFLYBY] /tmp/foo.py: removed unused 'from foo import m3'
       [PYFLYBY] /tmp/foo.py: added 'import numpy as np'
@@ -460,7 +460,7 @@ def replace_star_imports(codeblock, params=None):
 
       >>> codeblock = PythonBlock('from keyword import *', filename="/tmp/x.py")
 
-      >>> print replace_star_imports(codeblock)
+      >>> print(replace_star_imports(codeblock))
       [PYFLYBY] /tmp/x.py: replaced 'from keyword import *' with 2 imports
       from keyword import iskeyword, kwlist
       <BLANKLINE>
@@ -545,7 +545,7 @@ def transform_imports(codeblock, transformations, params=None):
     want to do replacements even within in strings and comments.
 
       >>> result = transform_imports("from m import x", {"m.x": "m.y.z"})
-      >>> print result.text.joined.strip()
+      >>> print(result.text.joined.strip())
       from m.y import z as x
 
     @type codeblock:

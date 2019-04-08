@@ -834,14 +834,14 @@ class PythonBlock(object):
     Representation of a sequence of consecutive top-level
     L{PythonStatement}(s).
 
-      >>> source_code = '# 1\nprint 2\n# 3\n# 4\nprint 5\nx=[6,\n 7]\n# 8\n'
+      >>> source_code = '# 1\nprint(2)\n# 3\n# 4\nprint(5)\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)
       >>> for stmt in PythonBlock(codeblock).statements:
-      ...     print stmt
+      ...     print(stmt)
       PythonStatement('# 1\n')
-      PythonStatement('print 2\n', startpos=(2,1))
+      PythonStatement('print(2)\n', startpos=(2,1))
       PythonStatement('# 3\n# 4\n', startpos=(3,1))
-      PythonStatement('print 5\n', startpos=(5,1))
+      PythonStatement('print(5)\n', startpos=(5,1))
       PythonStatement('x=[6,\n 7]\n', startpos=(6,1))
       PythonStatement('# 8\n', startpos=(8,1))
 
@@ -1103,7 +1103,7 @@ class PythonBlock(object):
         can contain no ast node to represent comments.
 
           >>> code = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
-          >>> print PythonBlock(code).statements # doctest:+NORMALIZE_WHITESPACE
+          >>> print(PythonBlock(code).statements) # doctest:+NORMALIZE_WHITESPACE
           (PythonStatement('# multiline\n# comment\n'),
            PythonStatement("'''multiline\nstring'''\n", startpos=(3,1)),
            PythonStatement('blah\n', startpos=(5,1)))
