@@ -1829,7 +1829,7 @@ class _PyMain(object):
             # Start IPython nbconvert.  (autoimporter is irrelevant.)
             if equalsign:
                 args.insert(0, cmdarg)
-            launch_ipython_with_autoimporter(["nbconvert"] + args)
+            start_ipython_with_autoimporter(["nbconvert"] + args)
         elif action in ["timeit"]:
             # TODO: make --timeit and --time flags which work with any mode
             # and heuristic, instead of only eval.
