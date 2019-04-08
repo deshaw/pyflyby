@@ -10,6 +10,8 @@ import re
 import six
 import sys
 
+from six import string_types
+
 from   pyflyby._util            import cached_attribute, memoize, cmp
 
 class UnsafeFilenameError(ValueError):
@@ -383,7 +385,7 @@ class FileText(object):
     def _from_lines(cls, lines, filename, startpos):
         assert type(lines) is tuple
         assert len(lines) > 0
-        assert type(lines[0]) is str
+        assert isinstance(lines[0], string_types)
         assert not lines[-1].endswith("\n")
         self = object.__new__(cls)
         self.lines    = lines
