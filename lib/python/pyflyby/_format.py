@@ -101,20 +101,21 @@ def pyfill(prefix, tokens, params=FormatParams()):
 
       >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]))
       print foo.bar, baz, quux, quuuuux
-
+      <BLANKLINE>
       >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
       ...        FormatParams(max_line_length=15)))
       print (foo.bar,
              baz,
              quux,
              quuuuux)
-
+      <BLANKLINE>
       >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
       ...        FormatParams(max_line_length=14)))
       print (
           foo.bar,
           baz, quux,
           quuuuux)
+      <BLANKLINE>
 
     @param prefix:
       Prefix for first line.
