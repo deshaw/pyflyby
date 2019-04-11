@@ -1051,6 +1051,9 @@ class LoggedList(object):
             return NotImplemented
         return self._items == other._items
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, other):
         if not isinstance(other, LoggedList):

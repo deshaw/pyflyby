@@ -376,6 +376,9 @@ class ModuleHandle(object):
             return NotImplemented
         return self.name == o.name
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, o):
         if not isinstance(o, ModuleHandle):

@@ -815,6 +815,9 @@ class PythonStatement(object):
             return NotImplemented
         return self.block == other.block
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, other):
         if not isinstance(other, PythonStatement):
@@ -1304,6 +1307,9 @@ class PythonBlock(object):
         if not isinstance(other, PythonBlock):
             return NotImplemented
         return self.text == other.text and self.flags == other.flags
+
+    def __ne__(self, other):
+        return not (self == other)
 
     # The rest are defined by total_ordering
     def __lt__(self, other):

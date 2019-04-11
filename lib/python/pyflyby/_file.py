@@ -71,6 +71,9 @@ class Filename(object):
             return NotImplemented
         return self._filename == o._filename
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, o):
         if not isinstance(o, Filename):
@@ -298,6 +301,9 @@ class FilePos(object):
         if not isinstance(other, FilePos):
             return NotImplemented
         return self._data == other._data
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __cmp__(self, other):
         if self is other:
@@ -601,6 +607,9 @@ class FileText(object):
         return (self.filename == o.filename and
                 self.joined   == o.joined   and
                 self.startpos == o.startpos)
+
+    def __ne__(self, other):
+        return not (self == other)
 
     # The rest are defined by total_ordering
     def __lt__(self, o):

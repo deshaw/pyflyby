@@ -482,6 +482,9 @@ class ImportSet(object):
             return NotImplemented
         return self._importset == other._importset
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, other):
         if not isinstance(other, ImportSet):
@@ -601,6 +604,9 @@ class ImportMap(object):
         if not isinstance(other, ImportMap):
             return NotImplemented
         return self._data == other._data
+
+    def __ne__(self, other):
+        return not (self == other)
 
     # The rest are defined by total_ordering
     def __lt__(self, other):
