@@ -72,7 +72,7 @@ def test_tidy_imports_log_level_1():
 
 
 def test_tidy_imports_filename_action_print_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             # hello
             def foo():
@@ -98,7 +98,7 @@ def test_tidy_imports_filename_action_print_1():
 
 
 def test_tidy_imports_filename_action_replace_1():
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode='w+') as f:
         f.write(dedent('''
             "hello"
             def foo():
@@ -186,7 +186,7 @@ def test_reformat_imports_1():
 
 
 def test_collect_imports_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             "hello"
             from m1.m2 import f3, f4
@@ -209,7 +209,7 @@ def test_collect_imports_1():
 
 
 def test_collect_imports_include_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             from m1.m2 import f3, f4
             from m3.m4 import f6, f4
@@ -236,7 +236,7 @@ def test_collect_imports_include_1():
 
 
 def test_collect_imports_include_dot_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             from m1.m2 import f3, f4
             from m3.m4 import f6, f4
@@ -324,7 +324,7 @@ def test_py_argv_2():
 
 
 def test_py_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print sys.argv\n')
         f.flush()
         result = pipe([BIN_DIR+"/py", f.name, "a", "b"])
@@ -341,7 +341,7 @@ def test_tidy_imports_query_no_change_1():
         import x1
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
@@ -361,7 +361,7 @@ def test_tidy_imports_query_y_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
@@ -387,7 +387,7 @@ def test_tidy_imports_query_n_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
@@ -408,7 +408,7 @@ def test_tidy_imports_query_junk_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
