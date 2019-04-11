@@ -5,7 +5,9 @@
 
 from __future__ import absolute_import, division, with_statement
 
+import sys
 import ast
+
 import pytest
 
 from   pyflyby._flags           import CompilerFlags
@@ -70,6 +72,9 @@ def test_CompilerFlags_from_ast_1():
     assert result == CompilerFlags(0x18000)
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] == 3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_CompilerFlags_compile_1():
     # Should raise SyntaxError:
     with pytest.raises(SyntaxError):
