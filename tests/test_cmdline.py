@@ -24,7 +24,7 @@ def pipe(command, stdin=""):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
-    ).communicate(stdin)[0].strip()
+    ).communicate(stdin.encode('utf-8'))[0].decode('utf-8').strip()
 
 
 def test_tidy_imports_stdin_1():
