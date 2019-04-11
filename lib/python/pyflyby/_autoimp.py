@@ -1006,10 +1006,10 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Loop through bytecode.
     while i < n:
         c = bytecode[i]
-        op = ord(c)
+        op = _op(c)
         i += 1
         if op >= HAVE_ARGUMENT:
-            oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256 + extended_arg
+            oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256 + extended_arg
             extended_arg = 0
             i = i+2
             if op == EXTENDED_ARG:
@@ -1108,6 +1108,11 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         if isinstance(arg, types.CodeType):
             _find_loads_without_stores_in_code(arg, loads_without_stores)
 
+def _op(c):
+    # bytecode is bytes in Python 3, which when indexed gives integers
+    if PY2:
+        return ord(c)
+    return c
 
 def _find_earliest_backjump_label(bytecode):
     """
@@ -1192,11 +1197,11 @@ def _find_earliest_backjump_label(bytecode):
     i = 0
     while i < n:
         c = bytecode[i]
-        op = ord(c)
+        op = _op(c)
         i += 1
         if op < HAVE_ARGUMENT:
             continue
-        oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256
+        oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256
         i += 2
         label = None
         if op in hasjrel:
