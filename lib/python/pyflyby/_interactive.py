@@ -11,11 +11,13 @@ import errno
 import inspect
 import os
 import re
-import six
-from six import text_type as unicode
-from   six.moves                import builtins
 import subprocess
 import sys
+
+import six
+from six import text_type as unicode
+from six import PY2
+from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
@@ -2263,7 +2265,7 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        if (sys.version_info < (3,) and
+        if (PY2 and
             hasattr(ip, "new_main_mod")):
             try:
                 args = inspect.getargspec(ip.new_main_mod).args

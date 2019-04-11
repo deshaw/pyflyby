@@ -9,7 +9,7 @@ from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 import types
 
-from six import PY2
+from six import PY2, PY3
 
 from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError
@@ -596,7 +596,7 @@ def test_xreload_change_inheritance_1(tpp):
     assert t.rock() == 23495306
 
 @pytest.mark.skipif(
-    sys.version_info[0] == 3,
+    PY3,
     reason="Python 3 doesn't have old style classes")
 def test_xreload_oldstyle_to_newstyle_1(tpp):
     # Verify that when a class changes from old-style to new-style we fallback
@@ -622,7 +622,7 @@ def test_xreload_oldstyle_to_newstyle_1(tpp):
     assert not isinstance(m.Bride, types.ClassType)
 
 @pytest.mark.skipif(
-    sys.version_info[0] == 3,
+    PY3,
     reason="Python 3 doesn't have old style classes")
 def test_xreload_newstyle_to_oldstyle_1(tpp):
     # Verify that when a class changes from new-style to old-style we fallback

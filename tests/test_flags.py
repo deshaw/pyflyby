@@ -5,8 +5,9 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import sys
 import ast
+
+from six import PY3
 
 import pytest
 
@@ -73,7 +74,7 @@ def test_CompilerFlags_from_ast_1():
 
 
 @pytest.mark.skipif(
-    sys.version_info[0] == 3,
+    PY3,
     reason="print function is not invalid syntax in Python 3.")
 def test_CompilerFlags_compile_1():
     # Should raise SyntaxError:

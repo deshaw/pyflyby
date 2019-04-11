@@ -13,6 +13,8 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
+from six import PY2, PY3
+
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
 from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
@@ -748,7 +750,7 @@ def test_find_missing_imports_global_1():
 
 
 def test_find_missing_imports_complex_1():
-    if sys.version_info[0] == 2:
+    if PY2:
         code = dedent("""
             x = 3+4j+5L+k+u'a'
         """)
@@ -1241,7 +1243,7 @@ def test_auto_eval_exec_1():
 
 
 def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
-    if sys.version_info[0] == 2:
+    if PY2:
         auto_eval("print 3.00", flags=0, auto_flags=False)
         out, _ = capsys.readouterr()
         assert out == "3.0\n"
@@ -1256,7 +1258,7 @@ def test_auto_eval_no_auto_flags_ps_flag_pf1():
 
 
 @pytest.mark.skipif(
-    sys.version_info[0] == 3,
+    PY3,
     reason="print function is not invalid syntax in Python 3.")
 def test_auto_eval_no_auto_flags_pf_flagps_1():
     with pytest.raises(SyntaxError):
@@ -1271,7 +1273,7 @@ def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
 
 
 def test_auto_eval_auto_flags_ps_flagps_1(capsys):
-    if sys.version_info[0] == 2:
+    if PY2:
         auto_eval("print 3.00", flags=0, auto_flags=True)
         out, _ = capsys.readouterr()
         assert out == "3.0\n"
@@ -1280,7 +1282,7 @@ def test_auto_eval_auto_flags_ps_flagps_1(capsys):
             auto_eval("print 3.00", flags=0, auto_flags=True)
 
 @pytest.mark.skipif(
-    sys.version_info[0] == 3,
+    PY3,
     reason="print not as a function cannot be valid syntax in Python 3.")
 def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
     auto_eval("print 3.00", flags="print_function", auto_flags=True)

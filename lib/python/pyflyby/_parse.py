@@ -8,11 +8,13 @@ import ast
 from   collections              import namedtuple
 from   itertools                import groupby
 import re
-import six
-from   six.moves                import range
 import sys
 from   textwrap                 import dedent
 import types
+
+import six
+from   six.moves                import range
+from six import PY3
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -137,7 +139,7 @@ def _flags_to_try(source, flags, auto_flags, mode):
     if not auto_flags:
         yield flags
         return
-    if sys.version_info[0] != 2:
+    if PY3:
         yield flags
         return
     if mode == "eval":

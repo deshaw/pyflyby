@@ -5,13 +5,12 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import sys
-
 from   .                        import xrefs
 
+from six import PY3
 import pytest
 
-if sys.version_info[0] > 2:
+if PY3:
     pytestmark = pytest.mark.skip("Epydoc does not support Python 3")
 
 def test_find_bad_doc_cross_references_1():
