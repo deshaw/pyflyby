@@ -655,11 +655,11 @@ def test_str_lineno_strprefix_1():
     code = r'''
         r"aa\nbb"
         0
-        r"x"'''
+        r"x"
+'''
     if PY2:
         # ur"" is not valid syntax in Python 3
-        code += r'''
-        Ur"""cc\n
+        code += r'''        Ur"""cc\n
         dd"""
     '''
     block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
