@@ -1020,6 +1020,9 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
     assert     (block.source_flags         & "print_function")
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print statement is not valid syntax in Python 3.")
 def test_PythonBlock_auto_flags_ps_flagps_1():
     block = PythonBlock(dedent('''
         print 42
@@ -1029,6 +1032,9 @@ def test_PythonBlock_auto_flags_ps_flagps_1():
     assert not (block.source_flags         & "print_function")
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print statement is not valid syntax in Python 3.")
 def test_PythonBlock_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
@@ -1060,9 +1066,14 @@ def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
     ''').lstrip(), auto_flags=True)
-    assert     (block.flags                & "print_function")
-    assert     (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
+    if PY2:
+        assert     (block.flags                & "print_function")
+        assert     (block.ast_node.input_flags & "print_function")
+        assert not (block.source_flags         & "print_function")
+    else:
+        assert not (block.flags                & "print_function")
+        assert not (block.ast_node.input_flags & "print_function")
+        assert not (block.source_flags         & "print_function")
 
 
 def test_PythonBlock_auto_flags_pf_flagpf_1():
@@ -1187,7 +1198,10 @@ def test_PythonStatement_auto_flags_1():
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
     assert s1.block.source_flags == CompilerFlags(0)
-    expected = CompilerFlags("unicode_literals", "division", "print_function")
+    if PY2:
+        expected = CompilerFlags("unicode_literals", "division", "print_function")
+    else:
+        expected = CompilerFlags("unicode_literals", "division")
     assert s0.block.flags        == expected
     assert s1.block.flags        == expected
 
