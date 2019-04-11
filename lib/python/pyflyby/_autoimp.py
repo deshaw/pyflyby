@@ -8,11 +8,13 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 import contextlib
 import copy
+import sys
+import types
+
 import six
 from   six                      import exec_, reraise
 from   six.moves                import builtins
-import sys
-import types
+from six import PY2, PY3
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -24,7 +26,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
-if six.PY2:
+if PY2:
     long = int
 
 class _ClassScope(dict):
@@ -502,10 +504,16 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        assert node._fields == ('name', 'args', 'body', 'decorator_list')
+        if PY2:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
+        else:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             self.visit(node.decorator_list)
+            if PY3:
+                if node.returns:
+                    self.visit(node.returns)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx():
@@ -515,7 +523,7 @@ class _MissingImportFinder(object):
 
     def visit_Lambda(self, node):
         # Like FunctionDef, but without the decorator_list or name.
-        assert node._fields == ('args', 'body')
+        assert node._fields == ('args', 'body'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             old_in_FunctionDef = self._in_FunctionDef
@@ -525,7 +533,10 @@ class _MissingImportFinder(object):
             self._in_FunctionDef = old_in_FunctionDef
 
     def visit_arguments(self, node):
-        assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+        if PY2:
+            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+        else:
+            assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Visit 'defaults' first because these
         # should be checked for missing imports before the stores from the
         # args/varargs/kwargs.
@@ -534,8 +545,12 @@ class _MissingImportFinder(object):
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
         self.visit(node.defaults)
+        if PY3:
+            self.visit(node.kw_defaults)
         # Store arg names.
         self.visit(node.args)
+        if PY3:
+            self.visit(node.kwonlyargs)
         # Store vararg/kwarg names.
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
@@ -568,10 +583,14 @@ class _MissingImportFinder(object):
         # For Python2, we intentionally don't enter a new scope here, because
         # a list comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
-        # For Python3, we do need to enter a new scope here.  TODO: figure out
-        # how to tell if we should be using py3 mode or py2 mode.
-        self.visit(node.generators)
-        self.visit(node.elt)
+        # For Python3, we do need to enter a new scope here.
+        if PY3:
+            with self._NewScopeCtx(include_class_scopes=True):
+                self.visit(node.generators)
+                self.visit(node.elt)
+        else:
+            self.visit(node.generators)
+            self.visit(node.elt)
 
     def visit_DictComp(self, node):
         # Visit a dict comprehension node.
@@ -624,6 +643,12 @@ class _MissingImportFinder(object):
     def visit_Name(self, node):
         logger.debug("visit_Name(%r)", node.id)
         self._visit_fullname(node.id, node.ctx)
+
+    def visit_arg(self, node):
+        if node.annotation:
+            self.visit(node.annotation)
+        # Treat it like a Name node would from Python 2
+        self._visit_fullname(node.arg, ast.Param())
 
     def visit_Attribute(self, node):
         name_revparts = []

@@ -138,7 +138,10 @@ def test_find_missing_imports_lambda_2():
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
     result   = _dilist2strlist(result)
-    expected = ['z']
+    if PY2:
+        expected = ['z']
+    else:
+        expected = ['y', 'z']
     assert expected == result
 
 
@@ -597,7 +600,7 @@ def test_find_missing_imports_class_member_function_ref_1():
 
 def test_find_missing_imports_class_member_generator_expression_1():
     # Verify that variables leak out of list comprehensions but not out of
-    # generator expressions.
+    # generator expressions in Python 2.
     # Verify that both can see members of the same ClassDef.
     code = dedent("""
         class Caleb(object):
@@ -608,7 +611,10 @@ def test_find_missing_imports_class_member_generator_expression_1():
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
-    expected = ['y1']
+    if PY2:
+        expected = ['y1']
+    else:
+        expected = ['y1', 'y2']
     assert expected == result
 
 
@@ -827,6 +833,31 @@ def test_find_missing_imports_code_loop_1():
     expected = ['use', 'y']
     assert expected == result
 
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_keyword_only_args_1():
+    code = dedent("""
+        def func(*args, kwonly=b):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_annotations_1():
+    code = dedent("""
+        def func(a: b) -> c:
+            d = a
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b', 'c']
+    assert expected == result
 
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
