@@ -299,6 +299,9 @@ class Import(object):
             return NotImplemented
         return self._data == other._data
 
+    def __ne__(self, other):
+        return not (self == other)
+
     # The rest are defined by total_ordering
     def __lt__(self, other):
         if self is other:
@@ -510,6 +513,9 @@ class ImportStatement(object):
         if not isinstance(other, ImportStatement):
             return NotImplemented
         return self._data == other._data
+
+    def __ne__(self, other):
+        return not (self == other)
 
     # The rest are defined by total_ordering
     def __lt__(self, other):
