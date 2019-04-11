@@ -927,9 +927,6 @@ def test_PythonBlock_no_auto_flags_ps_flagps_1():
     assert not (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
 
-# @pytest.mark.skipif(
-#     PY3,
-#     reason="print statement not valid syntax in Python 3.")
 def test_PythonBlock_no_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
