@@ -352,9 +352,10 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # understandable that they did that.
         # Since we use startpos for breaking lines, we need to set startpos to
         # the beginning of the line.
+        # In Python 3, the col_offset for the with is 0 again.
         if (isinstance(ast_node, ast.With) and
             not isinstance(parent_ast_node, ast.With) and
-            sys.version_info >= (2,7)):
+            sys.version_info[:2] == (2,7)):
             assert ast_node.col_offset >= 5
             if startpos.lineno == text.startpos.lineno:
                 linestart = text.startpos.colno
