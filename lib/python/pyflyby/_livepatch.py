@@ -153,7 +153,7 @@ else:
         # Todo: better fallback
         _PROCESS_START_TIME = time.time()
     else:
-        _PROCESS_START_TIME = psutil.Process(os.getpid()).create_time
+        _PROCESS_START_TIME = psutil.Process(os.getpid()).create_time()
 
 
 class UnknownModuleError(ImportError):
