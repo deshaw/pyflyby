@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, with_statement
 
 from   collections              import defaultdict
 import six
+from functools import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import dotted_prefixes, is_identifier
@@ -24,7 +25,7 @@ class NoSuchImportError(ValueError):
 class ConflictingImportsError(ValueError):
     pass
 
-
+@total_ordering
 class ImportSet(object):
     r"""
     Representation of a set of imports organized into import statements.
@@ -481,10 +482,11 @@ class ImportSet(object):
             return NotImplemented
         return self._importset == other._importset
 
-    def __ne__(self, other):
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, ImportSet):
             return NotImplemented
-        return not (self == other)
+        return self._importset < other._importset
 
     def __cmp__(self, other):
         if self is other:
@@ -506,6 +508,7 @@ class ImportSet(object):
 ImportSet._EMPTY = ImportSet._from_imports([])
 
 
+@total_ordering
 class ImportMap(object):
     r"""
     A map from import fullname identifier to fullname identifier.
@@ -599,10 +602,11 @@ class ImportMap(object):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, ImportMap):
             return NotImplemented
-        return not (self == other)
+        return self._data < other._data
 
     def __cmp__(self, other):
         if self is other:

@@ -299,6 +299,7 @@ class Import(object):
             return NotImplemented
         return self._data == other._data
 
+    # The rest are defined by total_ordering
     def __lt__(self, other):
         if self is other:
             return False
@@ -307,6 +308,7 @@ class Import(object):
         return self._data < other._data
 
 
+@total_ordering
 class ImportStatement(object):
     """
     Token-level representation of an import statement containing multiple
@@ -501,6 +503,19 @@ class ImportStatement(object):
         if not isinstance(other, ImportStatement):
             return NotImplemented
         return cmp(self._data, other._data)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, ImportStatement):
+            return NotImplemented
+        return self._data == other._data
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, ImportStatement):
+            return NotImplemented
+        return self._data < other._data
 
     def __hash__(self):
         return hash(self._data)

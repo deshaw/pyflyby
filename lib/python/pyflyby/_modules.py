@@ -10,6 +10,7 @@ import six
 from   six                      import reraise
 import sys
 import types
+from functools import total_ordering
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
@@ -115,7 +116,7 @@ def pyc_to_py(filename):
     return filename
 
 
-
+@total_ordering
 class ModuleHandle(object):
     """
     A handle to a module.
@@ -367,6 +368,19 @@ class ModuleHandle(object):
         if not isinstance(o, ModuleHandle):
             return NotImplemented
         return cmp(self.name, o.name)
+
+    def __eq__(self, o):
+        if self is o:
+            return True
+        if not isinstance(o, ModuleHandle):
+            return NotImplemented
+        return self.name == o.name
+
+    # The rest are defined by total_ordering
+    def __lt__(self, o):
+        if not isinstance(o, ModuleHandle):
+            return NotImplemented
+        return self.name < o.name
 
     def __getitem__(self, x):
         if isinstance(x, slice):

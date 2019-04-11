@@ -11,6 +11,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
+from functools import total_ordering
 
 import six
 from   six.moves                import range
@@ -814,12 +815,11 @@ class PythonStatement(object):
             return NotImplemented
         return self.block == other.block
 
-    def __ne__(self, other):
-        if self is other:
-            return False
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, PythonStatement):
             return NotImplemented
-        return self.block != other.block
+        return self.block < other.block
 
     def __cmp__(self, other):
         if self is other:
@@ -832,6 +832,7 @@ class PythonStatement(object):
         return hash(self.block)
 
 
+@total_ordering
 class PythonBlock(object):
     r"""
     Representation of a sequence of consecutive top-level
@@ -1304,10 +1305,11 @@ class PythonBlock(object):
             return NotImplemented
         return self.text == other.text and self.flags == other.flags
 
-    def __ne__(self, other):
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, PythonBlock):
             return NotImplemented
-        return not (self == other)
+        return (self.text, self.flags) < (other.text, other.flags)
 
     def __cmp__(self, other):
         if self is other:

@@ -9,6 +9,7 @@ import os
 import re
 import six
 import sys
+from functools import total_ordering
 
 from six import string_types
 
@@ -20,6 +21,7 @@ class UnsafeFilenameError(ValueError):
 
 # TODO: statcache
 
+@total_ordering
 class Filename(object):
     """
     A filename.
@@ -69,12 +71,11 @@ class Filename(object):
             return NotImplemented
         return self._filename == o._filename
 
-    def __ne__(self, o):
-        if self is o:
-            return False
+    # The rest are defined by total_ordering
+    def __lt__(self, o):
         if not isinstance(o, Filename):
             return NotImplemented
-        return self._filename != o._filename
+        return self._filename < o._filename
 
     def __cmp__(self, o):
         if self is o:
@@ -215,7 +216,7 @@ def which(program):
 
 Filename.STDIN = Filename("/dev/stdin")
 
-
+@total_ordering
 class FilePos(object):
     """
     A (lineno, colno) position within a L{FileText}.
@@ -298,13 +299,6 @@ class FilePos(object):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
-        if self is other:
-            return False
-        if not isinstance(other, FilePos):
-            return NotImplemented
-        return self._data != other._data
-
     def __cmp__(self, other):
         if self is other:
             return 0
@@ -312,17 +306,13 @@ class FilePos(object):
             return NotImplemented
         return cmp(self._data, other._data)
 
+    # The rest are defined by total_ordering
     def __lt__(self, other):
         if self is other:
             return 0
         if not isinstance(other, FilePos):
             return NotImplemented
         return self._data < other._data
-
-    def __le__(self, other):
-        if not isinstance(other, FilePos):
-            return NotImplemented
-        return self._data <= other._data
 
     def __hash__(self):
         return hash(self._data)
@@ -332,6 +322,7 @@ class FilePos(object):
 FilePos._ONE_ONE = FilePos._from_lc(1, 1)
 
 
+@total_ordering
 class FileText(object):
     """
     Represents a contiguous sequence of lines from a file.
@@ -611,10 +602,12 @@ class FileText(object):
                 self.joined   == o.joined   and
                 self.startpos == o.startpos)
 
-    def __ne__(self, o):
+    # The rest are defined by total_ordering
+    def __lt__(self, o):
         if not isinstance(o, FileText):
             return NotImplemented
-        return not (self == o)
+        return ((self.filename, self.joined, self.startpos) <
+                   (o   .filename, o   .joined, o   .startpos))
 
     def __cmp__(self, o):
         if self is o:

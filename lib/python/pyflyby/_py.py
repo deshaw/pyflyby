@@ -239,6 +239,8 @@ Examples
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
+from functools import total_ordering
+
 from pyflyby._util import cmp
 
 usage = """
@@ -979,6 +981,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         _handle_user_exception()
 
 
+@total_ordering
 class LoggedList(object):
     """
     List that logs which members have not yet been accessed (nor removed).
@@ -1042,6 +1045,17 @@ class LoggedList(object):
     def __delitem__(self, x):
         del self._items[x]
         del self._unaccessed[x]
+
+    def __eq__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items == other._items
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items < other._items
 
     def __cmp__(self, x):
         return cmp(self._items, x)
