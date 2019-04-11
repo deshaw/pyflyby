@@ -50,7 +50,7 @@ def pipe(command, stdin="", env=None, retretcode="automatic"):
         stderr=subprocess.STDOUT,
         env=env
     )
-    stdout = proc.communicate(stdin)[0].strip()
+    stdout = proc.communicate(stdin)[0].strip().decode('utf-8')
     retcode = proc.returncode
     assert retcode >= 0
     if retretcode == True:
@@ -134,7 +134,7 @@ def writetext(filename, text, mode='w'):
 
 def test_0prefix_raw_1():
     # Verify that we're testing the virtualenv we think we are.
-    result = pipe(['python', '-c', 'import sys; print sys.prefix'])
+    result = pipe(['python', '-c', 'import sys; print(sys.prefix)'])
     expected = sys.prefix
     assert expected == result
 
@@ -226,10 +226,10 @@ def test_eval_expression_quiet_1():
 
 
 def test_exec_1():
-    result = py("-c", "print b64decode('UHJpbmNl')")
+    result = py("-c", "print(b64decode('UHJpbmNl'))")
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
-        [PYFLYBY] print b64decode('UHJpbmNl')
+        [PYFLYBY] print(b64decode('UHJpbmNl'))
         Prince
     """).strip()
     assert expected == result
