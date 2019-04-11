@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, with_statement
 
 import ast
 from   collections              import namedtuple
+from functools import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
@@ -59,6 +60,7 @@ If <module_name> is C{None}, then there is no "from" clause; instead just::
   import <member_name> as <import_as>
 """
 
+@total_ordering
 class Import(object):
     """
     Representation of the desire to import a single name into the current
@@ -290,9 +292,16 @@ class Import(object):
             return NotImplemented
         return cmp(self._data, other._data)
 
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, Import):
+            return NotImplemented
+        return self._data == other._data
+
     def __lt__(self, other):
         if self is other:
-            return 0
+            return False
         if not isinstance(other, Import):
             return NotImplemented
         return self._data < other._data
