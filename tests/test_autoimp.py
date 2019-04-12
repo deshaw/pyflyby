@@ -1454,11 +1454,19 @@ def test_auto_import_unknown_but_in_db1(tpp, capsys):
     db = ImportDB('import photon70447198')
     auto_import("photon70447198.asdfasdf", [{}], db=db)
     out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import photon70447198
-        [PYFLYBY] Error attempting to 'import photon70447198': ImportError: No module named photon70447198
-        Traceback (most recent call last):
-    """).lstrip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import photon70447198
+            [PYFLYBY] Error attempting to 'import photon70447198': ImportError: No module named photon70447198
+            Traceback (most recent call last):
+        """).lstrip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] import photon70447198
+            [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
+            Traceback (most recent call last):
+        """).lstrip()
+
     assert out.startswith(expected)
 
 
@@ -1482,11 +1490,19 @@ def test_auto_import_indirect_importerror_1(tpp, capsys):
     """)
     auto_import("neutron46291483.asdfasdf", [{}])
     out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import neutron46291483
-        [PYFLYBY] Error attempting to 'import neutron46291483': ImportError: No module named baryon96446873
-        Traceback (most recent call last):
-    """).lstrip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import neutron46291483
+            [PYFLYBY] Error attempting to 'import neutron46291483': ImportError: No module named baryon96446873
+            Traceback (most recent call last):
+        """).lstrip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] import neutron46291483
+            [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
+            Traceback (most recent call last):
+        """).lstrip()
+
     assert out.startswith(expected)
 
 
