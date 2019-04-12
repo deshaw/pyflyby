@@ -1158,7 +1158,7 @@ def test_load_symbol_1():
 
 
 def test_load_symbol_2():
-    assert load_symbol("os.path.join.func_name", {"os": os}) == "join"
+    assert load_symbol("os.path.join.__name__", {"os": os}) == "join"
 
 
 def test_load_symbol_missing_1():
