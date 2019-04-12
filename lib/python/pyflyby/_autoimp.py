@@ -911,6 +911,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
     LOAD_ATTR    = opmap['LOAD_ATTR']
+    LOAD_METHOD = opmap['LOAD_METHOD'] if PY3 else None
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']
@@ -1031,7 +1032,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 pending = None
                 stores.add(fullname)
                 continue
-            if op == LOAD_ATTR:
+            if op in [LOAD_ATTR, LOAD_METHOD]:
                 # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
                 # possibly more LOAD_ATTR/STORE_ATTR will follow
                 pending.append(co.co_names[oparg])
