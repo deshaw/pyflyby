@@ -1023,6 +1023,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 if op == EXTENDED_ARG:
                     extended_arg = (oparg << 8)
                     continue
+                i += 1
 
         if pending is not None:
             if op == STORE_ATTR:
