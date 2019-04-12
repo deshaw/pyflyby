@@ -256,7 +256,7 @@ def test_argv_2():
 
 
 def test_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print "Boone", sys.argv\n')
         f.flush()
         result = py(f.name, "a", "b")
@@ -276,7 +276,7 @@ def test_file_1():
     "--run", "-run", "run", "%run",
 ])
 def test_file_variants_1(arg):
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print "Longfellow", sys.argv\n')
         f.flush()
         result = py(f.name, "a", "b")
@@ -1021,7 +1021,7 @@ def test_print_function_tuple_1():
 
 
 def test_write_1():
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         output = py("-q", "open(%r,'w').write"%f.name, "-", stdin="Greenwich")
         assert output == ""
         result = f.read()
@@ -1030,7 +1030,7 @@ def test_write_1():
 
 
 def test_print_args_1():
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         output = py("-q", "print", "-", "--file=open(%r,'w')"%f.name,
                     stdin="Spring")
         assert output == ""
@@ -2538,7 +2538,7 @@ def test_name_dash_stdin_1():
 
 
 def test_name_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print "Forest", __name__\n')
         f.flush()
         result = py("--file", f.name)
@@ -2549,7 +2549,7 @@ def test_name_file_1():
 
 
 def test_name_heuristic_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print "Oakland", __name__\n')
         f.flush()
         result = py(f.name)
