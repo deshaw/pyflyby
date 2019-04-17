@@ -226,10 +226,10 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 
 def parse_template(template):
-    template = dedent(template).strip()
+    template = dedent(template.decode('utf-8')).strip().encode('utf-8')
     input = []
     expected = []
-    pattern = re.compile("^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
+    pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
@@ -238,10 +238,10 @@ def parse_template(template):
         expline = m.group(0)
         expected.append(template[:m.end()])
         template = template[m.end():]
-        while template and not template.startswith("\n"):
+        while template and not template.startswith(b"\n"):
             # We're in the input part of a template.  Get input up to tab or
             # end of line.
-            m = re.match(re.compile("(.*?)(\t|$)", re.M), template)
+            m = re.match(re.compile(br"(.*?)(\t|$)", re.M), template)
             input.append(m.group(1))
             expline += m.group(1)
             expected.append(m.group(1))
@@ -259,7 +259,7 @@ def parse_template(template):
             # be repeated multiple times, for a total of up to three
             # occurrences of the same prompt.  We find where to continue
             # by looking for the line repeated in the template.
-            if template.startswith("\n"):
+            if template.startswith(b"\n"):
                 rep = template.rfind(expline)
                 if rep < 0:
                     raise AssertionError(
@@ -271,18 +271,18 @@ def parse_template(template):
             # Assume that all subsequent symbol characters (alphanumeric
             # and underscore) in the template represent tab completion
             # output.
-            m = re.match("[a-zA-Z0-9_]+", template)
+            m = re.match(br"[a-zA-Z0-9_]+", template)
             if m:
                 expline += m.group(0)
                 expected.append(m.group(0))
                 template = template[m.end():]
                 # Allow \x06 in the template to be a special character meaning
                 # "end of tab completion output".
-            if template.startswith("\x06"):
+            if template.startswith(b"\x06"):
                 template = template[1:]
-        input.append("\n")
-    input = "".join(input)
-    expected = "".join(expected)
+        input.append(b"\n")
+    input = b"".join(input)
+    expected = b"".join(expected)
     return input, expected
 
 
@@ -427,16 +427,16 @@ except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 # Prompts that we expect for.
-_IPYTHON_PROMPT1 = r"\nIn \[([0-9]+)\]: "
-_IPYTHON_PROMPT2 = r"\n   [.][.][.]+: "
-_PYTHON_PROMPT = r">>> "
-_IPDB_PROMPT = r"\nipdb> "
+_IPYTHON_PROMPT1 = br"\nIn \[([0-9]+)\]: "
+_IPYTHON_PROMPT2 = br"\n   [.][.][.]+: "
+_PYTHON_PROMPT = br">>> "
+_IPDB_PROMPT = br"\nipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
                     _IPDB_PROMPT]
 # Currently _interact_ipython() assumes the first is "In [nn]:"
-assert "In " in _IPYTHON_PROMPTS[0]
+assert b"In " in _IPYTHON_PROMPTS[0]
 
 
 @memoize
@@ -588,52 +588,52 @@ PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 class AnsiFilterDecoder(object):
 
     def __init__(self):
-        self._buffer = ""
+        self._buffer = b""
 
     def decode(self, arg, final=False):
         arg0 = arg = self._buffer + arg
-        self._buffer = ""
-        arg = re.sub("\r+\n", "\n", arg)
-        arg = arg.replace("\x1b[J", "")             # clear to end of display
-        arg = re.sub(r"\x1b\[[0-9]+(?:;[0-9]+)*m", "", arg) # color
-        arg = arg.replace("\x1b[6n", "")            # query cursor position
-        arg = arg.replace("\x1b[?1l", "")           # normal cursor keys
-        arg = arg.replace("\x1b[?7l", "")           # no wraparound mode
-        arg = arg.replace("\x1b[?12l", "")          # stop blinking cursor
-        arg = arg.replace("\x1b[?25l", "")          # hide cursor
-        arg = arg.replace("\x1b[?2004l", "")        # no bracketed paste mode
-        arg = arg.replace("\x1b[?7h", "")           # wraparound mode
-        arg = arg.replace("\x1b[?25h", "")          # show cursor
-        arg = arg.replace("\x1b[?2004h", "")        # bracketed paste mode
-        arg = arg.replace('\x1b[?5h\x1b[?5l', '')   # visual bell
-        arg = re.sub(r"\x1b\[([0-9]+)D\x1b\[\1C", "", arg) # left8,right8 no-op (srsly?)
-        arg = arg.replace('\x1b[?1034h', '')        # meta key
-        arg = arg.replace('\x1b>', '')              # keypad numeric mode (???)
+        self._buffer = b""
+        arg = re.sub(b"\r+\n", b"\n", arg)
+        arg = arg.replace(b"\x1b[J", b"")             # clear to end of display
+        arg = re.sub(br"\x1b\[[0-9]+(?:;[0-9]+)*m", b"", arg) # color
+        arg = arg.replace(b"\x1b[6n", b"")            # query cursor position
+        arg = arg.replace(b"\x1b[?1l", b"")           # normal cursor keys
+        arg = arg.replace(b"\x1b[?7l", b"")           # no wraparound mode
+        arg = arg.replace(b"\x1b[?12l", b"")          # stop blinking cursor
+        arg = arg.replace(b"\x1b[?25l", b"")          # hide cursor
+        arg = arg.replace(b"\x1b[?2004l", b"")        # no bracketed paste mode
+        arg = arg.replace(b"\x1b[?7h", b"")           # wraparound mode
+        arg = arg.replace(b"\x1b[?25h", b"")          # show cursor
+        arg = arg.replace(b"\x1b[?2004h", b"")        # bracketed paste mode
+        arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
+        arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
+        arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
+        arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
-        # arg = re.sub("\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", "", arg)
+        # arg = re.sub(b"\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", b"", arg)
 
         # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
         # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
         # hacky way to handle this without hardcoding '[PYFLYBY]'.
-        left = ""
+        left = b""
         right = arg
         while right:
-            m = re.search(r"\x1b\[[0-9]+D.*?\n", right)
+            m = re.search(br"\x1b\[[0-9]+D.*?\n", right)
             if not m:
                 break
-            if '[PYFLYBY]' in m.group():
+            if b'[PYFLYBY]' in m.group():
                 left += right[:m.end()]
             else:
-                left += right[:m.start()] + '\n'
+                left += right[:m.start()] + b'\n'
             right = right[m.end():]
         arg = left + right
         # Assume ESC[3A\nline1\nline2\nline3\n is rewriting previous text;
         # delete it.
-        left = ""
+        left = b""
         right = arg
         while right:
-            m = re.search(r"\x1b\[([0-9]+)A\n", right)
+            m = re.search(br"\x1b\[([0-9]+)A\n", right)
             if not m:
                 break
             num = int(m.group(1))
@@ -643,9 +643,9 @@ class AnsiFilterDecoder(object):
             left = left + right[:m.start()]
             if len(suffix_lines) < num:
                 self._buffer += right[m.start():]
-                right = ""
+                right = b""
                 break
-            right = '\n'.join(suffix_lines[num:]) + '\n'
+            right = b'\n'.join(suffix_lines[num:]) + b'\n'
         arg = left + right
         if DEBUG:
             if self._buffer:
@@ -784,14 +784,14 @@ def IPythonCtx(prog="ipython",
             rmtree(d)
 
 
-def _interact_ipython(child, input, exitstr="exit()\n",
+def _interact_ipython(child, input, exitstr=b"exit()\n",
                       sendeof=False, waiteof=True):
     is_prompt_toolkit = child.ipython_frontend == "prompt_toolkit"
     # Canonicalize input lines.
-    input = dedent(input)
-    input = re.sub("^\n+", "", input)
-    input = re.sub("\n+$", "", input)
-    input += "\n"
+    input = dedent(input.decode('utf-8')).encode('utf-8')
+    input = re.sub(br"^\n+", b"", input)
+    input = re.sub(br"\n+$", b"", input)
+    input += b"\n"
     input += exitstr
     lines = input.splitlines(False)
     prev_prompt_in_idx = None
@@ -822,7 +822,7 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                     # is there a better way?
                     _wait_for_output(child, timeout=0.05)
                 break
-        if line.startswith(" ") and is_prompt_toolkit:
+        if line.startswith(b" ") and is_prompt_toolkit:
             # Clear the line via ^U.  This is needed with prompt_toolkit
             # (IPython 5+) because it is no longer possible to turn off
             # autoindent.  (IPython now relies on bracketed paste mode; they
@@ -837,10 +837,10 @@ def _interact_ipython(child, input, exitstr="exit()\n",
             # out the 4 spaces it would backspace 3 of them and ultimately do
             # "    ESC[3D   ESC[3Dblah".  That's hard for us to match.  It's
             # better if it sends out "     ESC[4D    ESC[4D blah".
-            child.send("\x15") # ^U
+            child.send(b"\x15") # ^U
             time.sleep(0.02)
         while line:
-            left, tab, right = line.partition("\t")
+            left, tab, right = line.partition(b"\t")
             # if DEBUG:
             #     print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
             # Send the input (up to tab or newline).
@@ -861,7 +861,7 @@ def _interact_ipython(child, input, exitstr="exit()\n",
                     # earlier), we can use the nonce trick.
                     _wait_nonce(child)
             line = right
-        child.send("\n")
+        child.send(b"\n")
     # We're finished sending input commands.  Wait for process to complete.
     if sendeof:
         child.sendeof()
@@ -894,7 +894,7 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
-    template = dedent(template).strip()
+    template = dedent(template.decode('utf-8')).strip().encode('utf-8')
     input, expected = parse_template(template)
     args = kwargs.pop("args", ())
     if isinstance(args, six.string_types):
@@ -934,7 +934,7 @@ def ipython(template, **kwargs):
                 kwargs.setdefault("sendeof", True)
             kwargs.setdefault("exitstr", "" if kwargs['sendeof'] else "exit()")
         kwargs.setdefault("ignore_prompt_number", True)
-    exitstr              = kwargs.pop("exitstr"             , "exit()\n")
+    exitstr              = kwargs.pop("exitstr"             , b"exit()\n")
     sendeof              = kwargs.pop("sendeof"             , False)
     waiteof              = kwargs.pop("waiteof"             , True)
     ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
@@ -1290,7 +1290,7 @@ def _clean_ipython_output(result):
 @retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
-    ipython("""
+    ipython(b"""
         In [1]: print 6*7
         42
         In [2]: 6*9
