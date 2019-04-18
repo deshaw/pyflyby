@@ -1214,10 +1214,10 @@ def _wait_nonce(child):
 
 def _clean_backspace(arg):
     # Handle foo123\b\b\bbar => foobar
-    left = ""
+    left = b""
     right = arg
     while right:
-        m = re.search("\x08+", right)
+        m = re.search(b"\x08+", right)
         if not m:
             break
         left = left + right[:m.start()]
@@ -1226,20 +1226,20 @@ def _clean_backspace(arg):
         right = right[m.end():]
     arg = left + right
     # Handle foo123\x1b[3Dbar => foobar
-    left = ""
+    left = b""
     right = arg
     while right:
-        m = re.search(r"\x1b\[([0-9]+)D", right)
+        m = re.search(br"\x1b\[([0-9]+)D", right)
         if not m:
             break
         left = left + right[:m.start()]
         count = int(m.group(1))
         right = right[m.end():]
-        if right.startswith("[PYFLYBY]"):
+        if right.startswith(b"[PYFLYBY]"):
             # For purposes of comparing IPython output in prompt_toolkit mode,
             # include the pre-backspace stuff as a separate line.  TODO: do
             # this in a more less hacky way.
-            left = left + "\n"
+            left = left + b"\n"
         else:
             left = left[:-count]
     arg = left + right
@@ -1251,37 +1251,37 @@ def _clean_ipython_output(result):
     """Clean up IPython output."""
     result0 = result
     # Canonicalize newlines.
-    result = re.sub("\r+\n", "\n", result)
+    result = re.sub(b"\r+\n", b"\n", result)
     # Clean things like "    ESC[4D".
     result = _clean_backspace(result)
     # Make traceback output stable across IPython versions and runs.
-    result = re.sub(re.compile(r"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), "<ipython-input>", result)
-    result = re.sub(re.compile(r"^----> .*?\n", re.M), "", result)
+    result = re.sub(re.compile(br"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), b"<ipython-input>", result)
+    result = re.sub(re.compile(br"^----> .*?\n", re.M), b"", result)
     # Remove cruft resulting from flakiness in 'ipython console'
     if _IPYTHON_VERSION < (2,):
-        result = re.sub(re.compile(r"Exception in thread Thread-[0-9]+ [(]most likely raised during interpreter shutdown[)]:.*", re.S), "", result)
+        result = re.sub(re.compile(br"Exception in thread Thread-[0-9]+ [(]most likely raised during interpreter shutdown[)]:.*", re.S), b"", result)
     # Remove trailing post-exit message.
     if _IPYTHON_VERSION >= (3,):
-        result = re.sub("(?:Shutting down kernel|keeping kernel alive)\n?$", "", result)
+        result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
     # Remove trailing "In [N]:", if any.
-    result = re.sub("%s\n?$"%_IPYTHON_PROMPT1, "", result)
+    result = re.sub(b"%s\n?$"%_IPYTHON_PROMPT1, b"", result)
     # Remove trailing "In [N]: exit()".
-    result = re.sub("%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, "", result)
+    result = re.sub(b"%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, b"", result)
     # Compress newlines.
-    result = re.sub("\n\n+", "\n", result)
+    result = re.sub(b"\n\n+", b"\n", result)
     # Remove xterm title setting.
-    result = re.sub("\x1b]0;[^\x1b\x07]*\x07", "", result)
+    result = re.sub(b"\x1b]0;[^\x1b\x07]*\x07", b"", result)
     # Remove BELs (done after the above codes, which use \x07 as a delimiter)
-    result = result.replace('\x07', '')
+    result = result.replace(b"\x07", b"")
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
-    result = result.replace("\x1b[K", "")
+    result = result.replace(b"\x1b[K", b"")
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
         # off the banner.  For now just delete the output up to the first
         # prompt.
-        result = re.sub(".*?(In \[1\])", "\\1", result, flags=re.S)
+        result = re.sub(b".*?(In \[1\])", b"\\1", result, flags=re.S)
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
