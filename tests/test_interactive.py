@@ -136,29 +136,29 @@ def assert_match(result, expected, ignore_prompt_number=False):
       * "...." (four dots) matches any text (including newline).
     """
     __tracebackhide__ = True
-    expected = dedent(expected).strip()
-    parts = expected.split("...")
+    expected = dedent(expected.decode('utf-8')).strip().encode('utf-8')
+    parts = expected.split(b"...")
     regexp_parts = [re.escape(parts[0])]
     for s in parts[1:]:
-        if re.match(":( |$)", s, re.M) and regexp_parts[-1] == "  ":
+        if re.match(b":( |$)", s, re.M) and regexp_parts[-1] == b"  ":
             # Treat "\n  ...: " specially; don't make it a glob.
-            regexp_parts.append("...")
+            regexp_parts.append(b"...")
             regexp_parts.append(re.escape(s))
-        elif s.startswith("."):
-            regexp_parts.append("(?:.|\n)*")
+        elif s.startswith(b"."):
+            regexp_parts.append(b"(?:.|\n)*")
             regexp_parts.append(re.escape(s[1:]))
         else:
-            regexp_parts.append(".*")
+            regexp_parts.append(b".*")
             regexp_parts.append(re.escape(s))
-    regexp = "".join(regexp_parts)
+    regexp = b"".join(regexp_parts)
     if ignore_prompt_number:
-        regexp = re.sub(r"(In\\? |Out)\\*\[[0-9]+\\*\]\\?:", r"\1\[[0-9]+\]:", regexp)
+        regexp = re.sub(br"(In\\? |Out)\\*\[[0-9]+\\*\]\\?:", br"\1\[[0-9]+\]:", regexp)
     if _IPYTHON_VERSION >= (4,):
         ignore = dedent(r"""
             (\[ZMQTerminalIPythonApp\] Loading IPython extension: storemagic
             )?
-        """).strip()
-        result = re.sub(ignore, "", result)
+        """).strip().encode('utf-8')
+        result = re.sub(ignore, b"", result)
     if _IPYTHON_VERSION < (1, 0):
         # IPython 0.13 console prints kernel info; ignore it.
         #   [IPKernelApp] To connect another client to this kernel, use:
@@ -167,15 +167,15 @@ def assert_match(result, expected, ignore_prompt_number=False):
             (\[IPKernelApp\] To connect another client to this kernel, use:
             \[IPKernelApp\] --existing kernel-[0-9]+\.json
             )?
-        """).strip()
-        result = re.sub(ignore, "", result)
+        """).strip().encode('utf-8')
+        result = re.sub(ignore, b"", result)
     if _IPYTHON_VERSION < (0, 11):
         # IPython 0.10 prompt counts are buggy, e.g. %time increments by 2.
         # Ignore prompt numbers and extra newlines before the output prompt.
-        regexp = re.sub(re.compile(r"^In\\? \\\[[0-9]+\\\]", re.M),
-                        r"In \[[0-9]+\]", regexp)
-        regexp = re.sub(re.compile(r"^Out\\\[[0-9]+\\\]", re.M),
-                        r"\n?Out\[[0-9]+\]", regexp)
+        regexp = re.sub(re.compile(br"^In\\? \\\[[0-9]+\\\]", re.M),
+                        br"In \[[0-9]+\]", regexp)
+        regexp = re.sub(re.compile(br"^Out\\\[[0-9]+\\\]", re.M),
+                        br"\n?Out\[[0-9]+\]", regexp)
     if _IPYTHON_VERSION < (0, 12):
         # Ignore ultratb problems (not pyflyby-related).
         # TODO: consider using --TerminalInteractiveShell.xmode=plain (-xmode)
@@ -184,8 +184,8 @@ def assert_match(result, expected, ignore_prompt_number=False):
             The following traceback may be corrupted or invalid
             The error message is: .*
             )?
-        """).strip()
-        result = re.sub(ignore, "", result)
+        """).strip().encode('utf-8')
+        result = re.sub(ignore, b"", result)
     if _IPYTHON_VERSION < (1, 0):
         # Ignore zmq version warnings (not pyflyby-related).
         # TODO: install older version of zmq for older IPython versions.
@@ -195,18 +195,18 @@ def assert_match(result, expected, ignore_prompt_number=False):
             \s*Please install libzmq stable.*?
             \s*RuntimeWarning\)
             )?
-        """).strip()
-        result = re.sub(ignore, "", result)
+        """).strip().encode('utf-8')
+        result = re.sub(ignore, b"", result)
     # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
-    regexp = re.sub(re.compile(r"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
-                    "\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
-    regexp = re.sub(re.compile(r"^(Wall[\\]* time[\\]*:.*?)($|[$]|[\\]*\n)", re.M),
-                    "\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
-    regexp += "$"
+    regexp = re.sub(re.compile(br"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
+                    b"\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
+    regexp = re.sub(re.compile(br"^(Wall[\\]* time[\\]*:.*?)($|[$]|[\\]*\n)", re.M),
+                    b"\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
+    regexp += b"$"
     # Check for match.
     regexp = re.compile(regexp)
-    result = '\n'.join(line.rstrip() for line in result.splitlines())
+    result = b'\n'.join(line.rstrip() for line in result.splitlines())
     result = result.strip()
     if DEBUG:
         print("expected: %r" % (expected,))
@@ -219,11 +219,11 @@ def assert_match(result, expected, ignore_prompt_number=False):
         msg.extend("     %s"%line for line in result.splitlines())
         msg.append("Diff:")
         msg.extend("   %s"%line for line in difflib.ndiff(
-            expected.splitlines(), result.splitlines()))
-        if DEBUG or any(i in '\x1b\x07\b\t' for i in expected+result):
+            expected.decode('utf-8').splitlines(), result.decode('utf-8').splitlines()))
+        if DEBUG or any(i in b'\x1b\x07\b\t' for i in expected+result):
             msg.append("Diff Repr:")
             msg.extend("   %r"%line for line in difflib.ndiff(
-                expected.splitlines(), result.splitlines()))
+                expected.decode('utf-8').splitlines(), result.decode('utf-8').splitlines()))
         msg = "\n".join(msg)
         pytest.fail(msg)
 
