@@ -897,7 +897,7 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
-    template = dedent(template.decode('utf-8')).strip().encode('utf-8')
+    template = dedent(template).strip().encode('utf-8')
     input, expected = parse_template(template)
     args = kwargs.pop("args", ())
     if isinstance(args, six.string_types):
@@ -1293,7 +1293,7 @@ def _clean_ipython_output(result):
 @retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
-    ipython(b"""
+    ipython("""
         In [1]: print 6*7
         42
         In [2]: 6*9
