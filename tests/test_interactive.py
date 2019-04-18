@@ -546,7 +546,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
         cmd += [opt("--no-confirm-exit")]
         if _IPYTHON_VERSION < (4,):
             cmd += [opt("--no-banner")]
-    if app != "notebook" and _IPYTHON_VERSION < (5,) and prog != "py":
+    if app != "notebook" and prog != "py":
         cmd += [opt("--colors=NoColor")]
     if frontend == 'prompt_toolkit':
         # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
