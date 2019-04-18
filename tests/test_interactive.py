@@ -21,7 +21,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six.moves                import cStringIO as StringIO
+from   six                      import BytesIO
 import signal
 from   subprocess               import check_call
 import sys
@@ -736,7 +736,7 @@ def IPythonCtx(prog="ipython",
     # Figure out frontend to use.
     frontend = _interpret_frontend_arg(frontend)
     child = None
-    output = StringIO()
+    output = BytesIO()
     try:
         # Prepare environment variables.
         env = {}
@@ -755,9 +755,9 @@ def IPythonCtx(prog="ipython",
                             dimensions=(100,900), timeout=10.0)
         # Record frontend for others.
         child.ipython_frontend = frontend
-        # Log output to a StringIO.  Note that we use "logfile_read", not
+        # Log output to a BytesIO.  Note that we use "logfile_read", not
         # "logfile".  If we used logfile, that would double-log the input
-        # commands, since we used echo=True.  (Using logfile=StringIO and
+        # commands, since we used echo=True.  (Using logfile=BytesIO and
         # echo=False works for most inputs, but doesn't work for things like
         # tab completion output.)
         child.logfile_read = output
