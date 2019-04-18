@@ -40,6 +40,8 @@ def pytest_report_header(config):
     dir = os.path.dirname(pyflyby.__file__)
     print("pyflyby %s from %s" % (pyflyby.__version__, dir))
 
+def pytest_cmdline_preparse(config, args):
+    args[:] = ["--no-success-flaky-report"] + args
 
 def _setup_logger():
     """
