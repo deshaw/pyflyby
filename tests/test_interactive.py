@@ -55,9 +55,12 @@ def assert_fail():
 def pytest_generate_tests(metafunc):
     # IPython 4 and earlier only had readline frontend.
     # IPython 5.0 through 5.3 only allow prompt_toolkit.
-    # IPython 5.4+ defaults to prompt_toolkit, but allows choosing readline.
+    # IPython 5.4 through 6.5 defaults to prompt_toolkit, but allows choosing readline.
+    # IPython 7+ breaks rlipython (https://github.com/ipython/rlipython/issues/21).
     if 'frontend' in metafunc.fixturenames:
-        if _IPYTHON_VERSION >= (5,4):
+        if _IPYTHON_VERSION >= (7,0):
+            metafunc.parametrize('frontend', [            'prompt_toolkit'])
+        elif _IPYTHON_VERSION >= (5,4):
             try:
                 import rlipython
                 rlipython # used
