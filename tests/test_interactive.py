@@ -1297,7 +1297,7 @@ def _clean_ipython_output(result):
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
-        In [1]: print 6*7
+        In [1]: print(6*7)
         42
         In [2]: 6*9
         Out[2]: 54
@@ -1308,7 +1308,7 @@ def test_ipython_1(frontend):
 def test_ipython_assert_fail_1(frontend):
     with assert_fail():
         ipython("""
-            In [1]: print 6*7
+            In [1]: print(6*7)
             42
             In [2]: 6*9
             Out[2]: 53
@@ -1321,8 +1321,8 @@ def test_ipython_indented_block_4spaces_1(frontend):
     # 4 spaces is the IPython default auotindent.
     ipython("""
         In [1]: if 1:
-           ...:      print 6*7
-           ...:      print 6*9
+           ...:      print(6*7)
+           ...:      print(6*9)
            ...:
         42
         54
@@ -1336,8 +1336,8 @@ def test_ipython_indented_block_5spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
         In [1]: if 1:
-           ...:       print 6*7
-           ...:       print 6*9
+           ...:       print(6*7)
+           ...:       print(6*9)
            ...:
         42
         54
@@ -1352,8 +1352,8 @@ def test_ipython_indented_block_3spaces_1(frontend):
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
     ipython("""
         In [1]: if 1:
-           ...:     print 6*7
-           ...:     print 6*9
+           ...:     print(6*7)
+           ...:     print(6*9)
            ...:
         42
         54
@@ -1368,8 +1368,8 @@ def test_ipython_indented_block_2spaces_1(frontend):
     # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
     ipython("""
         In [1]: if 1:
-           ...:    print 6*7
-           ...:    print 6*9
+           ...:    print(6*7)
+           ...:    print(6*9)
            ...:
         42
         54
@@ -1424,7 +1424,7 @@ def test_pyflyby_file_1():
     f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
     ipython("""
         In [1]: import os, pyflyby
-        In [2]: print os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
+        In [2]: print(os.path.realpath(pyflyby.__file__.replace(".pyc", ".py")))
         {f}
     """.format(f=f))
 
@@ -1434,7 +1434,7 @@ def test_pyflyby_version_1():
     # Verify that our test setup is getting the right pyflyby.
     ipython("""
         In [1]: import pyflyby
-        In [2]: print pyflyby.__version__
+        In [2]: print(pyflyby.__version__)
         {pyflyby.__version__}
     """.format(pyflyby=pyflyby))
 
@@ -1445,7 +1445,7 @@ def test_ipython_file_1():
     f = os.path.realpath(IPython.__file__)
     ipython("""
         In [1]: import IPython, os
-        In [2]: print os.path.realpath(IPython.__file__)
+        In [2]: print(os.path.realpath(IPython.__file__))
         {f}
     """.format(f=f))
 
@@ -1455,7 +1455,7 @@ def test_ipython_version_1():
     # Verify that our test setup is getting the right IPython.
     ipython("""
         In [1]: import IPython
-        In [2]: print IPython.__version__
+        In [2]: print(IPython.__version__)
         {IPython.__version__}
     """.format(IPython=IPython))
 
@@ -1631,7 +1631,7 @@ def test_autoimport_symbol_1():
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b64decode('SGVsbG8=')
+        In [2]: print(b64decode('SGVsbG8='))
         [PYFLYBY] from base64 import b64decode
         Hello
     """)
@@ -1641,10 +1641,10 @@ def test_autoimport_statement_1():
 def test_autoimport_multiple_imports_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b64encode("koala"), b64decode("a2FuZ2Fyb28=")
+        In [2]: print((b64encode(b"koala"), b64decode("a2FuZ2Fyb28=")))
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] from base64 import b64encode
-        a29hbGE= kangaroo
+        ('a29hbGE=', 'kangaroo')
     """)
 
 
@@ -1653,11 +1653,11 @@ def test_autoimport_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print b64decode('dHVydGxl')
+           ...:     print(b64decode('dHVydGxl'))
            ...:
         [PYFLYBY] from base64 import b64decode
         turtle
-        In [3]: print b64decode('bGFtYQ==')
+        In [3]: print(b64decode('bGFtYQ=='))
         lama
     """)
 
@@ -1677,7 +1677,7 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] import sys
         microphone
-        In [3]: print b64decode('bG91ZHNwZWFrZXI=')
+        In [3]: print(b64decode('bG91ZHNwZWFrZXI='))
         loudspeaker
     """, frontend=frontend)
 
@@ -1688,7 +1688,7 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print (unknown_symbol_37320899.
+           ...:     print(unknown_symbol_37320899.
            ...:         b64encode
            ...:         )
            ...:
@@ -1697,11 +1697,11 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
         ....
         NameError: name 'unknown_symbol_37320899' is not defined
         In [3]: if 1:
-           ...:     print b64encode('y')
+           ...:     print(b64encode('y'))
            ...:
         [PYFLYBY] from base64 import b64encode
         eQ==
-        In [4]: print b64decode('YmFzZWJhbGw=')
+        In [4]: print(b64decode('YmFzZWJhbGw='))
         [PYFLYBY] from base64 import b64decode
         baseball
     """, frontend=frontend)
@@ -1927,9 +1927,9 @@ def test_complete_symbol_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b64\t
+        In [2]: print(b64\t
         b64decode  b64encode
-        In [2]: print b64\x06decode
+        In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
     """, frontend=frontend)
@@ -1940,9 +1940,9 @@ def test_complete_symbol_partial_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b6\t
+        In [2]: print(b6\t
         b64decode  b64encode
-        In [2]: print b64\x06d\tecode
+        In [2]: print(b64\x06d\tecode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
     """, frontend=frontend)
@@ -2005,11 +2005,11 @@ def test_complete_symbol_member_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print base64.b64\t
+        In [2]: print(base64.b64\t
         [PYFLYBY] import base64
-        In [2]: print base64.b64
+        In [2]: print(base64.b64
         base64.b64decode  base64.b64encode
-        In [2]: print base64.b64
+        In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
         <ipython-input> in <module>()
@@ -2022,11 +2022,11 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print base64.b6\t
+        In [2]: print(base64.b6\t
         [PYFLYBY] import base64
-        In [2]: print base64.b6
+        In [2]: print(base64.b6
         base64.b64decode  base64.b64encode
-        In [2]: print base64.b64
+        In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
         <ipython-input> in <module>()
@@ -2054,7 +2054,7 @@ def test_complete_symbol_statement_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: x = b64deco\tde('SHVudGVy')
         [PYFLYBY] from base64 import b64decode
-        In [3]: print x
+        In [3]: print(x)
         Hunter
     """)
 
@@ -2064,13 +2064,13 @@ def test_complete_symbol_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print b64deco\tde('emVicmE=')
-           ...:     print 42
+           ...:     print(b64deco\tde('emVicmE='))
+           ...:     print(42)
            ...:
         [PYFLYBY] from base64 import b64decode
         zebra
         42
-        In [3]: print b64decode('dGlnZXI=')
+        In [3]: print(b64decode('dGlnZXI='))
         tiger
     """)
 
@@ -2081,14 +2081,14 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print base64.b64d\t
+           ...:     print(base64.b64d\t
         [PYFLYBY] import base64
-           ...:     print base64.b64decode('Z2lyYWZmZQ==')
-           ...:     print 42
+           ...:     print(base64.b64decode('Z2lyYWZmZQ=='))
+           ...:     print(42)
            ...:
         giraffe
         42
-        In [3]: print b64d\tecode('bGlvbg==')
+        In [3]: print(b64d\tecode('bGlvbg=='))
         [PYFLYBY] from base64 import b64decode
         lion
     """, frontend=frontend)
@@ -2186,24 +2186,24 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
         class M(object):
             @property
             def river(self):
-                print "in the river"
+                print("in the river")
                 return 'Medway'
             @property
             def island(self):
-                print "on the island"
+                print("on the island")
                 return 'Canvey'
             __name__ = __name__
         sys.modules[__name__] = M()
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print gravesend60063\t393.r\t
+        In [2]: print(gravesend60063\t393.r\t
         [PYFLYBY] import gravesend60063393
-        In [2]: print gravesend60063393.river
+        In [2]: print(gravesend60063393.river)
         in the river
         in the river
         Medway
-        In [3]: print gravesend600633\t93.is\tland
+        In [3]: print(gravesend600633\t93.is\tland)
         on the island
         on the island
         Canvey
@@ -2290,7 +2290,7 @@ def test_property_no_superfluous_access_1(tmp):
         class A(object):
             @property
             def ellsworth(self):
-                print "edgegrove"
+                print("edgegrove")
                 return "darlington"
     """)
     ipython("""
@@ -2463,8 +2463,8 @@ def test_syntax_error_in_user_code_1():
 def test_run_1(tmp):
     # Test that %run works and autoimports.
     writetext(tmp.file, """
-        print 'hello'
-        print b64decode('RXVjbGlk')
+        print('hello')
+        print(b64decode('RXVjbGlk'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2480,7 +2480,7 @@ def test_run_repeat_1(tmp):
     # Test that repeated %run works, and continues autoimporting, since we
     # start from a fresh namespace each time (since no "-i" option to %run).
     writetext(tmp.file, """
-        print b64decode('Q2FudG9y')
+        print(b64decode('Q2FudG9y'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2497,11 +2497,11 @@ def test_run_repeat_1(tmp):
 def test_run_separate_script_namespace_1(tmp):
     # Another explicit test that we start %run from a fresh namespace
     writetext(tmp.file, """
-        print b64decode('UmllbWFubg==')
+        print(b64decode('UmllbWFubg=='))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b64decode('Rmlib25hY2Np')
+        In [2]: print(b64decode('Rmlib25hY2Np'))
         [PYFLYBY] from base64 import b64decode
         Fibonacci
         In [3]: run {tmp.file}
@@ -2515,7 +2515,7 @@ def test_run_separate_script_namespace_2(tmp):
     # Another explicit test that we start %run from a fresh namespace, not
     # inheriting even explicitly defined functions.
     writetext(tmp.file, """
-        print b64decode('SGlsYmVydA==')
+        print(b64decode('SGlsYmVydA=='))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2551,14 +2551,14 @@ def test_run_modify_interactive_namespace_1(tmp):
 def test_run_i_auto_import_1(tmp):
     # Verify that '%run -i' works and autoimports.
     writetext(tmp.file, """
-        print b64decode('RGVzY2FydGVz')
+        print(b64decode('RGVzY2FydGVz'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: run -i {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Descartes
-        In [3]: print b64decode('R2F1c3M=')
+        In [3]: print(b64decode('R2F1c3M='))
         Gauss
     """.format(tmp=tmp))
 
@@ -2567,11 +2567,11 @@ def test_run_i_auto_import_1(tmp):
 def test_run_i_already_imported_1(tmp):
     # Verify that '%run -i' inherits the interactive namespace.
     writetext(tmp.file, """
-        print b64decode(k)
+        print(b64decode(k))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print b64decode('R3JvdGhlbmRpZWNr')
+        In [2]: print(b64decode('R3JvdGhlbmRpZWNr'))
         [PYFLYBY] from base64 import b64decode
         Grothendieck
         In [3]: k = 'QXJjaGltZWRlcw=='
@@ -2584,7 +2584,7 @@ def test_run_i_already_imported_1(tmp):
 def test_run_i_repeated_1(tmp):
     # Verify that '%run -i' affects the next namespace of the next '%run -i'.
     writetext(tmp.file, """
-        print b64decode('S29sbW9nb3Jvdg==')
+        print(b64decode('S29sbW9nb3Jvdg=='))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2600,7 +2600,7 @@ def test_run_i_repeated_1(tmp):
 def test_run_i_locally_defined_1(tmp):
     # Verify that '%run -i' can inherit interactively defined symbols.
     writetext(tmp.file, """
-        print b64decode('zzz')
+        print(b64decode('zzz'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2617,8 +2617,8 @@ def test_run_syntax_error_1(tmp):
     # Verify that a syntax error in a user-run script doesn't affect
     # autoimporter functionality.
     writetext(tmp.file, """
-        print 'hello'
-        print b64decode('UHl0aGFnb3Jhcw==')
+        print('hello')
+        print(b64decode('UHl0aGFnb3Jhcw=='))
         1 /
     """)
     ipython("""
@@ -2626,7 +2626,7 @@ def test_run_syntax_error_1(tmp):
         In [2]: run {tmp.file}
         ....
         SyntaxError: invalid syntax....
-        In [3]: print b64decode('Q29ud2F5')
+        In [3]: print(b64decode('Q29ud2F5'))
         [PYFLYBY] from base64 import b64decode
         Conway
     """.format(tmp=tmp))
@@ -2636,7 +2636,7 @@ def test_run_syntax_error_1(tmp):
 def test_run_name_main_1(tmp):
     # Verify that __name__ == "__main__" in a %run script.
     writetext(tmp.file, """
-        print b64encode(__name__)
+        print(b64encode(__name__))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2650,7 +2650,7 @@ def test_run_name_main_1(tmp):
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
     f = writetext(tmp.dir/"f81564382.py", """
-        print b64encode(__name__)
+        print(b64encode(__name__))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2848,7 +2848,7 @@ def test_error_during_enable_1():
         [PYFLYBY] TypeError: 'NoneType' object is not callable
         [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
         [PYFLYBY] Disabling pyflyby auto importer.
-        In [4]: print 'hello'
+        In [4]: print('hello')
         hello
         In [5]: sys
         ---------------------------------------------------------------------------
@@ -3503,7 +3503,7 @@ def test_debug_auto_import_print_1(frontend):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print b64decode("TW9udGdvbWVyeQ==")
+        ipdb> print(b64decode("TW9udGdvbWVyeQ=="))
         [PYFLYBY] from base64 import b64decode
         Montgomery
         ipdb> q
@@ -3543,7 +3543,7 @@ def test_debug_postmortem_auto_import_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print x + b64decode("QA==") + y
+        ipdb> print(x + b64decode("QA==") + y)
         [PYFLYBY] from base64 import b64decode
         Bowcraft@Mountain
         ipdb> q
@@ -3560,7 +3560,7 @@ def test_debug_tab_completion_db_1(frontend):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print b64dec\tode("R2FyZmllbGQ=")
+        ipdb> print(b64dec\tode("R2FyZmllbGQ="))
         [PYFLYBY] from base64 import b64decode
         Garfield
         ipdb> q
@@ -3580,9 +3580,9 @@ def test_debug_tab_completion_module_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print thornton60097\t181.rando\t
+        ipdb> print(thornton60097\t181.rando\t
         [PYFLYBY] import thornton60097181
-        ipdb> print thornton60097181.randolph
+        ipdb> print(thornton60097181.randolph)
         14164598
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3603,11 +3603,11 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print sturbridge9088333.neb\t
+        ipdb> print(sturbridge9088333.neb\t
         [PYFLYBY] import sturbridge9088333
-        ipdb> print sturbridge9088333.neb
+        ipdb> print(sturbridge9088333.neb
         sturbridge9088333.nebula_10983840  sturbridge9088333.nebula_41695458
-        ipdb> print sturbridge9088333.nebula_
+        ipdb> print(sturbridge9088333.nebula_)
         *** AttributeError: 'module' object has no attribute 'nebula_'
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3628,9 +3628,9 @@ def test_debug_postmortem_tab_completion_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print x + base64.b64d\t
+        ipdb> print(x + base64.b64d\t
         [PYFLYBY] import base64
-        ipdb> print x + base64.b64decode("Lw==") + y
+        ipdb> print(x + base64.b64decode("Lw==") + y)
         Camden/Hopkinson
         ipdb> q
     """, frontend=frontend)
@@ -3654,7 +3654,7 @@ def test_debug_namespace_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==")
+        ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw=="))
         [PYFLYBY] from base64 import b64decode
         AtlanticPacific
         ipdb> p b64deco\tde("Q29udGluZW50YWw=")
@@ -3684,10 +3684,10 @@ def test_debug_second_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print b64deco\tde("Sm9zZXBo")
+        ipdb> print(b64deco\tde("Sm9zZXBo"))
         [PYFLYBY] from base64 import b64decode
         Joseph
-        ipdb> print b64deco\tde("U2VtaW5vbGU=")
+        ipdb> print(b64deco\tde("U2VtaW5vbGU="))
         Seminole
         ipdb> q
         In [5]: foo("Quince", "Lilac")
@@ -3697,7 +3697,7 @@ def test_debug_second_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [6]: %debug
         ....
-        ipdb> print b64deco\tde("Q3JvY3Vz")
+        ipdb> print(b64deco\tde("Q3JvY3Vz"))
         [PYFLYBY] from base64 import b64decode
         Crocus
         ipdb> q
@@ -3730,7 +3730,7 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
     # Verify that auto importing works for the string to be debugged.
     writetext(tmp.dir/"peekskill43666930.py", """
         def hollow(x):
-            print x * 2
+            print(x * 2)
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3752,7 +3752,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
     writetext(tmp.dir/"taconic72383428.py", """
         def pudding(x):
             y = x * 5
-            print y
+            print(y)
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3764,7 +3764,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
         ....
         ipdb> n
         ....
-        ipdb> print x
+        ipdb> print(x)
         48364325
         ipdb> x = os.path.sep
         [PYFLYBY] import os.path
