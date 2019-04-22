@@ -548,6 +548,9 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
             cmd += [opt("--no-banner")]
     if app != "notebook" and prog != "py":
         cmd += [opt("--colors=NoColor")]
+    if app == "terminal" and prog != "py" and frontend == "prompt_toolkit":
+        # Disable bracket highlighting, which prints escape codes that confuse the decoder.
+        cmd += [opt("--TerminalInteractiveShell.highlight_matching_brackets=False")]
     if frontend == 'prompt_toolkit':
         # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
         # has various command-line options which toggle the internal
