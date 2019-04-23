@@ -301,10 +301,10 @@ def test_selftest_parse_template_1():
         baz
     """
     input, expected = parse_template(template)
-    assert input == "hello\nfoo\nbar\n\n"
+    assert input == b"hello\nfoo\nbar\n\n"
     assert expected == (
-        "In [1]: hello\nthere\nworld\n"
-        "In [2]: foo\n   ...: bar\n   ...:\nbaz")
+        b"In [1]: hello\nthere\nworld\n"
+        b"In [2]: foo\n   ...: bar\n   ...:\nbaz")
 
 
 @retry
@@ -314,8 +314,8 @@ def test_selftest_parse_template_tab_punctuation_1():
         goodbye
     """
     input, expected = parse_template(template)
-    assert input == "hello\t(3)\n"
-    assert expected == ("In [1]: hello_there(3)\ngoodbye")
+    assert input == b"hello\t(3)\n"
+    assert expected == (b"In [1]: hello_there(3)\ngoodbye")
 
 
 @retry
@@ -325,8 +325,8 @@ def test_selftest_parse_template_tab_newline_():
         goodbye
     """
     input, expected = parse_template(template)
-    assert input == "hello_\t\n"
-    assert expected == ("In [1]: hello_there\ngoodbye")
+    assert input == b"hello_\t\n"
+    assert expected == (b"In [1]: hello_there\ngoodbye")
 
 
 @retry
@@ -336,8 +336,8 @@ def test_selftest_parse_template_tab_continue_1():
         goodbye
     """
     input, expected = parse_template(template)
-    assert input == "hello\tre(3)\n"
-    assert expected == ("In [1]: hello_there(3)\ngoodbye")
+    assert input == b"hello\tre(3)\n"
+    assert expected == (b"In [1]: hello_there(3)\ngoodbye")
 
 
 @retry
@@ -351,19 +351,19 @@ def test_selftest_parse_template_tab_log_1():
         goodbye
     """
     input, expected = parse_template(template)
-    assert input == "hello\t(5)\n"
+    assert input == b"hello\t(5)\n"
     assert expected == (
-        "In [1]: hello\n"
-        "bonjour\n"
-        "In [1]: hello\n"
-        "hallo\n"
-        "In [1]: hello_there(5)\n"
-        "goodbye")
+        b"In [1]: hello\n"
+        b"bonjour\n"
+        b"In [1]: hello\n"
+        b"hallo\n"
+        b"In [1]: hello_there(5)\n"
+        b"goodbye")
 
 
 @retry
 def test_selftest_assert_match_1():
-    expected = """
+    expected = b"""
         hello
         1...2
         goodbye
@@ -376,18 +376,18 @@ def test_selftest_assert_match_1():
       goodbye
       I don't know why you say goodbye
       I say hello
-    """)
+    """).encode('utf-8')
     assert_match(result, expected)
 
 
 @retry
 def test_selftest_assert_match_2():
-    result = """
+    result = b"""
         hello
         1...2
         there
     """
-    expected = """
+    expected = b"""
 
       hello
       14712047
