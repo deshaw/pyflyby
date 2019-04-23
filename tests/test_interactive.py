@@ -653,6 +653,16 @@ class AnsiFilterDecoder(object):
                 break
             right = b'\n'.join(suffix_lines[num:]) + b'\n'
         arg = left + right
+
+        # \rESC[5C moves the cursor to the beginning of the line, then right 5
+        # characters. Assume anything after any of these is not printed
+        # (should be only space and invisible characters). Everything replaced
+        # above is zero width, so we can safely do this last.
+        n = len(arg)
+        for m in re.finditer(br'\r\x1b\[([0-9]+)C', arg):
+            n = int(m.group(1))
+        arg = arg[:n]
+
         if DEBUG:
             if self._buffer:
                 print("AnsiFilterDecoder: %r => %r, pending: %r" % (arg0,arg,self._buffer))
