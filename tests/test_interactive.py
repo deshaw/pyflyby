@@ -229,7 +229,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 
 def parse_template(template):
-    template = dedent(template.decode('utf-8')).strip().encode('utf-8')
+    template = dedent(template).strip().encode('utf-8')
     input = []
     expected = []
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
