@@ -910,7 +910,7 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
-    template = dedent(template).strip().encode('utf-8')
+    template = dedent(template).strip()
     input, expected = parse_template(template)
     args = kwargs.pop("args", ())
     if isinstance(args, six.string_types):
