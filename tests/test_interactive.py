@@ -1320,6 +1320,21 @@ def test_ipython_indented_block_4spaces_1(frontend):
     # 4 spaces is the IPython default auotindent.
     ipython("""
         In [1]: if 1:
+           ...:     print 6*7
+           ...:     print 6*9
+           ...:
+        42
+        54
+        In [2]: 6*8
+        Out[2]: 48
+    """, frontend=frontend)
+
+
+@retry
+def test_ipython_indented_block_5spaces_1(frontend):
+    # Test that indented blocks work vs IPython's autoindent.
+    ipython("""
+        In [1]: if 1:
            ...:      print 6*7
            ...:      print 6*9
            ...:
@@ -1331,7 +1346,7 @@ def test_ipython_indented_block_4spaces_1(frontend):
 
 
 @retry
-def test_ipython_indented_block_5spaces_1(frontend):
+def test_ipython_indented_block_6spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
         In [1]: if 1:
@@ -1351,8 +1366,8 @@ def test_ipython_indented_block_3spaces_1(frontend):
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
     ipython("""
         In [1]: if 1:
-           ...:     print 6*7
-           ...:     print 6*9
+           ...:    print 6*7
+           ...:    print 6*9
            ...:
         42
         54
@@ -1367,8 +1382,8 @@ def test_ipython_indented_block_2spaces_1(frontend):
     # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
     ipython("""
         In [1]: if 1:
-           ...:    print 6*7
-           ...:    print 6*9
+           ...:   print 6*7
+           ...:   print 6*9
            ...:
         42
         54
