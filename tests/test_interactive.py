@@ -1292,6 +1292,8 @@ def _clean_ipython_output(result):
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
+    # CPR stuff from prompt-toolkit 2.0
+    result = result.replace(b"WARNING: your terminal doesn't support cursor position requests (CPR).\n", b"")
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
