@@ -980,7 +980,7 @@ def IPythonKernelCtx(**kwargs):
     with IPythonCtx(args='kernel', **kwargs) as child:
         # Get the kernel info: --existing kernel-1234.json
         child.expect(r"To connect another client to this kernel, use:\s*"
-                     "(?:\[IPKernelApp\])?\s*(--existing .*?json)")
+                     r"(?:\[IPKernelApp\])?\s*(--existing .*?json)")
         kernel_info = child.match.group(1).split()
         # Yield control to caller.
         child.kernel_info = kernel_info
@@ -1109,7 +1109,7 @@ def IPythonNotebookCtx(**kwargs):
                 assert response.status_code == 200
                 # Get the notebook_id for the new notebook.
                 text = response.text
-                m = re.search("data-notebook-id\s*=\s*([0-9a-f-]+)", text)
+                m = re.search(r"data-notebook-id\s*=\s*([0-9a-f-]+)", text)
                 assert m is not None
                 notebook_id = m.group(1)
                 # Start a kernel for the notebook.
@@ -1306,7 +1306,7 @@ def _clean_ipython_output(result):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
         # off the banner.  For now just delete the output up to the first
         # prompt.
-        result = re.sub(b".*?(In \[1\])", b"\\1", result, flags=re.S)
+        result = re.sub(br".*?(In \[1\])", br"\1", result, flags=re.S)
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
