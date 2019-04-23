@@ -661,7 +661,11 @@ class AnsiFilterDecoder(object):
         n = len(arg)
         for m in re.finditer(br'\r\x1b\[([0-9]+)C', arg):
             n = int(m.group(1))
-        arg = arg[:n]
+        if n > len(arg):
+            self._buffer += arg
+            arg = b""
+        else:
+            arg = arg[:n]
 
         if DEBUG:
             if self._buffer:
