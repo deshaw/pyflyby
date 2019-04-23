@@ -1296,6 +1296,9 @@ def _clean_ipython_output(result):
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
+    # Work around
+    # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/886
+    result = re.sub(b"Exception in default exception handler.*assert app._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
     # CPR stuff from prompt-toolkit 2.0
     result = result.replace(b"WARNING: your terminal doesn't support cursor position requests (CPR).\n", b"")
     result = result.lstrip()
