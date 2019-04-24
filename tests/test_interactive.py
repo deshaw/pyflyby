@@ -658,14 +658,19 @@ class AnsiFilterDecoder(object):
         # characters. Assume anything after any of these is not printed
         # (should be only space and invisible characters). Everything replaced
         # above is zero width, so we can safely do this last.
-        n = len(arg)
-        for m in re.finditer(br'\r\x1b\[([0-9]+)C', arg):
-            n = int(m.group(1))
-        if n > len(arg):
-            self._buffer += arg
-            arg = b""
+        lines = []
+        for line in arg.split(b'\n'):
+            n = len(line)
+            for m in re.finditer(br'\r\x1b\[([0-9]+)C', line):
+                n = int(m.group(1))
+            if n > len(line):
+                self._buffer += arg
+                arg = b""
+                break
+            else:
+                lines.append(line[:n])
         else:
-            arg = arg[:n]
+            arg = b'\n'.join(lines)
 
         if DEBUG:
             if self._buffer:
