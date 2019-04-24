@@ -645,9 +645,10 @@ class AnsiFilterDecoder(object):
             num = int(m.group(1))
             end = m.end()
             suffix = right[end:]
-            suffix_lines = suffix.splitlines(True)
+            # splitlines includes \r as a line delimiter, which we do not want
+            suffix_lines = suffix.split(b'\n')
             left = left + right[:m.start()]
-            if len(suffix_lines) < num:
+            if len(suffix_lines) <= num:
                 self._buffer += right[m.start():]
                 right = b""
                 break
