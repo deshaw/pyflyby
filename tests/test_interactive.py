@@ -551,12 +551,13 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     if app == "terminal" and prog != "py" and frontend == "prompt_toolkit":
         # Disable bracket highlighting, which prints escape codes that confuse the decoder.
         cmd += [opt("--TerminalInteractiveShell.highlight_matching_brackets=False")]
-    if frontend == 'prompt_toolkit':
+    if frontend == 'prompt_toolkit' and _IPYTHON_VERSION < (7,):
         # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
         # has various command-line options which toggle the internal
         # shell.autoindent flag, but turning that internal flag off doesn't do
         # anything.  Instead we'll just have to send a ^U at the beginning of
-        # each line to defeat the autoindent.
+        # each line to defeat the autoindent. The feature was re-enabled in
+        # IPython 7, so we don't need to worry there.
         pass
     elif _IPYTHON_VERSION >= (3,):
         cmd += ["--InteractiveShell.autoindent=False"]
@@ -848,15 +849,15 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                     # is there a better way?
                     _wait_for_output(child, timeout=0.05)
                 break
-        if line.startswith(b" ") and is_prompt_toolkit:
-            # Clear the line via ^U.  This is needed with prompt_toolkit
+        if line.startswith(b" ") and is_prompt_toolkit and _IPYTHON_VERSION < (7,):
+            # Clear the line via ^U. This is needed with prompt_toolkit
             # (IPython 5+) because it is no longer possible to turn off
-            # autoindent.  (IPython now relies on bracketed paste mode; they
-            # assumed that was the only reason to turn off autoindent.
-            # Another idea is to use bracket paste mode,
-            # i.e. ESC[200~blahESC[201~.  But that causes IPython to not print
-            # a "...:" prompt that it would be nice to see.)  We also sleep
-            # afterwards to make sure that IPython doesn't optimize the
+            # autoindent. (IPython now relies on bracketed paste mode; they
+            # assumed that was the only reason to turn off autoindent. Another
+            # idea is to use bracket paste mode, i.e. ESC[200~blahESC[201~.
+            # But that causes IPython to not print a "...:" prompt that it
+            # would be nice to see. This was fixed in IPython 7.0) We also
+            # sleep afterwards to make sure that IPython doesn't optimize the
             # output.
             # For example, without the sleep, if IPython defaulted 4 spaces and
             # we wanted 1 space, we would send "^U blah"; after IPython printed
@@ -1343,7 +1344,7 @@ def test_ipython_assert_fail_1(frontend):
 @retry
 def test_ipython_indented_block_4spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
-    # 4 spaces is the IPython default auotindent.
+    # 4 spaces is the IPython default autoindent.
     ipython("""
         In [1]: if 1:
            ...:      print(6*7)
