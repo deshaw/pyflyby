@@ -577,7 +577,11 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
             # For IPython 4 and earlier, readline is the default and only option.
             pass
     elif frontend == 'prompt_toolkit':
-        if _IPYTHON_VERSION >= (5,):
+        if _IPYTHON_VERSION >= (7,):
+            # Prompt-toolkit 2.0 still prints some escape codes for the
+            # completion display even if there is only one completion.
+            cmd += ["--TerminalInteractiveShell.display_completions=readlinelike"]
+        elif _IPYTHON_VERSION >= (5,):
             # For IPython >= 5.0, prompt_toolkit is the default option (and
             # for 5.0-5.3, the only option).
             pass
