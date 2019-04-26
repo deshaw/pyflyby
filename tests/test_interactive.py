@@ -21,7 +21,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO
+from   six                      import BytesIO, PY3
 import signal
 from   subprocess               import check_call
 import sys
@@ -230,6 +230,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 def parse_template(template):
     template = dedent(template).strip().encode('utf-8')
+    template = _normalize_python_2_3(template)
     input = []
     expected = []
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
@@ -1323,6 +1324,24 @@ def _clean_ipython_output(result):
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
 
+def _normalize_python_2_3(template):
+    """
+    Change some Python 3 outputs to be compatible with Python 2
+    """
+    template0 = template
+    if PY3:
+        # The templates are written with outputs from Python 3
+        return template
+
+    template = template.replace('<module>', '<module>()')
+    for module in ['os', 'base64', 'profile']:
+        template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
+    template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
+    # template = re.sub(r"b'(.*?)'", "'\1'", template)
+
+    if DEBUG:
+        print("_normalize_python_2_3() %r => %r" % (template0, template))
+    return template
 
 @retry
 def test_ipython_1(frontend):
@@ -1427,8 +1446,8 @@ def test_ipython_tab_fail_1(frontend):
         In [2]: os.foo27817796\t()
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>()
-        AttributeError: 'module' object has no attribute 'foo27817796'
+        <ipython-input> in <module>
+        AttributeError: module 'os' has no attribute 'foo27817796'
     """, frontend=frontend)
 
 
@@ -1510,7 +1529,7 @@ def test_no_autoimport_1():
         In [1]: '@'+b64decode('SGVsbG8=')+'@'
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64decode' is not defined
     """)
 
@@ -1588,7 +1607,7 @@ def test_reload_ext_reload_importdb_1(tmp):
         In [3]: list(combinations('abc',2))
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'combinations' is not defined
         In [4]: with open('{tmp.file}', 'a') as f:
            ...:   f.write('from itertools import combinations\\n')
@@ -1596,7 +1615,7 @@ def test_reload_ext_reload_importdb_1(tmp):
         In [5]: list(combinations('abc',2))
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'combinations' is not defined
         In [6]: %reload_ext pyflyby
         In [7]: list(combinations('abc',2))
@@ -1628,12 +1647,12 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'rhino13609135' is not defined
         In [3]: rhino13609135
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'rhino13609135' is not defined
         In [4]: %reload_ext pyflyby
         In [5]: rhino13609135
@@ -1643,7 +1662,7 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'rhino13609135' is not defined
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
@@ -1749,7 +1768,7 @@ def test_autoimport_pyflyby_path_1(tmp):
         In [3]: groupby
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'groupby' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -1796,7 +1815,7 @@ def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
         [PYFLYBY]   import foo50853429 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -1816,7 +1835,7 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
         [PYFLYBY]   import foo70603247 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
         In [3]: bar(42)
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1824,7 +1843,7 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
         [PYFLYBY]   import foo70603247 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -1850,7 +1869,7 @@ def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
         [PYFLYBY]   import foo85957810 as foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'foo' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -1871,7 +1890,7 @@ def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
         [PYFLYBY]   import foo83958492 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -1909,7 +1928,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
     """, PYFLYBY_PATH=tmp.file, autocall=True)
 
@@ -1929,7 +1948,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
         In [3]: bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1937,7 +1956,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar' is not defined
     """, PYFLYBY_PATH=tmp.file, autocall=True)
 
@@ -2043,8 +2062,8 @@ def test_complete_symbol_member_multiple_1(frontend):
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>()
-        AttributeError: 'module' object has no attribute 'b64'
+        <ipython-input> in <module>
+        AttributeError: module 'base64' has no attribute 'b64'
     """, frontend=frontend)
 
 
@@ -2060,8 +2079,8 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>()
-        AttributeError: 'module' object has no attribute 'b64'
+        <ipython-input> in <module>
+        AttributeError: module 'base64' has no attribute 'b64'
     """, frontend=frontend)
 
 
@@ -2180,7 +2199,7 @@ def test_complete_symbol_bad_1(frontend, tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'foo_31221052_bar' is not defined
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
@@ -2196,7 +2215,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'bar_98073069_quux' is not defined
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
@@ -2346,7 +2365,7 @@ def test_disable_reenable_autoimport_1():
         In [5]: b64decode('cmVk')        # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64decode' is not defined
         In [6]: b64encode('green')       # should still work because already imported
         Out[6]: 'Z3JlZW4='
@@ -2369,7 +2388,7 @@ def test_disable_reenable_completion_1():
         In [5]: b64deco\t('Y2xvdWQ=') # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64deco' is not defined
         In [6]: b64enco\tde('tree') # should still work because already imported
         Out[6]: 'dHJlZQ=='
@@ -2411,12 +2430,12 @@ def test_error_during_auto_import_symbol_1(tmp):
         [PYFLYBY] Disabling pyflyby auto importer.
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_68470042' is not defined
         In [5]: unknown_symbol_76663387
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_76663387' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -2435,12 +2454,12 @@ def test_error_during_auto_import_expression_1(tmp):
         [PYFLYBY] Disabling pyflyby auto importer.
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_72161870' is not defined
         In [5]: 42+unknown_symbol_48517397
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_48517397' is not defined
     """, PYFLYBY_PATH=tmp.file)
 
@@ -2461,14 +2480,14 @@ def test_error_during_completion_1(frontend, tmp):
         In [4]: unknown_symbol_14954304_\x06foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_14954304_foo' is not defined
         In [5]: 200
         Out[5]: 200
         In [6]: unknown_symbol_69697066_\t\x06foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'unknown_symbol_69697066_foo' is not defined
         In [7]: 300
         Out[7]: 300
@@ -2753,7 +2772,7 @@ def test_noninteractive_timeit_unaffected_1():
         [PYFLYBY] import timeit
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         ....
         NameError: global name 'base64' is not defined
     """)
@@ -2862,7 +2881,7 @@ def test_noninteractive_profile_unaffected_1():
         [PYFLYBY] import profile
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         ....
         NameError: name 'base64' is not defined
     """)
@@ -2884,7 +2903,7 @@ def test_error_during_enable_1():
         In [5]: sys
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'sys' is not defined
         In [6]: pyflyby.enable_auto_importer()
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
@@ -2951,7 +2970,7 @@ def test_ipython_kernel_console_multiple_existing_1():
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>()
+            <ipython-input> in <module>
             NameError: name 'b64decode' is not defined
         """, args=['console'], kernel=kernel)
         # Enable the auto importer.
@@ -2990,7 +3009,7 @@ def test_ipython_notebook_1():
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>()
+            <ipython-input> in <module>
             NameError: name 'b64decode' is not defined"""
             # Enable the auto importer.
             """
@@ -3014,7 +3033,7 @@ def test_ipython_notebook_reconnect_1():
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>()
+            <ipython-input> in <module>
             NameError: name 'b64decode' is not defined
         """, args=['console'], kernel=kernel)
         # Enable the auto importer.
@@ -3091,7 +3110,7 @@ def test_py_console_existing_1():
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>()
+            <ipython-input> in <module>
             NameError: name 'b64decode' is not defined
         """, prog="py", args=['console'], kernel=kernel)
 
@@ -3121,7 +3140,7 @@ def test_py_disable_1():
         In [3]: b64encode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('bW9ja2VybnV0')
         Out[4]: 'mockernut'
@@ -3152,7 +3171,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
         In [1]: b64decode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64decode' is not defined
     """)
 
@@ -3172,7 +3191,7 @@ def test_installed_in_config_redundant_1(tmp):
         In [1]: b64decode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64decode' is not defined
     """)
 
@@ -3230,7 +3249,7 @@ def test_installed_in_config_disable_1(tmp):
         In [3]: b64encode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('d2lsbG93')
         Out[4]: 'willow'
@@ -3256,7 +3275,7 @@ def test_installed_in_config_enable_noop_1(tmp):
         In [4]: b64encode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [5]: b64decode('YmlyY2g=')
         Out[5]: 'birch'
@@ -3280,7 +3299,7 @@ def test_installed_in_config_ipython_py_1(tmp):
         In [3]: b64encode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>()
+        <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('YnV0dGVybnV0')
         Out[4]: 'butternut'
@@ -3639,7 +3658,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
         ipdb> print(sturbridge9088333.neb
         sturbridge9088333.nebula_10983840  sturbridge9088333.nebula_41695458
         ipdb> print(sturbridge9088333.nebula_)
-        *** AttributeError: 'module' object has no attribute 'nebula_'
+        *** AttributeError: sturbridge9088333 has no attribute 'nebula_'
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
@@ -3746,7 +3765,7 @@ def test_debug_auto_import_string_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %debug 44968817
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>()
+        > <string>(1)<module>
         ipdb> p b64decode("TGluc2xleQ==")
         [PYFLYBY] from base64 import b64decode
         'Linsley'
@@ -3768,7 +3787,7 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
         In [2]: %debug peekskill43666930.hollow(67658141)
         [PYFLYBY] import peekskill43666930
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>()
+        > <string>(1)<module>
         ipdb> c
         135316282
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3790,7 +3809,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
         In [2]: %debug taconic72383428.pudding(48364325)
         [PYFLYBY] import taconic72383428
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>()
+        > <string>(1)<module>
         ipdb> s
         ....
         ipdb> n
