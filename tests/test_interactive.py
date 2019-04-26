@@ -620,6 +620,7 @@ class AnsiFilterDecoder(object):
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
+        arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
         # arg = re.sub(b"\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", b"", arg)
