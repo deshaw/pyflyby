@@ -3553,7 +3553,7 @@ def test_debug_auto_import_print_1(frontend):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(b64decode("TW9udGdvbWVyeQ=="))
+        ipdb> if 1: print(b64decode("TW9udGdvbWVyeQ=="))
         [PYFLYBY] from base64 import b64decode
         Montgomery
         ipdb> q
