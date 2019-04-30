@@ -1239,9 +1239,9 @@ def _has_python_shebang(filename):
     otherwise the shebang is not necessary.
     """
     filename = Filename(filename)
-    with open(str(filename)) as f:
+    with open(str(filename), 'rb') as f:
         line = f.readline(1024)
-        return line.startswith("#!") and "python" in line
+        return line.startswith(b"#!") and b"python" in line
 
 
 
