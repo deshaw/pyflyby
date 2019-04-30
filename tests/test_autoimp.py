@@ -135,6 +135,13 @@ def test_find_missing_imports_lambda_2():
     assert expected == result
 
 
+def test_find_missing_imports_lambda_3():
+    result   = find_missing_imports("(lambda *a,**k: (a, k))(7, x=1)", [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
     result   = _dilist2strlist(result)

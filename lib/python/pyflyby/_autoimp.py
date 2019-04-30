@@ -698,6 +698,8 @@ class _MissingImportFinder(object):
     def _visit_Store(self, fullname, value=None):
         logger.debug("_visit_Store(%r)", fullname)
         scope = self.scopestack[-1]
+        if PY3 and isinstance(fullname, ast.arg):
+            fullname = fullname.arg
         if self.unused_imports is not None:
             # If we're redefining something, and it has not been used, then
             # record it as unused.
