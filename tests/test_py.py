@@ -1612,11 +1612,21 @@ def test_print_joinstr_2():
 
 def test_join_single_arg_1():
     result = py("print", "sys")
-    expected = dedent("""
-        [PYFLYBY] import sys
-        [PYFLYBY] print sys
-        <module 'sys' (built-in)>
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] print sys
+            <module 'sys' (built-in)>
+        """).strip()
+    else:
+        # In autocall mode, the arguments are evaluated and the repr() is
+        # printed for the [PYFLYBY] line
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] print(<module 'sys' (built-in)>)
+            <module 'sys' (built-in)>
+        """).strip()
+
     assert expected == result
 
 
