@@ -2581,14 +2581,14 @@ def test_ctypes_1():
         libname = "libc.dylib"
     else:
         raise AssertionError
-    result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "%03d", "7")
+    result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "b'%03d'", "7")
     expected = dedent("""
         [PYFLYBY] import ctypes
         [PYFLYBY] ctypes.CDLL("{libname}").printf
-        [PYFLYBY] ctypes.CDLL("{libname}").printf('%03d', 7)
+        [PYFLYBY] ctypes.CDLL("{libname}").printf(b'%03d', 7)
         007
     """).strip().format(libname=libname)
-    assert expected == result
+    assert expected == result, repr(result)
 
 
 def test_name_eval_1():
