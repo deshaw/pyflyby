@@ -2314,16 +2314,6 @@ def test_safe_dashdash_1():
     assert expected == result
 
 
-def test_unsafe_concat_1():
-    result = py("print", "sys")
-    expected = dedent("""
-        [PYFLYBY] import sys
-        [PYFLYBY] print sys
-        <module 'sys' (built-in)>
-    """).strip()
-    assert expected == result
-
-
 def test_safe_no_concat_1():
     result = py("--safe", "print", "sys")
     expected = dedent("""
