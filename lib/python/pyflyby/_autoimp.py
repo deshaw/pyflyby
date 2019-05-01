@@ -443,7 +443,7 @@ class _MissingImportFinder(object):
                         "unexpected %s" %
                         (', '.join(type(v).__name__ for v in value)))
             elif isinstance(value, (six.integer_types, float, complex,
-                                    str, six.text_type, type(None))):
+                                    str, six.text_type, type(None), bytes)):
                 pass
             else:
                 raise TypeError(

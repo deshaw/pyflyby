@@ -866,6 +866,15 @@ def test_find_missing_imports_annotations_1():
     expected = ['b', 'c']
     assert expected == result
 
+def test_bytes_1():
+    code = dedent("""
+        a = b'b'
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ['a']
+    assert expected == result
+
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
         y1 = y2 = 1234
