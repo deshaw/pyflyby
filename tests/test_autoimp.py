@@ -872,7 +872,7 @@ def test_bytes_1():
     """)
     result = find_missing_imports(code, [{}])
     result = _dilist2strlist(result)
-    expected = ['a']
+    expected = []
     assert expected == result
 
 def test_scan_for_import_issues_dictcomp_missing_1():
