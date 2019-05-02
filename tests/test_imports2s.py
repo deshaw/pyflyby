@@ -756,7 +756,7 @@ def test_last_line_escaped_string_no_trailing_newline_1():
 def test_remove_broken_imports_1():
     input = PythonBlock(dedent('''
         import sys, os, omgdoesntexist_95421787, keyword
-        from email import MIMEAudio, omgdoesntexist_8824165
+        from email.mime.audio import MIMEAudio, omgdoesntexist_8824165
         code()
     ''').lstrip(), filename="/foo/test_remove_broken_imports_1.py")
     output = remove_broken_imports(input)
@@ -764,7 +764,7 @@ def test_remove_broken_imports_1():
         import keyword
         import os
         import sys
-        from email import MIMEAudio
+        from email.mime.audio import MIMEAudio
         code()
     ''').lstrip(), filename="/foo/test_remove_broken_imports_1.py")
     assert output == expected
