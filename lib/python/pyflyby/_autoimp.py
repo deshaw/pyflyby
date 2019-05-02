@@ -13,7 +13,7 @@ from   six                      import exec_, reraise
 from   six.moves                import builtins
 import sys
 import types
-
+from   pyflyby._comms           import send_comm_message
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import (BadDottedIdentifierError,
@@ -1425,6 +1425,7 @@ def _try_import(imp, namespace):
             logger.info("  => Failed: pre-existing %r (%r) differs from imported %r",
                         name0, preexisting, name0)
             return False
+    send_comm_message("pyflyby.missing_imports", {"missing_imports": stmt})
     return True
 
 
