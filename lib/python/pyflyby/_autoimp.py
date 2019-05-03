@@ -867,11 +867,11 @@ def _find_missing_imports_in_code(co, namespaces):
     Helper function to L{find_missing_imports}.
 
       >>> f = lambda: foo.bar(x) + baz(y)
-      >>> map(str, _find_missing_imports_in_code(f.func_code, [{}]))
+      >>> [str(m) for m in _find_missing_imports_in_code(f.__code__, [{}])]
       ['baz', 'foo.bar', 'x', 'y']
 
       >>> f = lambda x: (lambda: x+y)
-      >>> _find_missing_imports_in_code(f.func_code, [{}])
+      >>> _find_missing_imports_in_code(f.__code__, [{}])
       [DottedIdentifier('y')]
 
     @type co:
@@ -898,7 +898,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     @type co:
       C{types.CodeType}
     @param co:
-      Code object, e.g. C{function.func_code}
+      Code object, e.g. C{function.__code__}
     @type loads_without_stores:
       C{set}
     @param loads_without_stores:
@@ -1180,7 +1180,7 @@ def _find_earliest_backjump_label(bytecode):
 
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
-      >> _find_earliest_backjump_label(f.func_code.co_code)
+      >> _find_earliest_backjump_label(f.__code__.co_code)
       38
 
     Note that in this example there are earlier targets of jumps at bytecode
@@ -1193,7 +1193,7 @@ def _find_earliest_backjump_label(bytecode):
     @type bytecode:
       C{bytes}
     @param bytecode:
-      Compiled bytecode, e.g. C{function.func_code.co_code}.
+      Compiled bytecode, e.g. C{function.__code__.co_code}.
     @rtype:
       C{int}
     @return:
@@ -1285,8 +1285,13 @@ def find_missing_imports(arg, namespaces):
       ['x']
 
     The (unintuitive) rules for generator expressions and list comprehensions
-    are handled correctly:
-      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])]
+    in Python 2 are handled correctly:
+      >>> # Python 3
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
+      ['y', 'z']
+
+      >>> # Python 2
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['z']
 
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
