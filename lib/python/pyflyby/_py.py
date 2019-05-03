@@ -126,7 +126,7 @@ Examples
     $ py b64decode aGVsbG8=
     [PYFLYBY] from base64 import b64decode
     [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
-    'hello'
+    b'hello'
 
   Find the day of the week of some date (apply function in module):
     $ py calendar.weekday 2014 7 18
@@ -527,7 +527,7 @@ class UserExpr(object):
 
       >>> UserExpr('base64.b64decode("SGFsbG93ZWVu")', ns, "auto").value
       [PYFLYBY] import base64
-      'Halloween'
+      b'Halloween'
 
     Returning an unparsable argument as a string:
       >>> UserExpr('Victory Loop', ns, "auto").value

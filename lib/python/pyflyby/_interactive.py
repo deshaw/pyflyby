@@ -953,15 +953,15 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
     are auto-imported first if not yet imported:
 
       >>> ns = {}
-      >>> complete_symbol(u"threading.Threa", namespaces=[ns])
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
       [PYFLYBY] import threading
-      [u'threading.Thread', u'threading.ThreadError']
+      ['threading.Thread', 'threading.ThreadError']
 
       >>> 'threading' in ns
       True
 
-      >>> complete_symbol(u"threading.Threa", namespaces=[ns])
-      [u'threading.Thread', u'threading.ThreadError']
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
+      ['threading.Thread', 'threading.ThreadError']
 
     We only need to import *parent* modules (packages) of the symbol being
     completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to

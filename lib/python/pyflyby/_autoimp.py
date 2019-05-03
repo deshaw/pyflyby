@@ -1635,13 +1635,13 @@ def auto_eval(arg, filename=None, mode=None,
     Evaluate/execute the given code, automatically importing as needed.
 
     C{auto_eval} will default the compilation C{mode} to "eval" if possible:
-      >>> auto_eval("b64decode('aGVsbG8=')") + "!"
+      >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
       [PYFLYBY] from base64 import b64decode
-      'hello!'
+      b'hello!'
 
     C{auto_eval} will default the compilation C{mode} to "exec" if the input
     is not a single expression:
-      >>> auto_eval("if True: print(b64decode('aGVsbG8='))")
+      >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
       [PYFLYBY] from base64 import b64decode
       hello
 
