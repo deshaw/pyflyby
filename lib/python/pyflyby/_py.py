@@ -1924,7 +1924,7 @@ class _PyMain(object):
             # TODO: refactor
             if (args and
                 self.arg_mode == None and
-                not any(re.match("\s*$|-[a-zA-Z-]", a) for a in args)):
+                not any(re.match(r"\s*$|-[a-zA-Z-]", a) for a in args)):
                 cmd = PythonBlock(" ".join([arg0]+args),
                                   flags=FLAGS, auto_flags=True)
                 if cmd.parsable and self.namespace.auto_import(cmd):
