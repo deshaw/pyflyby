@@ -18,8 +18,6 @@ import bootstrap
 import bz2
 import cPickle
 import cProfile
-import cStringIO
-from   cStringIO                import StringIO
 import cgi
 import collections
 from   collections              import defaultdict, deque, namedtuple
@@ -150,6 +148,8 @@ import shutil
 from   shutil                   import (copyfile, copyfileobj, copystat,
                                         copytree, rmtree)
 import signal
+import six
+from   six                      import StringIO
 import smtplib
 from   smtplib                  import (SMTP, SMTPAuthenticationError,
                                         SMTPConnectError, SMTPDataError,
