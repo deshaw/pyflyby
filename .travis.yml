@@ -28,5 +28,8 @@ script:
   # which are all unused imports. We use flake8 so we can use noqa if
   # necessary.
   - flake8 --exclude known_imports,etc,__init__.py --select=F
+  # Test for invalid escape sequences (will be syntax errors in a future
+  # Python version)
+  - python -We:invalid -m compileall -f -q lib/ etc/;
   - export DEBUG_TEST_PYFLYBY=1
   - pytest --doctest-modules lib tests
