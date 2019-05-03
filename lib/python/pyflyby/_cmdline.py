@@ -195,6 +195,23 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option('--width', type='int', default=79, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
+        group.add_option('--hanging-indent', type='choice', default='never',
+                         choices=['never','auto','always'],
+                         metavar='never|auto|always',
+                         dest='hanging_indent',
+                         help=hfmt('''
+                             How to wrap import statements that don't fit on
+                             one line.
+                             If --hanging-indent=always, then always indent
+                             imported tokens at column 4 on the next line.
+                             If --hanging-indent=never (default), then align
+                             import tokens after "import (" (by default column
+                             40); do so even if some symbols are so long that
+                             this would exceed the width (by default 79)).
+                             If --hanging-indent=auto, then use hanging indent
+                             only if it is necessary to prevent exceeding the
+                             width (by default 79).
+                         '''))
         def uniform_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = False
             parser.values.from_spaces           = 3
@@ -232,7 +249,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             from_spaces           =options.from_spaces,
             separate_from_imports =options.separate_from_imports,
             max_line_length       =options.width,
-            align_future          =options.align_future
+            align_future          =options.align_future,
+            hanging_indent        =options.hanging_indent,
             )
     return options, args
 

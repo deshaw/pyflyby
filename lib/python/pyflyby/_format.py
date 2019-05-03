@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import absolute_import, division, with_statement, print_function
 
 import six
 
@@ -11,6 +11,7 @@ class FormatParams(object):
     max_line_length = 79
     wrap_paren = True
     indent = 4
+    hanging_indent = 'never'
 
     def __new__(cls, *args, **kwargs):
         if not kwargs and len(args) == 1 and isinstance(args[0], cls):
@@ -99,23 +100,20 @@ def pyfill(prefix, tokens, params=FormatParams()):
     """
     Fill a Python statement.
 
-      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]))
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]), end='')
       print foo.bar, baz, quux, quuuuux
-      <BLANKLINE>
       >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=15)))
+      ...        FormatParams(max_line_length=15, hanging_indent='auto')), end='')
       print (foo.bar,
              baz,
              quux,
              quuuuux)
-      <BLANKLINE>
       >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=14)))
+      ...        FormatParams(max_line_length=14, hanging_indent='auto')), end='')
       print (
           foo.bar,
           baz, quux,
           quuuuux)
-      <BLANKLINE>
 
     @param prefix:
       Prefix for first line.
@@ -137,22 +135,27 @@ def pyfill(prefix, tokens, params=FormatParams()):
             # Output looks like:
             #   from foo import abc, defgh, ijkl, mnopq, rst
             return prefix + ", ".join(tokens) + "\n"
-        if len(prefix) + max(len(token) for token in tokens) + 2 <= N:
-            # Some tokens fit on the first line; wrap the rest.  The first
-            # line has an overhead of 2 because of "(" and ",".  We check the
+        if params.hanging_indent == "never":
+            hanging_indent = False
+        elif params.hanging_indent == "always":
+            hanging_indent = True
+        elif params.hanging_indent == "auto":
+            # Decide automatically whether to do hanging-indent mode.  If any
+            # line would exceed the max_line_length, then do hanging indent;
+            # else don't.
+            #
+            # In order to use non-hanging-indent mode, the first line would
+            # have an overhead of 2 because of "(" and ",".  We check the
             # longest token since even if the first token fits, we still want
             # to avoid later tokens running over N.
-            #
-            # Output looks like:
-            #   from foo import (abc, defgh,
-            #                    ijkl, mnopq,
-            #                    rst)
-            pprefix = prefix + "("
-            return fill(tokens, max_line_length=N,
-                        prefix=(pprefix, " " * len(pprefix)), suffix=("", ")"))
+            maxtoklen = max(len(token) for token in tokens)
+            hanging_indent = (len(prefix) + maxtoklen + 2 > N)
         else:
-            # Some token doesn't fit on a prefixed line.  We need a single
-            # opening paren and continue all imports on separate lines.
+            raise ValueError("bad params.hanging_indent=%r"
+                             % (params.hanging_indent,))
+        if hanging_indent:
+            # Hanging indent mode.  We need a single opening paren and
+            # continue all imports on separate lines.
             #
             # Output looks like:
             #   from foo import (
@@ -161,5 +164,15 @@ def pyfill(prefix, tokens, params=FormatParams()):
             return (prefix + "(\n"
                     + fill(tokens, max_line_length=N,
                            prefix=(" " * params.indent), suffix=("", ")")))
+        else:
+            # Non-hanging-indent mode.
+            #
+            # Output looks like:
+            #   from foo import (abc, defgh,
+            #                    ijkl, mnopq,
+            #                    rst)
+            pprefix = prefix + "("
+            return fill(tokens, max_line_length=N,
+                        prefix=(pprefix, " " * len(pprefix)), suffix=("", ")"))
     else:
         raise NotImplementedError
