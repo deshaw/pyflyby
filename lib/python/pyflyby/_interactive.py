@@ -20,7 +20,7 @@ from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
                                         clear_failed_imports_cache,
                                         load_symbol)
-from   pyflyby._comms           import initialize_comms, remove_comms
+from   pyflyby._comms           import initialize_comms, remove_comms, send_comm_message
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -2407,10 +2407,15 @@ class AutoImporter(object):
                     raise_on_error='if_debug', on_error=None):
         if namespaces is None:
             namespaces = get_global_namespaces(self._ip)
+
+        def post_import_hook(imp):
+            send_comm_message("pyflyby.missing_imports", {"missing_imports": str(imp)})
+
         return self._safe_call(
             auto_import, arg, namespaces,
             autoimported=self._autoimported_this_cell,
-            raise_on_error=raise_on_error, on_error=on_error)
+            raise_on_error=raise_on_error, on_error=on_error,
+            post_import_hook=post_import_hook)
 
     def complete_symbol(self, fullname, namespaces,
                         raise_on_error='if_debug', on_error=None):

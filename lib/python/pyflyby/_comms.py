@@ -1,10 +1,10 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 from   pyflyby._log             import logger
 import six
 
 # These are comm targets that the frontend (lab/notebook) is expected to
-# register. At this point, we handle only missing imports and
+# open. At this point, we handle only missing imports and
 # formatting imports
 
 MISSING_IMPORTS = "pyflyby.missing_imports"
@@ -18,12 +18,29 @@ comms = {}
 # TODO: Document the expected contract for the different
 # custom comm messages
 
-def _register_target(target_name):
+
+def in_jupyter():
     try:
         ip = get_ipython()
-    except:
-        logger.debug("get_ipython() doesn't work")
+    except NameError:
+        logger.debug("get_ipython() doesn't exist. Comm targets can only"
+                     "be added in an Jupyter notebook/lab/console environment")
+        return False
+
     else:
+        try:
+            comm_manager = ip.kernel.comm_manager
+        except AttributeError:
+            logger.debug("Comm targets can only be added in Jupyter "
+                         "notebook/lab/console environment")
+            return False
+        else:
+            return True
+
+
+def _register_target(target_name):
+    if in_jupyter():
+        ip = get_ipython()
         comm_manager = ip.kernel.comm_manager
         comm_manager.register_target(target_name, comm_open_handler)
 
@@ -32,23 +49,23 @@ def initialize_comms():
     for target in pyflyby_comm_targets:
         _register_target(target)
 
-
 def remove_comms():
     for target_name, comm in six.iteritems(comms):
         comm.close()
         logger.debug("Closing comm for " + target_name)
 
 def send_comm_message(target_name, msg):
-    try:
-        comm = comms[target_name]
-    except KeyError:
-        logger.error("Comm with target_name " + target_name)
-    else:
-        # Help the frontend distinguish between multiple types
-        # of custom comm messages
-        msg["type"] = target_name
-        comm.send(msg)
-        logger.debug("Sending comm message for target " + target_name)
+    if in_jupyter():
+        try:
+            comm = comms[target_name]
+        except KeyError:
+            logger.debug("Comm with target_name " + target_name + " hasn't been opened")
+        else:
+            # Help the frontend distinguish between multiple types
+            # of custom comm messages
+            msg["type"] = target_name
+            comm.send(msg)
+            logger.debug("Sending comm message for target " + target_name)
 
 
 def comm_close_handler(comm, message):
