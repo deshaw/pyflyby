@@ -759,7 +759,7 @@ def _signal_handler_debugger(signal_number, interrupted_frame):
 
 
 def enable_signal_handler_debugger(enable=True):
-    '''
+    r'''
     Install a signal handler for SIGQUIT so that Control-\ or external SIGQUIT
     enters debugger.  Suitable to be called from site.py.
     '''
@@ -889,7 +889,7 @@ def get_executable(pid):
 
 _gdb_safe_chars = (
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789,./-_=+:;'[]{}\|`~!@#%^&*()<>? ")
+    r"0123456789,./-_=+:;'[]{}\|`~!@#%^&*()<>? ")
 
 def _escape_for_gdb(string):
     """
