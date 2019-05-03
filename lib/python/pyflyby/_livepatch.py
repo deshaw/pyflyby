@@ -138,6 +138,7 @@ import time
 import types
 
 from six.moves import reload_module
+from six import PY2
 
 import inspect
 from   pyflyby._log             import logger
@@ -276,7 +277,10 @@ def livepatch(old, new, modname=None,
             visit_stack=visit_stack)
         # Find out which optional kwargs the hook wants.
         kwargs = {}
-        argspec = inspect.getargspec(hook)
+        if PY2:
+            argspec = inspect.getargspec(hook)
+        else:
+            argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
         if hasattr(hook, "im_func"):
             # Skip 'self' arg.
@@ -287,7 +291,7 @@ def livepatch(old, new, modname=None,
         for n in argnames:
             try:
                 kwargs[n] = avail_kwargs[n]
-                if argspec.keywords:
+                if argspec.keywords if PY2 else argspec.varkw:
                     break
             except KeyError:
                 # For compatibility, allow first argument to be 'old' with any
@@ -300,7 +304,7 @@ def livepatch(old, new, modname=None,
                     # Rely on default being set.  If a default isn't set, the
                     # user will get a TypeError.
                     pass
-        if argspec.keywords:
+        if argspec.keywords if PY2 else argspec.varkw:
             # Use all available kwargs.
             kwargs = avail_kwargs
         # Call hook.
