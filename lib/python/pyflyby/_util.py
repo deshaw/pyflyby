@@ -369,7 +369,7 @@ class Aspect(object):
                 self._qname = name
             elif isinstance(container.__dict__, types.DictProxyType):
                 original = getattr(container, name)
-                if hasattr(original, "im_func"):
+                if hasattr(original, "__func__"):
                     # TODO: generalize this to work for all cases, not just classmethod
                     original = original.__func__
                     self._wrapper = classmethod

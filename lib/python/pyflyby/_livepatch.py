@@ -282,7 +282,7 @@ def livepatch(old, new, modname=None,
         else:
             argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
-        if hasattr(hook, "im_func"):
+        if hasattr(hook, "__func__"):
             # Skip 'self' arg.
             argnames = argnames[1:]
         # Pick kwargs that are wanted and available.
