@@ -1296,12 +1296,17 @@ def _clean_ipython_output(result):
     # Remove trailing post-exit message.
     if _IPYTHON_VERSION >= (3,):
         result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
+    # Work around
+    # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/886
+    result = re.sub(b"Exception in default exception handler.*assert app._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
+    # CPR stuff from prompt-toolkit 2.0
+    result = result.replace(b"WARNING: your terminal doesn't support cursor position requests (CPR).\n", b"")
     # Remove trailing "In [N]:", if any.
-    result = re.sub(b"%s\n?$"%_IPYTHON_PROMPT1, b"", result)
+    result = re.sub(br"%s\n?$"%_IPYTHON_PROMPT1, b"", result)
     # Remove trailing "In [N]: exit()".
-    result = re.sub(b"%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, b"", result)
+    result = re.sub(br"%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, b"", result)
     # Compress newlines.
-    result = re.sub(b"\n\n+", b"\n", result)
+    result = re.sub(br"\n\n+", b"\n", result)
     # Remove xterm title setting.
     result = re.sub(b"\x1b]0;[^\x1b\x07]*\x07", b"", result)
     # Remove BELs (done after the above codes, which use \x07 as a delimiter)
@@ -1309,11 +1314,6 @@ def _clean_ipython_output(result):
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
-    # Work around
-    # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/886
-    result = re.sub(b"Exception in default exception handler.*assert app._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
-    # CPR stuff from prompt-toolkit 2.0
-    result = result.replace(b"WARNING: your terminal doesn't support cursor position requests (CPR).\n", b"")
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
