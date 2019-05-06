@@ -1818,7 +1818,15 @@ class AutoImporter(object):
         # function to get called twice per cell.  This seems like an
         # unintentional repeated call in IPython itself.  This is harmless for
         # us, since doing an extra reset shouldn't hurt.
-        if hasattr(ip, "input_transformer_manager"):
+        if hasattr(ip, "input_transformers_post"):
+            # In IPython 7.0+, the input transformer API changed.
+            def reset_auto_importer_state(line):
+                logger.debug("reset_auto_importer_state(%r)", line)
+                self.reset_state_new_cell()
+                return line
+            ip.input_transformers_post.append(reset_auto_importer_state)
+            return True
+        elif hasattr(ip, "input_transformer_manager"):
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
             # 3.2, 4.0.
             class ResetAutoImporterState(object):
