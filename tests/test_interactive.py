@@ -1530,9 +1530,9 @@ def test_ipython_version_1():
 def test_autoimport_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: '@'+b64decode('SGVsbG8=')+'@'
+        In [2]: b'@'+b64decode('SGVsbG8=')+b'@'
         [PYFLYBY] from base64 import b64decode
-        Out[2]: '@Hello@'
+        Out[2]: b'@Hello@'
     """)
 
 
@@ -1542,7 +1542,7 @@ def test_no_autoimport_1():
     # really a test that our testing infrastructure is OK and not accidentally
     # picking up pyflyby configuration installed in a system or user config.
     ipython("""
-        In [1]: '@'+b64decode('SGVsbG8=')+'@'
+        In [1]: b'@'+b64decode('SGVsbG8=')+b'@'
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
@@ -1575,19 +1575,19 @@ def test_unload_ext_1():
     # Test that %unload_ext works.
     # Autoimporting should stop working, but previously imported thi
     ipython("""
-        In [1]: b64encode('tortoise')
+        In [1]: b64encode(b'tortoise')
         ....
         NameError: name 'b64encode' is not defined
         In [2]: %load_ext pyflyby
-        In [3]: b64encode('tortoise')
+        In [3]: b64encode(b'tortoise')
         [PYFLYBY] from base64 import b64encode
-        Out[3]: 'dG9ydG9pc2U='
+        Out[3]: b'dG9ydG9pc2U='
         In [4]: %unload_ext pyflyby
-        In [5]: b64decode('aGFyZQ==')
+        In [5]: b64decode(b'aGFyZQ==')
         ....
         NameError: name 'b64decode' is not defined
-        In [6]: b64encode('turtle')
-        Out[6]: 'dHVydGxl'
+        In [6]: b64encode(b'turtle')
+        Out[6]: b'dHVydGxl'
     """)
 
 
@@ -1596,17 +1596,17 @@ def test_unload_ext_1():
 def test_reload_ext_1():
     # Test that autoimporting still works after %reload_ext.
     ipython("""
-        In [1]: b64encode('east')
+        In [1]: b64encode(b'east')
         ....
         NameError: name 'b64encode' is not defined
         In [2]: %load_ext pyflyby
-        In [3]: b64encode('east')
+        In [3]: b64encode(b'east')
         [PYFLYBY] from base64 import b64encode
-        Out[3]: 'ZWFzdA=='
+        Out[3]: b'ZWFzdA=='
         In [4]: %reload_ext pyflyby
-        In [5]: b64decode('d2VzdA==')
+        In [5]: b64decode(b'd2VzdA==')
         [PYFLYBY] from base64 import b64decode
-        Out[5]: 'west'
+        Out[5]: b'west'
     """)
 
 
@@ -1697,7 +1697,7 @@ def test_autoimport_symbol_1():
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print(b64decode('SGVsbG8='))
+        In [2]: if 1: print(b64decode(b'SGVsbG8='))
         [PYFLYBY] from base64 import b64decode
         Hello
     """)
@@ -1707,10 +1707,10 @@ def test_autoimport_statement_1():
 def test_autoimport_multiple_imports_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print((b64encode(b"koala"), b64decode("a2FuZ2Fyb28=")))
+        In [2]: print((b64encode(b"koala"), b64decode(b"a2FuZ2Fyb28=")))
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] from base64 import b64encode
-        ('a29hbGE=', 'kangaroo')
+        (b'a29hbGE=', b'kangaroo')
     """)
 
 
@@ -1719,11 +1719,11 @@ def test_autoimport_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print(b64decode('dHVydGxl'))
+           ...:     print(b64decode(b'dHVydGxl').decode('utf-8'))
            ...:
         [PYFLYBY] from base64 import b64decode
         turtle
-        In [3]: print(b64decode('bGFtYQ=='))
+        In [3]: if 1: print(b64decode(b'bGFtYQ==').decode('utf-8')
         lama
     """)
 
@@ -1743,7 +1743,7 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] import sys
         microphone
-        In [3]: print(b64decode('bG91ZHNwZWFrZXI='))
+        In [3]: if 1: sys.stdout.write(b64decode('bG91ZHNwZWFrZXI='))
         loudspeaker
     """, frontend=frontend)
 
@@ -1763,11 +1763,11 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
         ....
         NameError: name 'unknown_symbol_37320899' is not defined
         In [3]: if 1:
-           ...:     print(b64encode('y'))
+           ...:     print(b64encode(b'y').decode('utf-8'))
            ...:
         [PYFLYBY] from base64 import b64encode
         eQ==
-        In [4]: print(b64decode('YmFzZWJhbGw='))
+        In [4]: if 1: print(b64decode('YmFzZWJhbGw=').decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         baseball
     """, frontend=frontend)
@@ -1797,7 +1797,7 @@ def test_autoimport_autocall_arg_1():
         In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
         ------> str.upper(b64decode('a2V5Ym9hcmQ='))
         [PYFLYBY] from base64 import b64decode
-        Out[2]: 'KEYBOARD'
+        Out[2]: b'KEYBOARD'
     """, autocall=True)
 
 
@@ -1809,7 +1809,7 @@ def test_autoimport_autocall_function_1():
         In [2]: b64decode 'bW91c2U='
         [PYFLYBY] from base64 import b64decode
         ------> b64decode('bW91c2U=')
-        Out[2]: 'mouse'
+        Out[2]: b'mouse'
     """, autocall=True)
 
 
@@ -1984,7 +1984,7 @@ def test_complete_symbol_basic_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: b64deco\tde('eHl6enk=')
         [PYFLYBY] from base64 import b64decode
-        Out[2]: 'xyzzy'
+        Out[2]: b'xyzzy'
     """)
 
 
@@ -2027,7 +2027,7 @@ def test_complete_symbol_import_check_1():
         Out[3]: False
         In [4]: b64deco\tde('UnViaWNvbg==')
         [PYFLYBY] from base64 import b64decode
-        Out[4]: 'Rubicon'
+        Out[4]: b'Rubicon'
         In [5]: 'base64' in globals()
         Out[5]: False
         In [6]: 'b64decode' in globals()
@@ -2062,7 +2062,7 @@ def test_complete_symbol_member_1(frontend):
         In [2]: base64.b64d\t
         [PYFLYBY] import base64
         In [2]: base64.b64decode('bW9udHk=')
-        Out[2]: 'monty'
+        Out[2]: b'monty'
     """, frontend=frontend)
 
 
@@ -2108,7 +2108,7 @@ def test_complete_symbol_import_module_as_1(frontend, tmp):
         In [2]: b64.b64d\t
         [PYFLYBY] import base64 as b64
         In [2]: b64.b64decode('cm9zZWJ1ZA==')
-        Out[2]: 'rosebud'
+        Out[2]: b'rosebud'
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
@@ -2120,8 +2120,8 @@ def test_complete_symbol_statement_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: x = b64deco\tde('SHVudGVy')
         [PYFLYBY] from base64 import b64decode
-        In [3]: print(x)
-        Hunter
+        In [3]: x
+        b'Hunter'
     """)
 
 
@@ -2130,13 +2130,13 @@ def test_complete_symbol_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
-           ...:     print(b64deco\tde('emVicmE='))
+           ...:     print(b64deco\tde('emVicmE=').decode('utf-8'))
            ...:     print(42)
            ...:
         [PYFLYBY] from base64 import b64decode
         zebra
         42
-        In [3]: print(b64decode('dGlnZXI='))
+        In [3]: if 1: print(b64decode('dGlnZXI=').ecode('utf-8'))
         tiger
     """)
 
@@ -2168,7 +2168,7 @@ def test_complete_symbol_autocall_arg_1():
         In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
         ------> str.upper(b64decode('Q2hld2JhY2Nh'))
         [PYFLYBY] from base64 import b64decode
-        Out[2]: 'CHEWBACCA'
+        Out[2]: b'CHEWBACCA'
     """, autocall=True)
 
 
@@ -2374,21 +2374,21 @@ def test_disable_reenable_autoimport_1():
     ipython("""
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
-        In [3]: b64encode('blue')
+        In [3]: b64encode(b'blue')
         [PYFLYBY] from base64 import b64encode
-        Out[3]: 'Ymx1ZQ=='
+        Out[3]: b'Ymx1ZQ=='
         In [4]: pyflyby.disable_auto_importer()
         In [5]: b64decode('cmVk')        # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64decode' is not defined
-        In [6]: b64encode('green')       # should still work because already imported
-        Out[6]: 'Z3JlZW4='
+        In [6]: b64encode(b'green')       # should still work because already imported
+        Out[6]: b'Z3JlZW4='
         In [7]: pyflyby.enable_auto_importer()
         In [8]: b64decode('eWVsbG93')    # should work now
         [PYFLYBY] from base64 import b64decode
-        Out[8]: 'yellow'
+        Out[8]: b'yellow'
     """)
 
 
@@ -2397,21 +2397,21 @@ def test_disable_reenable_completion_1():
     ipython("""
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
-        In [3]: b64enco\tde('flower')
+        In [3]: b64enco\tde(b'flower')
         [PYFLYBY] from base64 import b64encode
-        Out[3]: 'Zmxvd2Vy'
+        Out[3]: b'Zmxvd2Vy'
         In [4]: pyflyby.disable_auto_importer()
         In [5]: b64deco\t('Y2xvdWQ=') # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64deco' is not defined
-        In [6]: b64enco\tde('tree') # should still work because already imported
-        Out[6]: 'dHJlZQ=='
+        In [6]: b64enco\tde(b'tree') # should still work because already imported
+        Out[6]: b'dHJlZQ=='
         In [7]: pyflyby.enable_auto_importer()
         In [8]: b64deco\tde('Y2xvdWQ=') # should work now
         [PYFLYBY] from base64 import b64decode
-        Out[8]: 'cloud'
+        Out[8]: b'cloud'
     """)
 
 
@@ -2521,7 +2521,7 @@ def test_syntax_error_in_user_code_1():
         SyntaxError: invalid syntax
         In [3]: b64decode("bWlkbmlnaHQ=")
         [PYFLYBY] from base64 import b64decode
-        Out[3]: 'midnight'
+        Out[3]: b'midnight'
     """)
 
 
@@ -2530,7 +2530,7 @@ def test_run_1(tmp):
     # Test that %run works and autoimports.
     writetext(tmp.file, """
         print('hello')
-        print(b64decode('RXVjbGlk'))
+        print(b64decode('RXVjbGlk').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2546,7 +2546,7 @@ def test_run_repeat_1(tmp):
     # Test that repeated %run works, and continues autoimporting, since we
     # start from a fresh namespace each time (since no "-i" option to %run).
     writetext(tmp.file, """
-        print(b64decode('Q2FudG9y'))
+        print(b64decode('Q2FudG9y').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2563,13 +2563,13 @@ def test_run_repeat_1(tmp):
 def test_run_separate_script_namespace_1(tmp):
     # Another explicit test that we start %run from a fresh namespace
     writetext(tmp.file, """
-        print(b64decode('UmllbWFubg=='))
+        print(b64decode('UmllbWFubg==').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print(b64decode('Rmlib25hY2Np'))
+        In [2]: b64decode('Rmlib25hY2Np')
         [PYFLYBY] from base64 import b64decode
-        Fibonacci
+        b'Fibonacci'
         In [3]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Riemann
@@ -2581,7 +2581,7 @@ def test_run_separate_script_namespace_2(tmp):
     # Another explicit test that we start %run from a fresh namespace, not
     # inheriting even explicitly defined functions.
     writetext(tmp.file, """
-        print(b64decode('SGlsYmVydA=='))
+        print(b64decode('SGlsYmVydA==').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2607,9 +2607,9 @@ def test_run_modify_interactive_namespace_1(tmp):
         In [2]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         In [3]: x
-        Out[3]: 'Fermat'
+        Out[3]: b'Fermat'
         In [4]: b64decode('TGFwbGFjZQ==')
-        Out[4]: 'Laplace'
+        Out[4]: b'Laplace'
     """.format(tmp=tmp))
 
 
@@ -2617,15 +2617,15 @@ def test_run_modify_interactive_namespace_1(tmp):
 def test_run_i_auto_import_1(tmp):
     # Verify that '%run -i' works and autoimports.
     writetext(tmp.file, """
-        print(b64decode('RGVzY2FydGVz'))
+        print(b64decode('RGVzY2FydGVz').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: run -i {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Descartes
-        In [3]: print(b64decode('R2F1c3M='))
-        Gauss
+        In [3]: b64decode('R2F1c3M=')
+        b'Gauss'
     """.format(tmp=tmp))
 
 
@@ -2633,13 +2633,13 @@ def test_run_i_auto_import_1(tmp):
 def test_run_i_already_imported_1(tmp):
     # Verify that '%run -i' inherits the interactive namespace.
     writetext(tmp.file, """
-        print(b64decode(k))
+        print(b64decode(k).decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print(b64decode('R3JvdGhlbmRpZWNr'))
+        In [2]: b64decode('R3JvdGhlbmRpZWNr')
         [PYFLYBY] from base64 import b64decode
-        Grothendieck
+        b'Grothendieck'
         In [3]: k = 'QXJjaGltZWRlcw=='
         In [4]: run -i {tmp.file}
         Archimedes
@@ -2650,7 +2650,7 @@ def test_run_i_already_imported_1(tmp):
 def test_run_i_repeated_1(tmp):
     # Verify that '%run -i' affects the next namespace of the next '%run -i'.
     writetext(tmp.file, """
-        print(b64decode('S29sbW9nb3Jvdg=='))
+        print(b64decode('S29sbW9nb3Jvdg==').decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2684,7 +2684,7 @@ def test_run_syntax_error_1(tmp):
     # autoimporter functionality.
     writetext(tmp.file, """
         print('hello')
-        print(b64decode('UHl0aGFnb3Jhcw=='))
+        print(b64decode('UHl0aGFnb3Jhcw==').decode('utf-8'))
         1 /
     """)
     ipython("""
@@ -2692,9 +2692,9 @@ def test_run_syntax_error_1(tmp):
         In [2]: run {tmp.file}
         ....
         SyntaxError: invalid syntax....
-        In [3]: print(b64decode('Q29ud2F5'))
+        In [3]: b64decode('Q29ud2F5')
         [PYFLYBY] from base64 import b64decode
-        Conway
+        b'Conway'
     """.format(tmp=tmp))
 
 
@@ -2702,7 +2702,7 @@ def test_run_syntax_error_1(tmp):
 def test_run_name_main_1(tmp):
     # Verify that __name__ == "__main__" in a %run script.
     writetext(tmp.file, """
-        print(b64encode(__name__))
+        print(b64encode(__name__.encode('utf-8')).decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2716,7 +2716,7 @@ def test_run_name_main_1(tmp):
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
     f = writetext(tmp.dir/"f81564382.py", """
-        print(b64encode(__name__))
+        print(b64encode(__name__.encode('utf-8')).decode('utf-8'))
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2803,7 +2803,7 @@ def test_time_1(frontend):
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
         Wall time: ...
-        Out[2]: 'telephone'
+        Out[2]: b'telephone'
     """, frontend=frontend)
 
 
@@ -2816,11 +2816,11 @@ def test_time_repeat_1(frontend):
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
         Wall time: ...
-        Out[2]: 'telegraph'
+        Out[2]: b'telegraph'
         In [3]: %time b64decode("ZW1haWw=")
         CPU times: ...
         Wall time: ...
-        Out[3]: 'email'
+        Out[3]: b'email'
     """, frontend=frontend)
 
 
@@ -2833,7 +2833,7 @@ def test_time_complete_1(frontend):
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
         Wall time: ...
-        Out[2]: 'shirt'
+        Out[2]: b'shirt'
     """, frontend=frontend)
 
 
@@ -2849,7 +2849,7 @@ def test_time_complete_menu_1(frontend):
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
         Wall time: ...
-        Out[2]: 'pants'
+        Out[2]: b'pants'
     """, frontend=frontend)
 
 
@@ -2865,7 +2865,7 @@ def test_time_complete_autoimport_member_1(frontend):
         In [2]: time base64.b64\x06dec\tode('amFja2V0')
         CPU times: ...
         Wall time: ...
-        Out[2]: 'jacket'
+        Out[2]: b'jacket'
     """, frontend=frontend)
 
 
@@ -2880,7 +2880,7 @@ def test_prun_1():
         .... function calls in ... seconds
         ....
         In [3]: b64decode("SGF3a2luZw==")
-        Out[3]: 'Hawking'
+        Out[3]: b'Hawking'
         In [4]: %prun b64decode("TG9yZW50eg==")
         .... function calls in ... seconds
         ....
@@ -2953,7 +2953,7 @@ def test_ipython_console_1(sendeof):
         In [3]: import pyflyby; pyflyby.enable_auto_importer()
         In [4]: b64deco\tde('cGVhbnV0')
         [PYFLYBY] from base64 import b64decode
-        Out[4]: 'peanut'
+        Out[4]: b'peanut'
     """, args='console', sendeof=sendeof)
 
 
@@ -2969,7 +2969,7 @@ def test_ipython_kernel_console_existing_1():
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: b64deco\tde('bGVndW1l')
             [PYFLYBY] from base64 import b64decode
-            Out[2]: 'legume'
+            Out[2]: b'legume'
         """, args=['console'], kernel=kernel)
 
 
@@ -2997,7 +2997,7 @@ def test_ipython_kernel_console_multiple_existing_1():
         ipython("""
             In [3]: b64deco\tde('YWxtb25k')
             [PYFLYBY] from base64 import b64decode
-            Out[3]: 'almond'
+            Out[3]: b'almond'
         """, args=['console'], kernel=kernel)
 
 
@@ -3034,7 +3034,7 @@ def test_ipython_notebook_1():
             """
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
-            Out[3]: 'hazelnut'
+            Out[3]: b'hazelnut'
             """, args=['console'], kernel=kernel)
 
 
@@ -3061,7 +3061,7 @@ def test_ipython_notebook_reconnect_1():
         ipython("""
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
-            Out[3]: 'hazelnut'
+            Out[3]: b'hazelnut'
         """, args=['console'], kernel=kernel)
 
 
@@ -3071,7 +3071,7 @@ def test_py_interactive_1():
     ipython("""
         In [1]: b64deco\tde('cGlzdGFjaGlv')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'pistachio'
+        Out[1]: b'pistachio'
     """, prog="py")
 
 
@@ -3097,7 +3097,7 @@ def test_py_console_1():
     ipython("""
         In [1]: b64deco\tde('d2FsbnV0')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'walnut'
+        Out[1]: b'walnut'
     """, prog="py", args=['console'])
 
 
@@ -3111,7 +3111,7 @@ def test_py_kernel_1():
         ipython("""
             In [1]: b64deco\tde('bWFjYWRhbWlh')
             [PYFLYBY] from base64 import b64decode
-            Out[1]: 'macadamia'
+            Out[1]: b'macadamia'
         """, args=['console'], kernel=kernel)
 
 
@@ -3150,20 +3150,20 @@ def test_py_disable_1():
     ipython("""
         In [1]: b64deco\tde('aGlja29yeQ==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'hickory'
+        Out[1]: b'hickory'
         In [2]: pyflyby.disable_auto_importer()
         [PYFLYBY] import pyflyby
-        In [3]: b64encode('x')
+        In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('bW9ja2VybnV0')
-        Out[4]: 'mockernut'
+        Out[4]: b'mockernut'
         In [5]: pyflyby.enable_auto_importer()
-        In [6]: b64encode('pecan')
+        In [6]: b64encode(b'pecan')
         [PYFLYBY] from base64 import b64encode
-        Out[6]: 'cGVjYW4='
+        Out[6]: b'cGVjYW4='
     """, prog="py")
 
 
@@ -3180,7 +3180,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
     ipython("""
         In [1]: b64deco\tde('bWFwbGU=')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'maple'
+        Out[1]: b'maple'
     """, ipython_dir=tmp.ipython_dir)
     # Double-check that we only modified tmp.ipython_dir.
     ipython("""
@@ -3221,7 +3221,7 @@ def test_installed_in_config_ipython_console_1(tmp):
     ipython("""
         In [1]: b64deco\tde('c3BydWNl')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'spruce'
+        Out[1]: b'spruce'
     """, args=['console'], ipython_dir=tmp.ipython_dir)
 
 
@@ -3235,7 +3235,7 @@ def test_installed_in_config_ipython_kernel_1(tmp):
         ipython("""
             In [1]: b64deco\tde('b2Fr')
             [PYFLYBY] from base64 import b64decode
-            Out[1]: 'oak'
+            Out[1]: b'oak'
         """, args=['console'], kernel=kernel)
 
 
@@ -3247,7 +3247,7 @@ def test_installed_in_config_ipython_notebook_1(tmp):
         ipython("""
             In [1]: b64deco\tde('c3ljYW1vcmU=')
             [PYFLYBY] from base64 import b64decode
-            Out[1]: 'sycamore'
+            Out[1]: b'sycamore'
         """, args=['console'], kernel=kernel)
 
 
@@ -3259,20 +3259,20 @@ def test_installed_in_config_disable_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cGluZQ==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'pine'
+        Out[1]: b'pine'
         In [2]: pyflyby.disable_auto_importer()
         [PYFLYBY] import pyflyby
-        In [3]: b64encode('x')
+        In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('d2lsbG93')
-        Out[4]: 'willow'
+        Out[4]: b'willow'
         In [5]: pyflyby.enable_auto_importer()
-        In [6]: b64encode('elm')
+        In [6]: b64encode(b'elm')
         [PYFLYBY] from base64 import b64encode
-        Out[6]: 'ZWxt'
+        Out[6]: b'ZWxt'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3286,19 +3286,19 @@ def test_installed_in_config_enable_noop_1(tmp):
         [PYFLYBY] import pyflyby
         In [2]: b64deco\tde('Y2hlcnJ5')
         [PYFLYBY] from base64 import b64decode
-        Out[2]: 'cherry'
+        Out[2]: b'cherry'
         In [3]: pyflyby.disable_auto_importer()
-        In [4]: b64encode('x')
+        In [4]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [5]: b64decode('YmlyY2g=')
-        Out[5]: 'birch'
+        Out[5]: b'birch'
         In [6]: pyflyby.enable_auto_importer()
-        In [7]: b64encode('fir')
+        In [7]: b64encode(b'fir')
         [PYFLYBY] from base64 import b64encode
-        Out[7]: 'Zmly'
+        Out[7]: b'Zmly'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3309,20 +3309,20 @@ def test_installed_in_config_ipython_py_1(tmp):
     ipython("""
         In [1]: b64deco\tde('YmFzc3dvb2Q=')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'basswood'
+        Out[1]: b'basswood'
         In [2]: pyflyby.disable_auto_importer()
         [PYFLYBY] import pyflyby
-        In [3]: b64encode('x')
+        In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('YnV0dGVybnV0')
-        Out[4]: 'butternut'
+        Out[4]: b'butternut'
         In [5]: pyflyby.enable_auto_importer()
-        In [6]: b64encode('larch')
+        In [6]: b64encode(b'larch')
         [PYFLYBY] from base64 import b64encode
-        Out[6]: 'bGFyY2g='
+        Out[6]: b'bGFyY2g='
     """, prog="py", ipython_dir=tmp.ipython_dir)
 
 
@@ -3337,7 +3337,7 @@ def test_manual_install_profile_startup_1(tmp):
     ipython("""
         In [1]: b64deco\tde('ZG92ZQ==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'dove'
+        Out[1]: b'dove'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3354,7 +3354,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
     ipython("""
         In [1]: b64deco\tde('aHVtbWluZ2JpcmQ=')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'hummingbird'
+        Out[1]: b'hummingbird'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3371,7 +3371,7 @@ def test_manual_install_exec_lines_1(tmp):
     ipython("""
         In [1]: b64deco\tde('c2VhZ3VsbA==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'seagull'
+        Out[1]: b'seagull'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3390,7 +3390,7 @@ def test_manual_install_exec_files_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Y3Vja29v')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'cuckoo'
+        Out[1]: b'cuckoo'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3404,7 +3404,7 @@ def test_manual_install_ipythonrc_execute_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cGVuZ3Vpbg==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'penguin'
+        Out[1]: b'penguin'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3419,7 +3419,7 @@ def test_manual_install_ipy_user_conf_1(tmp):
     ipython("""
         In [1]: b64deco\tde('bG9vbg==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'loon'
+        Out[1]: b'loon'
     """, ipython_dir=tmp.ipython_dir)
 
 
@@ -3431,7 +3431,7 @@ def test_cmdline_enable_c_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Zm94aG91bmQ=')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'foxhound'
+        Out[1]: b'foxhound'
     """, args=['-c', 'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
@@ -3443,7 +3443,7 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cm90dHdlaWxlcg==')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'rottweiler'
+        Out[1]: b'rottweiler'
     """, args=['--InteractiveShellApp.code_to_run='
                'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
@@ -3456,7 +3456,7 @@ def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cG9vZGxl')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'poodle'
+        Out[1]: b'poodle'
     """, args=[
         '--InteractiveShellApp.exec_lines='
         '''["__import__('pyflyby').enable_auto_importer()"]'''])
@@ -3473,7 +3473,7 @@ def test_cmdline_enable_exec_files_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Y3Vja29v')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'cuckoo'
+        Out[1]: b'cuckoo'
     """, args=[
         '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])
 
@@ -3519,7 +3519,7 @@ def test_debug_auto_import_p_1(frontend):
         ....
         ipdb> p b64decode("S2Vuc2luZ3Rvbg==")
         [PYFLYBY] from base64 import b64decode
-        'Kensington'
+        b'Kensington'
         ipdb> q
     """, frontend=frontend)
 
@@ -3536,7 +3536,7 @@ def test_debug_auto_import_pp_1(frontend):
         ....
         ipdb> p b64decode("R2FyZGVu")
         [PYFLYBY] from base64 import b64decode
-        'Garden'
+        b'Garden'
         ipdb> q
     """, frontend=frontend)
 
@@ -3553,7 +3553,7 @@ def test_debug_auto_import_default_1(frontend):
         ....
         ipdb> b64decode("UHJvc3BlY3Q=")
         [PYFLYBY] from base64 import b64decode
-        'Prospect'
+        b'Prospect'
         ipdb> q
     """, frontend=frontend)
 
@@ -3569,7 +3569,7 @@ def test_debug_auto_import_print_1(frontend):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> if 1: print(b64decode("TW9udGdvbWVyeQ=="))
+        ipdb> if 1: print(b64decode("TW9udGdvbWVyeQ==").decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         Montgomery
         ipdb> q
@@ -3589,7 +3589,7 @@ def test_debug_auto_import_bang_default_1(frontend):
         ipdb> !q = b64decode("SGF3dGhvcm5l")
         [PYFLYBY] from base64 import b64decode
         ipdb> !q
-        'Hawthorne'
+        b'Hawthorne'
         ipdb> q
     """, frontend=frontend)
 
@@ -3609,7 +3609,7 @@ def test_debug_postmortem_auto_import_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print(x + b64decode("QA==") + y)
+        ipdb> print(x + b64decode("QA==").decode('utf-8') + y)
         [PYFLYBY] from base64 import b64decode
         Bowcraft@Mountain
         ipdb> q
@@ -3626,7 +3626,7 @@ def test_debug_tab_completion_db_1(frontend):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(b64dec\tode("R2FyZmllbGQ="))
+        ipdb> print(b64dec\tode("R2FyZmllbGQ=").decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         Garfield
         ipdb> q
@@ -3696,7 +3696,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
         ....
         ipdb> print(x + base64.b64d\t
         [PYFLYBY] import base64
-        ipdb> print(x + base64.b64decode("Lw==") + y)
+        ipdb> print(x + base64.b64decode("Lw==").decode('utf-8') + y)
         Camden/Hopkinson
         ipdb> q
     """, frontend=frontend)
@@ -3720,17 +3720,17 @@ def test_debug_namespace_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw=="))
+        ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==").decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         AtlanticPacific
         ipdb> p b64deco\tde("Q29udGluZW50YWw=")
-        'Continental'
+        b'Continental'
         ipdb> q
         In [5]: base64.b64de\t
         [PYFLYBY] import base64
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
-        Out[5]: 'HillLake'
+        Out[5]: b'HillLake'
     """, frontend=frontend)
 
 
@@ -3750,11 +3750,11 @@ def test_debug_second_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print(b64deco\tde("Sm9zZXBo"))
+        ipdb> b64deco\tde("Sm9zZXBo")
         [PYFLYBY] from base64 import b64decode
-        Joseph
-        ipdb> print(b64deco\tde("U2VtaW5vbGU="))
-        Seminole
+        b'Joseph'
+        ipdb> b64deco\tde("U2VtaW5vbGU=")
+        b'Seminole'
         ipdb> q
         In [5]: foo("Quince", "Lilac")
         ---------------------------------------------------------------------------
@@ -3763,9 +3763,9 @@ def test_debug_second_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [6]: %debug
         ....
-        ipdb> print(b64deco\tde("Q3JvY3Vz"))
+        ipdb> b64deco\tde("Q3JvY3Vz")
         [PYFLYBY] from base64 import b64decode
-        Crocus
+        b'Crocus'
         ipdb> q
     """, frontend=frontend)
 
@@ -3784,7 +3784,7 @@ def test_debug_auto_import_string_1(frontend):
         > <string>(1)<module>
         ipdb> p b64decode("TGluc2xleQ==")
         [PYFLYBY] from base64 import b64decode
-        'Linsley'
+        b'Linsley'
         ipdb> q
     """, frontend=frontend)
 
@@ -3847,13 +3847,13 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 #         In [2]: pyflyby.enable_auto_importer()
 #         In [3]: b64decode("cG93bmFs")
 #         [PYFLYBY] from base64 import b64decode
-#         Out[3]: 'pownal'
+#         Out[3]: b'pownal'
 #         In [4]: sys
 #         Out[4]: 86176104
 #         In [5]: exit()
 #         >>> b64decode("...")
 #         ...
-#         >>> b64encode("...")
+#         >>> b64encode(b"...")
 #         NameError: ...
 
 # TODO: add tests for when IPython is not installed.  either using a tox
