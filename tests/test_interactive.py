@@ -1354,6 +1354,7 @@ def _normalize_python_2_3(template):
         template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
     template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
     template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
+    template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
@@ -1675,7 +1676,7 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         In [2]: rhino13609135
         [PYFLYBY] from hippo84402009 import rhino13609135
         hello from hippo84402009: attempt 1
-        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: integer division or modulo by zero
+        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: division by zero
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
@@ -1690,7 +1691,7 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         In [5]: rhino13609135
         [PYFLYBY] from hippo84402009 import rhino13609135
         hello from hippo84402009: attempt 2
-        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: integer division or modulo by zero
+        [PYFLYBY] Error attempting to 'from hippo84402009 import rhino13609135': ZeroDivisionError: division by zero
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
@@ -2355,7 +2356,7 @@ def test_complete_symbol_error_in_getattr_1(frontend):
         ---------------------------------------------------------------------------
         ZeroDivisionError                         Traceback (most recent call last)
         ....
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: division by zero
         In [5]: sys.settra\t
         [PYFLYBY] import sys
         In [5]: sys.settrace
