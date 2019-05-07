@@ -1723,7 +1723,7 @@ def test_autoimport_multiline_statement_1():
            ...:
         [PYFLYBY] from base64 import b64decode
         turtle
-        In [3]: if 1: print(b64decode(b'bGFtYQ==').decode('utf-8')
+        In [3]: if 1: print(b64decode(b'bGFtYQ==').decode('utf-8'))
         lama
     """)
 
@@ -2121,7 +2121,7 @@ def test_complete_symbol_statement_1():
         In [2]: x = b64deco\tde('SHVudGVy')
         [PYFLYBY] from base64 import b64decode
         In [3]: x
-        b'Hunter'
+        Out[3]: b'Hunter'
     """)
 
 
@@ -2136,7 +2136,7 @@ def test_complete_symbol_multiline_statement_1():
         [PYFLYBY] from base64 import b64decode
         zebra
         42
-        In [3]: if 1: print(b64decode('dGlnZXI=').ecode('utf-8'))
+        In [3]: if 1: print(b64decode('dGlnZXI=').encode('utf-8'))
         tiger
     """)
 
@@ -2569,7 +2569,7 @@ def test_run_separate_script_namespace_1(tmp):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: b64decode('Rmlib25hY2Np')
         [PYFLYBY] from base64 import b64decode
-        b'Fibonacci'
+        Out[2]: b'Fibonacci'
         In [3]: run {tmp.file}
         [PYFLYBY] from base64 import b64decode
         Riemann
@@ -2625,7 +2625,7 @@ def test_run_i_auto_import_1(tmp):
         [PYFLYBY] from base64 import b64decode
         Descartes
         In [3]: b64decode('R2F1c3M=')
-        b'Gauss'
+        Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
 
@@ -2639,7 +2639,7 @@ def test_run_i_already_imported_1(tmp):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: b64decode('R3JvdGhlbmRpZWNr')
         [PYFLYBY] from base64 import b64decode
-        b'Grothendieck'
+        Out[2]: b'Grothendieck'
         In [3]: k = 'QXJjaGltZWRlcw=='
         In [4]: run -i {tmp.file}
         Archimedes
@@ -2694,7 +2694,7 @@ def test_run_syntax_error_1(tmp):
         SyntaxError: invalid syntax....
         In [3]: b64decode('Q29ud2F5')
         [PYFLYBY] from base64 import b64decode
-        b'Conway'
+        Out[3]: b'Conway'
     """.format(tmp=tmp))
 
 
