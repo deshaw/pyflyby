@@ -669,9 +669,17 @@ class AnsiFilterDecoder(object):
         lines = []
         for line in arg.split(b'\n'):
             n = len(line)
+            m = None
             for m in re.finditer(br'\r\x1b\[([0-9]+)C', line):
                 n = int(m.group(1))
             if n > len(line):
+                self._buffer += arg
+                arg = b""
+                break
+            elif m and b'\x1b' in line[m.end():]:
+                # Some escape code was only seen partially and hence wasn't
+                # replaced above. If we cleared it now, the remainder would be
+                # shown as plain text in the next arg.
                 self._buffer += arg
                 arg = b""
                 break
@@ -679,6 +687,14 @@ class AnsiFilterDecoder(object):
                 lines.append(line[:n])
         else:
             arg = b'\n'.join(lines)
+
+        if arg.endswith(b' '*10):
+            # Probably going to have some \rESC[5C type clearing. There can be
+            # 9 spaces from a double indentation after ...: (currently the
+            # most indentation used), but the clearing generally uses hundreds
+            # of spaces, so this should distinguish them.
+            self._buffer = arg
+            arg = b""
 
         if DEBUG:
             if self._buffer:
