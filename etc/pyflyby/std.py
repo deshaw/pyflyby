@@ -1,9 +1,6 @@
-import ConfigParser
-import Queue
 import UserDict
 from   UserDict                 import DictMixin
 from   UserList                 import UserList
-import __builtin__
 from   _strptime                import TimeRE
 import abc
 import argparse
@@ -16,7 +13,6 @@ from   binascii                 import hexlify, unhexlify
 import bisect
 import bootstrap
 import bz2
-import cPickle
 import cProfile
 import cgi
 import collections
@@ -25,7 +21,6 @@ import commands
 import contextlib
 from   contextlib               import closing, contextmanager, nested
 import copy
-import copy_reg
 import csv
 import ctypes
 from   ctypes                   import CDLL
@@ -38,14 +33,10 @@ from   difflib                  import SequenceMatcher, context_diff
 import dis
 import email
 from   email                    import encoders
-from   email.Encoders           import encode_base64
-from   email.MIMEBase           import MIMEBase
-from   email.MIMEImage          import MIMEImage
-from   email.MIMEMultipart      import MIMEMultipart
-from   email.MIMEText           import MIMEText
-from   email.Utils              import COMMASPACE, formatdate
+from   email.encoders           import encode_base64
 from   email.message            import Message
 from   email.mime.audio         import MIMEAudio
+from   email.utils              import COMMASPACE, formatdate
 import errno
 from   errno                    import (E2BIG, EACCES, EADDRINUSE,
                                         EADDRNOTAVAIL, EAFNOSUPPORT, EAGAIN,
@@ -89,14 +80,13 @@ import hashlib
 from   hashlib                  import (md5, sha1, sha224, sha256, sha384,
                                         sha512)
 import heapq
-import httplib
 import imp
 import inspect
 from   inspect                  import ArgSpec, getargspec
 import io
 import itertools
-from   itertools                import (chain, count, groupby, imap, islice,
-                                        izip, product, repeat, tee)
+from   itertools                import (chain, count, groupby, islice, product,
+                                        repeat, tee)
 import json
 from   keyword                  import iskeyword
 import linecache
@@ -150,6 +140,13 @@ from   shutil                   import (copyfile, copyfileobj, copystat,
 import signal
 import six
 from   six                      import StringIO
+from   six.moves                import (builtins, cPickle, configparser,
+                                        copyreg, email_mime_base,
+                                        email_mime_image, email_mime_multipart,
+                                        email_mime_text, http_client, map,
+                                        queue, zip)
+from   six.moves.urllib.parse   import urlencode
+from   six.moves.urllib.request import urlopen
 import smtplib
 from   smtplib                  import (SMTP, SMTPAuthenticationError,
                                         SMTPConnectError, SMTPDataError,
@@ -321,16 +318,13 @@ from   types                    import (BooleanType, BufferType,
                                         XRangeType)
 import unittest
 import urllib
-from   urllib                   import urlencode
 import urllib2
-from   urllib2                  import urlopen
 import warnings
 import weakref
 from   weakref                  import (CallableProxyType, ProxyType,
-                                        ProxyTypes, ReferenceError,
-                                        ReferenceType, WeakKeyDictionary,
-                                        WeakValueDictionary, getweakrefcount,
-                                        getweakrefs)
+                                        ProxyTypes, ReferenceType,
+                                        WeakKeyDictionary, WeakValueDictionary,
+                                        getweakrefcount, getweakrefs)
 from   xml.dom                  import minidom
 import xml.parsers.expat
 import zlib
