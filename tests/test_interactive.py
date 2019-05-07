@@ -21,7 +21,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO, PY3
+from   six                      import BytesIO, PY2, PY3
 import signal
 from   subprocess               import check_call
 import sys
@@ -1809,26 +1809,48 @@ def test_autoimport_pyflyby_path_1(tmp):
 @retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
-    ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
-        ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
-        [PYFLYBY] from base64 import b64decode
-        Out[2]: b'KEYBOARD'
-    """, autocall=True)
-
+    if PY2:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
+            ------> str.upper(b64decode('a2V5Ym9hcmQ='))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: 'KEYBOARD'
+        """, autocall=True)
+    else:
+        # The autocall arrows are printed twice in newer versions of IPython
+        # (https://github.com/ipython/ipython/issues/11714).
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
+            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'KEYBOARD'
+        """, autocall=True)
 
 @retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
-    ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: b64decode 'bW91c2U='
-        [PYFLYBY] from base64 import b64decode
-        ------> b64decode('bW91c2U=')
-        Out[2]: b'mouse'
-    """, autocall=True)
-
+    if PY2:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: b64decode 'bW91c2U='
+            [PYFLYBY] from base64 import b64decode
+            ------> b64decode('bW91c2U=')
+            Out[2]: 'mouse'
+        """, autocall=True)
+    else:
+        # The autocall arrows are printed twice in newer versions of IPython
+        # (https://github.com/ipython/ipython/issues/11714).
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: b64decode 'bW91c2U='
+            [PYFLYBY] from base64 import b64decode
+            ------> b64decode('bW91c2U=')
+            ------> b64decode('bW91c2U=')
+            Out[2]: b'mouse'
+        """, autocall=True)
 
 @retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
@@ -2180,14 +2202,25 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
-    ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
-        ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
-        [PYFLYBY] from base64 import b64decode
-        Out[2]: b'CHEWBACCA'
-    """, autocall=True)
-
+    if PY2:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
+            ------> str.upper(b64decode('Q2hld2JhY2Nh'))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: 'CHEWBACCA'
+        """, autocall=True)
+    else:
+        # The autocall arrows are printed twice in newer versions of IPython
+        # (https://github.com/ipython/ipython/issues/11714).
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
+            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
+            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'CHEWBACCA'
+        """, autocall=True)
 
 @retry
 def test_complete_symbol_any_module_1(frontend, tmp):
