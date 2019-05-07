@@ -873,7 +873,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 break
         if line.startswith(b" ") and is_prompt_toolkit and _IPYTHON_VERSION < (7,):
             # Clear the line via ^U. This is needed with prompt_toolkit
-            # (IPython 5+) because it is no longer possible to turn off
+            # (IPython 5 and 6) because it is no longer possible to turn off
             # autoindent. (IPython now relies on bracketed paste mode; they
             # assumed that was the only reason to turn off autoindent. Another
             # idea is to use bracket paste mode, i.e. ESC[200~blahESC[201~.
