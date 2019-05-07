@@ -1337,7 +1337,7 @@ def _normalize_python_2_3(template):
     for module in ['os', 'base64', 'profile']:
         template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
     template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
-    template = re.sub(r"b'(.*?)'", r"'\1'", template)
+    template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
