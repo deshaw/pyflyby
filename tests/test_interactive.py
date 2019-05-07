@@ -1714,7 +1714,7 @@ def test_autoimport_symbol_1():
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: if 1: print(b64decode(b'SGVsbG8='))
+        In [2]: if 1: print(b64decode(b'SGVsbG8=').decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         Hello
     """)
@@ -1811,8 +1811,8 @@ def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
-        ------> str.upper(b64decode('a2V5Ym9hcmQ='))
+        In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
+        ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
         [PYFLYBY] from base64 import b64decode
         Out[2]: b'KEYBOARD'
     """, autocall=True)
@@ -2182,8 +2182,8 @@ def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
-        ------> str.upper(b64decode('Q2hld2JhY2Nh'))
+        In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
+        ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
         [PYFLYBY] from base64 import b64decode
         Out[2]: b'CHEWBACCA'
     """, autocall=True)
