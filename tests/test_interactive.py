@@ -827,8 +827,8 @@ def IPythonCtx(prog="ipython",
         raise ExpectError(e, child) #, None, sys.exc_info()[2]
     finally:
         # Clean up.
-        if child is not None and child.isalive():
-            child.kill(signal.SIGKILL)
+        if child is not None:
+            child.close(force=True)
         for d in cleanup_dirs:
             rmtree(d)
 
