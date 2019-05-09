@@ -22,7 +22,6 @@ import requests
 from   shutil                   import rmtree
 import six
 from   six                      import BytesIO, PY2, PY3
-import signal
 from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
