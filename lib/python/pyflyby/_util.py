@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, with_statement
 from   contextlib               import contextmanager
 import os
 import six
-from   six                      import reraise
+from   six                      import reraise, PY3
 import sys
 import types
 
@@ -328,27 +328,35 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if isinstance(joinpoint, (types.FunctionType, six.class_types, type)):
+        if (isinstance(joinpoint, (types.FunctionType, six.class_types, type))
+        and not (PY3 and joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
             self._container = sys.modules[joinpoint.__module__].__dict__
             self._name      = joinpoint.__name__
             self._original  = spec
-            assert spec == self._container[self._name]
-        elif isinstance(joinpoint, types.MethodType):
-            self._qname = "%s.%s.%s" % (
-                joinpoint.__self__.__class__.__module__,
-                joinpoint.__self__.__class__.__name__,
-                joinpoint.__func__.__name__)
-            self._name      = joinpoint.__func__.__name__
-            if joinpoint.__self__ is None:
-                # Python 2 only. In Python 3, there are no unbound methods
+            assert spec == self._container[self._name], joinpoint
+        elif isinstance(joinpoint, types.MethodType) or (PY3 and isinstance(joinpoint,
+        types.FunctionType) and joinpoint.__name__ != joinpoint.__qualname__):
+            if PY3:
+                self._qname = '%s.%s' % (joinpoint.__module__,
+                                         joinpoint.__qualname__)
+                self._name      = joinpoint.__qualname__
+            else:
+                self._qname = "%s.%s.%s" % (
+                    joinpoint.__self__.__class__.__module__,
+                    joinpoint.__self__.__class__.__name__,
+                    joinpoint.__func__.__name__)
+                self._name      = joinpoint.__func__.__name__
+            if getattr(joinpoint, '__self__', None) is None:
+                # Unbound method in Python 2 only. In Python 3, there are no unbound methods
                 # (they are just functions).
-                # Unbound method.
-                container_obj   = joinpoint.im_class
+                container_obj   = joinpoint.__class__
                 self._container = _WritableDictProxy(container_obj)
-                self._original  = spec.__func__
+                # __func__ gives the function for the Python 2 unbound method.
+                # In Python 3, spec is already a function.
+                self._original  = getattr(spec, '__func__', spec)
             else:
                 # Instance method.
                 container_obj   = joinpoint.__self__
