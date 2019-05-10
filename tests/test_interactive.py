@@ -658,7 +658,9 @@ class AnsiFilterDecoder(object):
                 self._buffer += right[m.start():]
                 right = b""
                 break
-            right = b'\n'.join(suffix_lines[num:]) + b'\n'
+            right = b'\n'.join(suffix_lines[num:])
+            if suffix.endswith(b'\n'):
+                right += b'\n'
         arg = left + right
 
         # \rESC[5C moves the cursor to the beginning of the line, then right 5
