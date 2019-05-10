@@ -625,16 +625,17 @@ class AnsiFilterDecoder(object):
         # in the tests.
         # arg = re.sub(b"\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", b"", arg)
 
-        # Assume ESC[5Dabcd\n is rewriting previous text; delete it.
-        # Only do so if the line does NOT have '[PYFLYBY]'.  TODO: find a less
-        # hacky way to handle this without hardcoding '[PYFLYBY]'.
+        # Assume ESC[5Dabcd\n is rewriting previous text; delete it. Only do
+        # so if the line does NOT have '[PYFLYBY]' or a CPR request warning.
+        # TODO: find a less hacky way to handle this without hardcoding
+        # '[PYFLYBY]'.
         left = b""
         right = arg
         while right:
             m = re.search(br"\x1b\[[0-9]+D.*?\n", right)
             if not m:
                 break
-            if b'[PYFLYBY]' in m.group():
+            if b'[PYFLYBY]' in m.group() or b'WARNING' in m.group():
                 left += right[:m.end()]
             else:
                 left += right[:m.start()] + b'\n'
