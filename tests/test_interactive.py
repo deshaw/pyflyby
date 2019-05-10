@@ -1348,7 +1348,7 @@ def _normalize_python_2_3(template):
         # The templates are written with outputs from Python 3
         return template
 
-    template = template.replace('<module>', '<module>()')
+    template = template.replace(' <module>', ' <module>()')
     for module in ['os', 'base64', 'profile']:
         template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
     template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
@@ -3830,7 +3830,7 @@ def test_debug_auto_import_string_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %debug 44968817
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>
+        > <string>(1)<module>()
         ipdb> p b64decode("TGluc2xleQ==")
         [PYFLYBY] from base64 import b64decode
         b'Linsley'
@@ -3852,7 +3852,7 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
         In [2]: %debug peekskill43666930.hollow(67658141)
         [PYFLYBY] import peekskill43666930
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>
+        > <string>(1)<module>()
         ipdb> c
         135316282
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3874,7 +3874,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
         In [2]: %debug taconic72383428.pudding(48364325)
         [PYFLYBY] import taconic72383428
         NOTE: Enter 'c' at the ipdb>  prompt to continue execution.
-        > <string>(1)<module>
+        > <string>(1)<module>()
         ipdb> s
         ....
         ipdb> n
