@@ -334,7 +334,7 @@ class Aspect(object):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
         if (isinstance(joinpoint, (types.FunctionType, six.class_types, type))
-        and not (PY3 and joinpoint.__name__ != joinpoint.__qualname__)):
+            and not (PY3 and joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
@@ -412,7 +412,7 @@ class Aspect(object):
             self._name      = name
         # TODO: unbound method
         else:
-            raise TypeError("JoinPoint: unexpected %s"
+            raise TypeError("JoinPoint: unexpected type %s"
                             % (type(joinpoint).__name__,))
         self._wrapped = None
 
