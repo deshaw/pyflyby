@@ -417,9 +417,6 @@ class Aspect(object):
         self._wrapped = None
 
     def advise(self, hook, once=False):
-        if isinstance(hook, property):
-            hook = hook.fget
-
         from pyflyby._log import logger
         self._previous = self._container.get(self._name, _UNSET)
         if once and getattr(self._previous, "__aspect__", None) :
