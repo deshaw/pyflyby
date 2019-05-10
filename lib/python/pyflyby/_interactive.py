@@ -2144,6 +2144,15 @@ class AutoImporter(object):
                     # Use get_global_namespaces(), which relies on
                     # _get_pdb_if_is_in_pdb().
                     return None
+            if getattr(completer, 'use_jedi', False):
+                # IPython 6.0+ uses jedi completion by default, which bypasses
+                # the global and attr matchers. For now we manually reenable
+                # them. A TODO would be to hook the Jedi completer itself.
+                @self._advise(type(completer).matchers)
+                @property
+                def matchers_with_python_matches(completer):
+                    return [completer.python_matches] + __original__.fget(completer)
+
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 if len(fullname) == 0:
@@ -2156,6 +2165,7 @@ class AutoImporter(object):
                 logger.debug("attr_matches_with_autoimport(%r)", fullname)
                 namespaces = get_completer_namespaces()
                 return self.complete_symbol(fullname, namespaces, on_error=__original__)
+
             return True
         elif hasattr(completer, "complete_request"):
             # This is a ZMQCompleter, so nothing to do.
