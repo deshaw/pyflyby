@@ -10,7 +10,7 @@ import six
 from   six                      import reraise, PY3
 import sys
 import types
-
+import inspect
 
 class Object(object):
     pass
@@ -250,7 +250,12 @@ class FunctionWithGlobals(object):
 
 
     def __get__(self, inst, cls=None):
-        return types.MethodType(self, inst, cls)
+        if PY3:
+            if inst is None:
+                return self
+            return types.MethodType(self, inst)
+        else:
+            return types.MethodType(self, inst, cls)
 
 
 
@@ -338,11 +343,11 @@ class Aspect(object):
             self._original  = spec
             assert spec == self._container[self._name], joinpoint
         elif isinstance(joinpoint, types.MethodType) or (PY3 and isinstance(joinpoint,
-        types.FunctionType) and joinpoint.__name__ != joinpoint.__qualname__):
+            types.FunctionType) and joinpoint.__name__ != joinpoint.__qualname__):
             if PY3:
                 self._qname = '%s.%s' % (joinpoint.__module__,
                                          joinpoint.__qualname__)
-                self._name      = joinpoint.__qualname__
+                self._name      = joinpoint.__name__
             else:
                 self._qname = "%s.%s.%s" % (
                     joinpoint.__self__.__class__.__module__,
@@ -352,7 +357,11 @@ class Aspect(object):
             if getattr(joinpoint, '__self__', None) is None:
                 # Unbound method in Python 2 only. In Python 3, there are no unbound methods
                 # (they are just functions).
-                container_obj   = joinpoint.__class__
+                if PY3:
+                    container_obj   = getattr(inspect.getmodule(joinpoint),
+                       joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
+                else:
+                    container_obj   = joinpoint.im_class
                 self._container = _WritableDictProxy(container_obj)
                 # __func__ gives the function for the Python 2 unbound method.
                 # In Python 3, spec is already a function.
@@ -362,7 +371,7 @@ class Aspect(object):
                 container_obj   = joinpoint.__self__
                 self._container = container_obj.__dict__
                 self._original  = spec
-            assert spec == getattr(container_obj, self._name)
+            assert spec == getattr(container_obj, self._name), (container_obj, self._qname)
             assert self._original == self._container.get(self._name, self._original)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
