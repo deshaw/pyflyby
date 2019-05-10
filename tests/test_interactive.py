@@ -1313,7 +1313,7 @@ def _clean_ipython_output(result):
         result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
     # Work around
     # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/886
-    result = re.sub(b"Exception in default exception handler.*assert app._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
+    result = re.sub(br"Exception in default exception handler.*?During handling of the above exception, another exception occurred:.*?assert app\._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
     # CPR stuff from prompt-toolkit 2.0
     result = result.replace(b"WARNING: your terminal doesn't support cursor position requests (CPR).\n", b"")
     # Remove trailing "In [N]:", if any.
