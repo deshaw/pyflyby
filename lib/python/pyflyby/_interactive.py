@@ -2148,10 +2148,10 @@ class AutoImporter(object):
                 # IPython 6.0+ uses jedi completion by default, which bypasses
                 # the global and attr matchers. For now we manually reenable
                 # them. A TODO would be to hook the Jedi completer itself.
-                @self._advise(type(completer).matchers)
-                @property
-                def matchers_with_python_matches(completer):
-                    return [completer.python_matches] + __original__.fget(completer)
+                if completer.python_matches not in completer.matchers:
+                    @self._advise(type(completer).matchers)
+                    def matchers_with_python_matches(completer):
+                        return [completer.python_matches] + __original__.fget(completer)
 
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
