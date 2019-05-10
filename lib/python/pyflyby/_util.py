@@ -343,7 +343,11 @@ class Aspect(object):
             self._original  = spec
             assert spec == self._container[self._name], joinpoint
         elif isinstance(joinpoint, types.MethodType) or (PY3 and isinstance(joinpoint,
-            types.FunctionType) and joinpoint.__name__ != joinpoint.__qualname__):
+            types.FunctionType) and joinpoint.__name__ !=
+            joinpoint.__qualname__) or isinstance(joinpoint, property):
+            if isinstance(joinpoint, property):
+                joinpoint = joinpoint.fget
+                self._wrapper = property
             if PY3:
                 self._qname = '%s.%s' % (joinpoint.__module__,
                                          joinpoint.__qualname__)
@@ -413,6 +417,9 @@ class Aspect(object):
         self._wrapped = None
 
     def advise(self, hook, once=False):
+        if isinstance(hook, property):
+            hook = hook.fget
+
         from pyflyby._log import logger
         self._previous = self._container.get(self._name, _UNSET)
         if once and getattr(self._previous, "__aspect__", None) :
