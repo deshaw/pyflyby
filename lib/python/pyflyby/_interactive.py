@@ -1822,10 +1822,15 @@ class AutoImporter(object):
             # In IPython 7.0+, the input transformer API changed.
             def reset_auto_importer_state(line):
                 # There is a bug in IPython that causes the transformer to be
-                # called twice
+                # called multiple times
                 # (https://github.com/ipython/ipython/issues/11714). Until it
                 # is fixed, workaround it by skipping one of the calls.
-                if inspect.stack()[3].function == 'should_run_async':
+                stack = inspect.stack()
+                if any([False,
+                        stack[3].function == 'run_cell_async',
+                        # stack[3].function == 'should_run_async',
+                        # stack[1].function == 'check_complete'
+                ]):
                     return line
                 logger.debug("reset_auto_importer_state(%r)", line)
                 self.reset_state_new_cell()
