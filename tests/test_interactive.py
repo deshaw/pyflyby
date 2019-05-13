@@ -1380,6 +1380,8 @@ def _normalize_python_2_3(template):
     template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
     template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
     template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
+    template = re.sub(r"NameError: name '(.*)' is not defined",
+                      r"NameError: global name '\1' is not defined", template)
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
@@ -2865,7 +2867,7 @@ def test_noninteractive_timeit_unaffected_1():
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         ....
-        NameError: global name 'base64' is not defined
+        NameError: name 'base64' is not defined
     """)
 
 
