@@ -1372,6 +1372,10 @@ def _normalize_python_2_3(template):
     """
     template0 = template
     if PY3:
+        # We have to leave NameError: global name ... as in Python 2, because
+        # in Python 3, "global" is never printed, but it is only printed for
+        # some messages in Python 2.
+        template = template.replace(b"NameError: global name", b"NameError: name")
         # The templates are written with outputs from Python 3
         return template
 
@@ -1381,8 +1385,6 @@ def _normalize_python_2_3(template):
     template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
     template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
     template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
-    template = re.sub(r"NameError: name '(.*)' is not defined",
-                      r"NameError: global name '\1' is not defined", template)
     template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
                       r"\2 loops, best of \1: ... per loop" , template)
 
@@ -2870,7 +2872,7 @@ def test_noninteractive_timeit_unaffected_1():
         NameError                                 Traceback (most recent call last)
         <ipython-input> in <module>
         ....
-        NameError: name 'base64' is not defined
+        NameError: global name 'base64' is not defined
     """)
 
 
