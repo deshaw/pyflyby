@@ -698,6 +698,10 @@ class AnsiFilterDecoder(object):
             self._buffer = arg
             arg = b""
 
+        if arg.endswith(b'\x1b'):
+            self._buffer = arg
+            arg = b""
+
         if DEBUG:
             if self._buffer:
                 print("AnsiFilterDecoder: %r => %r, pending: %r" % (arg0,arg,self._buffer))
