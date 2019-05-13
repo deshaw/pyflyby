@@ -3159,8 +3159,10 @@ def test_py_i_interactive_1(tmp):
         import pyflyby
         ipython_app = pyflyby._interactive._get_ipython_app()
     """)
+    # The # is to avoid the matching bracket highlighter, which outputs some
+    # escape codes that are hard to process, and cannot be disabled with py
     ipython("""
-        In [1]: bool(m32622167.ipython_app)
+        In [1]: bool(m32622167.ipython_app) #
         Out[1]: True
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
