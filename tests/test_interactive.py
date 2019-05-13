@@ -227,19 +227,19 @@ def assert_match(result, expected, ignore_prompt_number=False):
         pytest.fail(msg)
 
 
-def parse_template(template):
+def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
     template = _normalize_python_2_3(template)
     input = []
-    expected = []
+    expected = b""
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
-            expected.append(template)
+            expected += template
             break
         expline = m.group(0)
-        expected.append(template[:m.end()])
+        expected += template[:m.end()]
         template = template[m.end():]
         while template and not template.startswith(b"\n"):
             # We're in the input part of a template.  Get input up to tab or
@@ -247,7 +247,7 @@ def parse_template(template):
             m = re.match(re.compile(br"(.*?)(\t|$)", re.M), template)
             input.append(m.group(1))
             expline += m.group(1)
-            expected.append(m.group(1))
+            expected += m.group(1)
             tab = m.group(2)
             template = template[m.end():]
             if not tab:
@@ -263,13 +263,19 @@ def parse_template(template):
             # occurrences of the same prompt.  We find where to continue
             # by looking for the line repeated in the template.
             if template.startswith(b"\n"):
+                if clear_tab_completions:
+                    # In prompt-toolkit 2.0, tab completion at the end of the line is cleared in the output
+                    newline = expected.rfind(b'\n')
+                    if newline == -1: newline = 0
+                    expected = expected[:newline]
+
                 rep = template.rfind(expline)
                 if rep < 0:
                     raise AssertionError(
                         "expected next line of template following a "
                         "tab completion to start with %r" % (expline,))
                 repend = rep + len(expline)
-                expected.append(template[:repend])
+                expected += template[:repend]
                 template = template[repend:]
             # Assume that all subsequent symbol characters (alphanumeric
             # and underscore) in the template represent tab completion
@@ -277,7 +283,7 @@ def parse_template(template):
             m = re.match(br"[a-zA-Z0-9_]+", template)
             if m:
                 expline += m.group(0)
-                expected.append(m.group(0))
+                expected += m.group(0)
                 template = template[m.end():]
                 # Allow \x06 in the template to be a special character meaning
                 # "end of tab completion output".
@@ -285,12 +291,12 @@ def parse_template(template):
                 template = template[1:]
         input.append(b"\n")
     input = b"".join(input)
-    expected = b"".join(expected)
     return input, expected
 
 
 @retry
-def test_selftest_parse_template_1():
+@pytest.mark.parametrize('clear_tab_completions', [False, True])
+def test_selftest_parse_template_1(clear_tab_completions):
     template = """
         In [1]: hello
         there
@@ -300,7 +306,7 @@ def test_selftest_parse_template_1():
            ...:
         baz
     """
-    input, expected = parse_template(template)
+    input, expected = parse_template(template, clear_tab_completions=clear_tab_completions)
     assert input == b"hello\nfoo\nbar\n\n"
     assert expected == (
         b"In [1]: hello\nthere\nworld\n"
@@ -308,29 +314,32 @@ def test_selftest_parse_template_1():
 
 
 @retry
-def test_selftest_parse_template_tab_punctuation_1():
+@pytest.mark.parametrize('clear_tab_completions', [False, True])
+def test_selftest_parse_template_tab_punctuation_1(clear_tab_completions):
     template = """
         In [1]: hello\t_there(3)
         goodbye
     """
-    input, expected = parse_template(template)
+    input, expected = parse_template(template, clear_tab_completions=clear_tab_completions)
     assert input == b"hello\t(3)\n"
     assert expected == (b"In [1]: hello_there(3)\ngoodbye")
 
 
 @retry
-def test_selftest_parse_template_tab_newline_():
+@pytest.mark.parametrize('clear_tab_completions', [False, True])
+def test_selftest_parse_template_tab_newline_(clear_tab_completions):
     template = """
         In [1]: hello_\tthere
         goodbye
     """
-    input, expected = parse_template(template)
+    input, expected = parse_template(template, clear_tab_completions=clear_tab_completions)
     assert input == b"hello_\t\n"
     assert expected == (b"In [1]: hello_there\ngoodbye")
 
 
 @retry
-def test_selftest_parse_template_tab_continue_1():
+@pytest.mark.parametrize('clear_tab_completions', [False, True])
+def test_selftest_parse_template_tab_continue_1(clear_tab_completions):
     template = """
         In [1]: hello\t_the\x06re(3)
         goodbye
@@ -341,7 +350,8 @@ def test_selftest_parse_template_tab_continue_1():
 
 
 @retry
-def test_selftest_parse_template_tab_log_1():
+@pytest.mark.parametrize('clear_tab_completions', [False, True])
+def test_selftest_parse_template_tab_log_1(clear_tab_completions):
     template = """
         In [1]: hello\t
         bonjour
@@ -350,15 +360,24 @@ def test_selftest_parse_template_tab_log_1():
         In [1]: hello_there(5)
         goodbye
     """
-    input, expected = parse_template(template)
+    input, expected = parse_template(template, clear_tab_completions=clear_tab_completions)
     assert input == b"hello\t(5)\n"
-    assert expected == (
-        b"In [1]: hello\n"
-        b"bonjour\n"
-        b"In [1]: hello\n"
-        b"hallo\n"
-        b"In [1]: hello_there(5)\n"
-        b"goodbye")
+    if clear_tab_completions:
+        assert expected == (
+            b"\n"
+            b"bonjour\n"
+            b"In [1]: hello\n"
+            b"hallo\n"
+            b"In [1]: hello_there(5)\n"
+            b"goodbye")
+    else:
+        assert expected == (
+            b"In [1]: hello\n"
+            b"bonjour\n"
+            b"In [1]: hello\n"
+            b"hallo\n"
+            b"In [1]: hello_there(5)\n"
+            b"goodbye")
 
 
 @retry
@@ -950,7 +969,7 @@ def ipython(template, **kwargs):
     """
     __tracebackhide__ = True
     template = dedent(template).strip()
-    input, expected = parse_template(template)
+    input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
     args = kwargs.pop("args", ())
     if isinstance(args, six.string_types):
         args = [args]
@@ -1290,7 +1309,7 @@ def _clean_backspace(arg):
         left = left + right[:m.start()]
         count = int(m.group(1))
         right = right[m.end():]
-        if right.startswith(b"[PYFLYBY]"):
+        if _IPYTHON_VERSION < (7,) and right.startswith(b"[PYFLYBY]"):
             # For purposes of comparing IPython output in prompt_toolkit mode,
             # include the pre-backspace stuff as a separate line.  TODO: do
             # this in a more less hacky way.
