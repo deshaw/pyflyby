@@ -2209,7 +2209,7 @@ def test_complete_symbol_multiline_statement_1():
         [PYFLYBY] from base64 import b64decode
         zebra
         42
-        In [3]: if 1: print(b64decode('dGlnZXI=').encode('utf-8'))
+        In [3]: if 1: print(b64decode('dGlnZXI=').decode('utf-8'))
         tiger
     """)
 
@@ -3286,7 +3286,7 @@ def test_installed_in_config_redundant_1(tmp):
     ipython("""
         In [1]: b64deco\tde('bWFwbGU=')
         [PYFLYBY] from base64 import b64decode
-        Out[1]: 'maple'
+        Out[1]: b'maple'
     """, ipython_dir=tmp.ipython_dir)
     # Double-check that we only modified tmp.ipython_dir.
     ipython("""
