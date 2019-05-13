@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pyflyby/test_interactive.py
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
@@ -1382,6 +1383,8 @@ def _normalize_python_2_3(template):
     template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
     template = re.sub(r"NameError: name '(.*)' is not defined",
                       r"NameError: global name '\1' is not defined", template)
+    template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
+                      r"\2 loops, best of \1: ... per loop" , template)
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
@@ -2810,20 +2813,20 @@ def test_timeit_1():
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %timeit -n 2 -r 1 b64decode('TWljaGVsYW5nZWxv')
         [PYFLYBY] from base64 import b64decode
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
         In [3]: %timeit -n 2 -r 1 b64decode('RGF2aWQ=')
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """)
 
 
 @retry
 def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
-    ipython("""
+    ipython(u"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %timeit -n 2 -r 1 b64de\tcode('cGlsbG93')
         [PYFLYBY] from base64 import b64decode
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """, frontend=frontend)
 
 
