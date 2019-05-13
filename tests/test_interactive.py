@@ -1387,6 +1387,8 @@ def _normalize_python_2_3(template):
     template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
     template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
                       r"\2 loops, best of \1: ... per loop" , template)
+    template = re.sub(r"ModuleNotFoundError: No module named '(.*?)'",
+                      r"ImportError: No module named \1", template)
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
@@ -2293,7 +2295,7 @@ def test_complete_symbol_bad_1(frontend, tmp):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: foo_31221052_\tbar
         [PYFLYBY] import foo_31221052_bar
-        [PYFLYBY] Error attempting to 'import foo_31221052_bar': ImportError: No module named foo_31221052_bar
+        [PYFLYBY] Error attempting to 'import foo_31221052_bar': ModuleNotFoundError: No module named 'foo_31221052_bar'
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
@@ -2309,7 +2311,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar_98073069_\tquux.asdf
         [PYFLYBY] import foo_86487172 as bar_98073069_quux
-        [PYFLYBY] Error attempting to 'import foo_86487172 as bar_98073069_quux': ImportError: No module named foo_86487172
+        [PYFLYBY] Error attempting to 'import foo_86487172 as bar_98073069_quux': ModuleNotFoundError: No module named 'foo_86487172'
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
