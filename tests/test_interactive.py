@@ -2815,7 +2815,7 @@ def test_run_name_not_main_1(tmp):
 @retry
 def test_timeit_1():
     # Verify that %timeit works.
-    ipython("""
+    ipython(u"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %timeit -n 2 -r 1 b64decode('TWljaGVsYW5nZWxv')
         [PYFLYBY] from base64 import b64decode
