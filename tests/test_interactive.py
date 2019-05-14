@@ -1389,6 +1389,8 @@ def _normalize_python_2_3(template):
                       r"\2 loops, best of \1: ... per loop" , template)
     template = re.sub(r"ModuleNotFoundError: No module named '(.*?)'",
                       r"ImportError: No module named \1", template)
+    template = re.sub(r"\*\*\* NameError: name '(.*)' is not defined",
+                      r"""*** NameError: NameError("name '\1' is not defined",)""", template)
 
     if DEBUG:
         print("_normalize_python_2_3() %r => %r" % (template0, template))
@@ -3589,7 +3591,7 @@ def test_debug_without_autoimport_1(frontend):
         In [2]: %debug
         ....
         ipdb> p b64decode("QXVkdWJvbg==")
-        *** NameError: NameError("name 'b64decode' is not defined",)
+        *** NameError: name 'b64decode' is not defined
         ipdb> q
     """, frontend=frontend)
 
