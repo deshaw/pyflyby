@@ -986,7 +986,7 @@ def ipython(template, **kwargs):
                 # IPython console 3.2+ kills the kernel upon exit, unless you
                 # explicitly ask to keep it open.  If we're connecting to an
                 # existing kernel, default to keeping it alive upon exit.
-                kwargs.setdefault("exitstr", "exit(keep_kernel=True)\n")
+                kwargs.setdefault("exitstr", b"exit(keep_kernel=True)\n")
                 kwargs.setdefault("sendeof", False)
             elif _IPYTHON_VERSION >= (3,):
                 # IPython console 3.0, 3.1 always kill the kernel upon exit.
@@ -996,18 +996,18 @@ def ipython(template, **kwargs):
                 # https://github.com/ipython/ipython/pull/8483
                 # Instead of cleanly telling the client to exit, we'll just kill
                 # it with SIGKILL (in the 'finally' clause of IPythonCtx).
-                kwargs.setdefault("exitstr", "")
+                kwargs.setdefault("exitstr", b"")
                 kwargs.setdefault("sendeof", False)
                 kwargs.setdefault("waiteof", False)
             else:
                 kwargs.setdefault("sendeof", True)
-                kwargs.setdefault("exitstr", "" if kwargs['sendeof'] else "exit()")
+                kwargs.setdefault("exitstr", b"" if kwargs['sendeof'] else b"exit()")
         else:
             if _IPYTHON_VERSION >= (5,):
                 kwargs.setdefault("sendeof", False)
             else:
                 kwargs.setdefault("sendeof", True)
-            kwargs.setdefault("exitstr", "" if kwargs['sendeof'] else "exit()")
+            kwargs.setdefault("exitstr", b"" if kwargs['sendeof'] else b"exit()")
         kwargs.setdefault("ignore_prompt_number", True)
     exitstr              = kwargs.pop("exitstr"             , b"exit()\n")
     sendeof              = kwargs.pop("sendeof"             , False)
