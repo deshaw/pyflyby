@@ -3016,9 +3016,12 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="IPython version %s does not support kernel, so nothing to test")
 
+xfail_jupyter_console = pytest.mark.xfail(_IPYTHON_VERSION >= (7,),
+    reason="Jupyter console doesn't support flags to turn off prompt-toolkit features.")
 
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
+@xfail_jupyter_console
 @pytest.mark.parametrize('sendeof', [False, True])
 def test_ipython_console_1(sendeof):
     # Verify that autoimport and tab completion work in IPython console.
@@ -3045,6 +3048,7 @@ def test_ipython_console_1(sendeof):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
     # started independently.
@@ -3061,6 +3065,7 @@ def test_ipython_kernel_console_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_ipython_kernel_console_multiple_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
     # the auto importer is enabled from a different console.
@@ -3089,6 +3094,7 @@ def test_ipython_kernel_console_multiple_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_ipython_notebook_basic_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -3103,6 +3109,7 @@ def test_ipython_notebook_basic_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -3126,6 +3133,7 @@ def test_ipython_notebook_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_ipython_notebook_reconnect_1():
     # Verify that we can reconnect to the same kernel, and pyflyby is still
     # enabled.
@@ -3180,6 +3188,7 @@ def test_py_i_interactive_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_py_console_1():
     # Verify that 'py console' works.
     ipython("""
@@ -3191,6 +3200,7 @@ def test_py_console_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_py_kernel_1():
     # Verify that 'py kernel' works.
     with IPythonKernelCtx(prog="py") as kernel:
@@ -3205,6 +3215,7 @@ def test_py_kernel_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
@@ -3221,6 +3232,7 @@ def test_py_console_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_py_notebook_1():
     with IPythonNotebookCtx(prog="py") as kernel:
         # Verify that the auto importer and tab completion work.
@@ -3302,6 +3314,7 @@ def test_installed_in_config_redundant_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
     # installed in ipython_config.
@@ -3315,6 +3328,7 @@ def test_installed_in_config_ipython_console_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_installed_in_config_ipython_kernel_1(tmp):
     # Verify that autoimport works in 'ipython kernel' when pyflyby is
     # installed in ipython_config.
@@ -3329,6 +3343,7 @@ def test_installed_in_config_ipython_kernel_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@xfail_jupyter_console
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
