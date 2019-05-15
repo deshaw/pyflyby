@@ -718,7 +718,8 @@ class AnsiFilterDecoder(object):
             self._buffer = arg
             arg = b""
 
-        if arg.endswith(b'\x1b'):
+        # Uncompleted escape sequence at the end of the string
+        if re.search(br"\x1b[^a-zA-Z]*$", arg):
             self._buffer = arg
             arg = b""
 
