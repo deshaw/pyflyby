@@ -1192,7 +1192,7 @@ def IPythonNotebookCtx(**kwargs):
                 raise NotImplementedError(
                     "Not implemented for IPython %s" % (IPython.__version__))
             # Construct the kernel info line: --existing kernel-123-abcd-...456.json
-            kernel_info = ['--existing', "kernel-%s.json" % kernel_id]
+            kernel_info = [b'--existing', b"kernel-%s.json" % kernel_id.encode('utf-8')]
             # Yield control to caller.
             child.kernel_info = kernel_info
             yield child
