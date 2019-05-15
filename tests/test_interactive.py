@@ -3471,7 +3471,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
     # at top level.
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
         __import__("pyflyby").enable_auto_importer()
-    """)
+    """, mode='a')
     ipython("""
         In [1]: b64deco\tde('aHVtbWluZ2JpcmQ=')
         [PYFLYBY] from base64 import b64decode
@@ -3488,7 +3488,7 @@ def test_manual_install_exec_lines_1(tmp):
         c.InteractiveShellApp.exec_lines = [
             '__import__("pyflyby").enable_auto_importer()',
         ]
-    """)
+    """, mode='a')
     ipython("""
         In [1]: b64deco\tde('c2VhZ3VsbA==')
         [PYFLYBY] from base64 import b64decode
