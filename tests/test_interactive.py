@@ -1017,7 +1017,7 @@ def ipython(template, **kwargs):
     waiteof              = kwargs.pop("waiteof"             , True)
     ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
     if kernel is not None:
-        args += kernel.kernel_info
+        args += [i.decode('utf-8') for i in kernel.kernel_info]
         kwargs.setdefault("ipython_dir", kernel.ipython_dir)
     print("Input:")
     print("".join("    %s\n"%line for line in input.splitlines()))
@@ -1097,7 +1097,7 @@ def IPythonNotebookCtx(**kwargs):
             if _IPYTHON_VERSION >= (5,):
                 # Get the base URL from the notebook app.
                 child.expect(r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
-                baseurl = child.match.group(1)
+                baseurl = child.match.group(1).decode('utf-8')
                 token = child.match.group(2)
                 params = dict(token=token)
                 response = requests.post(baseurl + "/api/contents",
@@ -1121,7 +1121,7 @@ def IPythonNotebookCtx(**kwargs):
             elif _IPYTHON_VERSION >= (2,):
                 # Get the base URL from the notebook app.
                 child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1)
+                baseurl = child.match.group(1).decode('utf-8')
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
@@ -1153,7 +1153,7 @@ def IPythonNotebookCtx(**kwargs):
             elif _IPYTHON_VERSION >= (0, 12):
                 # Get the base URL from the notebook app.
                 child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1)
+                baseurl = child.match.group(1).decode('utf-8')
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
