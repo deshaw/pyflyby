@@ -3019,6 +3019,10 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="IPython version %s does not support kernel, so nothing to test")
 
+# We could write to jupyter_console_config.py and set JUPYTER_CONFIG_DIR, but
+# it only supports highlight_matching_brackets, not
+# display_completions='readlinelike', so any test that uses tab completion
+# won't work.
 xfail_jupyter_console = pytest.mark.xfail(_IPYTHON_VERSION >= (7,),
     reason="Jupyter console doesn't support flags to turn off prompt-toolkit features.")
 
