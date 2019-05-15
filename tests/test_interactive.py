@@ -3101,7 +3101,6 @@ def test_ipython_kernel_console_multiple_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
-@xfail_jupyter_console
 def test_ipython_notebook_basic_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -3222,14 +3221,14 @@ def test_py_kernel_1():
 
 @skipif_ipython_too_old_for_kernel
 @retry
-@xfail_jupyter_console
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
     # works normally).
+    # The # is to avoid the matching bracket highlighter with prompt-toolkit
     with IPythonKernelCtx() as kernel:
         ipython("""
-            In [1]: b64decode('x')
+            In [1]: b64decode('x') #
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>
