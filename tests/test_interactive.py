@@ -511,8 +511,20 @@ def _init_ipython_dir(ipython_dir):
             writetext(ipython_dir/"profile_default/ipython_config.py",
                   dedent("""
                   c = get_config()
+                  # Disable bracket highlighting, which prints escape codes that confuse the decoder.
                   c.TerminalInteractiveShell.display_completions = "readlinelike"
                   c.TerminalInteractiveShell.colors = 'NoColor'
+                  # Prompt-toolkit 2.0 still prints some escape codes for the
+                  # completion display even if there is only one completion.
+                  c.TerminalInteractiveShell.highlight_matching_brackets = False
+                  """))
+        elif _IPYTHON_VERSION >= (5,):
+            writetext(ipython_dir/"profile_default/ipython_config.py",
+                  dedent("""
+                  c = get_config()
+                  c.TerminalInteractiveShell.colors = 'NoColor'
+                  # Prompt-toolkit 2.0 still prints some escape codes for the
+                  # completion display even if there is only one completion.
                   c.TerminalInteractiveShell.highlight_matching_brackets = False
                   """))
         else:
