@@ -507,7 +507,16 @@ def _init_ipython_dir(ipython_dir):
     if _IPYTHON_VERSION >= (0, 11):
         os.makedirs(str(ipython_dir/"profile_default"))
         os.makedirs(str(ipython_dir/"profile_default/startup"))
-        writetext(ipython_dir/"profile_default/ipython_config.py",
+        if _IPYTHON_VERSION >= (7,):
+            writetext(ipython_dir/"profile_default/ipython_config.py",
+                  dedent("""
+                  c = get_config()
+                  c.TerminalInteractiveShell.display_completions = "readlinelike"
+                  c.TerminalInteractiveShell.colors = 'NoColor'
+                  c.TerminalInteractiveShell.highlight_matching_brackets = False
+                  """))
+        else:
+            writetext(ipython_dir/"profile_default/ipython_config.py",
                   "c = get_config()\n")
     elif _IPYTHON_VERSION >= (0, 10):
         writetext(ipython_dir/"ipythonrc", """
@@ -568,10 +577,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
             cmd += [opt("--no-banner")]
     if app != "notebook" and prog != "py":
         cmd += [opt("--colors=NoColor")]
-    if app == "terminal" and prog != "py" and frontend == "prompt_toolkit":
-        # Disable bracket highlighting, which prints escape codes that confuse the decoder.
-        cmd += [opt("--TerminalInteractiveShell.highlight_matching_brackets=False")]
-    if frontend == 'prompt_toolkit' and _IPYTHON_VERSION < (7,):
+    if frontend == 'prompt_toolkit' and _IPYTHON_VERSION < (7,) or prog == "py":
         # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
         # has various command-line options which toggle the internal
         # shell.autoindent flag, but turning that internal flag off doesn't do
@@ -597,11 +603,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
             # For IPython 4 and earlier, readline is the default and only option.
             pass
     elif frontend == 'prompt_toolkit':
-        if _IPYTHON_VERSION >= (7,):
-            # Prompt-toolkit 2.0 still prints some escape codes for the
-            # completion display even if there is only one completion.
-            cmd += ["--TerminalInteractiveShell.display_completions=readlinelike"]
-        elif _IPYTHON_VERSION >= (5,):
+        if _IPYTHON_VERSION >= (5,):
             # For IPython >= 5.0, prompt_toolkit is the default option (and
             # for 5.0-5.3, the only option).
             pass
