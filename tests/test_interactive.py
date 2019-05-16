@@ -119,7 +119,7 @@ class _TmpFixture(object):
 # frontend not showing the In prompt. Since these only fail sometimes, we
 # automatically retry them with the flaky plugin.\
 def is_timeout(err, *args):
-        return issubclass(err[0], TimeoutError)
+    return issubclass(err[0], pexpect.TIMEOUT)
 
 retry = flaky.flaky(max_runs=5, rerun_filter=is_timeout)
 
