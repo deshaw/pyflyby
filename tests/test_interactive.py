@@ -3210,10 +3210,8 @@ def test_py_i_interactive_1(tmp):
         import pyflyby
         ipython_app = pyflyby._interactive._get_ipython_app()
     """)
-    # The # is to avoid the matching bracket highlighter, which outputs some
-    # escape codes that are hard to process, and cannot be disabled with py
     ipython("""
-        In [1]: bool(m32622167.ipython_app) #
+        In [1]: bool(m32622167.ipython_app)
         Out[1]: True
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
@@ -3251,10 +3249,9 @@ def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
     # works normally).
-    # The # is to avoid the matching bracket highlighter with prompt-toolkit
     with IPythonKernelCtx() as kernel:
         ipython("""
-            In [1]: b64decode('x') #
+            In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>
