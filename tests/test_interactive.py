@@ -3518,9 +3518,7 @@ def test_manual_install_exec_files_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
         c = get_config()
         c.InteractiveShellApp.exec_files = [%r]
-        c.TerminalInteractiveShell.highlight_matching_brackets = False
-        c.TerminalInteractiveShell.display_completions = 'readlinelike'
-    """ % (str(tmp.file),))
+    """ % (str(tmp.file),), mode='a')
     ipython("""
         In [1]: b64deco\tde('Y3Vja29v')
         [PYFLYBY] from base64 import b64decode
