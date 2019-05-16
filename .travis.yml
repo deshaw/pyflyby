@@ -14,12 +14,12 @@ matrix:
 install:
   - set -e
   - pip install -U pip
+  # Install prompt-toolkit from git until a release is made with
+  # PROMPT_TOOLKIT_NO_CPR environment variable support.
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
         pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8;
     else
         pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8;
-        # Install prompt-toolkit from git until a release is made with
-        # PROMPT_TOOLKIT_NO_CPR environment variable support.
         pip install git+https://github.com/asmeurer/python-prompt-toolkit@no-assert;
     fi
   - pip list
