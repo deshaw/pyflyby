@@ -121,7 +121,7 @@ class _TmpFixture(object):
 def is_timeout(err, *args):
     return issubclass(err[0], (pexpect.TIMEOUT, AssertionError))
 
-retry = flaky.flaky(max_runs=10, rerun_filter=is_timeout)
+retry = flaky.flaky(max_runs=5, rerun_filter=is_timeout)
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
