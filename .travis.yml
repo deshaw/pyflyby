@@ -18,10 +18,10 @@ install:
         pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8;
     else
         pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8;
+        # Install prompt-toolkit from git until a release is made with
+        # PROMPT_TOOLKIT_NO_CPR environment variable support.
+        pip install git+https://github.com/prompt-toolkit/python-prompt-toolkit@2.0;
     fi
-  # Install prompt-toolkit from git until a release is made with
-  # PROMPT_TOOLKIT_NO_CPR environment variable support.
-  - pip install git+https://github.com/prompt-toolkit/python-prompt-toolkit@2.0
   - pip list
 
 script:
