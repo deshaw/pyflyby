@@ -876,6 +876,42 @@ def test_bytes_1():
     expected = []
     assert expected == result
 
+def test_exception_1():
+    code = dedent("""
+    try:
+        a = 1
+    except:
+        pass
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+def test_exception_2():
+    code = dedent("""
+    try:
+        a = 1
+    except SomeException:
+        pass
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ['SomeException']
+    assert expected == result
+
+def test_exception_3():
+    code = dedent("""
+    try:
+        a = 1
+    except SomeException as e:
+        pass
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ['SomeException']
+    assert expected == result
+
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
         y1 = y2 = 1234

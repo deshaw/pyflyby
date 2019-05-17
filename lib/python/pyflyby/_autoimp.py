@@ -554,6 +554,19 @@ class _MissingImportFinder(object):
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
 
+    def visit_ExceptHandler(self, node):
+        assert node._fields == ('type', 'name', 'body')
+        if node.type:
+            self.visit(node.type)
+        if node.name:
+            # ExceptHandler.name is a string in Python 3 and a Name with Store in
+            # Python 2
+            if PY3:
+                self._visit_Store(node.name)
+            else:
+                self.visit(node.name)
+        self.visit(node.body)
+
     def visit_comprehension(self, node):
         # Visit a "comprehension" node, which is a component of list
         # comprehensions and generator expressions.
