@@ -870,6 +870,18 @@ def test_find_missing_imports_annotations_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
+def test_find_missing_imports_annotations_2():
+    code = dedent("""
+    a: b = c
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b', 'c']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
 def test_find_missing_imports_star_assignments_1():
     code = dedent("""
     a, *b = c
