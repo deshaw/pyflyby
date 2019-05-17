@@ -904,17 +904,26 @@ def test_find_missing_imports_star_expression_2():
     expected = ['a', 'b', 'c']
     assert expected == result
 
-
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_find_missing_imports_star_expression_function_call1():
+def test_find_missing_imports_star_expression_function_call_1():
     code = dedent("""
-    f(a, *b, **c, d=1, **e)
+    f(a, *b, **c, d=e, **g)
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
-    expected = ['a', 'b', 'c', 'e', 'f']
+    expected = ['a', 'b', 'c', 'e', 'f', 'g']
+    assert expected == result
+
+def test_find_missing_imports_star_expression_function_call_2():
+    # Python 2-valid syntax
+    code = dedent("""
+    f(a, b=c, *d, **e)
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'c', 'd', 'e', 'f']
     assert expected == result
 
 def test_bytes_1():
