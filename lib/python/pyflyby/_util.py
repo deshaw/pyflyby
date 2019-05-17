@@ -12,6 +12,9 @@ import sys
 import types
 import inspect
 
+# Python 2/3 compatibility
+DictProxyType = type(object.__dict__)
+
 class Object(object):
     pass
 
@@ -388,7 +391,7 @@ class Aspect(object):
                 self._container = container._trait_values
                 self._original = self._container[name]
                 self._qname = name
-            elif isinstance(container.__dict__, types.DictProxyType):
+            elif isinstance(container.__dict__, DictProxyType):
                 original = getattr(container, name)
                 if hasattr(original, "__func__"):
                     # TODO: generalize this to work for all cases, not just classmethod
