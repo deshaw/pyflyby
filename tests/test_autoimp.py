@@ -998,6 +998,20 @@ def test_true_false_none_1():
     expected = []
     assert expected == result
 
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_matmul_1():
+    # Recursive format spec
+    code = dedent("""
+    a@b
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'b']
+    assert expected == result
+
 def test_exception_1():
     code = dedent("""
     try:
