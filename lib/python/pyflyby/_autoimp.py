@@ -487,8 +487,14 @@ class _MissingImportFinder(object):
 
 
     def visit_ClassDef(self, node):
+        if PY3:
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
+        else:
+            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
         self.visit(node.bases)
         self.visit(node.decorator_list)
+        if PY3:
+            self.visit(node.keywords)
         with self._NewScopeCtx(new_class_scope=True):
             self.visit(node.body)
         # The class's name is only visible to others (not to the body to the

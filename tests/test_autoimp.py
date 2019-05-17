@@ -926,6 +926,19 @@ def test_find_missing_imports_star_expression_function_call_2():
     expected = ['a', 'c', 'd', 'e', 'f']
     assert expected == result
 
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_python_3_metaclass_1():
+    code = dedent("""
+    class Test(metaclass=TestMeta):
+        pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['TestMeta']
+    assert expected == result
+
 def test_bytes_1():
     code = dedent("""
         a = b'b'
