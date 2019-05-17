@@ -1015,7 +1015,6 @@ def test_find_missing_imports_true_false_none_1():
     PY2,
     reason="Python 3-only syntax.")
 def test_find_missing_imports_matmul_1():
-    # Recursive format spec
     code = dedent("""
     a@b
     """)
@@ -1028,7 +1027,6 @@ def test_find_missing_imports_matmul_1():
     PY2,
     reason="Python 3-only syntax.")
 def test_find_missing_imports_async_await_1():
-    # Recursive format spec
     code = dedent("""
     async def f():
         g = await h()
@@ -1042,7 +1040,6 @@ def test_find_missing_imports_async_await_1():
     PY2,
     reason="Python 3-only syntax.")
 def test_find_missing_imports_async_comprehension_1():
-    # Recursive format spec
     code = dedent("""
     async def f():
         [i async for i in range(2)]
