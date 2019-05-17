@@ -982,7 +982,11 @@ class PythonBlock(object):
         except Exception as e:
             # Add the filename to the exception message to be nicer.
             if self.text.filename:
-                e = type(e)("While parsing %s: %s" % (self.text.filename, e))
+                try:
+                    e = type(e)("While parsing %s: %s" % (self.text.filename, e))
+                except TypeError:
+                    # Exception takes more than one argument
+                    pass
             # Cache the exception to avoid re-attempting while debugging.
             return e
 
