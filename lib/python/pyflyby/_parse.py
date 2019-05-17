@@ -179,6 +179,8 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
+    if PY2 and isinstance(source, unicode):
+        source = source.encode('utf-8')
     if not source.endswith("\n"):
         # Ensure that the last line ends with a newline (C{ast} barfs
         # otherwise).
