@@ -1049,6 +1049,17 @@ def test_find_missing_imports_async_comprehension_1():
     expected = []
     assert expected == result
 
+def test_nested_with_1():
+    # Handled differently in the ast in Python 2 and 3
+    code = dedent("""
+    with a as b, c as d:
+        pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'c']
+    assert expected == result
+
 def test_find_missing_imports_exception_1():
     code = dedent("""
     try:
