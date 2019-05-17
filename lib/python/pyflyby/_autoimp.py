@@ -567,6 +567,14 @@ class _MissingImportFinder(object):
                 self.visit(node.name)
         self.visit(node.body)
 
+    def visit_Dict(self, node):
+        assert node._fields == ('keys', 'values')
+        # In Python 3, keys can be None, indicating a ** expression
+        for key in node.keys:
+            if key:
+                self.visit(key)
+        self.visit(node.values)
+
     def visit_comprehension(self, node):
         # Visit a "comprehension" node, which is a component of list
         # comprehensions and generator expressions.
