@@ -114,14 +114,7 @@ class _TmpFixture(object):
         self._request.addfinalizer(lambda: os.unlink(f))
         return Filename(f)
 
-
-# Some tests randomly fail, especially on Travis, with the prompt-toolkit
-# frontend not showing the In prompt. Since these only fail sometimes, we
-# automatically retry them with the flaky plugin.\
-def is_timeout(err, *args):
-    return issubclass(err[0], (pexpect.TIMEOUT, AssertionError))
-
-retry = flaky.flaky(max_runs=5, rerun_filter=is_timeout)
+retry = flaky.flaky(max_runs=5)
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
