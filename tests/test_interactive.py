@@ -3268,7 +3268,7 @@ def test_py_notebook_1():
         ipython("""
             In [1]: b64deco\tde('Y2FzaGV3')
             [PYFLYBY] from base64 import b64decode
-            Out[1]: 'cashew'
+            Out[1]: b'cashew'
         """, args=['console'], kernel=kernel)
 
 
