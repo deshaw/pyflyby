@@ -2,15 +2,16 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   contextlib               import contextmanager
+import inspect
 import os
 import six
-from   six                      import reraise, PY3
+from   six                      import PY3, reraise
 import sys
 import types
-import inspect
 
 # Python 2/3 compatibility
 DictProxyType = type(object.__dict__)

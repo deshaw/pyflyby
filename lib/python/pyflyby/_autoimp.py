@@ -12,9 +12,8 @@ import sys
 import types
 
 import six
-from   six                      import exec_, reraise
+from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
-from six import PY2, PY3
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags

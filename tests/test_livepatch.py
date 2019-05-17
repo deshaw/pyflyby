@@ -1,5 +1,6 @@
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import os
 import pytest
@@ -9,7 +10,7 @@ from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 import types
 
-from six import PY2, PY3
+from   six                      import PY2, PY3
 
 from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError

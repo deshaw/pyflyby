@@ -1,7 +1,8 @@
 
 # Some self tests to check that our test setup is pointing to wrong paths etc.
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import os
 import pytest

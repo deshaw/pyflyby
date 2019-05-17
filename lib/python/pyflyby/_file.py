@@ -2,18 +2,19 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   functools                import total_ordering
 import io
 import os
 import re
 import six
 import sys
-from functools import total_ordering
 
-from six import string_types
+from   six                      import string_types
 
-from   pyflyby._util            import cached_attribute, memoize, cmp
+from   pyflyby._util            import cached_attribute, cmp, memoize
 
 class UnsafeFilenameError(ValueError):
     pass

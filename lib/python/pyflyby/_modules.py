@@ -2,21 +2,23 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   functools                import total_ordering
 import os
 import re
 import six
 from   six                      import reraise
 import sys
 import types
-from functools import total_ordering
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
-                                        cached_attribute, memoize, prefixes, cmp)
+                                        cached_attribute, cmp, memoize,
+                                        prefixes)
 
 
 class ErrorDuringImportError(ImportError):

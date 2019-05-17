@@ -2,18 +2,19 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import ast
 from   collections              import namedtuple
-from functools import total_ordering
+from   functools                import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
 from   pyflyby._parse           import PythonStatement
-from   pyflyby._util            import (Inf, cached_attribute,
-                                        longest_common_prefix, cmp)
+from   pyflyby._util            import (Inf, cached_attribute, cmp,
+                                        longest_common_prefix)
 
 
 class ImportFormatParams(FormatParams):

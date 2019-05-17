@@ -3,12 +3,13 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   .                        import xrefs
 
-from six import PY3
 import pytest
+from   six                      import PY3
 
 if PY3:
     pytestmark = pytest.mark.skip("Epydoc does not support Python 3")

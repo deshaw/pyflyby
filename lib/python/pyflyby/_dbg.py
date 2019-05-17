@@ -18,7 +18,7 @@ import time
 from   types                    import CodeType, FrameType, TracebackType
 
 import six
-from six.moves import builtins
+from   six.moves                import builtins
 
 from   pyflyby._file            import Filename
 

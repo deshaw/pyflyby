@@ -3,7 +3,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import ast
 import os
@@ -13,7 +14,7 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
-from six import PY2, PY3
+from   six                      import PY2, PY3
 
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)

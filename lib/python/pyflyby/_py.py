@@ -239,9 +239,9 @@ Examples
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-from functools import total_ordering
+from   functools                import total_ordering
 
-from pyflyby._util import cmp
+from   pyflyby._util            import cmp
 
 usage = """
 py --- command-line python multitool with automatic importing
@@ -327,9 +327,9 @@ from   pyflyby._dbg             import (add_debug_functions_to_builtins,
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (
-    get_ipython_terminal_app_with_autoimporter, run_ipython_line_magic,
-    start_ipython_with_autoimporter)
+from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
+                                        run_ipython_line_magic,
+                                        start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock

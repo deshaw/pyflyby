@@ -15,8 +15,7 @@ import subprocess
 import sys
 
 import six
-from six import text_type as unicode
-from six import PY2
+from   six                      import PY2, text_type as unicode
 from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,

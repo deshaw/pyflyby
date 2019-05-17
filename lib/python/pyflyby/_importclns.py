@@ -2,11 +2,12 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   collections              import defaultdict
+from   functools                import total_ordering
 import six
-from functools import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import dotted_prefixes, is_identifier
@@ -14,8 +15,8 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (cached_attribute, partition,
-                                        stable_unique, cmp)
+from   pyflyby._util            import (cached_attribute, cmp, partition,
+                                        stable_unique)
 
 
 class NoSuchImportError(ValueError):

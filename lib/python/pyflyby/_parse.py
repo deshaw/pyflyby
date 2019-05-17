@@ -2,21 +2,21 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import ast
 from   collections              import namedtuple
+from   functools                import total_ordering
 from   itertools                import groupby
 import re
 import sys
 from   textwrap                 import dedent
 import types
-from functools import total_ordering
 
 import six
 from   six                      import PY3, PY2, text_type as unicode
 from   six.moves                import range
-from six import PY3
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags

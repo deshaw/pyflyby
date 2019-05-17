@@ -3,7 +3,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import os
 import pytest
@@ -15,7 +16,7 @@ import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 
-from six import string_types, PY2, PY3
+from   six                      import PY2, PY3, string_types
 
 import pyflyby
 from   pyflyby._file            import Filename

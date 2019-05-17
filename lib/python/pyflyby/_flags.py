@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import, division, with_statement
 
+from __future__ import print_function
 import __future__
 import ast
 import operator

@@ -2,12 +2,13 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   functools                import total_ordering
 from   keyword                  import kwlist
 import re
 import six
-from functools import total_ordering
 
 from   pyflyby._util            import cached_attribute, cmp
 
