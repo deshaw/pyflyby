@@ -202,7 +202,7 @@ Examples
     6
 
   Run stdin as code:
-    $ echo 'print sys.argv[1:]' | py - hello world
+    $ echo 'print(sys.argv[1:])' | py - hello world
     [PYFLYBY] import sys
     ['hello', 'world']
 
@@ -217,10 +217,11 @@ Examples
     $ py b64decode?
     [PYFLYBY] from base64 import b64decode
     Python signature:
-      >> b64decode(s, altchars=None)
+      >>> b64decode(s, altchars=None, validate=False)
+
     Command-line signature:
-      $ py b64decode s [altchars]
-      $ py b64decode --s=... [--altchars=...]
+      $ py b64decode s [altchars [validate]]
+      $ py b64decode --s=... [--altchars=...] [--validate=...]
     ...
 
   Get module help:
