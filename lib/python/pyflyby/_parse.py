@@ -23,6 +23,10 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
+if PY3:
+    from ast import Bytes
+else:
+    Bytes = ast.Str
 
 def _is_comment_or_blank(line):
     """
@@ -38,9 +42,9 @@ def _is_comment_or_blank(line):
 
 
 def _ast_str_literal_value(node):
-    if isinstance(node, ast.Str):
+    if isinstance(node, (ast.Str, Bytes)):
         return node.s
-    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+    if isinstance(node, ast.Expr) and isinstance(node.value, (ast.Str, Bytes)):
         return node.value.s
     else:
         return None
@@ -219,7 +223,7 @@ def _test_parse_string_literal(text, flags):
     except SyntaxError:
         return None
     body = module_node.body
-    if not isinstance(body, ast.Str):
+    if not isinstance(body, (ast.Str, Bytes)):
         return None
     return body.s
 
@@ -394,14 +398,14 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         #
         # To fix that, we copy start_lineno and start_colno from the Str
         # node once we've corrected the values.
-        assert not isinstance(ast_node, ast.Str)
+        assert not isinstance(ast_node, (ast.Str, Bytes))
         assert leftstr_node.lineno     == ast_node.lineno
         assert leftstr_node.col_offset == -1
         ast_node.startpos = leftstr_node.startpos
         return True
     # It should now be the case that we are looking at a multi-line string
     # literal.
-    if not isinstance(ast_node, ast.Str):
+    if not isinstance(ast_node, (ast.Str, Bytes)):
         raise ValueError(
             "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
     # The C{lineno} attribute gives the ending line number of the multiline
@@ -634,7 +638,7 @@ def _ast_node_is_in_docstring_position(ast_node):
     @return:
       Whether this string ast node is in docstring position.
     """
-    if not isinstance(ast_node, ast.Str):
+    if not isinstance(ast_node, (ast.Str, Bytes)):
         raise TypeError
     expr_node = ast_node.context.parent
     if not isinstance(expr_node, ast.Expr):
@@ -1200,10 +1204,10 @@ class PythonBlock(object):
           [('a', FilePos(1,1)), ('b', FilePos(1,8)), ('c', FilePos(2,1))]
 
         @return:
-          Iterable of C{ast.Str} nodes
+          Iterable of C{ast.Str}  or C{ast.Bytes} nodes
         """
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
-            if isinstance(node, ast.Str):
+            if isinstance(node, (ast.Str, Bytes)):
                 assert hasattr(node, 'startpos')
                 yield node
 
