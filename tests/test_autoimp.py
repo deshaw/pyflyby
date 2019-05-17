@@ -1024,6 +1024,20 @@ def test_find_missing_imports_matmul_1():
     expected = ['a', 'b']
     assert expected == result
 
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_async_comprehension_1():
+    # Recursive format spec
+    code = dedent("""
+    async def f():
+        [i async for i in range(2)]
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
 def test_find_missing_imports_exception_1():
     code = dedent("""
     try:
