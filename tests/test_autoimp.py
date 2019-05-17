@@ -988,6 +988,16 @@ def test_bytes_1():
     expected = []
     assert expected == result
 
+def test_true_false_none_1():
+    # These nodes changed in Python 3, make sure they are handled correctly
+    code = dedent("""
+    (True, False, None)
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
 def test_exception_1():
     code = dedent("""
     try:
