@@ -1029,11 +1029,13 @@ def test_find_missing_imports_matmul_1():
 def test_find_missing_imports_async_await_1():
     code = dedent("""
     async def f():
-        g = await h()
+        async with a as b, c as d:
+            async for i in e:
+                g = await h()
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
-    expected = ['h']
+    expected = ['a', 'c', 'e', 'h']
     assert expected == result
 
 @pytest.mark.skipif(
