@@ -115,12 +115,12 @@ from   numpy                    import (Inf, NAN, NaN, abs as aabs, absolute,
                                         triu_indices_from, true_divide, trunc,
                                         ubyte, ufunc, uint, uint0, uint16,
                                         uint32, uint64, uint8, uintc, uintp,
-                                        ulonglong, unicode, unicode0, unicode_,
-                                        union1d, unique, unpackbits,
-                                        unravel_index, unsignedinteger, unwrap,
-                                        ushort, vander, var, vdot, vectorize,
-                                        void, void0, vsplit, vstack, where,
-                                        zeros, zeros_like)
+                                        ulonglong, unicode0, unicode_, union1d,
+                                        unique, unpackbits, unravel_index,
+                                        unsignedinteger, unwrap, ushort,
+                                        vander, var, vdot, vectorize, void,
+                                        void0, vsplit, vstack, where, zeros,
+                                        zeros_like)
 from   numpy.core.umath_tests   import inner1d
 from   numpy.fft                import (fft, fft2, fftn, ifft, ifft2, ifftn,
                                         irfft, irfft2, irfftn, rfft, rfft2,
