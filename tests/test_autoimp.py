@@ -941,7 +941,7 @@ def test_find_missing_imports_star_expression_function_call_2():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_python_3_metaclass_1():
+def test_find_missing_imports_python_3_metaclass_1():
     code = dedent("""
     class Test(metaclass=TestMeta):
         pass
@@ -955,7 +955,7 @@ def test_python_3_metaclass_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_f_string_1():
+def test_find_missing_imports_f_string_1():
     code = dedent("""
     a = 1
     f'{a + 1} {b + 1}'
@@ -968,7 +968,7 @@ def test_f_string_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_f_string_2():
+def test_find_missing_imports_f_string_2():
     code = dedent("""
     a = 1
     f'{a!s} {b!r}'
@@ -981,7 +981,7 @@ def test_f_string_2():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_f_string_3():
+def test_find_missing_imports_f_string_3():
     # Recursive format spec
     code = dedent("""
     f'{a:{b}!s}'
@@ -991,7 +991,7 @@ def test_f_string_3():
     expected = ['a', 'b']
     assert expected == result
 
-def test_bytes_1():
+def test_find_missing_imports_bytes_1():
     code = dedent("""
         a = b'b'
     """)
@@ -1000,7 +1000,7 @@ def test_bytes_1():
     expected = []
     assert expected == result
 
-def test_true_false_none_1():
+def test_find_missing_imports_true_false_none_1():
     # These nodes changed in Python 3, make sure they are handled correctly
     code = dedent("""
     (True, False, None)
@@ -1014,7 +1014,7 @@ def test_true_false_none_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
-def test_matmul_1():
+def test_find_missing_imports_matmul_1():
     # Recursive format spec
     code = dedent("""
     a@b
@@ -1024,7 +1024,7 @@ def test_matmul_1():
     expected = ['a', 'b']
     assert expected == result
 
-def test_exception_1():
+def test_find_missing_imports_exception_1():
     code = dedent("""
     try:
         a = 1
@@ -1036,7 +1036,7 @@ def test_exception_1():
     expected = []
     assert expected == result
 
-def test_exception_2():
+def test_find_missing_imports_exception_2():
     code = dedent("""
     try:
         a = 1
@@ -1048,7 +1048,7 @@ def test_exception_2():
     expected = ['SomeException']
     assert expected == result
 
-def test_exception_3():
+def test_find_missing_imports_exception_3():
     code = dedent("""
     try:
         a = 1
