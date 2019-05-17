@@ -255,11 +255,11 @@ def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
             # the exec in general (as a library function) and avoid changing
             # python versions.
             try:
-                from jupyter_console.app import ZMQTerminalIPythonApp
+                from ipkernel.app import IPKernelApp
             except (ImportError, AttributeError):
                 pass
             else:
-                app = ZMQTerminalIPythonApp.instance()
+                app = IPKernelApp.instance()
                 argv = argv[1:]
         elif subcmd == 'notebook':
             try:
