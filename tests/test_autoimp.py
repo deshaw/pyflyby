@@ -1027,6 +1027,20 @@ def test_find_missing_imports_matmul_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
+def test_find_missing_imports_async_await_1():
+    # Recursive format spec
+    code = dedent("""
+    async def f():
+        g = await h()
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['h']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
 def test_find_missing_imports_async_comprehension_1():
     # Recursive format spec
     code = dedent("""
