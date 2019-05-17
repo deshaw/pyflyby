@@ -14,6 +14,7 @@ import types
 from functools import total_ordering
 
 import six
+from   six                      import PY3, PY2, text_type as unicode
 from   six.moves                import range
 from six import PY3
 
