@@ -939,6 +939,46 @@ def test_python_3_metaclass_1():
     expected = ['TestMeta']
     assert expected == result
 
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_f_string_1():
+    code = dedent("""
+    a = 1
+    f'{a + 1} {b + 1}'
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_f_string_2():
+    code = dedent("""
+    a = 1
+    f'{a!s} {b!r}'
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_f_string_3():
+    # Recursive format spec
+    code = dedent("""
+    f'{a:{b}!s}'
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'b']
+    assert expected == result
+
 def test_bytes_1():
     code = dedent("""
         a = b'b'
