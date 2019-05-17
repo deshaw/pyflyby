@@ -1049,7 +1049,21 @@ def test_find_missing_imports_async_comprehension_1():
     expected = []
     assert expected == result
 
-def test_nested_with_1():
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_yield_from_1():
+    code = dedent("""
+    def f():
+        yield from g()
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['g']
+    assert expected == result
+
+def test_find_missing_imports_nested_with_1():
     # Handled differently in the ast in Python 2 and 3
     code = dedent("""
     with a as b, c as d:
