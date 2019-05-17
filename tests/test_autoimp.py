@@ -867,6 +867,56 @@ def test_find_missing_imports_annotations_1():
     expected = ['b', 'c']
     assert expected == result
 
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_star_assignments_1():
+    code = dedent("""
+    a, *b = c
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['c']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_star_expression_1():
+    code = dedent("""
+    [a, *b]
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'b']
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_star_expression_2():
+    code = dedent("""
+    {a: 1, **b, **{c: 1}}
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'b', 'c']
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_star_expression_function_call1():
+    code = dedent("""
+    f(a, *b, **c, d=1, **e)
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['a', 'b', 'c', 'e', 'f']
+    assert expected == result
+
 def test_bytes_1():
     code = dedent("""
         a = b'b'
