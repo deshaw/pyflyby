@@ -57,7 +57,12 @@ Features
   * Matplotlib/pylab integration: show() is called if appropriate to block on
     plots.
 
-  * Enter debugger upon unhandled exception.
+  * Enter debugger upon unhandled exception.  (This functionality is enabled
+    by default when stdout is a tty.  Use --postmortem=no to never use the
+    postmortem debugger.  Use --postmortem=yes enable even if stdout is not a
+    tty.  If the postmortem debugger is enabled but /dev/tty is not available,
+    then if an exception occurs, py will email instructions for attaching a
+    debugger.)
 
   * Control-\\ (SIGQUIT) enters debugger while running (and allows continuing).
 
@@ -874,6 +879,8 @@ def _get_help(expr, verbosity=1):
     return result
 
 
+_enable_postmortem_debugger = None
+
 def _handle_user_exception(exc_info=None):
     """
     Handle an exception in user code.
@@ -891,15 +898,12 @@ def _handle_user_exception(exc_info=None):
     if exc_info[2].tb_next:
         exc_info = (exc_info[0], exc_info[1],
                     exc_info[2].tb_next) # skip this traceback
-    # If we're called from a tty, then debug the exception.
+    # If C{_enable_postmortem_debugger} is enabled, then debug the exception.
+    # By default, this is enabled run running in a tty.
     # We check isatty(1) here because we want 'py ... | cat' to never go into
     # the debugger.  Note that debugger() also checks whether /dev/tty is
     # usable (and if not, waits for attach).
-    # TODO: make it a user option.
-    # TODO: Allow the user to control whether to allow
-    # wait_for_debugger_to_attach here.
-    # TODO: disallow debugger here under --safe.
-    if os.isatty(1):
+    if _enable_postmortem_debugger:
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
@@ -1512,7 +1516,12 @@ class _PyMain(object):
         if self.debug:
             # TODO: break closer to user code
             debugger()
-        runpy.run_module(str(module.name), run_name="__main__")
+        try:
+            runpy.run_module(str(module.name), run_name="__main__")
+        except SystemExit:
+            raise
+        except:
+            _handle_user_exception()
 
     def heuristic_run_module(self, module, args):
         module = ModuleHandle(module)
@@ -1595,6 +1604,7 @@ class _PyMain(object):
         self.verbosity   = 1
         self.arg_mode    = None
         self.output_mode = None
+        postmortem = 'auto'
         while args:
             arg = args[0]
             if arg in ["debug", "pdb", "ipdb", "dbg"]:
@@ -1672,8 +1682,32 @@ class _PyMain(object):
                 novalue()
                 self.output_mode = _interpret_output_mode(argname)
                 continue
+            if argname in ["postmortem"]:
+                del args[0]
+                v = (value or "").lower().strip()
+                if v in ["yes", "y", "always", "true", "t", "1", "enable", ""]:
+                    postmortem = True
+                elif v in ["no", "n", "never", "false", "f", "0", "disable"]:
+                    postmortem = False
+                elif v in ["auto", "automatic", "default", "if-tty"]:
+                    postmortem = "auto"
+                else:
+                    raise ValueError(
+                        "unexpected %s=%s.  "
+                        "Try --postmortem=yes or --postmortem=no."
+                        % (argname, value))
+                continue
+            if argname in ["no-postmortem", "np"]:
+                del args[0]
+                novalue()
+                postmortem = False
+                continue
             break
         self.args = args
+        if postmortem == "auto":
+            postmortem = os.isatty(1)
+        global _enable_postmortem_debugger
+        _enable_postmortem_debugger = postmortem
 
     def _enable_debug_tools(self):
         # Enable a bunch of debugging tools.
