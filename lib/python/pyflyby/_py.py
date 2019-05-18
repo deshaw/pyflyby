@@ -217,7 +217,7 @@ Examples
     $ py b64decode?
     [PYFLYBY] from base64 import b64decode
     Python signature:
-      >>> b64decode(s, altchars=None, validate=False)
+      >> b64decode(s, altchars=None, validate=False)
 
     Command-line signature:
       $ py b64decode s [altchars [validate]]
