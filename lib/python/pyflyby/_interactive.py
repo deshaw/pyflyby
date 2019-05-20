@@ -1825,8 +1825,9 @@ class AutoImporter(object):
                 # (https://github.com/ipython/ipython/issues/11714). Until it
                 # is fixed, workaround it by skipping one of the calls.
                 stack = inspect.stack()
-                if any([False,
+                if any([
                         stack[3].function == 'run_cell_async',
+                        # These are the other places it is called.
                         # stack[3].function == 'should_run_async',
                         # stack[1].function == 'check_complete'
                 ]):
