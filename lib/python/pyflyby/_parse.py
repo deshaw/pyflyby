@@ -15,7 +15,7 @@ from   textwrap                 import dedent
 import types
 
 import six
-from   six                      import PY3, PY2, text_type as unicode
+from   six                      import PY2, PY3, text_type as unicode
 from   six.moves                import range
 
 from   pyflyby._file            import FilePos, FileText, Filename
