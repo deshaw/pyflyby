@@ -2,13 +2,15 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   functools                import total_ordering
 from   keyword                  import kwlist
 import re
 import six
 
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, cmp
 
 
 # Don't consider "print" a keyword, in order to be compatible with user code
@@ -144,6 +146,8 @@ def brace_identifiers(text):
       >>> list(brace_identifiers("{salutation}, {your_name}."))
       ['salutation', 'your_name']
     """
+    if isinstance(text, bytes):
+        text = text.decode('utf-8')
     for match in re.finditer("{([a-zA-Z_][a-zA-Z0-9_]*)}", text):
         yield match.group(1)
 
@@ -153,6 +157,7 @@ class BadDottedIdentifierError(ValueError):
 
 
 # TODO: Use in various places, esp where e.g. dotted_prefixes is used.
+@total_ordering
 class DottedIdentifier(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -228,6 +233,12 @@ class DottedIdentifier(object):
         if not isinstance(other, DottedIdentifier):
             return NotImplemented
         return self.name != other.name
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, DottedIdentifier):
+            return NotImplemented
+        return self.name < other.name
 
     def __cmp__(self, other):
         if self is other:

@@ -2,9 +2,11 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   collections              import defaultdict
+from   functools                import total_ordering
 import six
 
 from   pyflyby._flags           import CompilerFlags
@@ -13,7 +15,7 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (cached_attribute, partition,
+from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
 
@@ -24,7 +26,7 @@ class NoSuchImportError(ValueError):
 class ConflictingImportsError(ValueError):
     pass
 
-
+@total_ordering
 class ImportSet(object):
     r"""
     Representation of a set of imports organized into import statements.
@@ -244,7 +246,7 @@ class ImportSet(object):
           ...     from _hello import world
           ... ''')
 
-          >>> for s in importset.get_statements(): print s
+          >>> for s in importset.get_statements(): print(s)
           from __future__ import division
           import a
           import b as B
@@ -482,9 +484,13 @@ class ImportSet(object):
         return self._importset == other._importset
 
     def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, ImportSet):
             return NotImplemented
-        return not (self == other)
+        return self._importset < other._importset
 
     def __cmp__(self, other):
         if self is other:
@@ -506,6 +512,7 @@ class ImportSet(object):
 ImportSet._EMPTY = ImportSet._from_imports([])
 
 
+@total_ordering
 class ImportMap(object):
     r"""
     A map from import fullname identifier to fullname identifier.
@@ -600,9 +607,13 @@ class ImportMap(object):
         return self._data == other._data
 
     def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, ImportMap):
             return NotImplemented
-        return not (self == other)
+        return self._data < other._data
 
     def __cmp__(self, other):
         if self is other:

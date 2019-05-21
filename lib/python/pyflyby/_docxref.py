@@ -24,7 +24,8 @@
 #   from, out of or in connection with the software or the use or other
 #   dealings in the software.
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import re
 import six
@@ -99,7 +100,7 @@ def get_string_linenos(module, searchstring, within_string):
             "Found superstring in %r but not substring %r within superstring"
             % (module.filename, searchstring))
     # Try a full text search.
-    for lineno, orig_full_string in map.itervalues():
+    for lineno, orig_full_string in map.values():
         scan_within_string(results, lineno, orig_full_string)
     if results:
         return tuple(sorted(results))

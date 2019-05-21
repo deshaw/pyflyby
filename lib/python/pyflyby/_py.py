@@ -131,7 +131,7 @@ Examples
     $ py b64decode aGVsbG8=
     [PYFLYBY] from base64 import b64decode
     [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
-    'hello'
+    b'hello'
 
   Find the day of the week of some date (apply function in module):
     $ py calendar.weekday 2014 7 18
@@ -207,7 +207,7 @@ Examples
     6
 
   Run stdin as code:
-    $ echo 'print sys.argv[1:]' | py - hello world
+    $ echo 'print(sys.argv[1:])' | py - hello world
     [PYFLYBY] import sys
     ['hello', 'world']
 
@@ -222,10 +222,11 @@ Examples
     $ py b64decode?
     [PYFLYBY] from base64 import b64decode
     Python signature:
-      >> b64decode(s, altchars=None)
+      >> b64decode(s, altchars=None, validate=False)
+
     Command-line signature:
-      $ py b64decode s [altchars]
-      $ py b64decode --s=... [--altchars=...]
+      $ py b64decode s [altchars [validate]]
+      $ py b64decode --s=... [--altchars=...] [--validate=...]
     ...
 
   Get module help:
@@ -243,6 +244,10 @@ Examples
 
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
+
+from   functools                import total_ordering
+
+from   pyflyby._util            import cmp
 
 usage = """
 py --- command-line python multitool with automatic importing
@@ -328,9 +333,9 @@ from   pyflyby._dbg             import (add_debug_functions_to_builtins,
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (
-    get_ipython_terminal_app_with_autoimporter, run_ipython_line_magic,
-    start_ipython_with_autoimporter)
+from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
+                                        run_ipython_line_magic,
+                                        start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
@@ -350,7 +355,7 @@ def _get_argspec(arg, _recurse=False):
         return getargspec(arg)
     elif isinstance(arg, MethodType):
         argspec = getargspec(arg)
-        if arg.im_self is not None:
+        if arg.__self__ is not None:
             # For bound methods, ignore the "self" argument.
             return ArgSpec(argspec.args[1:], *argspec[1:])
         return argspec
@@ -361,7 +366,9 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    elif isinstance(arg, types.ClassType):
+    # Old style class. Should only run in Python 2. types.ClassType doesn't
+    # exist in Python 3.
+    elif isinstance(arg, getattr(types, 'ClassType', type)):
         argspec = _get_argspec(arg.__init__)
         return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):
@@ -526,7 +533,7 @@ class UserExpr(object):
 
       >>> UserExpr('base64.b64decode("SGFsbG93ZWVu")', ns, "auto").value
       [PYFLYBY] import base64
-      'Halloween'
+      b'Halloween'
 
     Returning an unparsable argument as a string:
       >>> UserExpr('Victory Loop', ns, "auto").value
@@ -979,6 +986,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         _handle_user_exception()
 
 
+@total_ordering
 class LoggedList(object):
     """
     List that logs which members have not yet been accessed (nor removed).
@@ -1042,6 +1050,20 @@ class LoggedList(object):
     def __delitem__(self, x):
         del self._items[x]
         del self._unaccessed[x]
+
+    def __eq__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items == other._items
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items < other._items
 
     def __cmp__(self, x):
         return cmp(self._items, x)
@@ -1222,9 +1244,9 @@ def _has_python_shebang(filename):
     otherwise the shebang is not necessary.
     """
     filename = Filename(filename)
-    with open(str(filename)) as f:
+    with open(str(filename), 'rb') as f:
         line = f.readline(1024)
-        return line.startswith("#!") and "python" in line
+        return line.startswith(b"#!") and b"python" in line
 
 
 
@@ -1235,7 +1257,7 @@ def _interpret_arg_mode(arg, default="auto"):
     """
     if arg is None:
         arg = default
-    if arg is "auto" or arg is "eval" or arg is "string":
+    if arg == "auto" or arg == "eval" or arg == "string":
         return arg # optimization for interned strings
     rarg = str(arg).strip().lower()
     if rarg in ["eval", "evaluate", "exprs", "expr", "expressions", "expression", "e"]:
@@ -1859,7 +1881,7 @@ class _PyMain(object):
             # Start IPython nbconvert.  (autoimporter is irrelevant.)
             if equalsign:
                 args.insert(0, cmdarg)
-            launch_ipython_with_autoimporter(["nbconvert"] + args)
+            start_ipython_with_autoimporter(["nbconvert"] + args)
         elif action in ["timeit"]:
             # TODO: make --timeit and --time flags which work with any mode
             # and heuristic, instead of only eval.
@@ -1937,7 +1959,7 @@ class _PyMain(object):
             # TODO: refactor
             if (args and
                 self.arg_mode == None and
-                not any(re.match("\s*$|-[a-zA-Z-]", a) for a in args)):
+                not any(re.match(r"\s*$|-[a-zA-Z-]", a) for a in args)):
                 cmd = PythonBlock(" ".join([arg0]+args),
                                   flags=FLAGS, auto_flags=True)
                 if cmd.parsable and self.namespace.auto_import(cmd):

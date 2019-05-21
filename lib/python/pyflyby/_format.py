@@ -2,7 +2,8 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import six
 
@@ -100,18 +101,16 @@ def pyfill(prefix, tokens, params=FormatParams()):
     """
     Fill a Python statement.
 
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"]), end='')
       print foo.bar, baz, quux, quuuuux
-
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=15, hanging_indent='auto')),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
+      ...        FormatParams(max_line_length=15, hanging_indent='auto')), end='')
       print (foo.bar,
              baz,
              quux,
              quuuuux)
-
-      >>> print pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
-      ...        FormatParams(max_line_length=14, hanging_indent='auto')),
+      >>> print(pyfill('print ', ["foo.bar", "baz", "quux", "quuuuux"],
+      ...        FormatParams(max_line_length=14, hanging_indent='auto')), end='')
       print (
           foo.bar,
           baz, quux,

@@ -8,11 +8,12 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 import contextlib
 import copy
-import six
-from   six                      import exec_, reraise
-from   six.moves                import builtins
 import sys
 import types
+
+import six
+from   six                      import PY2, PY3, exec_, reraise
+from   six.moves                import builtins
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -23,7 +24,6 @@ from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
-
 
 class _ClassScope(dict):
     pass
@@ -439,7 +439,7 @@ class _MissingImportFinder(object):
                         "unexpected %s" %
                         (', '.join(type(v).__name__ for v in value)))
             elif isinstance(value, (six.integer_types, float, complex,
-                                    str, six.text_type, type(None))):
+                                    str, six.text_type, type(None), bytes)):
                 pass
             else:
                 raise TypeError(
@@ -484,8 +484,14 @@ class _MissingImportFinder(object):
 
 
     def visit_ClassDef(self, node):
+        if PY3:
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
+        else:
+            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
         self.visit(node.bases)
         self.visit(node.decorator_list)
+        if PY3:
+            self.visit(node.keywords)
         with self._NewScopeCtx(new_class_scope=True):
             self.visit(node.body)
         # The class's name is only visible to others (not to the body to the
@@ -500,10 +506,16 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        assert node._fields == ('name', 'args', 'body', 'decorator_list')
+        if PY2:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
+        else:
+            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             self.visit(node.decorator_list)
+            if PY3:
+                if node.returns:
+                    self.visit(node.returns)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx():
@@ -513,7 +525,7 @@ class _MissingImportFinder(object):
 
     def visit_Lambda(self, node):
         # Like FunctionDef, but without the decorator_list or name.
-        assert node._fields == ('args', 'body')
+        assert node._fields == ('args', 'body'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             old_in_FunctionDef = self._in_FunctionDef
@@ -523,7 +535,10 @@ class _MissingImportFinder(object):
             self._in_FunctionDef = old_in_FunctionDef
 
     def visit_arguments(self, node):
-        assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+        if PY2:
+            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+        else:
+            assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Visit 'defaults' first because these
         # should be checked for missing imports before the stores from the
         # args/varargs/kwargs.
@@ -532,11 +547,36 @@ class _MissingImportFinder(object):
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
         self.visit(node.defaults)
+        if PY3:
+            self.visit(node.kw_defaults)
         # Store arg names.
         self.visit(node.args)
+        if PY3:
+            self.visit(node.kwonlyargs)
         # Store vararg/kwarg names.
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
+
+    def visit_ExceptHandler(self, node):
+        assert node._fields == ('type', 'name', 'body')
+        if node.type:
+            self.visit(node.type)
+        if node.name:
+            # ExceptHandler.name is a string in Python 3 and a Name with Store in
+            # Python 2
+            if PY3:
+                self._visit_Store(node.name)
+            else:
+                self.visit(node.name)
+        self.visit(node.body)
+
+    def visit_Dict(self, node):
+        assert node._fields == ('keys', 'values')
+        # In Python 3, keys can be None, indicating a ** expression
+        for key in node.keys:
+            if key:
+                self.visit(key)
+        self.visit(node.values)
 
     def visit_comprehension(self, node):
         # Visit a "comprehension" node, which is a component of list
@@ -566,10 +606,14 @@ class _MissingImportFinder(object):
         # For Python2, we intentionally don't enter a new scope here, because
         # a list comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
-        # For Python3, we do need to enter a new scope here.  TODO: figure out
-        # how to tell if we should be using py3 mode or py2 mode.
-        self.visit(node.generators)
-        self.visit(node.elt)
+        # For Python3, we do need to enter a new scope here.
+        if PY3:
+            with self._NewScopeCtx(include_class_scopes=True):
+                self.visit(node.generators)
+                self.visit(node.elt)
+        else:
+            self.visit(node.generators)
+            self.visit(node.elt)
 
     def visit_DictComp(self, node):
         # Visit a dict comprehension node.
@@ -623,6 +667,12 @@ class _MissingImportFinder(object):
         logger.debug("visit_Name(%r)", node.id)
         self._visit_fullname(node.id, node.ctx)
 
+    def visit_arg(self, node):
+        if node.annotation:
+            self.visit(node.annotation)
+        # Treat it like a Name node would from Python 2
+        self._visit_fullname(node.arg, ast.Param())
+
     def visit_Attribute(self, node):
         name_revparts = []
         n = node
@@ -671,6 +721,8 @@ class _MissingImportFinder(object):
     def _visit_Store(self, fullname, value=None):
         logger.debug("_visit_Store(%r)", fullname)
         scope = self.scopestack[-1]
+        if PY3 and isinstance(fullname, ast.arg):
+            fullname = fullname.arg
         if self.unused_imports is not None:
             # If we're redefining something, and it has not been used, then
             # record it as unused.
@@ -838,11 +890,11 @@ def _find_missing_imports_in_code(co, namespaces):
     Helper function to L{find_missing_imports}.
 
       >>> f = lambda: foo.bar(x) + baz(y)
-      >>> map(str, _find_missing_imports_in_code(f.func_code, [{}]))
+      >>> [str(m) for m in _find_missing_imports_in_code(f.__code__, [{}])]
       ['baz', 'foo.bar', 'x', 'y']
 
       >>> f = lambda x: (lambda: x+y)
-      >>> _find_missing_imports_in_code(f.func_code, [{}])
+      >>> _find_missing_imports_in_code(f.__code__, [{}])
       [DottedIdentifier('y')]
 
     @type co:
@@ -869,7 +921,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     @type co:
       C{types.CodeType}
     @param co:
-      Code object, e.g. C{function.func_code}
+      Code object, e.g. C{function.__code__}
     @type loads_without_stores:
       C{set}
     @param loads_without_stores:
@@ -884,6 +936,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
     LOAD_ATTR    = opmap['LOAD_ATTR']
+    LOAD_METHOD = opmap['LOAD_METHOD'] if PY3 else None
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']
@@ -979,18 +1032,23 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Loop through bytecode.
     while i < n:
         c = bytecode[i]
-        op = ord(c)
+        op = _op(c)
         i += 1
         if op >= HAVE_ARGUMENT:
-            oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256 + extended_arg
-            extended_arg = 0
-            i = i+2
-            if op == EXTENDED_ARG:
-                if six.PY2:
-                    extended_arg = oparg*long(65536)
-                else:
+            if PY2:
+                oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256 + extended_arg
+                extended_arg = 0
+                i = i+2
+                if op == EXTENDED_ARG:
                     extended_arg = oparg*65536
-                continue
+                    continue
+            else:
+                oparg = bytecode[i] | extended_arg
+                extended_arg = 0
+                if op == EXTENDED_ARG:
+                    extended_arg = (oparg << 8)
+                    continue
+                i += 1
 
         if pending is not None:
             if op == STORE_ATTR:
@@ -1000,7 +1058,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 pending = None
                 stores.add(fullname)
                 continue
-            if op == LOAD_ATTR:
+            if op in [LOAD_ATTR, LOAD_METHOD]:
                 # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
                 # possibly more LOAD_ATTR/STORE_ATTR will follow
                 pending.append(co.co_names[oparg])
@@ -1084,6 +1142,11 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         if isinstance(arg, types.CodeType):
             _find_loads_without_stores_in_code(arg, loads_without_stores)
 
+def _op(c):
+    # bytecode is bytes in Python 3, which when indexed gives integers
+    if PY2:
+        return ord(c)
+    return c
 
 def _find_earliest_backjump_label(bytecode):
     """
@@ -1140,7 +1203,7 @@ def _find_earliest_backjump_label(bytecode):
 
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
-      >> _find_earliest_backjump_label(f.func_code.co_code)
+      >> _find_earliest_backjump_label(f.__code__.co_code)
       38
 
     Note that in this example there are earlier targets of jumps at bytecode
@@ -1153,7 +1216,7 @@ def _find_earliest_backjump_label(bytecode):
     @type bytecode:
       C{bytes}
     @param bytecode:
-      Compiled bytecode, e.g. C{function.func_code.co_code}.
+      Compiled bytecode, e.g. C{function.__code__.co_code}.
     @rtype:
       C{int}
     @return:
@@ -1168,11 +1231,11 @@ def _find_earliest_backjump_label(bytecode):
     i = 0
     while i < n:
         c = bytecode[i]
-        op = ord(c)
+        op = _op(c)
         i += 1
         if op < HAVE_ARGUMENT:
             continue
-        oparg = ord(bytecode[i]) + ord(bytecode[i+1])*256
+        oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256
         i += 2
         label = None
         if op in hasjrel:
@@ -1226,7 +1289,7 @@ def find_missing_imports(arg, namespaces):
       >>> [str(m) for m in find_missing_imports("from numpy import pi; numpy.pi + pi + x", [{}])]
       ['numpy.pi', 'x']
 
-      >>> [str(m) for m in find_missing_imports("for x in range(3): print numpy.arange(x)", [{}])]
+      >>> [str(m) for m in find_missing_imports("for x in range(3): print(numpy.arange(x))", [{}])]
       ['numpy.arange']
 
       >>> [str(m) for m in find_missing_imports("foo1 = func(); foo1.bar + foo2.bar", [{}])]
@@ -1245,8 +1308,13 @@ def find_missing_imports(arg, namespaces):
       ['x']
 
     The (unintuitive) rules for generator expressions and list comprehensions
-    are handled correctly:
-      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])]
+    in Python 2 are handled correctly:
+      >>> # Python 3
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
+      ['y', 'z']
+
+      >>> # Python 2
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['z']
 
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
@@ -1297,11 +1365,11 @@ def find_missing_imports(arg, namespaces):
     elif callable(arg):
         # Find the code object.
         try:
-            co = arg.func_code
+            co = arg.__code__
         except AttributeError:
             # User-defined callable
             try:
-                co = arg.__call__.func_code
+                co = arg.__call__.__code__
             except AttributeError:
                 # Built-in function; no auto importing needed.
                 return []
@@ -1595,13 +1663,13 @@ def auto_eval(arg, filename=None, mode=None,
     Evaluate/execute the given code, automatically importing as needed.
 
     C{auto_eval} will default the compilation C{mode} to "eval" if possible:
-      >>> auto_eval("b64decode('aGVsbG8=')") + "!"
+      >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
       [PYFLYBY] from base64 import b64decode
-      'hello!'
+      b'hello!'
 
     C{auto_eval} will default the compilation C{mode} to "exec" if the input
     is not a single expression:
-      >>> auto_eval("if True: print b64decode('aGVsbG8=')")
+      >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
       [PYFLYBY] from base64 import b64decode
       hello
 
@@ -1707,18 +1775,18 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
     Load the symbol C{fullname}.
 
       >>> import os
-      >>> load_symbol("os.path.join.func_name", {"os": os})
+      >>> load_symbol("os.path.join.__name__", {"os": os})
       'join'
 
       >>> load_symbol("os.path.join.asdf", {"os": os})
       Traceback (most recent call last):
         ...
-      LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
+      pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
       >>> load_symbol("os.path.join", {})
       Traceback (most recent call last):
         ...
-      LoadSymbolError: os.path.join: NameError: os
+      pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
     @type fullname:
       C{str}

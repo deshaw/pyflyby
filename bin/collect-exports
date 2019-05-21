@@ -15,6 +15,7 @@ Print the result to stdout.
 
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 import sys
 
@@ -49,7 +50,7 @@ def main():
         db = ImportDB.get_default(".")
         known = db.known_imports.imports
         args += sorted(set(
-                filter(None, [i.split.module_name for i in known])))
+                [_f for _f in [i.split.module_name for i in known] if _f]))
     bad_module_names = []
     for module_name in args:
         module = ModuleHandle(module_name)
@@ -68,8 +69,8 @@ def main():
         sys.stdout.write(imports.pretty_print(
                 allow_conflicts=True, params=options.params))
     if bad_module_names:
-        print >>sys.stderr, "collect-exports: there were problems with: %s" % (
-            ' '.join(bad_module_names))
+        print("collect-exports: there were problems with: %s" % (
+            ' '.join(bad_module_names)), file=sys.stderr)
         sys.exit(1)
 
 

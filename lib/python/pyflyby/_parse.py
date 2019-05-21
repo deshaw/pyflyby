@@ -2,23 +2,31 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import ast
 from   collections              import namedtuple
+from   functools                import total_ordering
 from   itertools                import groupby
 import re
-import six
-from   six.moves                import range
 import sys
 from   textwrap                 import dedent
 import types
 
+import six
+from   six                      import PY2, PY3, text_type as unicode
+from   six.moves                import range
+
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, cmp
 
+if PY3:
+    from ast import Bytes
+else:
+    Bytes = ast.Str
 
 def _is_comment_or_blank(line):
     """
@@ -34,9 +42,9 @@ def _is_comment_or_blank(line):
 
 
 def _ast_str_literal_value(node):
-    if isinstance(node, ast.Str):
+    if isinstance(node, (ast.Str, Bytes)):
         return node.s
-    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+    if isinstance(node, ast.Expr) and isinstance(node.value, (ast.Str, Bytes)):
         return node.value.s
     else:
         return None
@@ -137,7 +145,7 @@ def _flags_to_try(source, flags, auto_flags, mode):
     if not auto_flags:
         yield flags
         return
-    if sys.version_info[0] != 2:
+    if PY3:
         yield flags
         return
     if mode == "eval":
@@ -176,6 +184,8 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
+    if PY2 and isinstance(source, unicode):
+        source = source.encode('utf-8')
     if not source.endswith("\n"):
         # Ensure that the last line ends with a newline (C{ast} barfs
         # otherwise).
@@ -213,7 +223,7 @@ def _test_parse_string_literal(text, flags):
     except SyntaxError:
         return None
     body = module_node.body
-    if not isinstance(body, ast.Str):
+    if not isinstance(body, (ast.Str, Bytes)):
         return None
     return body.s
 
@@ -352,9 +362,10 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # understandable that they did that.
         # Since we use startpos for breaking lines, we need to set startpos to
         # the beginning of the line.
+        # In Python 3, the col_offset for the with is 0 again.
         if (isinstance(ast_node, ast.With) and
             not isinstance(parent_ast_node, ast.With) and
-            sys.version_info >= (2,7)):
+            sys.version_info[:2] == (2,7)):
             assert ast_node.col_offset >= 5
             if startpos.lineno == text.startpos.lineno:
                 linestart = text.startpos.colno
@@ -387,14 +398,14 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         #
         # To fix that, we copy start_lineno and start_colno from the Str
         # node once we've corrected the values.
-        assert not isinstance(ast_node, ast.Str)
+        assert not isinstance(ast_node, (ast.Str, Bytes))
         assert leftstr_node.lineno     == ast_node.lineno
         assert leftstr_node.col_offset == -1
         ast_node.startpos = leftstr_node.startpos
         return True
     # It should now be the case that we are looking at a multi-line string
     # literal.
-    if not isinstance(ast_node, ast.Str):
+    if not isinstance(ast_node, (ast.Str, Bytes)):
         raise ValueError(
             "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
     # The C{lineno} attribute gives the ending line number of the multiline
@@ -413,8 +424,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         start_line_colno = (text.startpos.colno
                             if start_lineno==text.startpos.lineno else 1)
         startpos_candidates.extend([
-            (m.group()[-1], FilePos(start_lineno, m.start()+start_line_colno))
-            for m in re.finditer("[bBrRuU]*[\"\']", start_line)])
+            (_m.group()[-1], FilePos(start_lineno, _m.start()+start_line_colno))
+            for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
@@ -441,8 +452,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         end_line_startcol = (
             text.startpos.colno if end_lineno==text.startpos.lineno else 1)
         endpos_candidates = [
-            (m.group(), FilePos(end_lineno,m.start()+end_line_startcol+1))
-            for m in re.finditer("[\"\']", end_line)]
+            (_m.group(), FilePos(end_lineno,_m.start()+end_line_startcol+1))
+            for _m in re.finditer("[\"\']", end_line)]
         if not endpos_candidates:
             # We found no endpos_candidates.  This should not happen for
             # first_end_lineno because there should be _some_ string that ends
@@ -627,7 +638,7 @@ def _ast_node_is_in_docstring_position(ast_node):
     @return:
       Whether this string ast node is in docstring position.
     """
-    if not isinstance(ast_node, ast.Str):
+    if not isinstance(ast_node, (ast.Str, Bytes)):
         raise TypeError
     expr_node = ast_node.context.parent
     if not isinstance(expr_node, ast.Expr):
@@ -812,11 +823,13 @@ class PythonStatement(object):
         return self.block == other.block
 
     def __ne__(self, other):
-        if self is other:
-            return False
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, PythonStatement):
             return NotImplemented
-        return self.block != other.block
+        return self.block < other.block
 
     def __cmp__(self, other):
         if self is other:
@@ -829,19 +842,20 @@ class PythonStatement(object):
         return hash(self.block)
 
 
+@total_ordering
 class PythonBlock(object):
     r"""
     Representation of a sequence of consecutive top-level
     L{PythonStatement}(s).
 
-      >>> source_code = '# 1\nprint 2\n# 3\n# 4\nprint 5\nx=[6,\n 7]\n# 8\n'
+      >>> source_code = '# 1\nprint(2)\n# 3\n# 4\nprint(5)\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)
       >>> for stmt in PythonBlock(codeblock).statements:
-      ...     print stmt
+      ...     print(stmt)
       PythonStatement('# 1\n')
-      PythonStatement('print 2\n', startpos=(2,1))
+      PythonStatement('print(2)\n', startpos=(2,1))
       PythonStatement('# 3\n# 4\n', startpos=(3,1))
-      PythonStatement('print 5\n', startpos=(5,1))
+      PythonStatement('print(5)\n', startpos=(5,1))
       PythonStatement('x=[6,\n 7]\n', startpos=(6,1))
       PythonStatement('# 8\n', startpos=(8,1))
 
@@ -975,7 +989,11 @@ class PythonBlock(object):
         except Exception as e:
             # Add the filename to the exception message to be nicer.
             if self.text.filename:
-                e = type(e)("While parsing %s: %s" % (self.text.filename, e))
+                try:
+                    e = type(e)("While parsing %s: %s" % (self.text.filename, e))
+                except TypeError:
+                    # Exception takes more than one argument
+                    pass
             # Cache the exception to avoid re-attempting while debugging.
             return e
 
@@ -1103,7 +1121,7 @@ class PythonBlock(object):
         can contain no ast node to represent comments.
 
           >>> code = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
-          >>> print PythonBlock(code).statements # doctest:+NORMALIZE_WHITESPACE
+          >>> print(PythonBlock(code).statements) # doctest:+NORMALIZE_WHITESPACE
           (PythonStatement('# multiline\n# comment\n'),
            PythonStatement("'''multiline\nstring'''\n", startpos=(3,1)),
            PythonStatement('blah\n', startpos=(5,1)))
@@ -1186,10 +1204,10 @@ class PythonBlock(object):
           [('a', FilePos(1,1)), ('b', FilePos(1,8)), ('c', FilePos(2,1))]
 
         @return:
-          Iterable of C{ast.Str} nodes
+          Iterable of C{ast.Str}  or C{ast.Bytes} nodes
         """
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
-            if isinstance(node, ast.Str):
+            if isinstance(node, (ast.Str, Bytes)):
                 assert hasattr(node, 'startpos')
                 yield node
 
@@ -1302,9 +1320,13 @@ class PythonBlock(object):
         return self.text == other.text and self.flags == other.flags
 
     def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
         if not isinstance(other, PythonBlock):
             return NotImplemented
-        return not (self == other)
+        return (self.text, self.flags) < (other.text, other.flags)
 
     def __cmp__(self, other):
         if self is other:

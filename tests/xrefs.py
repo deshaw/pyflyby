@@ -10,9 +10,10 @@ L{undefined_xref_from_module}
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
-class FooClass:
+class FooClass(object):
     """
     Blah.
     L{undefined_xref_from_class}

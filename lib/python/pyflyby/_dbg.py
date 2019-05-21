@@ -13,10 +13,12 @@ from   functools                import wraps
 import os
 import pwd
 import signal
-import six
 import sys
 import time
 from   types                    import CodeType, FrameType, TracebackType
+
+import six
+from   six.moves                import builtins
 
 from   pyflyby._file            import Filename
 
@@ -227,7 +229,7 @@ def _get_caller_frame():
     @rtype:
       C{FrameType}
     '''
-    this_filename = _get_caller_frame.func_code.co_filename
+    this_filename = _get_caller_frame.__code__.co_filename
     f = sys._getframe()
     while (f.f_back and (
             f.f_code.co_filename == this_filename or
@@ -757,7 +759,7 @@ def _signal_handler_debugger(signal_number, interrupted_frame):
 
 
 def enable_signal_handler_debugger(enable=True):
-    '''
+    r'''
     Install a signal handler for SIGQUIT so that Control-\ or external SIGQUIT
     enters debugger.  Suitable to be called from site.py.
     '''
@@ -836,7 +838,6 @@ def add_debug_functions_to_builtins():
     '''
     Install debugger(), etc. in the builtin global namespace.
     '''
-    import __builtin__
     functions_to_add = [
         'debugger',
         'debug_on_exception',
@@ -851,7 +852,7 @@ def add_debug_functions_to_builtins():
         'waitpoint',
     ]
     for name in functions_to_add:
-        setattr(__builtin__, name, globals()[name])
+        setattr(builtins, name, globals()[name])
 
 # TODO: allow attaching remotely (winpdb/rpdb2) upon sigquit.  Or rpc like http://code.activestate.com/recipes/576515/
 # TODO: http://sourceware.org/gdb/wiki/PythonGdb
@@ -888,7 +889,7 @@ def get_executable(pid):
 
 _gdb_safe_chars = (
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789,./-_=+:;'[]{}\|`~!@#%^&*()<>? ")
+    r"0123456789,./-_=+:;'[]{}\|`~!@#%^&*()<>? ")
 
 def _escape_for_gdb(string):
     """
