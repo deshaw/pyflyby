@@ -3,9 +3,13 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import ast
+
+from   six                      import PY3
+
 import pytest
 
 from   pyflyby._flags           import CompilerFlags
@@ -70,6 +74,9 @@ def test_CompilerFlags_from_ast_1():
     assert result == CompilerFlags(0x18000)
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_CompilerFlags_compile_1():
     # Should raise SyntaxError:
     with pytest.raises(SyntaxError):

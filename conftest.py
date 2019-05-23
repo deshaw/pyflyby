@@ -6,6 +6,8 @@ import os
 import re
 import sys
 
+from six import PY3
+
 _already_ran_setup = False
 
 def pytest_runtest_setup(item):
@@ -23,6 +25,14 @@ def pytest_runtest_setup(item):
     _setup_logger()
 
 
+def pytest_ignore_collect(path, config):
+    """ return True to prevent considering this path for collection.
+    This hook is consulted for all files and directories prior to calling
+    more specific hooks.
+    """
+    if str(path).endswith('_docxref.py') and PY3:
+        return True
+
 def pytest_report_header(config):
     import IPython
     print("IPython %s" % (IPython.__version__))
@@ -30,6 +40,8 @@ def pytest_report_header(config):
     dir = os.path.dirname(pyflyby.__file__)
     print("pyflyby %s from %s" % (pyflyby.__version__, dir))
 
+def pytest_cmdline_preparse(config, args):
+    args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
 
 def _setup_logger():
     """

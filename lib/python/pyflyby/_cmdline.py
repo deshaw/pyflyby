@@ -368,7 +368,11 @@ def process_actions(filenames, actions, modify_function):
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
             if str(filename) not in str(e):
-                e = type_e("While processing %s: %s" % (filename, e))
+                try:
+                    e = type_e("While processing %s: %s" % (filename, e))
+                except TypeError:
+                    # Exception takes more than one argument
+                    pass
             if logger.debug_enabled:
                 reraise(type_e, e, sys.exc_info()[2])
             traceback.print_exception(*sys.exc_info())
@@ -417,7 +421,7 @@ def action_external_command(command):
 def action_query(prompt="Proceed?"):
     def action(m):
         p = prompt.format(filename=m.filename)
-        print
+        print()
         print("%s [y/N] " % (p), end="")
         try:
             if input().strip().lower().startswith('y'):

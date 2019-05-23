@@ -3,14 +3,17 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   io                       import BytesIO
 import os
 import pexpect
-from   six.moves                import cStringIO as StringIO
 import subprocess
 import tempfile
 from   textwrap                 import dedent
+
+from   six                      import PY2
 
 from   pyflyby._util            import EnvVarCtx
 
@@ -24,7 +27,7 @@ def pipe(command, stdin=""):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
-    ).communicate(stdin)[0].strip()
+    ).communicate(stdin.encode('utf-8'))[0].decode('utf-8').strip()
 
 
 def test_tidy_imports_stdin_1():
@@ -72,7 +75,7 @@ def test_tidy_imports_log_level_1():
 
 
 def test_tidy_imports_filename_action_print_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             # hello
             def foo():
@@ -98,7 +101,7 @@ def test_tidy_imports_filename_action_print_1():
 
 
 def test_tidy_imports_filename_action_replace_1():
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode='w+') as f:
         f.write(dedent('''
             "hello"
             def foo():
@@ -186,7 +189,7 @@ def test_reformat_imports_1():
 
 
 def test_collect_imports_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             "hello"
             from m1.m2 import f3, f4
@@ -209,7 +212,7 @@ def test_collect_imports_1():
 
 
 def test_collect_imports_include_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             from m1.m2 import f3, f4
             from m3.m4 import f6, f4
@@ -236,7 +239,7 @@ def test_collect_imports_include_1():
 
 
 def test_collect_imports_include_dot_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent('''
             from m1.m2 import f3, f4
             from m3.m4 import f6, f4
@@ -279,18 +282,22 @@ def test_py_eval_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('aGVsbG8=')
-        'hello'
+        b'hello'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'hello'", "'hello'")
     assert result == expected
 
 
 def test_py_exec_1():
-    result = pipe([BIN_DIR+"/py", "-c", "print b64decode('aGVsbG8=')"])
+    result = pipe([BIN_DIR+"/py", "-c", "if 1: print(b64decode('aGVsbG8='))"])
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
-        [PYFLYBY] print b64decode('aGVsbG8=')
-        hello
+        [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
+        b'hello'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'hello'", "hello")
     assert result == expected
 
 
@@ -324,8 +331,8 @@ def test_py_argv_2():
 
 
 def test_py_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
-        f.write('print sys.argv\n')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write('print(sys.argv)\n')
         f.flush()
         result = pipe([BIN_DIR+"/py", f.name, "a", "b"])
     expected = dedent("""
@@ -341,17 +348,17 @@ def test_tidy_imports_query_no_change_1():
         import x1
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
-        child.logfile = StringIO()
+        child.logfile = BytesIO()
         # We expect no "Replace [y/N]" query, since nothing changed.
         child.expect(pexpect.EOF)
         with open(f.name) as f2:
             output = f2.read()
     proc_output = child.logfile.getvalue()
-    assert proc_output == ""
+    assert proc_output == b""
     assert output == input
 
 
@@ -361,18 +368,18 @@ def test_tidy_imports_query_y_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
-        child.logfile = StringIO()
+        child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
         child.expect(pexpect.EOF)
         with open(f.name) as f2:
             output = f2.read()
     proc_output = child.logfile.getvalue()
-    assert "[y/N] y" in proc_output
+    assert b"[y/N] y" in proc_output
     expected = dedent("""
         from __future__ import absolute_import, division
         import x1
@@ -387,18 +394,18 @@ def test_tidy_imports_query_n_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
-        child.logfile = StringIO()
+        child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
         child.expect(pexpect.EOF)
         with open(f.name) as f2:
             output = f2.read()
     proc_output = child.logfile.getvalue()
-    assert "[y/N] n" in proc_output
+    assert b"[y/N] n" in proc_output
     assert output == input
 
 
@@ -408,17 +415,17 @@ def test_tidy_imports_query_junk_1():
         import x1, x2
         x1
     ''')
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
         child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
-        child.logfile = StringIO()
+        child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("zxcv\n")
         child.expect(pexpect.EOF)
         with open(f.name) as f2:
             output = f2.read()
     proc_output = child.logfile.getvalue()
-    assert "[y/N] zxcv" in proc_output
-    assert "Aborted" in proc_output
+    assert b"[y/N] zxcv" in proc_output
+    assert b"Aborted" in proc_output
     assert output == input

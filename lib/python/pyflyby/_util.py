@@ -2,15 +2,19 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   contextlib               import contextmanager
+import inspect
 import os
 import six
-from   six                      import reraise
+from   six                      import PY3, reraise
 import sys
 import types
 
+# Python 2/3 compatibility
+DictProxyType = type(object.__dict__)
 
 class Object(object):
     pass
@@ -250,7 +254,12 @@ class FunctionWithGlobals(object):
 
 
     def __get__(self, inst, cls=None):
-        return types.MethodType(self, inst, cls)
+        if PY3:
+            if inst is None:
+                return self
+            return types.MethodType(self, inst)
+        else:
+            return types.MethodType(self, inst, cls)
 
 
 
@@ -328,31 +337,49 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if isinstance(joinpoint, (types.FunctionType, six.class_types, type)):
+        if (isinstance(joinpoint, (types.FunctionType, six.class_types, type))
+            and not (PY3 and joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
             self._container = sys.modules[joinpoint.__module__].__dict__
             self._name      = joinpoint.__name__
             self._original  = spec
-            assert spec == self._container[self._name]
-        elif isinstance(joinpoint, types.MethodType):
-            self._qname = "%s.%s.%s" % (
-                joinpoint.im_class.__module__,
-                joinpoint.im_class.__name__,
-                joinpoint.im_func.__name__)
-            self._name      = joinpoint.im_func.__name__
-            if joinpoint.im_self is None:
-                # Class method.
-                container_obj   = joinpoint.im_class
+            assert spec == self._container[self._name], joinpoint
+        elif isinstance(joinpoint, types.MethodType) or (PY3 and isinstance(joinpoint,
+            types.FunctionType) and joinpoint.__name__ !=
+            joinpoint.__qualname__) or isinstance(joinpoint, property):
+            if isinstance(joinpoint, property):
+                joinpoint = joinpoint.fget
+                self._wrapper = property
+            if PY3:
+                self._qname = '%s.%s' % (joinpoint.__module__,
+                                         joinpoint.__qualname__)
+                self._name      = joinpoint.__name__
+            else:
+                self._qname = "%s.%s.%s" % (
+                    joinpoint.__self__.__class__.__module__,
+                    joinpoint.__self__.__class__.__name__,
+                    joinpoint.__func__.__name__)
+                self._name      = joinpoint.__func__.__name__
+            if getattr(joinpoint, '__self__', None) is None:
+                # Unbound method in Python 2 only. In Python 3, there are no unbound methods
+                # (they are just functions).
+                if PY3:
+                    container_obj   = getattr(inspect.getmodule(joinpoint),
+                       joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
+                else:
+                    container_obj   = joinpoint.im_class
                 self._container = _WritableDictProxy(container_obj)
-                self._original  = spec.im_func
+                # __func__ gives the function for the Python 2 unbound method.
+                # In Python 3, spec is already a function.
+                self._original  = getattr(spec, '__func__', spec)
             else:
                 # Instance method.
-                container_obj   = joinpoint.im_self
+                container_obj   = joinpoint.__self__
                 self._container = container_obj.__dict__
                 self._original  = spec
-            assert spec == getattr(container_obj, self._name)
+            assert spec == getattr(container_obj, self._name), (container_obj, self._qname)
             assert self._original == self._container.get(self._name, self._original)
         elif isinstance(joinpoint, tuple) and len(joinpoint) == 2:
             container, name = joinpoint
@@ -365,11 +392,11 @@ class Aspect(object):
                 self._container = container._trait_values
                 self._original = self._container[name]
                 self._qname = name
-            elif isinstance(container.__dict__, types.DictProxyType):
+            elif isinstance(container.__dict__, DictProxyType):
                 original = getattr(container, name)
-                if hasattr(original, "im_func"):
+                if hasattr(original, "__func__"):
                     # TODO: generalize this to work for all cases, not just classmethod
-                    original = original.im_func
+                    original = original.__func__
                     self._wrapper = classmethod
                 self._original = original
                 self._container = _WritableDictProxy(container)
@@ -389,7 +416,7 @@ class Aspect(object):
             self._name      = name
         # TODO: unbound method
         else:
-            raise TypeError("JoinPoint: unexpected %s"
+            raise TypeError("JoinPoint: unexpected type %s"
                             % (type(joinpoint).__name__,))
         self._wrapped = None
 
@@ -455,3 +482,7 @@ def AdviceCtx(joinpoint, hook):
         yield
     finally:
         advice.unadvise()
+
+# For Python 2/3 compatibility. cmp isn't included with six.
+def cmp(a, b):
+    return (a > b) - (a < b)

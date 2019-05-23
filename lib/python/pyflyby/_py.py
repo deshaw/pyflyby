@@ -57,7 +57,12 @@ Features
   * Matplotlib/pylab integration: show() is called if appropriate to block on
     plots.
 
-  * Enter debugger upon unhandled exception.
+  * Enter debugger upon unhandled exception.  (This functionality is enabled
+    by default when stdout is a tty.  Use --postmortem=no to never use the
+    postmortem debugger.  Use --postmortem=yes enable even if stdout is not a
+    tty.  If the postmortem debugger is enabled but /dev/tty is not available,
+    then if an exception occurs, py will email instructions for attaching a
+    debugger.)
 
   * Control-\\ (SIGQUIT) enters debugger while running (and allows continuing).
 
@@ -126,7 +131,7 @@ Examples
     $ py b64decode aGVsbG8=
     [PYFLYBY] from base64 import b64decode
     [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
-    'hello'
+    b'hello'
 
   Find the day of the week of some date (apply function in module):
     $ py calendar.weekday 2014 7 18
@@ -202,7 +207,7 @@ Examples
     6
 
   Run stdin as code:
-    $ echo 'print sys.argv[1:]' | py - hello world
+    $ echo 'print(sys.argv[1:])' | py - hello world
     [PYFLYBY] import sys
     ['hello', 'world']
 
@@ -217,10 +222,11 @@ Examples
     $ py b64decode?
     [PYFLYBY] from base64 import b64decode
     Python signature:
-      >> b64decode(s, altchars=None)
+      >> b64decode(s, altchars=None, validate=False)
+
     Command-line signature:
-      $ py b64decode s [altchars]
-      $ py b64decode --s=... [--altchars=...]
+      $ py b64decode s [altchars [validate]]
+      $ py b64decode --s=... [--altchars=...] [--validate=...]
     ...
 
   Get module help:
@@ -238,6 +244,10 @@ Examples
 
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
+
+from   functools                import total_ordering
+
+from   pyflyby._util            import cmp
 
 usage = """
 py --- command-line python multitool with automatic importing
@@ -323,9 +333,9 @@ from   pyflyby._dbg             import (add_debug_functions_to_builtins,
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (
-    get_ipython_terminal_app_with_autoimporter, run_ipython_line_magic,
-    start_ipython_with_autoimporter)
+from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
+                                        run_ipython_line_magic,
+                                        start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
@@ -345,7 +355,7 @@ def _get_argspec(arg, _recurse=False):
         return getargspec(arg)
     elif isinstance(arg, MethodType):
         argspec = getargspec(arg)
-        if arg.im_self is not None:
+        if arg.__self__ is not None:
             # For bound methods, ignore the "self" argument.
             return ArgSpec(argspec.args[1:], *argspec[1:])
         return argspec
@@ -356,7 +366,9 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    elif isinstance(arg, types.ClassType):
+    # Old style class. Should only run in Python 2. types.ClassType doesn't
+    # exist in Python 3.
+    elif isinstance(arg, getattr(types, 'ClassType', type)):
         argspec = _get_argspec(arg.__init__)
         return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):
@@ -521,7 +533,7 @@ class UserExpr(object):
 
       >>> UserExpr('base64.b64decode("SGFsbG93ZWVu")', ns, "auto").value
       [PYFLYBY] import base64
-      'Halloween'
+      b'Halloween'
 
     Returning an unparsable argument as a string:
       >>> UserExpr('Victory Loop', ns, "auto").value
@@ -874,6 +886,8 @@ def _get_help(expr, verbosity=1):
     return result
 
 
+_enable_postmortem_debugger = None
+
 def _handle_user_exception(exc_info=None):
     """
     Handle an exception in user code.
@@ -891,15 +905,12 @@ def _handle_user_exception(exc_info=None):
     if exc_info[2].tb_next:
         exc_info = (exc_info[0], exc_info[1],
                     exc_info[2].tb_next) # skip this traceback
-    # If we're called from a tty, then debug the exception.
+    # If C{_enable_postmortem_debugger} is enabled, then debug the exception.
+    # By default, this is enabled run running in a tty.
     # We check isatty(1) here because we want 'py ... | cat' to never go into
     # the debugger.  Note that debugger() also checks whether /dev/tty is
     # usable (and if not, waits for attach).
-    # TODO: make it a user option.
-    # TODO: Allow the user to control whether to allow
-    # wait_for_debugger_to_attach here.
-    # TODO: disallow debugger here under --safe.
-    if os.isatty(1):
+    if _enable_postmortem_debugger:
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
@@ -975,6 +986,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         _handle_user_exception()
 
 
+@total_ordering
 class LoggedList(object):
     """
     List that logs which members have not yet been accessed (nor removed).
@@ -1038,6 +1050,20 @@ class LoggedList(object):
     def __delitem__(self, x):
         del self._items[x]
         del self._unaccessed[x]
+
+    def __eq__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items == other._items
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, other):
+        if not isinstance(other, LoggedList):
+            return NotImplemented
+        return self._items < other._items
 
     def __cmp__(self, x):
         return cmp(self._items, x)
@@ -1218,9 +1244,9 @@ def _has_python_shebang(filename):
     otherwise the shebang is not necessary.
     """
     filename = Filename(filename)
-    with open(str(filename)) as f:
+    with open(str(filename), 'rb') as f:
         line = f.readline(1024)
-        return line.startswith("#!") and "python" in line
+        return line.startswith(b"#!") and b"python" in line
 
 
 
@@ -1231,7 +1257,7 @@ def _interpret_arg_mode(arg, default="auto"):
     """
     if arg is None:
         arg = default
-    if arg is "auto" or arg is "eval" or arg is "string":
+    if arg == "auto" or arg == "eval" or arg == "string":
         return arg # optimization for interned strings
     rarg = str(arg).strip().lower()
     if rarg in ["eval", "evaluate", "exprs", "expr", "expressions", "expression", "e"]:
@@ -1512,7 +1538,12 @@ class _PyMain(object):
         if self.debug:
             # TODO: break closer to user code
             debugger()
-        runpy.run_module(str(module.name), run_name="__main__")
+        try:
+            runpy.run_module(str(module.name), run_name="__main__")
+        except SystemExit:
+            raise
+        except:
+            _handle_user_exception()
 
     def heuristic_run_module(self, module, args):
         module = ModuleHandle(module)
@@ -1595,6 +1626,7 @@ class _PyMain(object):
         self.verbosity   = 1
         self.arg_mode    = None
         self.output_mode = None
+        postmortem = 'auto'
         while args:
             arg = args[0]
             if arg in ["debug", "pdb", "ipdb", "dbg"]:
@@ -1672,8 +1704,32 @@ class _PyMain(object):
                 novalue()
                 self.output_mode = _interpret_output_mode(argname)
                 continue
+            if argname in ["postmortem"]:
+                del args[0]
+                v = (value or "").lower().strip()
+                if v in ["yes", "y", "always", "true", "t", "1", "enable", ""]:
+                    postmortem = True
+                elif v in ["no", "n", "never", "false", "f", "0", "disable"]:
+                    postmortem = False
+                elif v in ["auto", "automatic", "default", "if-tty"]:
+                    postmortem = "auto"
+                else:
+                    raise ValueError(
+                        "unexpected %s=%s.  "
+                        "Try --postmortem=yes or --postmortem=no."
+                        % (argname, value))
+                continue
+            if argname in ["no-postmortem", "np"]:
+                del args[0]
+                novalue()
+                postmortem = False
+                continue
             break
         self.args = args
+        if postmortem == "auto":
+            postmortem = os.isatty(1)
+        global _enable_postmortem_debugger
+        _enable_postmortem_debugger = postmortem
 
     def _enable_debug_tools(self):
         # Enable a bunch of debugging tools.
@@ -1825,7 +1881,7 @@ class _PyMain(object):
             # Start IPython nbconvert.  (autoimporter is irrelevant.)
             if equalsign:
                 args.insert(0, cmdarg)
-            launch_ipython_with_autoimporter(["nbconvert"] + args)
+            start_ipython_with_autoimporter(["nbconvert"] + args)
         elif action in ["timeit"]:
             # TODO: make --timeit and --time flags which work with any mode
             # and heuristic, instead of only eval.
@@ -1903,7 +1959,7 @@ class _PyMain(object):
             # TODO: refactor
             if (args and
                 self.arg_mode == None and
-                not any(re.match("\s*$|-[a-zA-Z-]", a) for a in args)):
+                not any(re.match(r"\s*$|-[a-zA-Z-]", a) for a in args)):
                 cmd = PythonBlock(" ".join([arg0]+args),
                                   flags=FLAGS, auto_flags=True)
                 if cmd.parsable and self.namespace.auto_import(cmd):

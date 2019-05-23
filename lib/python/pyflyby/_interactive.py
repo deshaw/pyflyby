@@ -11,10 +11,12 @@ import errno
 import inspect
 import os
 import re
-import six
-from   six.moves                import builtins
 import subprocess
 import sys
+
+import six
+from   six                      import PY2, text_type as unicode
+from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
@@ -253,11 +255,11 @@ def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
             # the exec in general (as a library function) and avoid changing
             # python versions.
             try:
-                from jupyter_console.app import ZMQTerminalIPythonApp
+                from ipkernel.app import IPKernelApp
             except (ImportError, AttributeError):
                 pass
             else:
-                app = ZMQTerminalIPythonApp.instance()
+                app = IPKernelApp.instance()
                 argv = argv[1:]
         elif subcmd == 'notebook':
             try:
@@ -951,15 +953,15 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
     are auto-imported first if not yet imported:
 
       >>> ns = {}
-      >>> complete_symbol(u"threading.Threa", namespaces=[ns])
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
       [PYFLYBY] import threading
-      [u'threading.Thread', u'threading.ThreadError']
+      ['threading.Thread', 'threading.ThreadError']
 
       >>> 'threading' in ns
       True
 
-      >>> complete_symbol(u"threading.Threa", namespaces=[ns])
-      [u'threading.Thread', u'threading.ThreadError']
+      >>> complete_symbol("threading.Threa", namespaces=[ns])
+      ['threading.Thread', 'threading.ThreadError']
 
     We only need to import *parent* modules (packages) of the symbol being
     completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to
@@ -1186,6 +1188,7 @@ def _get_TerminalPdb_class():
     # Pdb class separately.
     try:
         import IPython
+        del IPython
     except ImportError:
         raise NoIPythonPackageError()
     try:
@@ -1633,19 +1636,19 @@ class AutoImporter(object):
         ]
         try:
             # Tested with Jupyter/IPython 4.0
-            from jupyter_client.manager import KernelManager
+            from jupyter_client.manager import KernelManager as JupyterKernelManager
         except ImportError:
             pass
         else:
             @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport(*args, **kwargs):
+            def start_kernel_with_autoimport_jupyter(*args, **kwargs):
                 logger.debug("start_kernel()")
                 # Advise format_kernel_cmd(), which is the function that
                 # computes the command line for a subprocess to run a new
                 # kernel.  Note that we advise the method on the class, rather
                 # than this instance of kernel_manager, because start_kernel()
                 # actually creates a *new* KernelInstance for this.
-                @advise(KernelManager.format_kernel_cmd)
+                @advise(JupyterKernelManager.format_kernel_cmd)
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
                     logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
@@ -1666,19 +1669,19 @@ class AutoImporter(object):
         try:
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
             # 3.2.
-            from IPython.kernel.manager import KernelManager
+            from IPython.kernel.manager import KernelManager as IPythonKernelManager
         except ImportError:
             pass
         else:
             @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport(*args, **kwargs):
+            def start_kernel_with_autoimport_ipython(*args, **kwargs):
                 logger.debug("start_kernel()")
                 # Advise format_kernel_cmd(), which is the function that
                 # computes the command line for a subprocess to run a new
                 # kernel.  Note that we advise the method on the class, rather
                 # than this instance of kernel_manager, because start_kernel()
                 # actually creates a *new* KernelInstance for this.
-                @advise(KernelManager.format_kernel_cmd)
+                @advise(IPythonKernelManager.format_kernel_cmd)
                 def format_kernel_cmd_with_autoimport(*args, **kwargs):
                     result = __original__(*args, **kwargs)
                     logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
@@ -1815,7 +1818,27 @@ class AutoImporter(object):
         # function to get called twice per cell.  This seems like an
         # unintentional repeated call in IPython itself.  This is harmless for
         # us, since doing an extra reset shouldn't hurt.
-        if hasattr(ip, "input_transformer_manager"):
+        if hasattr(ip, "input_transformers_post"):
+            # In IPython 7.0+, the input transformer API changed.
+            def reset_auto_importer_state(line):
+                # There is a bug in IPython that causes the transformer to be
+                # called multiple times
+                # (https://github.com/ipython/ipython/issues/11714). Until it
+                # is fixed, workaround it by skipping one of the calls.
+                stack = inspect.stack()
+                if any([
+                        stack[3].function == 'run_cell_async',
+                        # These are the other places it is called.
+                        # stack[3].function == 'should_run_async',
+                        # stack[1].function == 'check_complete'
+                ]):
+                    return line
+                logger.debug("reset_auto_importer_state(%r)", line)
+                self.reset_state_new_cell()
+                return line
+            ip.input_transformers_cleanup.append(reset_auto_importer_state)
+            return True
+        elif hasattr(ip, "input_transformer_manager"):
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
             # 3.2, 4.0.
             class ResetAutoImporterState(object):
@@ -2133,6 +2156,15 @@ class AutoImporter(object):
                     # Use get_global_namespaces(), which relies on
                     # _get_pdb_if_is_in_pdb().
                     return None
+            if getattr(completer, 'use_jedi', False):
+                # IPython 6.0+ uses jedi completion by default, which bypasses
+                # the global and attr matchers. For now we manually reenable
+                # them. A TODO would be to hook the Jedi completer itself.
+                if completer.python_matches not in completer.matchers:
+                    @self._advise(type(completer).matchers)
+                    def matchers_with_python_matches(completer):
+                        return [completer.python_matches] + __original__.fget(completer)
+
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
                 if len(fullname) == 0:
@@ -2145,6 +2177,7 @@ class AutoImporter(object):
                 logger.debug("attr_matches_with_autoimport(%r)", fullname)
                 namespaces = get_completer_namespaces()
                 return self.complete_symbol(fullname, namespaces, on_error=__original__)
+
             return True
         elif hasattr(completer, "complete_request"):
             # This is a ZMQCompleter, so nothing to do.
@@ -2262,11 +2295,11 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        if (sys.version_info < (3,) and
+        if (PY2 and
             hasattr(ip, "new_main_mod")):
             try:
                 args = inspect.getargspec(ip.new_main_mod).args
-            except Exception as e:
+            except Exception:
                 # getargspec fails if we already advised.
                 # For now just skip under the assumption that we already
                 # advised (or the code changed in some way that doesn't
@@ -2301,8 +2334,8 @@ class AutoImporter(object):
         except ImportError:
             return True
         if (not issubclass(LevelFormatter, object) and
-            "super" in LevelFormatter.format.im_func.func_code.co_names and
-            "logging" not in LevelFormatter.format.im_func.func_code.co_names):
+            "super" in LevelFormatter.format.__func__.__code__.co_names and
+            "logging" not in LevelFormatter.format.__func__.__code__.co_names):
             # In IPython 1.0, LevelFormatter uses super(), which assumes
             # that logging.Formatter is a subclass of object.  However,
             # this is only true in Python 2.7+, not in Python 2.6.  So

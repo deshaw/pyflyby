@@ -11,7 +11,8 @@
 #   import pyflyby
 #   pyflyby.enable_auto_importer()
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 from   pyflyby._interactive     import enable_auto_importer
 

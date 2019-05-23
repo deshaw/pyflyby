@@ -3,7 +3,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import os
 import pytest
@@ -14,6 +15,8 @@ import sys
 import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
+
+from   six                      import PY2, PY3, string_types
 
 import pyflyby
 from   pyflyby._file            import Filename
@@ -48,7 +51,7 @@ def pipe(command, stdin="", env=None, retretcode="automatic"):
         stderr=subprocess.STDOUT,
         env=env
     )
-    stdout = proc.communicate(stdin)[0].strip()
+    stdout = proc.communicate(stdin)[0].strip().decode('utf-8')
     retcode = proc.returncode
     assert retcode >= 0
     if retretcode == True:
@@ -94,7 +97,7 @@ def _build_pythonpath(PYTHONPATH):
       C{str}
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    if isinstance(PYTHONPATH, (Filename, basestring)):
+    if isinstance(PYTHONPATH, (Filename,) + string_types):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH
@@ -132,7 +135,7 @@ def writetext(filename, text, mode='w'):
 
 def test_0prefix_raw_1():
     # Verify that we're testing the virtualenv we think we are.
-    result = pipe(['python', '-c', 'import sys; print sys.prefix'])
+    result = pipe(['python', '-c', 'import sys; print(sys.prefix)'])
     expected = sys.prefix
     assert expected == result
 
@@ -156,8 +159,10 @@ def test_eval_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('VGhvbXBzb24=')
-        'Thompson'
+        b'Thompson'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'Thompson'", "'Thompson'")
     assert expected == result
 
 
@@ -166,8 +171,10 @@ def test_eval_single_dash_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('V29vc3Rlcg==')
-        'Wooster'
+        b'Wooster'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'Wooster'", "'Wooster'")
     assert expected == result
 
 
@@ -176,8 +183,10 @@ def test_eval_equals_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('TWVyY2Vy')
-        'Mercer'
+        b'Mercer'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'Mercer'", "'Mercer'")
     assert expected == result
 
 
@@ -186,8 +195,10 @@ def test_eval_single_dash_equals_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('VW5pdmVyc2l0eQ==')
-        'University'
+        b'University'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'University'", "'University'")
     assert expected == result
 
 
@@ -196,14 +207,19 @@ def test_eval_c_1():
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('QmxlZWNrZXI=')
-        'Bleecker'
+        b'Bleecker'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'Bleecker'", "'Bleecker'")
     assert expected == result
 
 
 def test_eval_quiet_1():
     result = py("-q", "-c", "b64decode('U3VsbGl2YW4=')")
-    expected = "'Sullivan'"
+    if PY2:
+        expected = "'Sullivan'"
+    else:
+        expected = "b'Sullivan'"
     assert expected == result
 
 
@@ -224,12 +240,14 @@ def test_eval_expression_quiet_1():
 
 
 def test_exec_1():
-    result = py("-c", "print b64decode('UHJpbmNl')")
+    result = py("-c", "if 1: print(b64decode('UHJpbmNl'))")
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
-        [PYFLYBY] print b64decode('UHJpbmNl')
-        Prince
+        [PYFLYBY] if 1: print(b64decode('UHJpbmNl'))
+        b'Prince'
     """).strip()
+    if PY2:
+        expected = expected.replace("b'Prince'", "Prince")
     assert expected == result
 
 
@@ -254,13 +272,13 @@ def test_argv_2():
 
 
 def test_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
-        f.write('print "Boone", sys.argv\n')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write('print(("Boone", sys.argv))\n')
         f.flush()
         result = py(f.name, "a", "b")
     expected = dedent("""
         [PYFLYBY] import sys
-        Boone [%r, 'a', 'b']
+        ('Boone', [%r, 'a', 'b'])
     """).strip() % (f.name,)
     assert expected == result
 
@@ -274,13 +292,13 @@ def test_file_1():
     "--run", "-run", "run", "%run",
 ])
 def test_file_variants_1(arg):
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
-        f.write('print "Longfellow", sys.argv\n')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write('print(("Longfellow", sys.argv))\n')
         f.flush()
         result = py(f.name, "a", "b")
     expected = dedent("""
         [PYFLYBY] import sys
-        Longfellow [%r, 'a', 'b']
+        ('Longfellow', [%r, 'a', 'b'])
     """).strip() % (f.name,)
     assert expected == result
 
@@ -295,7 +313,7 @@ def test_apply_1():
 
 
 def test_apply_stdin_1():
-    result = py("--apply", "str.upper", "-", stdin="Eagle")
+    result = py("--apply", "str.upper", "-", stdin=b"Eagle")
     expected = dedent("""
         [PYFLYBY] str.upper('Eagle')
         'EAGLE'
@@ -304,7 +322,7 @@ def test_apply_stdin_1():
 
 
 def test_apply_stdin_more_args_1():
-    result = py("--apply", "str.find", "-", "'k'", stdin="Jackson\n")
+    result = py("--apply", "str.find", "-", "'k'", stdin=b"Jackson\n")
     expected = dedent(r"""
         [PYFLYBY] str.find('Jackson\n', 'k')
         3
@@ -613,11 +631,11 @@ def test_heuristic_eval_exponentiation_1():
 
 
 def test_heuristic_eval_with_argv_1():
-    result = py('for x in sys.argv[1:]: print x.capitalize()',
+    result = py('for x in sys.argv[1:]: print(x.capitalize())',
                 'canal', 'grand')
     expected = dedent("""
         [PYFLYBY] import sys
-        [PYFLYBY] for x in sys.argv[1:]: print x.capitalize()
+        [PYFLYBY] for x in sys.argv[1:]: print(x.capitalize())
         Canal
         Grand
     """).strip()
@@ -625,19 +643,19 @@ def test_heuristic_eval_with_argv_1():
 
 
 def test_heuristic_exec_statement_1():
-    result = py('''if 1: print "Mulberry"''')
+    result = py('''if 1: print("Mulberry")''')
     expected = dedent("""
-        [PYFLYBY] if 1: print "Mulberry"
+        [PYFLYBY] if 1: print("Mulberry")
         Mulberry
     """).strip()
     assert expected == result
 
 
 def test_heuristic_exec_multiline_statement_1():
-    result = py('''if 1:\n  print "Mott"''')
+    result = py('''if 1:\n  print("Mott")''')
     expected = dedent("""
         [PYFLYBY] if 1:
-        [PYFLYBY]   print "Mott"
+        [PYFLYBY]   print("Mott")
         Mott
     """).strip()
     assert expected == result
@@ -653,7 +671,7 @@ def test_heuristic_apply_1():
 
 
 def test_heuristic_apply_stdin_1():
-    result = py("str.upper", "-", stdin="Nassau")
+    result = py("str.upper", "-", stdin=b"Nassau")
     expected = dedent("""
         [PYFLYBY] str.upper('Nassau')
         'NASSAU'
@@ -662,7 +680,7 @@ def test_heuristic_apply_stdin_1():
 
 
 def test_heuristic_apply_stdin_2():
-    result = py("sys.stdout.write", "-", stdin="Downing")
+    result = py("--output=silent", "sys.stdout.write", "-", stdin=b"Downing")
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Downing')
@@ -672,7 +690,7 @@ def test_heuristic_apply_stdin_2():
 
 
 def test_heuristic_apply_stdin_no_eval_1():
-    result = py("sys.stdout.write", "-", stdin="3+4")
+    result = py("--output=silent", "sys.stdout.write", "-", stdin=b"3+4")
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('3+4')
@@ -682,7 +700,7 @@ def test_heuristic_apply_stdin_no_eval_1():
 
 
 def test_heuristic_apply_stdin_quiet_1():
-    result = py("-q", "sys.stdout.write", "-", stdin="Houston")
+    result = py("--output=silent", "-q", "sys.stdout.write", "-", stdin=b"Houston")
     expected = "Houston"
     assert expected == result
 
@@ -718,10 +736,16 @@ def test_heuristic_apply_builtin_args_1():
 
 def test_heuristic_apply_builtin_args_2():
     result = py("round", "2.984375")
-    expected = dedent("""
-        [PYFLYBY] round(2.984375)
-        3.0
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] round(2.984375)
+            3.0
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] round(2.984375)
+            3
+        """).strip()
     assert expected == result
 
 
@@ -821,7 +845,10 @@ def test_heuristic_apply_method_arg_1():
 def test_apply_builtin_too_few_args_1():
     result, retcode = py("round")
     assert retcode == 1
-    assert "TypeError: Required argument 'number' (pos 1) not found" in result
+    if PY2:
+        assert "TypeError: Required argument 'number' (pos 1) not found" in result
+    else:
+        assert "TypeError: round() missing required argument 'number' (pos 1)" in result
 
 
 def test_apply_builtin_too_many_args_1():
@@ -890,7 +917,10 @@ def test_apply_argspec_too_few_args_1():
     result, retcode = py("base64.b64decode")
     assert retcode == 1
     assert "[PYFLYBY] missing required argument s" in result
-    assert "$ py base64.b64decode s [altchars]" in result
+    if PY2:
+        assert "$ py base64.b64decode s [altchars]" in result, result
+    else:
+        assert "$ py base64.b64decode s [altchars [validate]]" in result
 
 
 def test_apply_argspec_too_few_args_2():
@@ -901,12 +931,18 @@ def test_apply_argspec_too_few_args_2():
 
 
 def test_apply_argspec_too_many_args_1():
-    result, retcode = py("base64.b64decode", "a", "b", "c")
+    result, retcode = py("base64.b64decode", "a", "b", "c", "d")
     assert retcode == 1
-    assert ("[PYFLYBY] Too many positional arguments.  "
-            "Expected 1-2 positional argument(s): s, altchars.  "
-            "Got 3 args: a b c") in result
-    assert "$ py base64.b64decode s [altchars]" in result
+    if PY2:
+        assert ("[PYFLYBY] Too many positional arguments.  "
+                "Expected 1-2 positional argument(s): s, altchars.  "
+                "Got 4 args: a b c d") in result, result
+        assert "$ py base64.b64decode s [altchars]" in result
+    else:
+        assert ("[PYFLYBY] Too many positional arguments.  "
+        "Expected 1-3 positional argument(s): s, altchars, validate.  "
+        "Got 4 args: a b c d") in result, result
+        assert "$ py base64.b64decode s [altchars [validate]]" in result
 
 
 def test_apply_argspec_too_many_args_2():
@@ -922,7 +958,10 @@ def test_apply_argspec_bad_kwarg_1():
     result, retcode = py("base64.b64decode", "x", "--christopher=sheridan")
     assert retcode == 1
     assert "[PYFLYBY] Unknown option name christopher" in result
-    assert "$ py base64.b64decode s [altchars]" in result
+    if PY2:
+        assert "$ py base64.b64decode s [altchars]" in result
+    else:
+        assert "$ py base64.b64decode s [altchars [validate]]" in result
 
 
 def test_apply_dashdash_1():
@@ -954,6 +993,9 @@ def test_repr_str_1():
     assert expected == result
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="Long integers are not valid syntax in Python 3.")
 def test_repr_long_1():
     result = py("5L")
     expected = dedent("""
@@ -982,9 +1024,9 @@ def test_integer_division_1():
 
 
 def test_print_statement_1():
-    result = py("print 42")
+    result = py("print(42)")
     expected = dedent("""
-        [PYFLYBY] print 42
+        [PYFLYBY] print(42)
         42
     """).strip()
     assert expected == result
@@ -992,10 +1034,16 @@ def test_print_statement_1():
 
 def test_print_statement_sep_1():
     result = py("print", "43")
-    expected = dedent("""
-        [PYFLYBY] print 43
-        43
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] print 43
+            43
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] print(43)
+            43
+        """).strip()
     assert expected == result
 
 
@@ -1019,8 +1067,8 @@ def test_print_function_tuple_1():
 
 
 def test_write_1():
-    with NamedTemporaryFile() as f:
-        output = py("-q", "open(%r,'w').write"%f.name, "-", stdin="Greenwich")
+    with NamedTemporaryFile(mode='w+') as f:
+        output = py("--output=silent", "-q", "open(%r,'w').write"%f.name, "-", stdin=b"Greenwich")
         assert output == ""
         result = f.read()
     expected = "Greenwich"
@@ -1028,9 +1076,9 @@ def test_write_1():
 
 
 def test_print_args_1():
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         output = py("-q", "print", "-", "--file=open(%r,'w')"%f.name,
-                    stdin="Spring")
+                    stdin=b"Spring")
         assert output == ""
         result = f.read()
     expected = "Spring\n"
@@ -1051,12 +1099,15 @@ def test_program_help_full_1():
 def test_function_help_1():
     output = py("base64.b64encode", "--help")
     assert "s [altchars]" in output
-    assert "--version" not in output
-    assert "[PYFLYBY] import base64" in output
     assert ">>> base64.b64encode(s, altchars=None)" in output
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
-    assert "\n  Encode a string using Base64." in output
+    assert "--version" not in output
+    assert "[PYFLYBY] import base64" in output
+    if PY2:
+        assert "\n  Encode a string using Base64." in output
+    else:
+        assert "\n  Encode the bytes-like object s using Base64 and return a bytes object." in output
     assert "binascii.b2a_base64" not in output
 
 
@@ -1072,7 +1123,10 @@ def test_function_help_expression_1():
     output = py("sys.stdout.write", "--help")
     assert '>>> sys.stdout.write(' in output
     assert "$ py sys.stdout.write " in output
-    assert "Write string str to file." in output
+    if PY2:
+        assert "Write string str to file." in output, output
+    else:
+        assert "Write string to stream." in output, output
 
 
 def test_function_help_quote_need_parens_1():
@@ -1181,7 +1235,10 @@ def test_function_source_1():
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
-    assert output.count("Encode a string using Base64") == 1
+    if PY2:
+        assert output.count("Encode a string using Base64") == 1, output
+    else:
+        assert output.count("Encode the bytes-like object s using Base64 and return a bytes object.") == 1
     assert "--version" not in output
 
 
@@ -1192,7 +1249,10 @@ def test_function_source_autoimport_1():
     assert "$ py b64encode s [altchars]" in output
     assert "$ py b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
-    assert output.count("Encode a string using Base64") == 1
+    if PY2:
+        assert output.count("Encode a string using Base64") == 1, output
+    else:
+        assert output.count("Encode the bytes-like object s using Base64 and return a bytes object.") == 1
 
 
 @pytest.mark.parametrize("cmdline", [
@@ -1256,7 +1316,7 @@ def test_module_help_1():
 ])
 def test_module_help_variants_1(args):
     output = py(args.split())
-    assert "RFC 3548" in output
+    assert "RFC 3548" in output, output
     assert "import binascii" not in output
 
 
@@ -1500,7 +1560,7 @@ def test_kwargs_no_dashdash_1():
         [PYFLYBY] (lambda *a,**k: (a,k))(3.5, foo=7.5)
         ((3.5,), {'foo': 7.5})
     """).strip()
-    assert expected == result
+    assert expected == result, result
 
 
 def test_kwargs_dashdash_1():
@@ -1524,20 +1584,50 @@ def test_joinstr_1():
 
 def test_print_joinstr_1():
     result = py("print", "3", "+", "5")
-    expected = dedent("""
-        [PYFLYBY] print 3 + 5
-        8
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] print 3 + 5
+            8
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] print(3, '+', 5)
+            3 + 5
+        """).strip()
+    assert expected == result
+
+def test_print_joinstr_2():
+    result = py("print", "3 + 5")
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] print 3 + 5
+            8
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] print(8)
+            8
+        """).strip()
     assert expected == result
 
 
 def test_join_single_arg_1():
     result = py("print", "sys")
-    expected = dedent("""
-        [PYFLYBY] import sys
-        [PYFLYBY] print sys
-        <module 'sys' (built-in)>
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] print sys
+            <module 'sys' (built-in)>
+        """).strip()
+    else:
+        # In autocall mode, the arguments are evaluated and the repr() is
+        # printed for the [PYFLYBY] line
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] print(<module 'sys' (built-in)>)
+            <module 'sys' (built-in)>
+        """).strip()
+
     assert expected == result
 
 
@@ -1940,7 +2030,7 @@ def test_outputmode_bad_1():
 
 
 def test_run_module_1():
-    result = py("-m", "base64", "-d", "-", stdin="VHJpbml0eQ==")
+    result = py("-m", "base64", "-d", "-", stdin=b"VHJpbml0eQ==")
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Trinity
@@ -1957,7 +2047,7 @@ def test_run_module_1():
     "-mbase64",
 ])
 def test_run_module_variants_1(args):
-    result = py((args + " -d -").split(), stdin="VHJvdXRtYW4=")
+    result = py((args + " -d -").split(), stdin=b"VHJvdXRtYW4=")
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Troutman
@@ -1969,9 +2059,10 @@ def test_run_module_argstr_1(tmp):
     # runmodule.  Verify that arguments are strings and not evaluated, and
     # verify that argv works correctly.
     writetext(tmp.dir/"odule12786636.py", """
+        from __future__ import print_function
         if __name__ == "__main__":
             import sys
-            print "Rector", sys.argv
+            print("Rector", sys.argv)
     """)
     result = py("-module12786636", "22524739.000", "math",
                 PYTHONPATH=tmp.dir)
@@ -1983,7 +2074,7 @@ def test_run_module_argstr_1(tmp):
 
 
 def test_run_module_under_package_1(tmp):
-    result = py("encodings.rot_13", stdin="Tenavgr")
+    result = py("encodings.rot_13", stdin=b"Tenavgr")
     expected = dedent("""
         [PYFLYBY] import encodings
         [PYFLYBY] python -m encodings.rot_13
@@ -1993,7 +2084,7 @@ def test_run_module_under_package_1(tmp):
 
 
 def test_heuristic_run_module_1():
-    result = py("base64", "-d", "-", stdin="U2VuZWNh")
+    result = py("base64", "-d", "-", stdin=b"U2VuZWNh")
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Seneca
@@ -2002,7 +2093,7 @@ def test_heuristic_run_module_1():
 
 
 def test_heuristic_run_module_under_package_1(tmp):
-    result = py("encodings.rot_13", stdin="Qrpxre")
+    result = py("encodings.rot_13", stdin=b"Qrpxre")
     expected = dedent("""
         [PYFLYBY] import encodings
         [PYFLYBY] python -m encodings.rot_13
@@ -2015,13 +2106,16 @@ def test_heuristic_run_module_under_package_2(tmp):
     os.mkdir("%s/bard22402805" % tmp.dir)
     os.mkdir("%s/bard22402805/douglas" % tmp.dir)
     writetext(tmp.dir/"bard22402805/__init__.py", """
-        print 'Davis', __name__
+        from __future__ import print_function
+        print('Davis', __name__)
     """)
     writetext(tmp.dir/"bard22402805/douglas/__init__.py", """
-        print 'Clove', __name__
+        from __future__ import print_function
+        print('Clove', __name__)
     """)
     writetext(tmp.dir/"bard22402805/douglas/thames.py", """
-        print 'Huron', __name__
+        from __future__ import print_function
+        print('Huron', __name__)
     """)
     result = py("bard22402805.douglas.thames", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2039,7 +2133,7 @@ def test_heuristic_run_module_no_auto_import_1(tmp):
     # Heuristic runmodule.  Verify that we don't auto-import anything.
     writetext(tmp.dir/"vernon84909775.py", """
         if __name__ == "__main__":
-            print 'Basin'
+            print('Basin')
             os # expect NameError
     """)
     result, retcode = py("vernon84909775", PYTHONPATH=tmp.dir)
@@ -2066,16 +2160,20 @@ def test_heuristic_run_module_importerror_1(tmp):
     """)
     result, retcode = py("griswold73262001", PYTHONPATH=tmp.dir)
     assert retcode == 1
-    assert result.endswith("ImportError: No module named whitewood62047754")
+    if PY2:
+        assert result.endswith("ImportError: No module named whitewood62047754")
+    else:
+        assert result.endswith("ModuleNotFoundError: No module named 'whitewood62047754'")
 
 
 def test_heuristic_run_module_argstr_1(tmp):
     # Heuristic runmodule.  Verify that arguments are strings and not
     # evaluated, and verify that argv works correctly.
     writetext(tmp.dir/"gantry20720070.py", """
+        from __future__ import print_function
         if __name__ == "__main__":
             import sys
-            print "Belmont", sys.argv
+            print("Belmont", sys.argv)
     """)
     result = py("gantry20720070", "26792622.000", "math",
                 PYTHONPATH=tmp.dir)
@@ -2089,13 +2187,19 @@ def test_heuristic_run_module_argstr_1(tmp):
 def test_builtin_no_run_module_1(tmp):
     # Verify that builtins take precedence over modules.
     writetext(tmp.dir/"round.py", """
-        print 'bad morrison56321353'
+        print('bad morrison56321353')
     """)
     result = py("round", "17534159.5", PYTHONPATH=tmp.dir)
-    expected = dedent("""
-        [PYFLYBY] round(17534159.5)
-        17534160.0
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] round(17534159.5)
+            17534160.0
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] round(17534159.5)
+            17534160
+        """).strip()
     assert expected == result
 
 
@@ -2103,7 +2207,8 @@ def test_run_module_no_superfluous_import_1(tmp):
     # Verify that 'py -m foomodule' doesn't cause a superfluous import of
     # foomodule.
     writetext(tmp.dir/"delafield47227231.py", """
-        print 'Oakwood', __name__
+        from __future__ import print_function
+        print('Oakwood', __name__)
     """)
     result = py("-m", "delafield47227231", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2117,7 +2222,8 @@ def test_heuristic_run_module_no_superfluous_import_1(tmp):
     # Verify that 'py foomodule' doesn't cause a superfluous import of
     # foomodule.
     writetext(tmp.dir/"pelton58495419.py", """
-        print 'Bement', __name__
+        from __future__ import print_function
+        print('Bement', __name__)
     """)
     result = py("pelton58495419", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2171,20 +2277,33 @@ def test_safe_fully_qualified_module_1(tmp):
 
 def test_unsafe_args_1():
     result = py("type", "sys")
-    expected = dedent("""
-        [PYFLYBY] import sys
-        [PYFLYBY] type(<module 'sys' (built-in)>)
-        <type 'module'>
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] type(<module 'sys' (built-in)>)
+            <type 'module'>
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] import sys
+            [PYFLYBY] type(<module 'sys' (built-in)>)
+            <class 'module'>
+        """).strip()
     assert expected == result
 
 
 def test_safe_args_1():
     result = py("--safe", "type", "sys")
-    expected = dedent("""
-        [PYFLYBY] type('sys')
-        <type 'str'>
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] type('sys')
+            <type 'str'>
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] type('sys')
+            <class 'str'>
+        """).strip()
     assert expected == result
 
 
@@ -2202,16 +2321,6 @@ def test_safe_dashdash_1():
     expected = dedent("""
         [PYFLYBY] print('Oliver/', 'Catherine/', '--')
         Oliver/ Catherine/ --
-    """).strip()
-    assert expected == result
-
-
-def test_unsafe_concat_1():
-    result = py("print", "sys")
-    expected = dedent("""
-        [PYFLYBY] import sys
-        [PYFLYBY] print sys
-        <module 'sys' (built-in)>
     """).strip()
     assert expected == result
 
@@ -2255,13 +2364,14 @@ def test_argmode_auto_no_concat_1():
 
 
 def test_exec_stdin_print_statement_1():
-    result = py(stdin="print 'Carnegie'")
+    # This is still a print statement in Python 2 (with redundant parentheses)
+    result = py(stdin=b"print('Carnegie')")
     expected = "Carnegie"
     assert expected == result
 
 
 def test_exec_stdin_print_function_1():
-    result = py(stdin="print('Sinai', file=sys.stdout)")
+    result = py(stdin=b"print('Sinai', file=sys.stdout)")
     expected = dedent("""
         [PYFLYBY] import sys
         Sinai
@@ -2270,12 +2380,12 @@ def test_exec_stdin_print_function_1():
 
 
 def test_exec_stdin_noresult_1():
-    result = py(stdin="42")
+    result = py(stdin=b"42")
     assert "" == result
 
 
 def test_argv_stdin_noarg_1():
-    result = py(stdin="print sys.argv")
+    result = py(stdin=b"print(sys.argv)")
     expected = dedent("""
         [PYFLYBY] import sys
         ['']
@@ -2284,7 +2394,7 @@ def test_argv_stdin_noarg_1():
 
 
 def test_argv_stdin_dash_1():
-    result = py("-", stdin="print sys.argv")
+    result = py("-", stdin=b"print(sys.argv)")
     expected = dedent("""
         [PYFLYBY] import sys
         ['-']
@@ -2293,7 +2403,7 @@ def test_argv_stdin_dash_1():
 
 
 def test_argv_stdin_dash_args_1():
-    result = py("-", "sys", stdin="print sys.argv")
+    result = py("-", "sys", stdin=b"print(sys.argv)")
     expected = dedent("""
         [PYFLYBY] import sys
         ['-', 'sys']
@@ -2442,7 +2552,7 @@ def test_output_exit_variants_1(args):
 
 
 def test_info_function_simple_1():
-    result = py('sys.stdout.write', 'Franklin')
+    result = py('--output=silent', 'sys.stdout.write', 'Franklin')
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Franklin')
@@ -2452,7 +2562,7 @@ def test_info_function_simple_1():
 
 
 def test_info_function_lambda_1():
-    result = py('(lambda: sys.stdout.write)()', 'Chambers')
+    result = py('--output=silent', '(lambda: sys.stdout.write)()', 'Chambers')
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] (lambda: sys.stdout.write)()
@@ -2472,14 +2582,22 @@ def test_ctypes_1():
         libname = "libc.dylib"
     else:
         raise AssertionError
-    result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "%03d", "7")
-    expected = dedent("""
-        [PYFLYBY] import ctypes
-        [PYFLYBY] ctypes.CDLL("{libname}").printf
-        [PYFLYBY] ctypes.CDLL("{libname}").printf('%03d', 7)
-        007
-    """).strip().format(libname=libname)
-    assert expected == result
+    result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "b'%03d'", "7")
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] import ctypes
+            [PYFLYBY] ctypes.CDLL("{libname}").printf
+            [PYFLYBY] ctypes.CDLL("{libname}").printf('%03d', 7)
+            007
+        """).strip().format(libname=libname)
+    else:
+        expected = dedent("""
+            [PYFLYBY] import ctypes
+            [PYFLYBY] ctypes.CDLL("{libname}").printf
+            [PYFLYBY] ctypes.CDLL("{libname}").printf(b'%03d', 7)
+            007
+        """).strip().format(libname=libname)
+    assert expected == result, repr(result)
 
 
 def test_name_eval_1():
@@ -2501,7 +2619,7 @@ def test_name_heuristic_eval_1():
 
 
 def test_name_heuristic_apply_eval_1():
-    result = py("sys.stdout.write", "__name__")
+    result = py("--output=silent", "sys.stdout.write", "__name__")
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('__main__')
@@ -2512,32 +2630,38 @@ def test_name_heuristic_apply_eval_1():
 
 def test_name_heuristic_join_eval_1():
     result = py("print", "'Castle'", ",", "__name__")
-    expected = dedent("""
-        [PYFLYBY] print 'Castle' , __name__
-        Castle __main__
-    """).strip()
+    if PY2:
+        expected = dedent("""
+            [PYFLYBY] print 'Castle' , __name__
+            Castle __main__
+        """).strip()
+    else:
+        expected = dedent("""
+            [PYFLYBY] print('Castle', ',', '__main__')
+            Castle , __main__
+        """).strip()
     assert expected == result
 
 
 def test_name_stdin_1():
-    result = py(stdin="print 'Winter', __name__")
+    result = py(stdin=b"print(('Winter', __name__))")
     expected = dedent("""
-        Winter __main__
+        ('Winter', '__main__')
     """).strip()
     assert expected == result
 
 
 def test_name_dash_stdin_1():
-    result = py("-", stdin="print 'Victory', __name__")
+    result = py("-", stdin=b"print(('Victory', __name__))")
     expected = dedent("""
-        Victory __main__
+        ('Victory', '__main__')
     """).strip()
     assert expected == result
 
 
 def test_name_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
-        f.write('print "Forest", __name__\n')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write('from __future__ import print_function\nprint("Forest", __name__)\n')
         f.flush()
         result = py("--file", f.name)
     expected = dedent("""
@@ -2547,8 +2671,8 @@ def test_name_file_1():
 
 
 def test_name_heuristic_file_1():
-    with tempfile.NamedTemporaryFile(suffix=".py") as f:
-        f.write('print "Oakland", __name__\n')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write('from __future__ import print_function\nprint("Oakland", __name__)\n')
         f.flush()
         result = py(f.name)
     expected = dedent("""
@@ -2561,7 +2685,8 @@ def test_name_module_1(tmp):
     # Verify that 'py -m modulename' works.  Also verify that we don't import the
     # module by name before run_module.
     writetext(tmp.dir/"swan80274886.py", """
-        print 'Lafayette', __name__
+        from __future__ import print_function
+        print('Lafayette', __name__)
     """)
     result = py("-m", "swan80274886", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2575,7 +2700,8 @@ def test_name_heuristic_module_1(tmp):
     # Verify that 'py modulename' works.  Also verify that we don't import the
     # module by name before run_module.
     writetext(tmp.dir/"arnold17339681.py", """
-        print 'Hendricks', __name__
+        from __future__ import print_function
+        print('Hendricks', __name__)
     """)
     result = py("arnold17339681", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2610,8 +2736,9 @@ def test_single_char_arg0_1(tmp, m):
     # Verify that single characters without dashes aren't treated as options,
     # i.e. verify that we don't treat e.g. "py c 42" as "py -c 42".
     writetext(tmp.dir/("%s.py"%m), """
+        from __future__ import print_function
         import sys
-        print 'Hayward', sys.argv[1]
+        print('Hayward', sys.argv[1])
     """)
     result = py(m, "42", PYTHONPATH=tmp.dir)
     expected = dedent("""
@@ -2622,7 +2749,7 @@ def test_single_char_arg0_1(tmp, m):
 
 
 def test_auto_arg_goodname_1():
-    result = py("sys.stdout.write", "os.path.sep")
+    result = py("--output=silent", "sys.stdout.write", "os.path.sep")
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] import os.path
@@ -2633,7 +2760,7 @@ def test_auto_arg_goodname_1():
 
 
 def test_auto_arg_badname_1():
-    result = py("sys.stdout.write", "Burnside55731946.Valentine")
+    result = py("--output=silent", "sys.stdout.write", "Burnside55731946.Valentine")
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Burnside55731946.Valentine')
@@ -2650,7 +2777,7 @@ def test_auto_arg_goodname_property_1(tmp):
                 return 'arden'
         creston = Creston()
     """)
-    result = py("sys.stdout.write", "quarry47946518.creston.sedgwick",
+    result = py("--output=silent", "sys.stdout.write", "quarry47946518.creston.sedgwick",
                 PYTHONPATH=tmp.dir)
     expected = dedent("""
         [PYFLYBY] import sys
@@ -2676,7 +2803,10 @@ def test_auto_arg_broken_name_property_1(tmp):
         PYTHONPATH=tmp.dir)
     assert retcode == 1
     assert "[PYFLYBY] import kingsbridge90850275\n" in result
-    assert "NameError: global name 'Woodlawn' is not defined" in result
+    if PY2:
+        assert "NameError: global name 'Woodlawn' is not defined" in result
+    else:
+        assert "NameError: name 'Woodlawn' is not defined" in result
 
 
 @pytest.mark.xfail # TODO FIXME
@@ -2710,6 +2840,8 @@ def test_function_defaults_1(tmp):
     # Verify that default values get passed through without being disturbed,
     # without being round-tripped through strings, etc.
     writetext(tmp.dir / "dobbin69118865.py", """
+        from __future__ import print_function
+
         class X(object):
             _ctr = 0
             def __init__(self):
@@ -2720,7 +2852,7 @@ def test_function_defaults_1(tmp):
             def __str__(self):
                 return "<<X %d>>" % (self._i)
         def meserole(a, b, c=X(), d="77610270.000", e=None, f=X()):
-            print a, b, c, d, e, f
+            print(a, b, c, d, e, f)
     """)
     result = py("dobbin69118865.meserole", "java", "'kent'", "--e=paidge",
                 PYTHONPATH=tmp.dir)

@@ -9,6 +9,7 @@ Prints how to import given name(s).
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
+from __future__ import print_function
 
 from   pyflyby._cmdline         import parse_args, syntax
 from   pyflyby._importdb        import ImportDB
@@ -30,7 +31,7 @@ def main():
             logger.error("Can't find import for %r", arg)
         else:
             for imp in imports:
-                print imp.pretty_print(params=options.params),
+                print(imp.pretty_print(params=options.params), end=' ')
     if errors:
         raise SystemExit(1)
 

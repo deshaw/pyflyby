@@ -3,11 +3,14 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import pytest
 import sys
 from   textwrap                 import dedent
+
+from   six                      import PY2, PY3
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -83,19 +86,19 @@ def test_PythonBlock_lineno_1():
 def test_PythonBlock_statements_comments_1():
     block = PythonBlock(dedent('''
         # 1
-        print 2
+        print(2)
         # 3
         # 4
-        print 5
+        print(5)
         x=[6,
          7]
         # 8
     ''').lstrip())
     expected = (
         PythonStatement('# 1\n'                 ),
-        PythonStatement('print 2\n',    startpos=(2,1)),
+        PythonStatement('print(2)\n',    startpos=(2,1)),
         PythonStatement('# 3\n# 4\n',   startpos=(3,1)),
-        PythonStatement('print 5\n',    startpos=(5,1)),
+        PythonStatement('print(5)\n',    startpos=(5,1)),
         PythonStatement('x=[6,\n 7]\n', startpos=(6,1)),
         PythonStatement('# 8\n',        startpos=(8,1)),
     )
@@ -447,6 +450,9 @@ def test_PythonBlock_doctest_assignments_method_1():
     assert block.get_doctests() == expected
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_PythonBlock_flags_bad_1():
     # In Python2.x, this should cause a syntax error, since we didn't do
     # flags='print_function':
@@ -538,7 +544,9 @@ def test_PythonStatement_bad_from_multi_statements_1():
     with pytest.raises(ValueError):
         PythonStatement("a\nb\n")
 
-
+@pytest.mark.skipif(
+    PY3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_PythonStatement_flags_bad_1():
     # In Python2.x, this should cause a syntax error, since we didn't do
     # flags='print_function':
@@ -645,24 +653,35 @@ def test_str_lineno_in_dict_1():
 
 
 def test_str_lineno_strprefix_1():
-    block = PythonBlock(dedent(r'''
+    code = r'''
         r"aa\nbb"
         0
-        Ur"""cc\n
-        dd"""
         r"x"
-    ''').lstrip(), startpos=(101,1))
+'''
+    if PY2:
+        # ur"" is not valid syntax in Python 3
+        code += r'''        Ur"""cc\n
+        dd"""
+    '''
+    block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
         PythonStatement('r"aa\\nbb"\n'       , startpos=(101,1)),
         PythonStatement('0\n'                , startpos=(102,1)),
-        PythonStatement('Ur"""cc\\n\ndd"""\n', startpos=(103,1)),
-        PythonStatement('r"x"\n'             , startpos=(105,1)),
+        PythonStatement('r"x"\n'             , startpos=(103,1)),
+    )
+    if PY2:
+        expected_statements += (
+        PythonStatement('Ur"""cc\\n\ndd"""\n', startpos=(104,1)),
     )
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
-    expected_literals = [('aa\\nbb'  , FilePos(101,1)),
-                         ('cc\\n\ndd', FilePos(103,1)),
-                         ('x'        , FilePos(105,1))]
+    expected_literals = [
+        ('aa\\nbb'  , FilePos(101,1)),
+        ('x'        , FilePos(103,1)),
+    ]
+
+    if PY2:
+        expected_literals += [('cc\\n\ndd', FilePos(104,1))]
     assert literals == expected_literals
 
 
@@ -687,7 +706,7 @@ def test_str_lineno_escaped_single_1():
 
 
 def test_str_lineno_concatenated_1():
-    block = PythonBlock(dedent('''
+    code = '''
         "A" "a"
         "B" 'b'
         'C' 'c'
@@ -709,8 +728,7 @@ def test_str_lineno_concatenated_1():
         J"""    'j'.split()
         'K'
         'L'
-        r"M" u'm' b"""M""" Ur\'\'\'
-        m\'\'\'
+        r"M" u'm'
         "N" ''"" "n" """"""\'\'\'\'\'\'\'N\'\'\'
         """
         O
@@ -721,7 +739,20 @@ def test_str_lineno_concatenated_1():
         "Q" "q"""
         "R" "r""" + "S""""s""S""""s""""
         S"""
-    ''').lstrip(), startpos=(101,1))
+'''
+    if PY2:
+        # ur"" is not valid syntax in Python 3
+        code += """\
+        Ur'''
+        t'''
+"""
+        # Implicit string concatenation of non-bytes and bytes literals is not
+        # valid syntax in Python 3
+        code += '''\
+        r"U" u'u' b"""U"""
+    '''
+
+    block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
         PythonStatement('''"A" "a"\n'''            , startpos=(101,1)),
         PythonStatement('''"B" 'b'\n'''            , startpos=(102,1)),
@@ -735,13 +766,18 @@ def test_str_lineno_concatenated_1():
         PythonStatement('''"J" """j\nJ"""    'j'.split()\n'''             , startpos=(118,1)),
         PythonStatement("""'K'\n"""                , startpos=(120,1)),
         PythonStatement("""'L'\n"""                , startpos=(121,1)),
-        PythonStatement('''r"M" u'm' b"""M""" Ur\'\'\'\nm\'\'\'\n'''      , startpos=(122,1)),
-        PythonStatement('''"N" ''"" "n" """"""\'\'\'\'\'\'\'N\'\'\'\n'''  , startpos=(124,1)),
-        PythonStatement('''"""\nO\n"""\n'''        , startpos=(125,1)),
-        PythonStatement('''"""\nP\n"""\n'''        , startpos=(128,1)),
-        PythonStatement('''"Q" "q"""\n'''          , startpos=(131,1)),
-        PythonStatement('''"R" "r""" + "S""""s""S""""s""""\nS"""\n'''     , startpos=(132,1)),
+        PythonStatement('''r"M" u\'m\'\n''' , startpos=(122,1)),
+        PythonStatement('''"N" ''"" "n" """"""\'\'\'\'\'\'\'N\'\'\'\n'''  , startpos=(123,1)),
+        PythonStatement('''"""\nO\n"""\n'''        , startpos=(124,1)),
+        PythonStatement('''"""\nP\n"""\n'''        , startpos=(127,1)),
+        PythonStatement('''"Q" "q"""\n'''          , startpos=(130,1)),
+        PythonStatement('''"R" "r""" + "S""""s""S""""s""""\nS"""\n'''     , startpos=(131,1)),
     )
+    if PY2:
+        expected_statements += (
+            PythonStatement("""Ur'''\nt'''\n""" , startpos=(133,1)),
+            PythonStatement('''r"U" u'u' b"""U"""\n''' , startpos=(135,1)),
+        )
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
     expected_literals = [
@@ -757,14 +793,19 @@ def test_str_lineno_concatenated_1():
         ("Jj\nJj", FilePos(118,1)),
         ("K", FilePos(120,1)),
         ("L", FilePos(121,1)),
-        ("MmM\nm", FilePos(122,1)),
-        ("NnN", FilePos(124,1)),
-        ("\nO\n", FilePos(125,1)),
-        ("\nP\n", FilePos(128,1)),
-        ("Qq", FilePos(131,1)),
-        ("Rr", FilePos(132,1)),
-        ('Ss""Ss\nS', FilePos(132,13)),
+        ("Mm", FilePos(122,1)),
+        ("NnN", FilePos(123,1)),
+        ("\nO\n", FilePos(124,1)),
+        ("\nP\n", FilePos(127,1)),
+        ("Qq", FilePos(130,1)),
+        ("Rr", FilePos(131,1)),
+        ('Ss""Ss\nS', FilePos(131,13)),
     ]
+    if PY2:
+        expected_literals += [
+            ('\nt', FilePos(133, 1)),
+            ("UuU", FilePos(135,1)),
+        ]
     assert literals == expected_literals
 
 
@@ -876,6 +917,9 @@ def test_PythonBlock_with_multi_1():
 #   flagpf = flags contains CompilerFlags("print_function")
 #   futpf = code contains 'from __future__ import print_function'
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print statement not valid syntax in Python 3.")
 def test_PythonBlock_no_auto_flags_ps_flagps_1():
     block = PythonBlock(dedent('''
         print 42
@@ -884,7 +928,6 @@ def test_PythonBlock_no_auto_flags_ps_flagps_1():
     assert not (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
 
-
 def test_PythonBlock_no_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
@@ -892,7 +935,9 @@ def test_PythonBlock_no_auto_flags_ps_flagpf_1():
     with pytest.raises(SyntaxError):
         block.ast_node
 
-
+@pytest.mark.skipif(
+    PY3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_PythonBlock_no_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
@@ -976,6 +1021,9 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
     assert     (block.source_flags         & "print_function")
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print statement is not valid syntax in Python 3.")
 def test_PythonBlock_auto_flags_ps_flagps_1():
     block = PythonBlock(dedent('''
         print 42
@@ -985,6 +1033,9 @@ def test_PythonBlock_auto_flags_ps_flagps_1():
     assert not (block.source_flags         & "print_function")
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print statement is not valid syntax in Python 3.")
 def test_PythonBlock_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
@@ -1016,9 +1067,14 @@ def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
     ''').lstrip(), auto_flags=True)
-    assert     (block.flags                & "print_function")
-    assert     (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
+    if PY2:
+        assert     (block.flags                & "print_function")
+        assert     (block.ast_node.input_flags & "print_function")
+        assert not (block.source_flags         & "print_function")
+    else:
+        assert not (block.flags                & "print_function")
+        assert not (block.ast_node.input_flags & "print_function")
+        assert not (block.source_flags         & "print_function")
 
 
 def test_PythonBlock_auto_flags_pf_flagpf_1():
@@ -1143,7 +1199,10 @@ def test_PythonStatement_auto_flags_1():
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
     assert s1.block.source_flags == CompilerFlags(0)
-    expected = CompilerFlags("unicode_literals", "division", "print_function")
+    if PY2:
+        expected = CompilerFlags("unicode_literals", "division", "print_function")
+    else:
+        expected = CompilerFlags("unicode_literals", "division")
     assert s0.block.flags        == expected
     assert s1.block.flags        == expected
 
@@ -1163,6 +1222,9 @@ def test_parsable_explicit_flags_1():
     assert block.parsable
 
 
+@pytest.mark.skipif(
+    PY3,
+    reason="print function is not invalid syntax in Python 3.")
 def test_parsable_missing_flags_no_auto_flags_1():
     block = PythonBlock("print(3, file=4)")
     assert not block.parsable

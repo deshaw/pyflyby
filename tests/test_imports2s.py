@@ -3,7 +3,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import pytest
 import sys
@@ -756,7 +757,7 @@ def test_last_line_escaped_string_no_trailing_newline_1():
 def test_remove_broken_imports_1():
     input = PythonBlock(dedent('''
         import sys, os, omgdoesntexist_95421787, keyword
-        from email import MIMEAudio, omgdoesntexist_8824165
+        from email.mime.audio import MIMEAudio, omgdoesntexist_8824165
         code()
     ''').lstrip(), filename="/foo/test_remove_broken_imports_1.py")
     output = remove_broken_imports(input)
@@ -764,7 +765,7 @@ def test_remove_broken_imports_1():
         import keyword
         import os
         import sys
-        from email import MIMEAudio
+        from email.mime.audio import MIMEAudio
         code()
     ''').lstrip(), filename="/foo/test_remove_broken_imports_1.py")
     assert output == expected
@@ -815,13 +816,13 @@ def test_transform_imports_1():
         from m import x
         from m import x as X
         import m.x
-        print m.x, m.xx
+        print(m.x, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     output = transform_imports(input, {"m.x": "m.y.z"})
     expected = PythonBlock(dedent('''
         import m.y.z
         from m.y import z as X, z as x
-        print m.y.z, m.xx
+        print(m.y.z, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
@@ -831,7 +832,7 @@ def test_canonicalize_imports_1():
         from m import x
         from m import x as X
         import m.x
-        print m.x, m.xx
+        print(m.x, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     db = ImportDB("""
         __canonical_imports__ = {"m.x": "m.y.z"}
@@ -840,7 +841,7 @@ def test_canonicalize_imports_1():
     expected = PythonBlock(dedent('''
         import m.y.z
         from m.y import z as X, z as x
-        print m.y.z, m.xx
+        print(m.y.z, m.xx)
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 

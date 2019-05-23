@@ -2,8 +2,10 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
+from   functools                import total_ordering
 import os
 import re
 import six
@@ -15,7 +17,8 @@ from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
-                                        cached_attribute, memoize, prefixes)
+                                        cached_attribute, cmp, memoize,
+                                        prefixes)
 
 
 class ErrorDuringImportError(ImportError):
@@ -115,7 +118,7 @@ def pyc_to_py(filename):
     return filename
 
 
-
+@total_ordering
 class ModuleHandle(object):
     """
     A handle to a module.
@@ -367,6 +370,22 @@ class ModuleHandle(object):
         if not isinstance(o, ModuleHandle):
             return NotImplemented
         return cmp(self.name, o.name)
+
+    def __eq__(self, o):
+        if self is o:
+            return True
+        if not isinstance(o, ModuleHandle):
+            return NotImplemented
+        return self.name == o.name
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    # The rest are defined by total_ordering
+    def __lt__(self, o):
+        if not isinstance(o, ModuleHandle):
+            return NotImplemented
+        return self.name < o.name
 
     def __getitem__(self, x):
         if isinstance(x, slice):

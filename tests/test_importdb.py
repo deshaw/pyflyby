@@ -3,7 +3,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import os
 from   shutil                   import rmtree
@@ -73,7 +74,7 @@ def import_ImportDB_memoized_1():
 
 def test_ImportDB_pyflyby_path_filename_1():
     # Check that PYFLYBY_PATH set to a filename works.
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         f.write("from m4065635 import f78841936, f44111337, f73485346\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):
@@ -86,7 +87,7 @@ def test_ImportDB_pyflyby_path_filename_1():
 
 def test_ImportDB_pyflyby_path_no_default_1():
     # Check that defaults can be turned off from PYFLYBY_PATH.
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         f.write("from m27056973 import f8855924\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):
@@ -112,7 +113,7 @@ def test_ImportDB_pyflyby_path_no_default_1():
 def test_ImportDB_pyflyby_path_change_1():
     # Check that memoization takes into account changes in
     # os.environ["PYFLYBY_PATH"].
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile(mode='w+') as f:
         f.write("from m60309242 import f5781152\n")
         f.flush()
         with EnvVarCtx(PYFLYBY_PATH=f.name):

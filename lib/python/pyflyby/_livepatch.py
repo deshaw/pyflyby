@@ -137,6 +137,9 @@ import sys
 import time
 import types
 
+from   six                      import PY2
+from   six.moves                import reload_module
+
 import inspect
 from   pyflyby._log             import logger
 
@@ -151,7 +154,7 @@ else:
         # Todo: better fallback
         _PROCESS_START_TIME = time.time()
     else:
-        _PROCESS_START_TIME = psutil.Process(os.getpid()).create_time
+        _PROCESS_START_TIME = psutil.Process(os.getpid()).create_time()
 
 
 class UnknownModuleError(ImportError):
@@ -274,9 +277,12 @@ def livepatch(old, new, modname=None,
             visit_stack=visit_stack)
         # Find out which optional kwargs the hook wants.
         kwargs = {}
-        argspec = inspect.getargspec(hook)
+        if PY2:
+            argspec = inspect.getargspec(hook)
+        else:
+            argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
-        if hasattr(hook, "im_func"):
+        if hasattr(hook, "__func__"):
             # Skip 'self' arg.
             argnames = argnames[1:]
         # Pick kwargs that are wanted and available.
@@ -285,7 +291,7 @@ def livepatch(old, new, modname=None,
         for n in argnames:
             try:
                 kwargs[n] = avail_kwargs[n]
-                if argspec.keywords:
+                if argspec.keywords if PY2 else argspec.varkw:
                     break
             except KeyError:
                 # For compatibility, allow first argument to be 'old' with any
@@ -298,7 +304,7 @@ def livepatch(old, new, modname=None,
                     # Rely on default being set.  If a default isn't set, the
                     # user will get a TypeError.
                     pass
-        if argspec.keywords:
+        if argspec.keywords if PY2 else argspec.varkw:
             # Use all available kwargs.
             kwargs = avail_kwargs
         # Call hook.
@@ -396,7 +402,7 @@ def _livepatch__method(old_method, new_method, modname, cache, visit_stack):
     """
     Livepatch a method.
     """
-    _livepatch__function(old_method.im_func, new_method.im_func,
+    _livepatch__function(old_method.__func__, new_method.__func__,
                          modname=modname,
                          cache=cache, visit_stack=visit_stack)
     return old_method
@@ -570,7 +576,7 @@ def _format_age(t):
 
 def _interpret_module(arg):
     def mod_fn(module):
-        return getattr(m, "__file__", None)
+        return getattr(module, "__file__", None)
     if isinstance(arg, six.string_types):
         try:
             return sys.modules[arg]
@@ -639,7 +645,7 @@ def _xreload_module(module, filename, force=False):
     if not filename or not filename.endswith(".py"):
         # If there's no *.py source file for this module, then fallback to
         # built-in reload().
-        return reload(module)
+        return reload_module(module)
     # Compare mtime of the file with the load time of the module.  If the file
     # wasn't touched, we don't need to do anything.
     try:

@@ -2,7 +2,8 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import __future__
 import ast
@@ -28,18 +29,19 @@ class CompilerFlags(int):
     """
     Representation of Python "compiler flags", i.e. features from __future__.
 
-      >>> print CompilerFlags(0x18000).__interactive_display__()
+      >>> print(CompilerFlags(0x18000).__interactive_display__())
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print CompilerFlags(0x10000, 0x8000).__interactive_display__()
+      >>> print(CompilerFlags(0x10000, 0x8000).__interactive_display__())
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print CompilerFlags('with_statement', 'print_function').__interactive_display__()
+      >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__())
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-    This can be used as an argument to the built-in compile() function:
+    This can be used as an argument to the built-in compile() function. For
+    instance, in Python 2:
 
-      >>> compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1)
+      >>> compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1) #doctest:+SKIP
       Traceback (most recent call last):
         ...
       SyntaxError: invalid syntax
