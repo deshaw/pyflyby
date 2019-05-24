@@ -20,16 +20,15 @@ comms = {}
 
 
 def in_jupyter():
-    try:
-        ip = get_ipython()
-    except NameError:
+    from IPython.core.getipython import get_ipython
+    ip = get_ipython()
+    if ip is None:
         logger.debug("get_ipython() doesn't exist. Comm targets can only"
                      "be added in an Jupyter notebook/lab/console environment")
         return False
-
     else:
         try:
-            comm_manager = ip.kernel.comm_manager
+            ip.kernel.comm_manager
         except AttributeError:
             logger.debug("Comm targets can only be added in Jupyter "
                          "notebook/lab/console environment")
@@ -40,6 +39,7 @@ def in_jupyter():
 
 def _register_target(target_name):
     if in_jupyter():
+        from IPython.core.getipython import get_ipython
         ip = get_ipython()
         comm_manager = ip.kernel.comm_manager
         comm_manager.register_target(target_name, comm_open_handler)
