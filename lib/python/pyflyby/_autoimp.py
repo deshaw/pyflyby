@@ -10,7 +10,6 @@ import contextlib
 import copy
 import sys
 import types
-
 import six
 from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
@@ -1496,7 +1495,7 @@ def _try_import(imp, namespace):
     return True
 
 
-def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
+def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_import_hook=None):
     """
     Try to auto-import a single name.
 
@@ -1520,6 +1519,11 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
       did not succeed.
     @rtype:
       C{bool}
+    @param post_import_hook:
+      A callable that is invoked if an import was successfully made.
+      It is invoked with the L{Import} object representing the successful import
+    @type post_import_hook:
+      C{callable}
     @return:
       C{True} if the symbol was already in the namespace, or the auto-import
       succeeded; C{False} if the auto-import failed.
@@ -1566,9 +1570,13 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
             # Succeeded.
             autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
+                if post_import_hook:
+                    post_import_hook(imp)
                 # We got what we wanted, so nothing more to do.
                 return True
             if imp.import_as != imp.fullname:
+                if post_import_hook:
+                    post_import_hook(imp)
                 # This is not just an 'import foo.bar'; rather, it's a 'import
                 # foo.bar as baz' or 'from foo import bar'.  So don't go any
                 # further.
@@ -1598,10 +1606,12 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None):
         autoimported[pmodule_name] = result
         if not result:
             return False
+    if post_import_hook:
+        post_import_hook(Import("import %s" % ModuleHandle(fullname).ancestors[-1].name))
     return True
 
 
-def auto_import(arg, namespaces, db=None, autoimported=None):
+def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=None):
     """
     Parse C{arg} for symbols that need to be imported and automatically import
     them.
@@ -1630,6 +1640,11 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
       did not succeed.
     @rtype:
       C{bool}
+    @param post_import_hook:
+      A callable invoked on each successful import. This is passed to
+      L{auto_import_symbol}
+    @type post_import_hook:
+      C{callable}
     @return:
       C{True} if all symbols are already in the namespace or successfully
       auto-imported; C{False} if any auto-imports failed.
@@ -1652,7 +1667,7 @@ def auto_import(arg, namespaces, db=None, autoimported=None):
     db = ImportDB.interpret_arg(db, target_filename=filename)
     ok = True
     for fullname in fullnames:
-        ok &= auto_import_symbol(fullname, namespaces, db, autoimported)
+        ok &= auto_import_symbol(fullname, namespaces, db, autoimported, post_import_hook=post_import_hook)
     return ok
 
 
