@@ -9,6 +9,7 @@ import six
 
 MISSING_IMPORTS = "pyflyby.missing_imports"
 FORMATTING_IMPORTS = "pyflyby.format_imports"
+INIT_COMMS = "pyflyby.init_comms"
 
 pyflyby_comm_targets= [MISSING_IMPORTS, FORMATTING_IMPORTS]
 
@@ -38,16 +39,22 @@ def in_jupyter():
 
 
 def _register_target(target_name):
-    if in_jupyter():
-        from IPython.core.getipython import get_ipython
-        ip = get_ipython()
-        comm_manager = ip.kernel.comm_manager
-        comm_manager.register_target(target_name, comm_open_handler)
+    from IPython.core.getipython import get_ipython
+    ip = get_ipython()
+    comm_manager = ip.kernel.comm_manager
+    comm_manager.register_target(target_name, comm_open_handler)
 
 
 def initialize_comms():
-    for target in pyflyby_comm_targets:
-        _register_target(target)
+    if in_jupyter():
+        for target in pyflyby_comm_targets:
+            _register_target(target)
+        from ipykernel.comm import Comm
+        comm = Comm(target_name=INIT_COMMS)
+        msg = {"type": INIT_COMMS}
+        logger.debug("Requesting frontend to (re-)initialize comms")
+        comm.send(msg)
+
 
 def remove_comms():
     for target_name, comm in six.iteritems(comms):
