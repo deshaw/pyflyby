@@ -147,7 +147,7 @@ def brace_identifiers(text):
       ['salutation', 'your_name']
     """
     if isinstance(text, bytes):
-        text = text.decode('utf-8')
+        text = text.decode('utf-8', errors='replace')
     for match in re.finditer("{([a-zA-Z_][a-zA-Z0-9_]*)}", text):
         yield match.group(1)
 
