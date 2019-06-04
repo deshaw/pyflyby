@@ -367,15 +367,20 @@ def process_actions(filenames, actions, modify_function):
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
-            if str(filename) not in str(e):
-                try:
-                    e = type_e("While processing %s: %s" % (filename, e))
-                except TypeError:
-                    # Exception takes more than one argument
-                    pass
-            if logger.debug_enabled:
-                reraise(type_e, e, sys.exc_info()[2])
-            traceback.print_exception(*sys.exc_info())
+            try:
+                tb = sys.exc_info()[2]
+                if str(filename) not in str(e):
+                    try:
+                        e = type_e("While processing %s: %s" % (filename, e))
+                        pass
+                    except TypeError:
+                        # Exception takes more than one argument
+                        pass
+                if logger.debug_enabled:
+                    reraise(type_e, e, tb)
+                traceback.print_exception(type(e), e, tb)
+            finally:
+                tb = None # avoid refcycles involving tb
             continue
     if errors:
         msg = "\n%s: encountered the following problems:\n" % (sys.argv[0],)
