@@ -166,7 +166,8 @@ class DottedIdentifier(object):
             return cls._from_name(arg)
         if isinstance(arg, (tuple, list)):
             return cls._from_name(".".join(arg))
-        raise TypeError
+        raise TypeError("DottedIdentifier: unexpected %s"
+                        % (type(arg).__name__,))
 
     @classmethod
     def _from_name(cls, name):
