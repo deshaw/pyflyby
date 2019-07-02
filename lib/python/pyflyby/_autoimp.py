@@ -744,7 +744,7 @@ class _MissingImportFinder(object):
                 # We ignore the 'del ...bar' part and just visit the
                 # left-hand-side of the delattr.  We need to do this explicitly
                 # instead of relying on a generic_visit on C{node} itself.
-                # Reason: We want visit_Attribute process a getattr for
+                # Reason: We want visit_Attribute to process a getattr for
                 # 'foo.bar'.
                 self.visit(target.value)
             else:
