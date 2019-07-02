@@ -365,6 +365,20 @@ def test_find_missing_imports_decorator_paramlist_1():
     assert expected == result
 
 
+def test_find_missing_imports_setattr_1():
+    code = dedent("""
+        aa = 1
+        aa.xx.yy = 1
+        bb.xx.yy = 1
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    # For now we intentionally don't auto-import 'bb' because that's more
+    # likely to be a mistake.
+    expected = []
+    assert expected == result
+
+
 def test_find_missing_imports_delattr_1():
     code = dedent("""
         foo1 = 1
@@ -1404,6 +1418,21 @@ def test_scan_for_import_issues_dict_comprehension_subscript_attribute_1():
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == []
     assert unused == []
+
+
+def test_scan_for_import_issues_setattr_1():
+    code = dedent("""
+        import aa, cc
+        aa.xx.yy = 1
+        bb.xx.yy = 1
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # For now we intentionally don't auto-import 'bb' because that's more
+    # likely to be a mistake.
+    assert missing == []
+    # 'cc' should be marked as an unused-import, but 'aa' should be considered
+    # used.  (This was buggy before 201907.)
+    assert unused == [(2, Import('import cc'))]
 
 
 def test_load_symbol_1():

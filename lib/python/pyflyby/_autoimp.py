@@ -719,16 +719,29 @@ class _MissingImportFinder(object):
 
     def _visit_Store(self, fullname, value=None):
         logger.debug("_visit_Store(%r)", fullname)
+        if fullname is None:
+            return
         scope = self.scopestack[-1]
         if PY3 and isinstance(fullname, ast.arg):
             fullname = fullname.arg
         if self.unused_imports is not None:
+            if fullname != '*':
+                # If we're storing "foo.bar.baz = 123", then "foo" and
+                # "foo.bar" have now been used and the import should not be
+                # removed.  Call symbol_needs_import() to use the side-effect
+                # of triggering the "variable is used".  [TODO: refactor.]
+                for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
+                    symbol_needs_import(ancestor, scope)
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)
             if type(oldvalue) is _UseChecker and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
+        # If someone writes "numpy.foo = 1" then one could argue that we
+        # should auto-import numpy if needed.  However, it seems more likely
+        # to be a mistake to mutate something in another module.  For now, we
+        # intentionally don't auto-import on the left-hand-side of a Store.
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
