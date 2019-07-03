@@ -731,7 +731,7 @@ class _MissingImportFinder(object):
                 # removed.  Call symbol_needs_import() to use the side-effect
                 # of triggering the "variable is used".  [TODO: refactor.]
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
-                    symbol_needs_import(ancestor, scope)
+                    symbol_needs_import(ancestor, self.scopestack)
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)

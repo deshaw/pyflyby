@@ -1435,6 +1435,22 @@ def test_scan_for_import_issues_setattr_1():
     assert unused == [(2, Import('import cc'))]
 
 
+def test_scan_for_import_issues_setattr_in_func_1():
+    code = dedent("""
+        import aa, cc
+        def f():
+            aa.xx.yy = 1
+            bb.xx.yy = 1
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # For now we intentionally don't auto-import 'bb' because that's more
+    # likely to be a mistake.
+    assert missing == []
+    # 'cc' should be marked as an unused-import, but 'aa' should be considered
+    # used.  (This was buggy before 201907.)
+    assert unused == [(2, Import('import cc'))]
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
