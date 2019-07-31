@@ -161,6 +161,7 @@ setup(
     entry_points={'console_scripts':
                   '\n'.join([
                       'py=pyflyby._py:py_main',
+                      'py{}=pyflyby._py:py_main'.format(str(sys.version_info[0])),
                   ])},
     scripts=[
         # TODO: convert these scripts into entry points (but leave stubs in
