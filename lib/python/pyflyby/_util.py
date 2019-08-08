@@ -486,3 +486,16 @@ def AdviceCtx(joinpoint, hook):
 # For Python 2/3 compatibility. cmp isn't included with six.
 def cmp(a, b):
     return (a > b) - (a < b)
+
+
+# Create a context manager with an arbitrary number of contexts. This is
+# the same as Py2 contextlib.nested, but that one is removed in Py3.
+if six.PY2:
+    from contextlib import nested
+else:
+    from contextlib import ExitStack
+    @contextmanager
+    def nested(*mgrs):
+        with ExitStack() as stack:
+            ctxes = [stack.enter_context(mgr) for mgr in mgrs]
+            yield ctxes

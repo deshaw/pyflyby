@@ -6,7 +6,6 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 from   collections              import Callable
-import contextlib
 from   contextlib               import contextmanager
 import errno
 from   functools                import wraps
@@ -134,11 +133,11 @@ def _StdioCtx(tty="/dev/tty"):
     try:
         sys.stdout.flush(); sys.__stdout__.flush()
         sys.stderr.flush(); sys.__stderr__.flush()
-        with contextlib.nested(_FdCtx(0, fd), _FdCtx(1, fd), _FdCtx(2, fd)):
-            with contextlib.nested(
-                    os.fdopen(0, 'r'),
-                    os.fdopen(1, 'w'),
-                    os.fdopen(2, 'w', 1)) as (fd0, fd1, fd2):
+        from ._util import nested
+        with nested(_FdCtx(0, fd), _FdCtx(1, fd), _FdCtx(2, fd)):
+            with nested(os.fdopen(0, 'r'),
+                        os.fdopen(1, 'w'),
+                        os.fdopen(2, 'w', 1)) as (fd0, fd1, fd2):
                 sys.stdin  = sys.__stdin__  = fd0
                 sys.stdout = sys.__stdout__ = fd1
                 sys.stderr = sys.__stderr__ = fd2
