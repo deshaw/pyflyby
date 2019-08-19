@@ -740,10 +740,6 @@ class _MissingImportFinder(object):
             if type(oldvalue) is _UseChecker and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
-        # If someone writes "numpy.foo = 1" then one could argue that we
-        # should auto-import numpy if needed.  However, it seems more likely
-        # to be a mistake to mutate something in another module.  For now, we
-        # intentionally don't auto-import on the left-hand-side of a Store.
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
