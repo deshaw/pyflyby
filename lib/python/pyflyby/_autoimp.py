@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
-from collections.abc import Sequence
+from collections import Sequence
 import contextlib
 import copy
 import sys
