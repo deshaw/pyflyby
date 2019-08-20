@@ -470,6 +470,22 @@ class _MissingImportFinder(object):
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
+    @contextlib.contextmanager
+    def _UpScopeCtx(self):
+        """
+        Context manager that temporarily moves up one in the scope stack
+        """
+        if len(self.scopestack) < 2:
+            raise ValueError("There must be at least two scopes on the stack to move up a scope.")
+        prev_scopestack = self.scopestack
+        new_scopestack = prev_scopestack[:-1]
+        try:
+            self.scopestack = new_scopestack
+            yield
+        finally:
+            assert self.scopestack is new_scopestack
+            self.scopestack = prev_scopestack
+
     def visit_Assign(self, node):
         # Visit an assignment statement (lhs = rhs).  This implementation of
         # visit_Assign is just like the generic one, but we make sure we visit
@@ -547,16 +563,21 @@ class _MissingImportFinder(object):
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
-        # Argument/parameter list.  Visit 'defaults' first because these
-        # should be checked for missing imports before the stores from the
-        # args/varargs/kwargs.
+        # Argument/parameter list.  Note that the defaults should be
+        # considered "Load"s from the upper scope, and the argument names are
+        # "Store"s in the function scope.
+
         # E.g. consider:
         #    def f(x=y, y=x): pass
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
-        self.visit(node.defaults)
-        if PY3:
-            self.visit(node.kw_defaults)
+
+        # We assume visit_arguments is always called from a _NewScopeCtx
+        # context
+        with self._UpScopeCtx():
+            self.visit(node.defaults)
+            if PY3:
+                self.visit(node.kw_defaults)
         # Store arg names.
         self.visit(node.args)
         if PY3:
