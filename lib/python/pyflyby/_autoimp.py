@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
+from collections.abc import Sequence
 import contextlib
 import copy
 import sys
@@ -31,7 +32,7 @@ class _ClassScope(dict):
 _builtins2 = {"__file__": None}
 
 
-class ScopeStack(tuple):
+class ScopeStack(Sequence):
     """
     A stack of namespace scopes, as a tuple of C{dict}s.
 
@@ -44,7 +45,7 @@ class ScopeStack(tuple):
 
     _cached_has_star_import = False
 
-    def __new__(cls, arg):
+    def __init__(self, arg):
         """
         Interpret argument as a C{ScopeStack}.
 
@@ -56,8 +57,8 @@ class ScopeStack(tuple):
           C{ScopeStack}
         """
         if isinstance(arg, ScopeStack):
-            return arg
-        if isinstance(arg, dict):
+            scopes = list(arg._tup)
+        elif isinstance(arg, dict):
             scopes = [arg]
         elif isinstance(arg, (tuple, list)):
             scopes = list(arg)
@@ -79,8 +80,16 @@ class ScopeStack(tuple):
                 continue
             seen.add(id(scope))
             result.append(scope)
-        self = tuple.__new__(cls, result)
-        return self
+        tup = tuple(result)
+        self._tup = tup
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            return self.__class__(self._tup[item])
+        return self._tup[item]
+
+    def __len__(self):
+        return len(self._tup)
 
     def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
         """
@@ -103,7 +112,7 @@ class ScopeStack(tuple):
         else:
             new_scope = {}
         cls = type(self)
-        result = tuple.__new__(cls, scopes + (new_scope,))
+        result = cls(scopes + (new_scope,))
         return result
 
     def clone_top(self):
@@ -114,7 +123,7 @@ class ScopeStack(tuple):
         scopes = list(self)
         scopes[-1] = copy.copy(scopes[-1])
         cls = type(self)
-        return tuple.__new__(cls, scopes)
+        return cls(scopes)
 
     def merged_to_two(self):
         """
