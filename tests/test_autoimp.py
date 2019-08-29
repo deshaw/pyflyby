@@ -871,6 +871,33 @@ def test_find_missing_imports_keyword_only_args_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
+def test_find_missing_imports_keyword_only_args_2():
+    code = dedent("""
+        def func(*args, kwonly):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_keyword_only_args_3():
+    code = dedent("""
+        def func(*args, kwonly, kwonly2=b):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
 def test_find_missing_imports_annotations_1():
     code = dedent("""
         def func(a: b) -> c:

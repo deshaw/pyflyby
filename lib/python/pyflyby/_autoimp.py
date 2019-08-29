@@ -547,7 +547,9 @@ class _MissingImportFinder(object):
         # defined before the def).
         self.visit(node.defaults)
         if PY3:
-            self.visit(node.kw_defaults)
+            for i in node.kw_defaults:
+                if i:
+                    self.visit(i)
         # Store arg names.
         self.visit(node.args)
         if PY3:
