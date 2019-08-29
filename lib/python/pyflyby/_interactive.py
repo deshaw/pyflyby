@@ -293,7 +293,7 @@ def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
         # be the same dict.  We should create a true ModuleType anyway even if
         # not using IPython.  We might need to resort to advising
         # init_create_namespaces etc. depending on IPython version.
-        if app.shell.user_ns:
+        if app.shell:
             app.shell.user_ns.update(_user_ns)
         else:
             app.user_ns = _user_ns
