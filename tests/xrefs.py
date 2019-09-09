@@ -1,6 +1,6 @@
 """
 Blah.
-L{undefined_xref_from_module}
+`undefined_xref_from_module`
 
 """
 
@@ -16,41 +16,41 @@ from __future__ import (absolute_import, division, print_function,
 class FooClass(object):
     """
     Blah.
-    L{undefined_xref_from_class}
+    `undefined_xref_from_class`
     """
 
     foo_attribute = 123
     """
     Blah.
-    L{undefined_xref_from_class_attribute}
+    `undefined_xref_from_class_attribute`
     """
 
     def foo_method(self):
         """
         Blah.
-        L{undefined_xref_from_method}
+        `undefined_xref_from_method`
         """
 
     @staticmethod
     def foo_wrapped_method(abc, *args, **kwargs):
         """
         Blah.
-        L{undefined_xref_from_wrapped_method}
+        `undefined_xref_from_wrapped_method`
 
-        @param abc:
-          L{undefined_xref_from_param}
-        @type abc:
-          L{undefined_xref_from_type}
-        @param args:
-          L{undefined_xref_from_args_param}
-        @type args:
-          L{undefined_xref_from_args_type}
-        @param kwargs:
-          L{undefined_xref_from_kwargs_param}
-        @type kwargs:
-          L{undefined_xref_from_kwargs_type}
-        @rtype:
-          L{undefined_xref_from_rtype}
+        :param abc:
+          `undefined_xref_from_param`
+        :type abc:
+          `undefined_xref_from_type`
+        :param args:
+          `undefined_xref_from_args_param`
+        :type args:
+          `undefined_xref_from_args_type`
+        :param kwargs:
+          `undefined_xref_from_kwargs_param`
+        :type kwargs:
+          `undefined_xref_from_kwargs_type`
+        :rtype:
+          `undefined_xref_from_rtype`
         """
 
     @property
@@ -58,39 +58,39 @@ class FooClass(object):
         """
         Blah.
 
-        L{undefined_xref_from_property}
+        `undefined_xref_from_property`
 
-        @rtype:
-          L{undefined_xref_from_property_rtype}
+        :rtype:
+          `undefined_xref_from_property_rtype`
         """
 
     def __foo_private_method(self):
         """
         Blah.
 
-        L{undefined_xref_from_private_method}
+        `undefined_xref_from_private_method`
         """
 
 def foo_global_function():
     """
     Blah.
-    L{undefined_xref_from_global_function}
+    `undefined_xref_from_global_function`
     """
 
 foo_module_attribute = 123
 """
 Blah.
-L{undefined_xref_from_module_attribute}
+`undefined_xref_from_module_attribute`
 """
 
 foo_module_attribute_2 = 123
 """
-Blah L{undefined_xref_from_module_attribute_first_paragraph}.
+Blah `undefined_xref_from_module_attribute_first_paragraph`.
 """
 
 foo_indexed = 123
 """
 Blah.
 
-L{undefined_xref_extern_a <dummy_module1.undefined_xref_extern_b>}
+`undefined_xref_extern_a <dummy_module1.undefined_xref_extern_b>`
 """

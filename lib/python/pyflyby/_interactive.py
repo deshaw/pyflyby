@@ -58,9 +58,9 @@ def _get_or_create_ipython_terminal_app():
     """
     Create/get the singleton IPython terminal application.
 
-    @rtype:
-      C{TerminalIPythonApp}
-    @raise NoIPythonPackageError:
+    :rtype:
+      ``TerminalIPythonApp``
+    :raise NoIPythonPackageError:
       IPython is not installed in the system.
     """
     try:
@@ -92,12 +92,12 @@ def _get_or_create_ipython_terminal_app():
 
 def _app_is_initialized(app):
     """
-    Return whether C{app.initialize()} has been called.
+    Return whether ``app.initialize()`` has been called.
 
-    @type app:
-      L{IPython.Application}
-    @rtype:
-      C{bool}
+    :type app:
+      `IPython.Application`
+    :rtype:
+      ``bool``
     """
     # There's no official way to tell whether app.initialize() has been called
     # before.  We guess whether the app has been initialized by checking
@@ -166,7 +166,7 @@ class _IPython010TerminalApplication(object):
 
 class _DummyIPythonEmbeddedApp(object):
     """
-    Small wrapper around an L{InteractiveShellEmbed}.
+    Small wrapper around an `InteractiveShellEmbed`.
     """
 
     def __init__(self, shell):
@@ -178,9 +178,9 @@ def _get_or_create_ipython_kernel_app():
     """
     Create/get the singleton IPython kernel application.
 
-    @rtype:
-      C{callable}
-    @return:
+    :rtype:
+      ``callable``
+    :return:
       The function that can be called to start the kernel application.
     """
     import IPython
@@ -214,17 +214,17 @@ def _get_or_create_ipython_kernel_app():
 
 def get_ipython_terminal_app_with_autoimporter():
     """
-    Return an initialized C{TerminalIPythonApp}.
+    Return an initialized ``TerminalIPythonApp``.
 
-    If a C{TerminalIPythonApp} has already been created, then use it (whether
+    If a ``TerminalIPythonApp`` has already been created, then use it (whether
     we are inside that app or not).  If there isn't already one, then create
     one.  Enable the auto importer, if it hasn't already been enabled.  If the
     app hasn't been initialized yet, then initialize() it (but don't start()
     it).
 
-    @rtype:
-      C{TerminalIPythonApp}
-    @raise NoIPythonPackageError:
+    :rtype:
+      ``TerminalIPythonApp``
+    :raise NoIPythonPackageError:
       IPython is not installed in the system.
     """
     app = _get_or_create_ipython_terminal_app()
@@ -309,8 +309,8 @@ def _initialize_and_start_app_with_autoimporter(app, argv):
     """
     Initialize and start an IPython app, with autoimporting enabled.
 
-    @type app:
-      L{BaseIPythonApplication}
+    :type app:
+      `BaseIPythonApplication`
     """
     # Enable the auto importer.
     AutoImporter(app).enable()
@@ -439,8 +439,8 @@ def _generate_enabler_code():
     """
     Generate code for enabling the auto importer.
 
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     funcdef = (
         "import pyflyby\n"
@@ -480,7 +480,7 @@ def _generate_enabler_code():
 
 def _install_in_ipython_config_file_40():
     """
-    Implementation of L{install_in_ipython_config_file} for IPython 4.0+.
+    Implementation of `install_in_ipython_config_file` for IPython 4.0+.
     """
     import IPython
     ipython_dir = Filename(IPython.paths.get_ipython_dir())
@@ -550,7 +550,7 @@ def _install_in_ipython_config_file_40():
 
 def _install_in_ipython_config_file_012():
     """
-    Implementation of L{install_in_ipython_config_file} for IPython 0.12+.
+    Implementation of `install_in_ipython_config_file` for IPython 0.12+.
     Tested with IPython 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
     3.1, 3.2, 4.0.
     """
@@ -588,7 +588,7 @@ def _install_in_ipython_config_file_012():
 
 def _install_in_ipython_config_file_011():
     """
-    Implementation of L{install_in_ipython_config_file} for IPython 0.11.
+    Implementation of `install_in_ipython_config_file` for IPython 0.11.
     """
     import IPython
     ipython_dir = Filename(IPython.utils.path.get_ipython_dir())
@@ -615,7 +615,7 @@ def _install_in_ipython_config_file_011():
 
 def _install_in_ipython_config_file_010():
     """
-    Implementation of L{install_in_ipython_config_file} for IPython 0.10.
+    Implementation of `install_in_ipython_config_file` for IPython 0.10.
     """
     import IPython
     ipython_dir = Filename(IPython.genutils.get_ipython_dir())
@@ -642,13 +642,13 @@ def _install_in_ipython_config_file_010():
 
 def _ipython_in_multiline(ip):
     """
-    Return C{False} if the user has entered only one line of input so far,
-    including the current line, or C{True} if it is the second or later line.
+    Return ``False`` if the user has entered only one line of input so far,
+    including the current line, or ``True`` if it is the second or later line.
 
-    @type ip:
-      C{InteractiveShell}
-    @rtype:
-      C{bool}
+    :type ip:
+      ``InteractiveShell``
+    :rtype:
+      ``bool``
     """
     if hasattr(ip, "input_splitter"):
         # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.2, 2.0,
@@ -664,12 +664,13 @@ def _ipython_in_multiline(ip):
 
 def InterceptPrintsDuringPromptCtx(ip):
     """
-    Decorator that hooks our logger so that:
+    Decorator that hooks our logger so that::
+
       1. Before the first print, if any, print an extra newline.
       2. Upon context exit, if any lines were printed, redisplay the prompt.
 
-    @type ip:
-      C{InteractiveShell}
+    :type ip:
+      ``InteractiveShell``
     """
     if not ip:
         return NullCtx()
@@ -771,8 +772,8 @@ def _get_ipython_app():
 
     If there is a subapp, return it.
 
-    @rtype:
-      L{BaseIPythonApplication} or an object that mimics some of its behavior
+    :rtype:
+      `BaseIPythonApplication` or an object that mimics some of its behavior
     """
     try:
         IPython = sys.modules['IPython']
@@ -823,11 +824,11 @@ def _ipython_namespaces(ip):
 
     The ordering follows IPython convention of most-local to most-global.
 
-    @type ip:
-      C{InteractiveShell}
-    @rtype:
-      C{list}
-    @return:
+    :type ip:
+      ``InteractiveShell``
+    :rtype:
+      ``list``
+    :return:
       List of (name, namespace_dict) tuples.
     """
     # This list is copied from IPython 2.2's InteractiveShell._ofind().
@@ -865,8 +866,8 @@ def _get_pdb_if_is_in_pdb():
     """
     Return the current Pdb instance, if we're currently called from Pdb.
 
-    @rtype:
-      C{pdb.Pdb} or C{NoneType}
+    :rtype:
+      ``pdb.Pdb`` or ``NoneType``
     """
     # This is kludgy.  Todo: Is there a better way to do this?
     pframe, pkgname = _skip_frames(sys._getframe(1), _IS_PDB_IGNORE_PKGS)
@@ -919,12 +920,12 @@ def get_global_namespaces(ip):
     """
     Get the global interactive namespaces.
 
-    @type ip:
-      C{InteractiveShell}
-    @param ip:
-      IPython shell or C{None} to assume not in IPython.
-    @rtype:
-      C{list} of C{dict}
+    :type ip:
+      ``InteractiveShell``
+    :param ip:
+      IPython shell or ``None`` to assume not in IPython.
+    :rtype:
+      ``list`` of ``dict``
     """
     # logger.debug("get_global_namespaces()")
     pdb_instance = _get_pdb_if_is_in_pdb()
@@ -942,7 +943,7 @@ def get_global_namespaces(ip):
 def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
                     allow_eval=False):
     """
-    Enumerate possible completions for C{fullname}.
+    Enumerate possible completions for ``fullname``.
 
     Includes globals and auto-importable symbols.
 
@@ -950,7 +951,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
       [...'threading'...]
 
     Completion works on attributes, even on modules not yet imported - modules
-    are auto-imported first if not yet imported:
+    are auto-imported first if not yet imported::
 
       >>> ns = {}
       >>> complete_symbol("threading.Threa", namespaces=[ns])
@@ -967,31 +968,31 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
     completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to
     import foo.bar, but we don't need to import foo.bar.quux.
 
-    @type fullname:
-      C{str}
-    @param fullname:
+    :type fullname:
+      ``str``
+    :param fullname:
       String to complete.  ("Full" refers to the fact that it should contain
       dots starting from global level.)
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param namespaces:
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :param namespaces:
       Namespaces of (already-imported) globals.
-    @type db:
-      L{importDB}
-    @param db:
+    :type db:
+      `importDB`
+    :param db:
       Import database to use.
-    @type ip:
-      C{InteractiveShell}
-    @param ip:
-      IPython shell instance if in IPython; C{None} to assume not in IPython.
-    @param allow_eval:
+    :type ip:
+      ``InteractiveShell``
+    :param ip:
+      IPython shell instance if in IPython; ``None`` to assume not in IPython.
+    :param allow_eval:
       Whether to allow evaluating code, which is necessary to allow completing
       e.g. 'foo[0].bar<TAB>' or 'foo().bar<TAB>'.  Note that IPython will only
       pass such strings if IPCompleter.greedy is configured to True by the
       user.
-    @rtype:
-      C{list} of C{str}
-    @return:
+    :rtype:
+      ``list`` of ``str``
+    :return:
       Completion candidates.
     """
     namespaces = ScopeStack(namespaces)
@@ -1002,7 +1003,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
     # fullname) must be a prefix of a valid symbol.  Otherwise don't bother
     # generating completions.
     # As for the left-hand-side of the split, load_symbol() will validate it
-    # or evaluate it depending on C{allow_eval}.
+    # or evaluate it depending on ``allow_eval``.
     if not is_identifier(attrname, prefix=True):
         return []
     # Get the database of known imports.
@@ -1054,8 +1055,8 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
             # Add known_imports entries from the database.
             results.update(known.member_names.get(pname, []))
             # Get the module handle.  Note that we use ModuleHandle() on the
-            # *name* of the module (C{pname}) instead of the module instance
-            # (C{parent}).  Using the module instance normally works, but
+            # *name* of the module (``pname``) instead of the module instance
+            # (``parent``).  Using the module instance normally works, but
             # breaks if the module hackily replaced itself with a pseudo
             # module (e.g. https://github.com/josiahcarlson/mprop).
             pmodule = ModuleHandle(pname)
@@ -1078,10 +1079,10 @@ def _list_members_for_completion(obj, ip):
 
     It does not include not-yet-imported submodules.
 
-    @param obj:
+    :param obj:
       Object whose member attributes to enumerate.
-    @rtype:
-      C{list} of C{str}
+    :rtype:
+      ``list`` of ``str``
     """
     if ip is None:
         words = dir(obj)
@@ -1210,8 +1211,8 @@ def new_IPdb_instance():
 
     Enable the auto importer.
 
-    @rtype:
-      L{Pdb}
+    :rtype:
+      `Pdb`
     """
     logger.debug("new_IPdb_instance()")
     try:
@@ -1239,12 +1240,12 @@ def _get_ipython_color_scheme(app):
     """
     Get the configured IPython color scheme.
 
-    @type app:
-      L{TerminalIPythonApp}
-    @param app:
+    :type app:
+      `TerminalIPythonApp`
+    :param app:
       An initialized IPython terminal application.
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     try:
         # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
@@ -1270,7 +1271,7 @@ def print_verbose_tb(*exc_info):
     """
     Print a traceback, using IPython's ultraTB if possible.
 
-    @param exc_info:
+    :param exc_info:
       3 arguments as returned by sys.exc_info().
     """
     if not exc_info:
@@ -1371,8 +1372,8 @@ class AutoImporter(object):
         """
         Get the AutoImporter for the given app, or create and assign one.
 
-        @type arg:
-          L{AutoImporter}, L{BaseIPythonApplication}, L{InteractiveShell}
+        :type arg:
+          `AutoImporter`, `BaseIPythonApplication`, `InteractiveShell`
         """
         if isinstance(arg, AutoImporter):
             return arg
@@ -1386,7 +1387,7 @@ class AutoImporter(object):
         if "App" in clsname:
             return cls._from_app(arg)
         elif "Shell" in clsname:
-            # If given an C{InteractiveShell} argument, then get its parent app.
+            # If given an ``InteractiveShell`` argument, then get its parent app.
             # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
             # 3.2, 4.0.
             if hasattr(arg, 'parent') and getattr(arg.parent, 'shell', None) is arg:
@@ -1422,10 +1423,10 @@ class AutoImporter(object):
     @classmethod
     def _construct(cls, app):
         """
-        Create a new AutoImporter for C{app}.
+        Create a new AutoImporter for ``app``.
 
-        @type app:
-          L{IPython.core.application.BaseIPythonApplication}
+        :type app:
+          `IPython.core.application.BaseIPythonApplication`
         """
         self = object.__new__(cls)
         self.app = app
@@ -1918,8 +1919,8 @@ class AutoImporter(object):
             # Tested with IPython 1.0, 1.2, 2.0, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
             class _AutoImporter_ast_transformer(object):
                 """
-                A NodeVisitor-like wrapper around C{auto_import_for_ast} for
-                the API that IPython 1.x's C{ast_transformers} needs.
+                A NodeVisitor-like wrapper around ``auto_import_for_ast`` for
+                the API that IPython 1.x's ``ast_transformers`` needs.
                 """
                 def visit(self_, node):
                     # We don't actually transform the node; we just use
@@ -2489,7 +2490,7 @@ def enable_auto_importer(if_no_ipython='raise'):
     """
     Turn on the auto-importer in the current IPython application.
 
-    @param if_no_ipython:
+    :param if_no_ipython:
       If we are not inside IPython and if_no_ipython=='ignore', then silently
       do nothing.
       If we are not inside IPython and if_no_ipython=='raise', then raise
@@ -2528,19 +2529,21 @@ def load_ipython_extension(arg=Ellipsis):
     This function is used by IPython's extension mechanism.
 
     To load pyflyby in an existing IPython session, run::
+
       In [1]: %load_ext pyflyby
 
     To refresh the imports database (if you modified ~/.pyflyby), run::
+
       In [1]: %reload_ext pyflyby
 
     To load pyflyby automatically on IPython startup, appendto
     ~/.ipython/profile_default/ipython_config.py::
       c.InteractiveShellApp.extensions.append("pyflyby")
 
-    @type arg:
-      C{InteractiveShell}
-    @see:
-      U{http://ipython.org/ipython-doc/dev/config/extensions/index.html}
+    :type arg:
+      ``InteractiveShell``
+    :see:
+      http://ipython.org/ipython-doc/dev/config/extensions/index.html
     """
     logger.debug("load_ipython_extension() called for %s",
                  os.path.dirname(__file__))
@@ -2573,6 +2576,7 @@ def unload_ipython_extension(arg=Ellipsis):
     This function is used by IPython's extension mechanism.
 
     To unload interactively, run::
+
       In [1]: %unload_ext pyflyby
     """
     logger.debug("unload_ipython_extension() called for %s",

@@ -93,7 +93,7 @@ class _TmpFixture(object):
     def file(self):
         """
         Single memoized new_tempfile().
-        The file is NOT under C{self.dir}.
+        The file is NOT under ``self.dir``.
         """
         return self.new_tempfile()
 
@@ -126,8 +126,8 @@ def writetext(filename, text, mode='w'):
 
 def assert_match(result, expected, ignore_prompt_number=False):
     """
-    Check that C{result} matches C{expected}.
-    C{expected} is a pattern where
+    Check that ``result`` matches ``expected``.
+    ``expected`` is a pattern where
       * "..." (three dots) matches any text (but not newline), and
       * "...." (four dots) matches any text (including newline).
     """
@@ -485,8 +485,8 @@ def _build_pythonpath(PYTHONPATH):
     """
     Build PYTHONPATH value to use.
 
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
     pypath += _extra_readline_pythonpath_dirs()
@@ -809,7 +809,7 @@ def IPythonCtx(prog="ipython",
     """
     Spawn IPython in a pty subprocess.  Send it input and expect output.
 
-    @param frontend:
+    :param frontend:
       Which terminal frontend to use: readline (default for IPython <5) or
       prompt_toolkit (default for IPython >=5).
       IPython 4 and earlier only support readline.
@@ -1210,7 +1210,7 @@ def IPythonNotebookCtx(**kwargs):
 
 def _wait_for_output(child, timeout):
     """
-    Wait up to C{timeout} seconds for output.
+    Wait up to ``timeout`` seconds for output.
     """
     # In IPython 5, we cannot send any output before IPython responds to the
     # tab, else it won't respond to the tab.  The purpose of this function is
@@ -1218,7 +1218,7 @@ def _wait_for_output(child, timeout):
     if DEBUG:
         print("_wait_for_output()")
     got_data_already = False
-    # Read C{BLOCKSIZE} bytes at a time.  Note that currently our ansi filter
+    # Read ``BLOCKSIZE`` bytes at a time.  Note that currently our ansi filter
     # won't work across block boundaries, so currently this blocksize needs to
     # be large enough that we don't span an ANSI sequence across two blocks.
     BLOCKSIZE = 16*4096
