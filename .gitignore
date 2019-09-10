@@ -3,6 +3,7 @@
 .eggs
 .tox
 build
+_build
 dist
 pytestdebug.log
 __pycache__
