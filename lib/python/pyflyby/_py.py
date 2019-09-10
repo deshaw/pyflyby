@@ -9,6 +9,9 @@ and debugging support.
 
 Invocation summary
 ==================
+
+.. code::
+
   py [--file]   filename.py arg1 arg2   Execute a file
   py [--eval]  'function(arg1, arg2)'   Evaluate an expression/statement
   py [--apply]  function arg1 arg2      Call function(arg1, arg2)
@@ -80,39 +83,41 @@ better yet, a full-fledged python program (and run tidy-imports).
 Options
 =======
 
-Global options valid before code argument:
+.. code::
 
-  --args=string    Interpret all arguments as literal strings.
-                   (The "--" argument also specifies remaining arguments to be
-                   literal strings.)
-  --args=eval      Evaluate all arguments as expressions.
-  --args=auto      (Default) Heuristically guess whether to evaluate arguments
-                   as literal strings or expressions.
-  --output=silent  Don't print the result of evaluation.
-  --output=str     Print str(result).
-  --output=repr    Print repr(result).
-  --output=pprint  Print pprint.pformat(result).
-  --output=repr-if-not-none
-                   Print repr(result), but only if result is not None.
-  --output=pprint-if-not-none
-                   Print pprint.pformat(result), but only if result is not None.
-  --output=interactive
-                   (Default) Print result.__interactive_display__() if defined,
-                   else pprint if result is not None.
-  --output=exit    Raise SystemExit(result).
-  --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
-  --quiet, --q     Log only error messages to stderr; omit info and warnings.
-  --interactive, --i
-                   Run an IPython shell after completion
-  --debug, --d     Run the target code file etc under the debugger.  If a PID is
-                   given, then instead attach a debugger to the target PID.
-  --verbose        Turn on verbose messages from pyflyby.
+    Global options valid before code argument:
 
-Pseudo-actions valid before, after, or without code argument:
+      --args=string    Interpret all arguments as literal strings.
+                       (The "--" argument also specifies remaining arguments to be
+                       literal strings.)
+      --args=eval      Evaluate all arguments as expressions.
+      --args=auto      (Default) Heuristically guess whether to evaluate arguments
+                       as literal strings or expressions.
+      --output=silent  Don't print the result of evaluation.
+      --output=str     Print str(result).
+      --output=repr    Print repr(result).
+      --output=pprint  Print pprint.pformat(result).
+      --output=repr-if-not-none
+                       Print repr(result), but only if result is not None.
+      --output=pprint-if-not-none
+                       Print pprint.pformat(result), but only if result is not None.
+      --output=interactive
+                       (Default) Print result.__interactive_display__() if defined,
+                       else pprint if result is not None.
+      --output=exit    Raise SystemExit(result).
+      --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
+      --quiet, --q     Log only error messages to stderr; omit info and warnings.
+      --interactive, --i
+                       Run an IPython shell after completion
+      --debug, --d     Run the target code file etc under the debugger.  If a PID is
+                       given, then instead attach a debugger to the target PID.
+      --verbose        Turn on verbose messages from pyflyby.
 
-  --version        Print pyflyby version or version of a module.
-  --help, --h      Print this help or help for a function or module. Alternatively, ?
-  --source         Print source code for a function or module. Alternatively, ??
+    Pseudo-actions valid before, after, or without code argument:
+
+      --version        Print pyflyby version or version of a module.
+      --help, --h, --? Print this help or help for a function or module.
+      --source, --??   Print source code for a function or module.
 
 
 Examples
