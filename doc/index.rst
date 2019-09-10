@@ -5,8 +5,7 @@ Welcome to the pyflyby API documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   api
-
+   ./api/api
 
 
 
