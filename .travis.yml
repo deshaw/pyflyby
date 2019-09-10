@@ -14,7 +14,7 @@ matrix:
 install:
   - set -e
   - pip install -U pip
-  - pip install sphinx sphinx_rtd_theme
+  - pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
   # Install prompt-toolkit from git until a release is made with
   # PROMPT_TOOLKIT_NO_CPR environment variable support.
   # Install jupyter_console from
@@ -41,10 +41,11 @@ script:
   - python -We:invalid -m compileall -f -q lib/ etc/;
   - export DEBUG_TEST_PYFLYBY=1
   - pytest --doctest-modules lib tests
+  - cd doc
   - make html
 
 after_success:
-  - ./push_docs.sh
+  - ./doc/push_docs.sh
 
 env:
   global:
