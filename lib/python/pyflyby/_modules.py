@@ -178,12 +178,12 @@ class ModuleHandle(object):
         """
         Return the module instance.
 
-        @rtype:
-          C{types.ModuleType}
-        @raise ErrorDuringImportError:
+        :rtype:
+          ``types.ModuleType``
+        :raise ErrorDuringImportError:
           The module should exist but an error occurred while attempting to
           import it.
-        @raise ImportError:
+        :raise ImportError:
           The module doesn't exist.
         """
         # First check if prefix component is importable.
@@ -223,8 +223,8 @@ class ModuleHandle(object):
         top-level module/package, accessing this attribute may cause the
         parent package to be imported.
 
-        @rtype:
-          L{Filename}
+        :rtype:
+          `Filename`
         """
         # Use the loader mechanism to find the filename.  We do so instead of
         # using self.module.__file__, because the latter forces importing a
@@ -262,8 +262,8 @@ class ModuleHandle(object):
         """
         Enumerate all top-level packages/modules.
 
-        @rtype:
-          C{tuple} of L{ModuleHandle}s
+        :rtype:
+          ``tuple`` of `ModuleHandle` s
         """
         import pkgutil
         # Get the list of top-level packages/modules using pkgutil.
@@ -293,8 +293,8 @@ class ModuleHandle(object):
           >>> ModuleHandle("email").submodules      # doctest:+ELLIPSIS
           (..., 'email.encoders', ..., 'email.mime', ...)
 
-        @rtype:
-          C{tuple} of L{ModuleHandle}s
+        :rtype:
+          ``tuple`` of `ModuleHandle` s
         """
         import pkgutil
         module = self.module
@@ -302,7 +302,7 @@ class ModuleHandle(object):
             path = module.__path__
         except AttributeError:
             return ()
-        # Enumerate the modules at a given path.  Prefer to use C{pkgutil} if
+        # Enumerate the modules at a given path.  Prefer to use ``pkgutil`` if
         # we can.  However, if it fails due to OSError, use our own version
         # which is robust to that.
         try:
@@ -320,10 +320,10 @@ class ModuleHandle(object):
         Note that this requires involves actually importing this module, which
         may have side effects.  (TODO: rewrite to avoid this?)
 
-        @rtype:
-          L{ImportSet} or C{None}
-        @return:
-          Exports, or C{None} if nothing exported.
+        :rtype:
+          `ImportSet` or ``None``
+        :return:
+          Exports, or ``None`` if nothing exported.
         """
         from pyflyby._importclns import ImportStatement, ImportSet
         module = self.module
@@ -395,14 +395,14 @@ class ModuleHandle(object):
     @classmethod
     def containing(cls, identifier):
         """
-        Try to find the module that defines a name such as C{a.b.c} by trying
-        to import C{a}, C{a.b}, and C{a.b.c}.
+        Try to find the module that defines a name such as ``a.b.c`` by trying
+        to import ``a``, ``a.b``, and ``a.b.c``.
 
-        @return:
-          The name of the 'deepest' module (most commonly it would be C{a.b}
+        :return:
+          The name of the 'deepest' module (most commonly it would be ``a.b``
           in this example).
-        @rtype:
-          L{Module}
+        :rtype:
+          `Module`
         """
         # In the code below we catch "Exception" rather than just ImportError
         # or AttributeError since importing and __getattr__ing can raise other

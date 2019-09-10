@@ -50,11 +50,11 @@ ASSUME_MODULES_OK = set(['numpy'])
 @memoize
 def map_strings_to_line_numbers(module):
     """
-    Walk C{module.ast}, looking at all string literals.  Return a map from
+    Walk ``module.ast``, looking at all string literals.  Return a map from
     string literals to line numbers (1-index).
 
-    @rtype:
-      C{dict} from C{str} to (C{int}, C{str})
+    :rtype:
+      ``dict`` from ``str`` to (``int``, ``str``)
     """
     d = {}
     for field in module.block.string_literals():
@@ -69,10 +69,10 @@ def map_strings_to_line_numbers(module):
 
 def get_string_linenos(module, searchstring, within_string):
     """
-    Return the line numbers (1-indexed) within C{filename} that contain
-    C{searchstring}.  Only consider string literals (i.e. not comments).
-    First look for exact matches of C{within_string} (modulo indenting) and
-    then search within that.  Only if the C{within_string} is not found,
+    Return the line numbers (1-indexed) within ``filename`` that contain
+    ``searchstring``.  Only consider string literals (i.e. not comments).
+    First look for exact matches of ``within_string`` (modulo indenting) and
+    then search within that.  Only if the ``within_string`` is not found,
     search the entire file.
 
     [If there's a comment on the same line as a string that also contains the
@@ -144,10 +144,10 @@ class ExpandedDocIndex(object):
 
     def add_module(self, module):
         """
-        Adds C{module} and recreates the DocIndex with the updated set of
+        Adds ``module`` and recreates the DocIndex with the updated set of
         modules.
 
-        @return:
+        :return:
           Whether anything was added.
         """
         module = ModuleHandle(module)
@@ -287,7 +287,7 @@ class XrefScanner(object):
 
     def check_xref(self, identifier, container):
         """
-        Check that C{identifier} cross-references a proper symbol.
+        Check that ``identifier`` cross-references a proper symbol.
 
         Look in modules that we weren't explicitly asked to look in, if
         needed.
@@ -326,7 +326,7 @@ class XrefScanner(object):
         if check_defining_module(container):
             return True
         # If the user has imported foo.bar.baz as baz and now uses
-        # C{baz.quux}, we need to add the module foo.bar.baz.
+        # ``baz.quux``, we need to add the module foo.bar.baz.
         for prefix in reversed(list(prefixes(
                     DottedIdentifier(remove_epydoc_sym_suffix(identifier))))):
             if check_defining_module(
@@ -373,10 +373,10 @@ def find_bad_doc_cross_references(names):
     """
     Find docstring cross references that fail to resolve.
 
-    @type names:
+    :type names:
       Sequence of module names or filenames.
-    @return:
-      Sequence of C{(module, linenos, container_name, identifier)} tuples.
+    :return:
+      Sequence of ``(module, linenos, container_name, identifier)`` tuples.
     """
     xrs = XrefScanner(names)
     return xrs.scan()

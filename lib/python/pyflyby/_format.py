@@ -42,29 +42,29 @@ def fill(tokens, sep=(", ", ""), prefix="", suffix="", newline="\n",
          max_line_length=80):
     r"""
     Given a sequences of strings, fill them into a single string with up to
-    C{max_line_length} characters each.
+    ``max_line_length`` characters each.
 
       >>> fill(["'hello world'", "'hello two'"],
       ...            prefix=("print ", "      "), suffix=(" \\", ""),
       ...            max_line_length=25)
       "print 'hello world', \\\n      'hello two'\n"
 
-    @param tokens:
+    :param tokens:
       Sequence of strings to fill.  There must be at least one token.
-    @param sep:
+    :param sep:
       Separator string to append to each token.  If a 2-element tuple, then
       indicates the separator between tokens and the separator after the last
       token.  Trailing whitespace is removed from each line before appending
       the suffix, but not from between tokens on the same line.
-    @param prefix:
+    :param prefix:
       String to prepend at the beginning of each line.  If a 2-element tuple,
       then indicates the prefix for the first line and prefix for subsequent
       lines.
-    @param suffix:
+    :param suffix:
       String to append to the end of each line.  If a 2-element tuple, then
       indicates the suffix for all lines except the last, and the suffix for
       the last line.
-    @return:
+    :return:
       Filled string.
     """
     N = max_line_length
@@ -116,14 +116,14 @@ def pyfill(prefix, tokens, params=FormatParams()):
           baz, quux,
           quuuuux)
 
-    @param prefix:
+    :param prefix:
       Prefix for first line.
-    @param tokens:
+    :param tokens:
       Sequence of string tokens
-    @type params:
-      L{FormatParams}
-    @rtype:
-      C{str}
+    :type params:
+      `FormatParams`
+    :rtype:
+      ``str``
     """
     N = params.max_line_length
     if params.wrap_paren:

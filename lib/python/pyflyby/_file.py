@@ -92,10 +92,10 @@ class Filename(object):
     def ext(self):
         """
         Returns the extension of this filename, including the dot.
-        Returns C{None} if no extension.
+        Returns ``None`` if no extension.
 
-        @rtype:
-          C{str} or C{None}
+        :rtype:
+          ``str`` or ``None``
         """
         lhs, dot, rhs = self._filename.rpartition('.')
         if not dot:
@@ -167,8 +167,8 @@ class Filename(object):
           >>> Filename("/aa/bb").ancestors
           (Filename('/aa/bb'), Filename('/aa'), Filename('/'))
 
-        @rtype:
-          C{tuple} of C{Filename}s
+        :rtype:
+          ``tuple`` of ``Filename`` s
         """
         result = [self]
         while True:
@@ -195,14 +195,14 @@ def _get_PATH():
 
 def which(program):
     """
-    Find C{program} on $PATH.
+    Find ``program`` on $PATH.
 
-    @type program:
-      C{str}
-    @rtype:
-      L{Filename}
-    @return:
-      Program on $PATH, or C{None} if not found.
+    :type program:
+      ``str``
+    :rtype:
+      `Filename`
+    :return:
+      Program on $PATH, or ``None`` if not found.
     """
     if "/" in program:
         raise ValueError("which(): input should be a basename")
@@ -223,7 +223,7 @@ Filename.STDIN = Filename("/dev/stdin")
 @total_ordering
 class FilePos(object):
     """
-    A (lineno, colno) position within a L{FileText}.
+    A (lineno, colno) position within a `FileText`.
     Both lineno and colno are 1-indexed.
     """
 
@@ -270,14 +270,14 @@ class FilePos(object):
 
     def __add__(self, delta):
         '''
-        "Add" a coordinate (line,col) delta to this C{FilePos}.
+        "Add" a coordinate (line,col) delta to this ``FilePos``.
 
         Note that addition here may be a non-obvious.  If there is any line
         movement, then the existing column number is ignored, and the new
         column is the new column delta + 1 (to convert into 1-based numbers).
 
-        @rtype:
-          L{FilePos}
+        :rtype:
+          `FilePos`
         '''
         ldelta, cdelta = self._intint(delta)
         assert ldelta >= 0 and cdelta >= 0
@@ -337,26 +337,26 @@ class FileText(object):
 
     def __new__(cls, arg, filename=None, startpos=None):
         """
-        Return a new C{FileText} instance.
+        Return a new ``FileText`` instance.
 
-        @type arg:
-          C{FileText}, C{Filename}, C{str}, or tuple of C{str}
-        @param arg:
+        :type arg:
+          ``FileText``, ``Filename``, ``str``, or tuple of ``str``
+        :param arg:
           If a sequence of lines, then each should end with a newline and have
           no other newlines.  Otherwise, something that can be interpreted or
           converted into a sequence of lines.
-        @type filename:
-          L{Filename}
-        @param filename:
-          Filename to attach to this C{FileText}, if not already given by
-          C{arg}.
-        @type startpos:
-          C{FilePos}
-        @param startpos:
-          Starting file position (lineno & colno) of this C{FileText}, if not
-          already given by C{arg}.
-        @rtype:
-          C{FileText}
+        :type filename:
+          `Filename`
+        :param filename:
+          Filename to attach to this ``FileText``, if not already given by
+          ``arg``.
+        :type startpos:
+          ``FilePos``
+        :param startpos:
+          Starting file position (lineno & colno) of this ``FileText``, if not
+          already given by ``arg``.
+        :rtype:
+          ``FileText``
         """
         if isinstance(arg, cls):
             if filename is startpos is None:
@@ -402,8 +402,8 @@ class FileText(object):
         string.  This is to avoid having to check lines[-1].endswith('\n')
         everywhere.
 
-        @rtype:
-          C{tuple} of C{str}
+        :rtype:
+          ``tuple`` of ``str``
         """
         # Used if only initialized with 'joined'.
         # We use str.split() instead of str.splitlines() because the latter
@@ -443,8 +443,8 @@ class FileText(object):
         """
         The position after the last character in the text.
 
-        @rtype:
-          C{FilePos}
+        :rtype:
+          ``FilePos``
         """
         startpos = self.startpos
         lines    = self.lines
@@ -483,9 +483,9 @@ class FileText(object):
     def __getitem__(self, arg):
         """
         Return the line(s) with the given line number(s).
-        If slicing, returns an instance of C{FileText}.
+        If slicing, returns an instance of ``FileText``.
 
-        Note that line numbers are indexed based on C{self.startpos.lineno}
+        Note that line numbers are indexed based on ``self.startpos.lineno``
         (which is 1 at the start of the file).
 
           >>> FileText("a\\nb\\nc\\nd")[2]
@@ -496,18 +496,19 @@ class FileText(object):
 
           >>> FileText("a\\nb\\nc\\nd")[0]
           Traceback (most recent call last):
+
             ...
           IndexError: Line number 0 out of range [1, 4)
 
-        When slicing, the input arguments can also be given as C{FilePos}
+        When slicing, the input arguments can also be given as ``FilePos``
         arguments or (lineno,colno) tuples.  These are 1-indexed at the start
         of the file.
 
           >>> FileText("a\\nb\\nc\\nd")[(2,2):4]
           FileText('\\nc\\n', startpos=(2,2))
 
-        @rtype:
-          C{str} or L{FileText}
+        :rtype:
+          ``str`` or `FileText`
         """
         L = self._lineno_to_index
         C = self._colno_to_index
@@ -574,11 +575,11 @@ class FileText(object):
     @classmethod
     def concatenate(cls, args):
         """
-        Concatenate a bunch of L{FileText} arguments.  Uses the C{filename}
-        and C{startpos} from the first argument.
+        Concatenate a bunch of `FileText` arguments.  Uses the ``filename``
+        and ``startpos`` from the first argument.
 
-        @rtype:
-          L{FileText}
+        :rtype:
+          `FileText`
         """
         args = [FileText(x) for x in args]
         if len(args) == 1:
@@ -668,15 +669,15 @@ def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
     Arguments that are files are always included.
     Arguments that are directories are recursively searched for *.py files.
 
-    @type pathnames:
-      C{list} of L{Filename}s
-    @type on_error:
+    :type pathnames:
+      ``list`` of `Filename` s
+    :type on_error:
       callable
-    @param on_error:
-      Function that is called for arguments directly specified in C{pathnames}
+    :param on_error:
+      Function that is called for arguments directly specified in ``pathnames``
       that don't exist or are otherwise inaccessible.
-    @rtype:
-      C{list} of L{Filename}s
+    :rtype:
+      ``list`` of `Filename` s
     """
     if not isinstance(pathnames, (tuple, list)):
         pathnames = [pathnames]

@@ -43,26 +43,26 @@ class ImportSet(object):
         from m3 import m4 as m34
       ''')
 
-    An C{ImportSet} is an immutable data structure.
+    An ``ImportSet`` is an immutable data structure.
     """
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
-        Return as an L{ImportSet}.
+        Return as an `ImportSet`.
 
-        @param ignore_nonimports:
-          If C{False}, complain about non-imports.  If C{True}, ignore
+        :param ignore_nonimports:
+          If ``False``, complain about non-imports.  If ``True``, ignore
           non-imports.
-        @param ignore_shadowed:
-          Whether to ignore shadowed imports.  If C{False}, then keep all
+        :param ignore_shadowed:
+          Whether to ignore shadowed imports.  If ``False``, then keep all
           unique imports, even if they shadow each other.  Note that an
-          C{ImportSet} is unordered; an C{ImportSet} with conflicts will only
+          ``ImportSet`` is unordered; an ``ImportSet`` with conflicts will only
           be useful for very specific cases (e.g. set of imports to forget
           from known-imports database), and not useful for outputting as code.
-          If C{ignore_shadowed} is C{True}, then earlier shadowed imports are
+          If ``ignore_shadowed`` is ``True``, then earlier shadowed imports are
           ignored.
-        @rtype:
-          L{ImportSet}
+        :rtype:
+          `ImportSet`
         """
         if isinstance(arg, cls):
             if ignore_shadowed:
@@ -77,12 +77,12 @@ class ImportSet(object):
     @classmethod
     def _from_imports(cls, imports, ignore_shadowed=False):
         """
-        @type imports:
-          Sequence of L{Import}s
-        @param ignore_shadowed:
-          See L{ImportSet.__new__}.
-        @rtype:
-          L{ImportSet}
+        :type imports:
+          Sequence of `Import` s
+        :param ignore_shadowed:
+          See `ImportSet.__new__`.
+        :rtype:
+          `ImportSet`
         """
         # Canonicalize inputs.
         imports = [Import(imp) for imp in imports]
@@ -106,16 +106,16 @@ class ImportSet(object):
     @classmethod
     def _from_args(cls, args, ignore_nonimports=False, ignore_shadowed=False):
         """
-        @type args:
-          C{tuple} or C{list} of L{ImportStatement}s, L{PythonStatement}s,
-          L{PythonBlock}s, L{FileText}, and/or L{Filename}s
-        @param ignore_nonimports:
-          If C{False}, complain about non-imports.  If C{True}, ignore
+        :type args:
+          ``tuple`` or ``list`` of `ImportStatement` s, `PythonStatement` s,
+          `PythonBlock` s, `FileText`, and/or `Filename` s
+        :param ignore_nonimports:
+          If ``False``, complain about non-imports.  If ``True``, ignore
           non-imports.
-        @param ignore_shadowed:
-          See L{ImportSet.__new__}.
-        @rtype:
-          L{ImportSet}
+        :param ignore_shadowed:
+          See `ImportSet.__new__`.
+        :rtype:
+          `ImportSet`
         """
         if not isinstance(args, (tuple, list)):
             args = [args]
@@ -124,10 +124,10 @@ class ImportSet(object):
         args = [a for a in args if a]
         if not args:
             return cls._EMPTY
-        # If we only got one C{ImportSet}, just return it.
+        # If we only got one ``ImportSet``, just return it.
         if len(args) == 1 and type(args[0]) is cls and not ignore_shadowed:
             return args[0]
-        # Collect all L{Import}s from arguments.
+        # Collect all `Import` s from arguments.
         imports = []
         for arg in args:
             if isinstance(arg, Import):
@@ -155,8 +155,8 @@ class ImportSet(object):
 
     def with_imports(self, other):
         """
-        Return a new L{ImportSet} that is the union of C{self} and
-        C{new_imports}.
+        Return a new `ImportSet` that is the union of ``self`` and
+        ``new_imports``.
 
           >>> impset = ImportSet('from m import t1, t2, t3')
           >>> impset.with_imports('import m.t2a as t2b')
@@ -164,10 +164,10 @@ class ImportSet(object):
             from m import t1, t2, t2a as t2b, t3
           ''')
 
-        @type other:
-          L{ImportSet} (or convertible)
-        @rtype:
-          L{ImportSet}
+        :type other:
+          `ImportSet` (or convertible)
+        :rtype:
+          `ImportSet`
         """
         other = ImportSet(other)
         return type(self)._from_imports(self._importset | other._importset)
@@ -182,10 +182,10 @@ class ImportSet(object):
             from m import t1, t2, t4
           ''')
 
-        @type removals:
-          L{ImportSet} (or convertible)
-        @rtype:
-          L{ImportSet}
+        :type removals:
+          `ImportSet` (or convertible)
+        :rtype:
+          `ImportSet`
         """
         removals = ImportSet(removals)
         if not removals:
@@ -212,7 +212,7 @@ class ImportSet(object):
     @cached_attribute
     def _by_module_name(self):
         """
-        @return:
+        :return:
           (mapping from name to __future__ imports,
            mapping from name to non-'from' imports,
            mapping from name to 'from' imports)
@@ -235,7 +235,7 @@ class ImportSet(object):
 
     def get_statements(self, separate_from_imports=True):
         """
-        Canonicalized L{ImportStatement}s.
+        Canonicalized `ImportStatement` s.
         These have been merged by module and sorted.
 
           >>> importset = ImportSet('''
@@ -255,8 +255,8 @@ class ImportSet(object):
           from _hello import there, world
           from d import dd as DD
 
-        @rtype:
-          C{tuple} of L{ImportStatement}s
+        :rtype:
+          ``tuple`` of `ImportStatement` s
         """
         groups = self._by_module_name
         if not separate_from_imports:
@@ -282,21 +282,21 @@ class ImportSet(object):
     @cached_attribute
     def statements(self):
         """
-        Canonicalized L{ImportStatement}s.
+        Canonicalized `ImportStatement` s.
         These have been merged by module and sorted.
 
-        @rtype:
-          C{tuple} of L{ImportStatement}s
+        :rtype:
+          ``tuple`` of `ImportStatement` s
         """
         return self.get_statements(separate_from_imports=True)
 
     @cached_attribute
     def imports(self):
         """
-        Canonicalized imports, in the same order as C{self.statements}.
+        Canonicalized imports, in the same order as ``self.statements``.
 
-        @rtype:
-          C{tuple} of L{Import}s
+        :rtype:
+          ``tuple`` of `Import` s
         """
         return tuple(
             imp
@@ -307,13 +307,13 @@ class ImportSet(object):
     @cached_attribute
     def by_import_as(self):
         """
-        Map from C{import_as} to L{Import}.
+        Map from ``import_as`` to `Import`.
 
           >>> ImportSet('from aa.bb import cc as dd').by_import_as
           {'dd': (Import('from aa.bb import cc as dd'),)}
 
-        @rtype:
-          C{dict} mapping from C{str} to tuple of L{Import}s
+        :rtype:
+          ``dict`` mapping from ``str`` to tuple of `Import` s
         """
         d = defaultdict(list)
         for imp in self._importset:
@@ -324,7 +324,7 @@ class ImportSet(object):
     @cached_attribute
     def member_names(self):
         r"""
-        Map from parent module/package C{fullname} to known member names.
+        Map from parent module/package ``fullname`` to known member names.
 
           >>> impset = ImportSet("import numpy.linalg.info\nfrom sys import exit as EXIT")
           >>> import pprint
@@ -336,8 +336,8 @@ class ImportSet(object):
 
         This is used by the autoimporter module for implementing tab completion.
 
-        @rtype:
-          C{dict} mapping from C{str} to tuple of C{str}
+        :rtype:
+          ``dict`` mapping from ``str`` to tuple of ``str``
         """
         d = defaultdict(set)
         for imp in self._importset:
@@ -362,8 +362,8 @@ class ImportSet(object):
           >>> ImportSet('import b\nfrom f import a\n').conflicting_imports
           ()
 
-        @rtype:
-          C{bool}
+        :rtype:
+          ``bool``
         """
         return tuple(
             k
@@ -388,10 +388,10 @@ class ImportSet(object):
         """
         Pretty-print a block of import statements into a single string.
 
-        @type params:
-          L{ImportFormatParams}
-        @rtype:
-          C{str}
+        :type params:
+          `ImportFormatParams`
+        :rtype:
+          ``str``
         """
         params = ImportFormatParams(params)
         # TODO: instead of complaining about conflicts, just filter out the
@@ -520,7 +520,7 @@ class ImportMap(object):
       >>> ImportMap({'a.b': 'aa.bb', 'a.b.c': 'aa.bb.cc'})
       ImportMap({'a.b': 'aa.bb', 'a.b.c': 'aa.bb.cc'})
 
-    An C{ImportMap} is an immutable data structure.
+    An ``ImportMap`` is an immutable data structure.
     """
 
     def __new__(cls, arg):
