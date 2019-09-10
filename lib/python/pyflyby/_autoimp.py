@@ -1706,16 +1706,16 @@ def auto_eval(arg, filename=None, mode=None,
 
     ``auto_eval`` will default the compilation ``mode`` to "eval" if possible::
 
-      >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
-      [PYFLYBY] from base64 import b64decode
-      b'hello!'
+    >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
+    [PYFLYBY] from base64 import b64decode
+    b'hello!'
 
     ``auto_eval`` will default the compilation ``mode`` to "exec" if the input
     is not a single expression::
 
-      >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
-      [PYFLYBY] from base64 import b64decode
-      hello
+    >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
+    [PYFLYBY] from base64 import b64decode
+    hello
 
     This is roughly equivalent to "auto_import(arg); eval(arg)", but handles
     details better and more efficiently.
@@ -1818,21 +1818,21 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
     """
     Load the symbol ``fullname``.
 
-      >>> import os
-      >>> load_symbol("os.path.join.__name__", {"os": os})
-      'join'
+    >>> import os
+    >>> load_symbol("os.path.join.__name__", {"os": os})
+    'join'
 
-      >>> load_symbol("os.path.join.asdf", {"os": os})
-      Traceback (most recent call last):
+    >>> load_symbol("os.path.join.asdf", {"os": os})
+    Traceback (most recent call last):
 
-        ...
-      pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
+    ...
+    pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
-      >>> load_symbol("os.path.join", {})
-      Traceback (most recent call last):
+    >>> load_symbol("os.path.join", {})
+    Traceback (most recent call last):
 
-        ...
-      pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
+    ...
+    pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
     :type fullname:
       ``str``

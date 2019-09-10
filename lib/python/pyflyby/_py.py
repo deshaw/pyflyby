@@ -2,8 +2,8 @@
 # Copyright (C) 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-"""
-The `py' program (part of the pyflyby project) is a command-line multitool for
+r"""
+The `py` program (part of the pyflyby project) is a command-line multitool for
 running python code, with heuristic intention guessing, automatic importing,
 and debugging support.
 
@@ -33,6 +33,7 @@ Features
   * Heuristic action mode guessing: If none of --file, --eval, --apply,
     --module, or --map is specified, then guess what to do, choosing one of
     these actions:
+
       * Execute (run) a file
       * Evaluate concatenated arguments
       * Run a module
@@ -42,8 +43,8 @@ Features
   * Automatic importing: All action modes (except run_module) automatically
     import as needed.
 
-  * Heuristic argument evaluation: By default, `py --eval', `py --apply', and
-    `py --map' guess whether the arguments should be interpreted as
+  * Heuristic argument evaluation: By default, `py --eval`, `py --apply`, and
+    `py --map` guess whether the arguments should be interpreted as
     expressions or literal strings. A "--" by itself will designate subsequent
     args as strings.  A "-" by itself will be replaced by the contents of
     stdin as a string.
@@ -70,9 +71,9 @@ Features
 
 Warning
 =======
-`py' is intended as an interactive tool.  When writing shell aliases for
-interactive use, the `--safe' option can be useful.  When writing scripts,
-it's better to avoid all heuristic guessing; use regular `python -c ...', or
+`py` is intended as an interactive tool.  When writing shell aliases for
+interactive use, the `--safe` option can be useful.  When writing scripts,
+it's better to avoid all heuristic guessing; use regular `python -c ...`, or
 better yet, a full-fledged python program (and run tidy-imports).
 
 
@@ -100,17 +101,18 @@ Global options valid before code argument:
                    else pprint if result is not None.
   --output=exit    Raise SystemExit(result).
   --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
-  --quiet/-q       Log only error messages to stderr; omit info and warnings.
-  --interactive/-i Run an IPython shell after completion
-  --debug/-d       Run the target code/file/etc under the debugger.  If a PID is
+  --quiet, --q     Log only error messages to stderr; omit info and warnings.
+  --interactive, --i
+                   Run an IPython shell after completion
+  --debug, --d     Run the target code file etc under the debugger.  If a PID is
                    given, then instead attach a debugger to the target PID.
   --verbose        Turn on verbose messages from pyflyby.
 
 Pseudo-actions valid before, after, or without code argument:
 
   --version        Print pyflyby version or version of a module.
-  --help/-h/?      Print this help or help for a function or module.
-  --source/??      Print source code for a function or module.
+  --help, --h      Print this help or help for a function or module. Alternatively, ?
+  --source         Print source code for a function or module. Alternatively, ??
 
 
 Examples
@@ -183,7 +185,7 @@ Examples
 
   Command-line calculator (single arguments)::
 
-    $ py '(5+7j) ** 12'
+    $ py '(5+7j) \** 12'
     (65602966976-150532462080j)
 
   Rationalize a decimal (apply bound method)
@@ -204,12 +206,12 @@ Examples
     (7, 2)
 
   Square numbers (map lambda)
-    $ py --map 'lambda x: x**2' 3 4 5
-    [PYFLYBY] (lambda x: x**2)(3)
+    $ py --map 'lambda x: x \**2' 3 4 5
+    [PYFLYBY] (lambda x: x \**2)(3)
     9
-    [PYFLYBY] (lambda x: x**2)(4)
+    [PYFLYBY] (lambda x: x \**2)(4)
     16
-    [PYFLYBY] (lambda x: x**2)(5)
+    [PYFLYBY] (lambda x: x \**2)(5)
     25
 
   Find length of string (using "-" for stdin)::
