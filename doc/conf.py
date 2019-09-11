@@ -4,7 +4,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../lib/python'))
-
+sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 project = 'pyflyby'
@@ -21,7 +21,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx_autodoc_typehints'
 ]
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'cli']
 autodoc_default_options = {
     'undoc-members': True,
     'private-members': True

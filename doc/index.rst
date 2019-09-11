@@ -7,9 +7,6 @@ Welcome to the pyflyby API documentation!
 
    ./api/api
 
-
-
-
 Indices and tables
 ==================
 

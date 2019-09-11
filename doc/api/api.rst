@@ -6,7 +6,6 @@ pyflyby API
    :caption: Contents:
 
    autoimp
-   autoimport
    cmdline
    comms
    dbg
@@ -25,11 +24,3 @@ pyflyby API
    parse
    py
    util
-   version
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
