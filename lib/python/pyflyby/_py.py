@@ -193,24 +193,28 @@ Examples
     $ py '(5+7j) \** 12'
     (65602966976-150532462080j)
 
-  Rationalize a decimal (apply bound method)
+  Rationalize a decimal (apply bound method)::
+
     $ py 2.5.as_integer_ratio
     [PYFLYBY] 2.5.as_integer_ratio()
     (5, 2)
 
-  Rationalize a decimal (apply unbound method)
+  Rationalize a decimal (apply unbound method)::
+
     $ py float.as_integer_ratio 2.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
 
-  Rationalize decimals (map/apply)
+  Rationalize decimals (map/apply)::
+
     $ py --map float.as_integer_ratio 2.5 3.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
     [PYFLYBY] float.as_integer_ratio(3.5)
     (7, 2)
 
-  Square numbers (map lambda)
+  Square numbers (map lambda)::
+
     $ py --map 'lambda x: x \**2' 3 4 5
     [PYFLYBY] (lambda x: x \**2)(3)
     9
@@ -426,14 +430,14 @@ def _requires_parens_as_function(function_name):
       >>> _requires_parens_as_function("(foo)+(bar)")
       True
 
-    TODO: this might be obsolete if we use unparse instead of keeping original
-    user formatting (or alternatively, unparse should use something like this).
-
     :type function_name:
       ``str``
     :rtype:
       ``bool``
     """
+    # TODO: this might be obsolete if we use unparse instead of keeping original
+    #     user formatting (or alternatively, unparse should use something like this).
+
     function_name = PythonBlock(function_name, flags=FLAGS)
     node = function_name.expression_ast_node
     if not node:
