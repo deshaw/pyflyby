@@ -736,12 +736,13 @@ class AnsiFilterDecoder(object):
             # 9 spaces from a double indentation after ...: (currently the
             # most indentation used), but the clearing generally uses hundreds
             # of spaces, so this should distinguish them.
-            self._buffer = arg
+            self._buffer += arg
             arg = b""
+
 
         # Uncompleted escape sequence at the end of the string
         if re.search(br"\x1b[^a-zA-Z]*$", arg):
-            self._buffer = arg
+            self._buffer += arg
             arg = b""
 
         if DEBUG:
