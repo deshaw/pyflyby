@@ -2370,19 +2370,35 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             __name__ = __name__
         sys.modules[__name__] = M()
     """)
-    ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: print(gravesend60063\t393.r\t
-        [PYFLYBY] import gravesend60063393
-        In [2]: print(gravesend60063393.river)
-        in the river
-        in the river
-        Medway
-        In [3]: print(gravesend600633\t93.is\tland)
-        on the island
-        on the island
-        Canvey
-    """, PYTHONPATH=tmp.dir, frontend=frontend)
+    if PY2:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: print(gravesend60063\t393.r\t
+            [PYFLYBY] import gravesend60063393
+            In [2]: print(gravesend60063393.river)
+            in the river
+            in the river
+            Medway
+            In [3]: print(gravesend600633\t93.is\tland)
+            on the island
+            on the island
+            Canvey
+        """, PYTHONPATH=tmp.dir, frontend=frontend)
+    else:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: print(gravesend60063\t393.r\t
+            [PYFLYBY] import gravesend60063393
+            In [2]: print(gravesend60063393.river)
+            in the river
+            in the river
+            Medway
+            on the island
+            In [3]: print(gravesend600633\t93.is\tland)
+            on the island
+            on the island
+            Canvey
+        """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims
