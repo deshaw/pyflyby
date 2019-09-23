@@ -1050,16 +1050,15 @@ def ipython(template, **kwargs):
 
 
 @contextmanager
-def IPythonKernelCtx(prog='jupyter', **kwargs):
+def IPythonKernelCtx(**kwargs):
     """
     Launch IPython kernel.
     """
     __tracebackhide__ = True
-    with IPythonCtx(prog=prog, args='kernel', **kwargs) as child:
+    with IPythonCtx(args='kernel', **kwargs) as child:
         # Get the kernel info: --existing kernel-1234.json
-        child.expect([r"To connect another client to this kernel, use:\s*"
-                      r"(?:\[IPKernelApp\])?\s*(--existing .*?json)",
-                      r"\[KernelApp\] To connect a client: (--existing .*?json)"])
+        child.expect(r"To connect another client to this kernel, use:\s*"
+                     r"(?:\[IPKernelApp\])?\s*(--existing .*?json)")
         kernel_info = child.match.group(1).split()
         # Yield control to caller.
         child.kernel_info = kernel_info
