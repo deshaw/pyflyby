@@ -1824,14 +1824,12 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
 
       >>> load_symbol("os.path.join.asdf", {"os": os})
       Traceback (most recent call last):
-
-        ...
+      ...
       pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
       >>> load_symbol("os.path.join", {})
       Traceback (most recent call last):
-
-        ...
+      ...
       pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
     :type fullname:
