@@ -61,19 +61,19 @@ class _PyflybyHandler(Handler):
     def HookCtx(self, pre, post):
         """
         Enter a context where:
-          * C{pre} is called before the first time a log record is emitted
+          * ``pre`` is called before the first time a log record is emitted
             during the context, and
-          * C{post} is called at the end of the context, if any log records
+          * ``post`` is called at the end of the context, if any log records
             were emitted during the context.
 
-        @type pre:
-          C{callable}
-        @param pre:
+        :type pre:
+          ``callable``
+        :param pre:
           Function to call before the first time something is logged during
           this context.
-        @type post:
-          C{callable}
-        @param post:
+        :type post:
+          ``callable``
+        :param post:
           Function to call before returning from the context, if anything was
           logged during the context.
         """
@@ -161,10 +161,11 @@ def _PromptToolkitStdoutProxyRawCtx(proxy):
 @contextmanager
 def _NoRegisterLoggerHandlerInHandlerListCtx():
     """
-    Work around a bug in the C{logging} module for Python 2.x-3.2.
+    Work around a bug in the ``logging`` module for Python 2.x-3.2.
 
-    The Python stdlib C{logging} module has a bug where you sometimes get the
+    The Python stdlib ``logging`` module has a bug where you sometimes get the
     following warning at exit::
+
       Exception TypeError: "'NoneType' object is not callable" in <function
       _removeHandlerRef at 0x10a1b3f50> ignored
 
@@ -179,8 +180,8 @@ def _NoRegisterLoggerHandlerInHandlerListCtx():
     was a no-op anyway, and even if we needed it, we could call it ourselves
     atexit.
 
-    @see:
-      U{http://bugs.python.org/issue9501}
+    :see:
+      http://bugs.python.org/issue9501
     """
     if not hasattr(logging, "_handlerList"):
         yield
@@ -210,10 +211,10 @@ class PyflybyLogger(Logger):
 
     def set_level(self, level):
         """
-        Set the pyflyby logger's level to C{level}.
+        Set the pyflyby logger's level to ``level``.
 
-        @type level:
-          C{str}
+        :type level:
+          ``str``
         """
         if isinstance(level, int):
             level_num = level

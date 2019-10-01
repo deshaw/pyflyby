@@ -93,8 +93,8 @@ def _build_pythonpath(PYTHONPATH):
     """
     Build PYTHONPATH value to use.
 
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
     if isinstance(PYTHONPATH, (Filename,) + string_types):
@@ -118,7 +118,7 @@ def _py_internal_1(args, stdin="",
 
 def py(*args, **kwargs):
     """
-    Run C{py} and return stdout.
+    Run ``py`` and return stdout.
     """
     if len(args) == 1 and isinstance(args[0], (tuple, list)):
         args = tuple(args[0])
@@ -1633,7 +1633,7 @@ def test_join_single_arg_1():
 
 def test_join_single_arg_fallback_1():
     # Verify that when heuristically joining, we fall back to heuristic apply.
-    # Even though "print foo" is parsable as a joined string, if C{foo} is not
+    # Even though "print foo" is parsable as a joined string, if ``foo`` is not
     # importable, then fallback to "print('foo')".
     result = py("print", "ardmore23653526")
     expected = dedent("""

@@ -41,7 +41,8 @@ class WrappedAttributeError(Exception):
 class cached_attribute(object):
     '''Computes attribute value and caches it in instance.
 
-    Example:
+    Example::
+
         class MyClass(object):
             @cached_attribute
             def myMethod(self):
@@ -66,7 +67,7 @@ class cached_attribute(object):
 
 def stable_unique(items):
     """
-    Return a copy of C{items} without duplicates.  The order of other items is
+    Return a copy of ``items`` without duplicates.  The order of other items is
     unchanged.
 
       >>> stable_unique([1,4,6,4,6,5,7])
@@ -89,8 +90,8 @@ def longest_common_prefix(items1, items2):
       >>> longest_common_prefix("abcde", "abcxy")
       'abc'
 
-    @rtype:
-      C{type(items1)}
+    :rtype:
+      ``type(items1)``
     """
     n = 0
     for x1, x2 in zip(items1, items2):
@@ -148,7 +149,7 @@ def NullCtx():
 @contextmanager
 def ImportPathCtx(path_additions):
     """
-    Context manager that temporarily prepends C{sys.path} with C{path_additions}.
+    Context manager that temporarily prepends ``sys.path`` with ``path_additions``.
     """
     if not isinstance(path_additions, (tuple, list)):
         path_additions = [path_additions]
@@ -196,7 +197,7 @@ def EnvVarCtx(**kwargs):
 @contextmanager
 def ExcludeImplicitCwdFromPathCtx():
     """
-    Context manager that temporarily removes "." from C{sys.path}.
+    Context manager that temporarily removes "." from ``sys.path``.
     """
     old_path = sys.path
     try:
@@ -303,7 +304,8 @@ class Aspect(object):
     "__original__" will magically be available to the wrapped function.
     This refers to the original function.
 
-    Suppose someone else wrote Foo.bar():
+    Suppose someone else wrote Foo.bar()::
+
       >>> class Foo(object):
       ...     def __init__(self, x):
       ...         self.x = x
@@ -312,7 +314,8 @@ class Aspect(object):
 
       >>> foo = Foo(42)
 
-    To monkey patch C{foo.bar}, decorate the wrapper with C{"@advise(foo.bar)"}:
+    To monkey patch ``foo.bar``, decorate the wrapper with ``"@advise(foo.bar)"``::
+
       >>> @advise(foo.bar)
       ... def addthousand(y):
       ...     return "advised foo.bar(y=%s): %s" % (y, __original__(y+1000))
@@ -320,14 +323,15 @@ class Aspect(object):
       >>> foo.bar(100)
       'advised foo.bar(y=100): bar(self.x=42,y=1100)'
 
-    You can uninstall the advice and get the original behavior back:
+    You can uninstall the advice and get the original behavior back::
+
       >>> addthousand.unadvise()
 
       >>> foo.bar(100)
       'bar(self.x=42,y=100)'
 
-    @see:
-      U{http://en.wikipedia.org/wiki/Aspect-oriented_programming}
+    :see:
+      http://en.wikipedia.org/wiki/Aspect-oriented_programming
     """
 
     _wrapper = None
@@ -466,9 +470,9 @@ class Aspect(object):
 
 def advise(joinpoint):
     """
-    Advise C{joinpoint}.
+    Advise ``joinpoint``.
 
-    See L{Aspect}.
+    See `Aspect`.
     """
     aspect = Aspect(joinpoint)
     return aspect.advise

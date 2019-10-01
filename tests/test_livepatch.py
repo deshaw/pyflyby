@@ -1276,7 +1276,7 @@ def test_xreload_module_hook_1(tpp):
         def a(): return 1000
         def b(): return 2000
         def __livepatch__(old, new):
-            # Selectively update C{a} but not C{b}
+            # Selectively update ``a`` but not ``b``
             from pyflyby import livepatch
             livepatch(old.a, new.a)
             old.b = new.b
@@ -1338,8 +1338,8 @@ def test_xreload_module_hook_update_parameters_reordered_1(tpp):
 
 
 def test_xreload_module_hook_return_new_1(tpp):
-    # Verify behavior of a module-level hook that returns C{new} instead of
-    # C{old}.
+    # Verify behavior of a module-level hook that returns ``new`` instead of
+    # ``old``.
     writetext(tpp/"devastation69918044.py", """
         def homeless(): return 17436793
     """)

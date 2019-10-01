@@ -66,14 +66,14 @@ def _flatten_ast_nodes(arg):
 
 def _iter_child_nodes_in_order(node):
     """
-    Yield all direct child nodes of C{node}, that is, all fields that are nodes
+    Yield all direct child nodes of ``node``, that is, all fields that are nodes
     and all items of fields that are lists of nodes.
 
-    C{_iter_child_nodes_in_order} yields nodes in the same order that they
+    ``_iter_child_nodes_in_order`` yields nodes in the same order that they
     appear in the source.
 
-    C{ast.iter_child_nodes} does the same thing, but not in source order.
-    e.g. for C{Dict}s, it yields all key nodes before all value nodes.
+    ``ast.iter_child_nodes`` does the same thing, but not in source order.
+    e.g. for ``Dict`` s, it yields all key nodes before all value nodes.
     """
     return _flatten_ast_nodes(_iter_child_nodes_in_order_internal_1(node))
 
@@ -118,15 +118,15 @@ def _iter_child_nodes_in_order_internal_1(node):
 
 def _walk_ast_nodes_in_order(node):
     """
-    Recursively yield all child nodes of C{node}, in the same order that the
+    Recursively yield all child nodes of ``node``, in the same order that the
     node appears in the source.
 
-    C{ast.walk} does the same thing, but yields nodes in an arbitrary order.
+    ``ast.walk`` does the same thing, but yields nodes in an arbitrary order.
     """
-    # The implementation is basically the same as C{ast.walk}, but:
+    # The implementation is basically the same as ``ast.walk``, but:
     #   1. Use a stack instead of a deque.  (I.e., depth-first search instead
     #      of breadth-first search.)
-    #   2. Use _iter_child_nodes_in_order instead of C{ast.iter_child_nodes}.
+    #   2. Use _iter_child_nodes_in_order instead of ``ast.iter_child_nodes``.
     todo = [node]
     while todo:
         node = todo.pop()
@@ -136,10 +136,10 @@ def _walk_ast_nodes_in_order(node):
 
 def _flags_to_try(source, flags, auto_flags, mode):
     """
-    Flags to try for C{auto_flags}.
+    Flags to try for ``auto_flags``.
 
-    If C{auto_flags} is False, then only yield C{flags}.
-    If C{auto_flags} is True, then yield C{flags} and C{flags ^ print_function}.
+    If ``auto_flags`` is False, then only yield ``flags``.
+    If ``auto_flags`` is True, then yield ``flags`` and ``flags ^ print_function``.
     """
     flags = CompilerFlags(flags)
     if not auto_flags:
@@ -162,22 +162,22 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     """
     Parse a block of lines into an AST.
 
-    Also annotate C{input_flags}, C{source_flags}, and C{flags} on the
+    Also annotate ``input_flags``, ``source_flags``, and ``flags`` on the
     resulting ast node.
 
-    @type text:
-      C{FileText}
-    @type flags:
-      C{CompilerFlags}
-    @type auto_flags:
-      C{bool}
-    @param auto_flags:
-      Whether to guess different flags if C{text} can't be parsed with
-      C{flags}.
-    @param mode:
+    :type text:
+      ``FileText``
+    :type flags:
+      ``CompilerFlags``
+    :type auto_flags:
+      ``bool``
+    :param auto_flags:
+      Whether to guess different flags if ``text`` can't be parsed with
+      ``flags``.
+    :param mode:
       Compilation mode: "exec", "single", or "eval".
-    @rtype:
-      C{ast.Module}
+    :rtype:
+      ``ast.Module``
     """
     text = FileText(text)
     flags = CompilerFlags(flags)
@@ -187,7 +187,7 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     if PY2 and isinstance(source, unicode):
         source = source.encode('utf-8')
     if not source.endswith("\n"):
-        # Ensure that the last line ends with a newline (C{ast} barfs
+        # Ensure that the last line ends with a newline (``ast`` barfs
         # otherwise).
         source += "\n"
     exp = None
@@ -211,8 +211,8 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
 
 def _test_parse_string_literal(text, flags):
     r"""
-    Attempt to parse C{text}.  If it parses cleanly to a single string
-    literal, return its value.  Otherwise return C{None}.
+    Attempt to parse ``text``.  If it parses cleanly to a single string
+    literal, return its value.  Otherwise return ``None``.
 
       >>> _test_parse_string_literal(r'"foo\n" r"\nbar"', 0)
       'foo\n\\nbar'
@@ -235,14 +235,14 @@ def _annotate_ast_nodes(ast_node):
     """
     Annotate AST with:
       - startpos and endpos
-      - [disabled for now: context as L{AstNodeContext}]
+      - [disabled for now: context as `AstNodeContext` ]
 
-    @type ast_node:
-      C{ast.AST}
-    @param ast_node:
-      AST node returned by L{_parse_ast_nodes}
-    @return:
-      C{None}
+    :type ast_node:
+      ``ast.AST``
+    :param ast_node:
+      AST node returned by `_parse_ast_nodes`
+    :return:
+      ``None``
     """
     text = ast_node.text
     flags = ast_node.flags
@@ -255,50 +255,50 @@ def _annotate_ast_nodes(ast_node):
 
 def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     """
-    Annotate C{ast_node}.  Set C{ast_node.startpos} to the starting position
-    of the node within C{text}.
+    Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
+    of the node within ``text``.
 
     For "typical" nodes, i.e. those other than multiline strings, this is
     simply FilePos(ast_node.lineno, ast_node.col_offset+1), but taking
-    C{text.startpos} into account.
+    ``text.startpos`` into account.
 
     For multiline string nodes, this function works by trying to parse all
     possible subranges of lines until finding the range that is syntactically
-    valid and matches C{value}.  The candidate range is
+    valid and matches ``value``.  The candidate range is
     text[min_start_lineno:lineno+text.startpos.lineno+1].
 
     This function is unfortunately necessary because of a flaw in the output
     produced by the Python built-in parser.  For some crazy reason, the
-    C{ast_node.lineno} attribute represents something different for multiline
+    ``ast_node.lineno`` attribute represents something different for multiline
     string literals versus all other statements.  For multiline string literal
     nodes and statements that are just a string expression (or more generally,
     nodes where the first descendant leaf node is a multiline string literal),
-    the compiler attaches the ending line number as the value of the C{lineno}
+    the compiler attaches the ending line number as the value of the ``lineno``
     attribute.  For all other than AST nodes, the compiler attaches the
-    starting line number as the value of the C{lineno} attribute.  This means
+    starting line number as the value of the ``lineno`` attribute.  This means
     e.g. the statement "'''foo\nbar'''" has a lineno value of 2, but the
     statement "x='''foo\nbar'''" has a lineno value of 1.
 
-    @type ast_node:
-      C{ast.AST}
-    @type minpos:
-      L{FilePos}
-    @param minpos:
-      Earliest position to check, in the number space of C{text}.
-    @type text:
-      L{FileText}
-    @param text:
-      Source text that was used to parse the AST, whose C{startpos} should be
-      used in interpreting C{ast_node.lineno} (which always starts at 1 for
+    :type ast_node:
+      ``ast.AST``
+    :type minpos:
+      `FilePos`
+    :param minpos:
+      Earliest position to check, in the number space of ``text``.
+    :type text:
+      `FileText`
+    :param text:
+      Source text that was used to parse the AST, whose ``startpos`` should be
+      used in interpreting ``ast_node.lineno`` (which always starts at 1 for
       the subset that was parsed).
-    @type flags:
-      C{CompilerFlags}
-    @param flags:
+    :type flags:
+      ``CompilerFlags``
+    :param flags:
       Compiler flags to use when re-compiling code.
-    @return:
-      C{True} if this node is a multiline string literal or the first child is
-      such a node (recursively); C{False} otherwise.
-    @raise ValueError:
+    :return:
+      ``True`` if this node is a multiline string literal or the first child is
+      such a node (recursively); ``False`` otherwise.
+    :raise ValueError:
       Could not find the starting line number.
     """
     # First, traverse child nodes.  If the first child node (recursively) is a
@@ -337,7 +337,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             child_minpos = child_node.startpos
         is_first_child = False
     # If the node has no lineno at all, then skip it.  This should only happen
-    # for nodes we don't care about, e.g. C{ast.Module} or C{ast.alias}.
+    # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
     if not hasattr(ast_node, 'lineno'):
         return False
     # If col_offset is set then the lineno should be correct also.
@@ -385,12 +385,12 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # multiline string.  The bug that multiline strings have broken
         # lineno/col_offset infects ancestors up the tree.
         #
-        # If the leftmost leaf is a multi-line string, then C{lineno}
+        # If the leftmost leaf is a multi-line string, then ``lineno``
         # contains the ending line number, and col_offset is -1:
         #   >>> ast.parse("""'''foo\nbar'''+blah""").body[0].lineno
         #   2
         # But if the leftmost leaf is not a multi-line string, then
-        # C{lineno} contains the starting line number:
+        # ``lineno`` contains the starting line number:
         #   >>> ast.parse("""'''foobar'''+blah""").body[0].lineno
         #   1
         #   >>> ast.parse("""blah+'''foo\nbar'''+blah""").body[0].lineno
@@ -408,15 +408,15 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     if not isinstance(ast_node, (ast.Str, Bytes)):
         raise ValueError(
             "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
-    # The C{lineno} attribute gives the ending line number of the multiline
+    # The ``lineno`` attribute gives the ending line number of the multiline
     # string ... unless it's multiple multiline strings that are concatenated
     # by adjacency, in which case it's merely the end of the first one of
     # them.  At least we know that the start lineno is definitely not later
-    # than the C{lineno} attribute.
+    # than the ``lineno`` attribute.
     first_end_lineno = text.startpos.lineno + ast_node.lineno - 1
     # Compute possible start positions.
     # The starting line number of this string could be anywhere between the
-    # end of the previous expression and C{first_end_lineno}.
+    # end of the previous expression and ``first_end_lineno``.
     startpos_candidates = []
     assert minpos.lineno <= first_end_lineno
     for start_lineno in range(minpos.lineno, first_end_lineno + 1):
@@ -513,12 +513,12 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
 def _annotate_ast_context(ast_node):
     """
-    Recursively annotate C{context} on ast nodes, setting C{context} to
-    a L{AstNodeContext} named tuple with values
-    C{(parent, field, index)}.
-    Each ast_node satisfies C{parent.<field>[<index>] is ast_node}.
+    Recursively annotate ``context`` on ast nodes, setting ``context`` to
+    a `AstNodeContext` named tuple with values
+    ``(parent, field, index)``.
+    Each ast_node satisfies ``parent.<field>[<index>] is ast_node``.
 
-    For non-list fields, the index part is C{None}.
+    For non-list fields, the index part is ``None``.
     """
     for field_name, field_value in ast.iter_fields(ast_node):
         if isinstance(field_value, ast.AST):
@@ -535,19 +535,19 @@ def _annotate_ast_context(ast_node):
 
 def _split_code_lines(ast_nodes, text):
     """
-    Split the given C{ast_nodes} and corresponding C{text} by code/noncode
+    Split the given ``ast_nodes`` and corresponding ``text`` by code/noncode
     statement.
 
-    Yield tuples of (nodes, subtext).  C{nodes} is a list of C{ast.AST} nodes,
-    length 0 or 1; C{subtext} is a L{FileText} sliced from C{text}.
+    Yield tuples of (nodes, subtext).  ``nodes`` is a list of ``ast.AST`` nodes,
+    length 0 or 1; ``subtext`` is a `FileText` sliced from ``text``.
 
-    FileText(...))} for code lines and C{(None, FileText(...))} for non-code
+    FileText(...))} for code lines and ``(None, FileText(...))`` for non-code
     lines (comments and blanks).
 
-    @type ast_nodes:
-      sequence of C{ast.AST} nodes
-    @type text:
-      L{FileText}
+    :type ast_nodes:
+      sequence of ``ast.AST`` nodes
+    :type text:
+      `FileText`
     """
     if not ast_nodes:
         yield ([], text)
@@ -618,24 +618,25 @@ def _split_code_lines(ast_nodes, text):
 
 def _ast_node_is_in_docstring_position(ast_node):
     """
-    Given a C{Str} AST node, return whether its position within the AST makes
+    Given a ``Str`` AST node, return whether its position within the AST makes
     it eligible as a docstring.
 
-    The main way a C{Str} can be a docstring is if it is a standalone string
-    at the beginning of a C{Module}, C{FunctionDef}, or C{ClassDef}.
+    The main way a ``Str`` can be a docstring is if it is a standalone string
+    at the beginning of a ``Module``, ``FunctionDef``, or ``ClassDef``.
 
     We also support variable docstrings per Epydoc:
+
       - If a variable assignment statement is immediately followed by a bare
         string literal, then that assignment is treated as a docstring for
         that variable.
 
-    @type ast_node:
-      C{ast.Str}
-    @param ast_node:
-      AST node that has been annotated by C{_annotate_ast_nodes}.
-    @rtype:
-      C{bool}
-    @return:
+    :type ast_node:
+      ``ast.Str``
+    :param ast_node:
+      AST node that has been annotated by ``_annotate_ast_nodes``.
+    :rtype:
+      ``bool``
+    :return:
       Whether this string ast node is in docstring position.
     """
     if not isinstance(ast_node, (ast.Str, Bytes)):
@@ -661,12 +662,12 @@ def _ast_node_is_in_docstring_position(ast_node):
 
 def infer_compile_mode(arg):
     """
-    Infer the mode needed to compile C{arg}.
+    Infer the mode needed to compile ``arg``.
 
-    @type arg:
-      C{ast.AST}
-    @rtype:
-      C{str}
+    :type arg:
+      ``ast.AST``
+    :rtype:
+      ``str``
     """
     # Infer mode from ast object.
     if isinstance(arg, ast.Module):
@@ -694,7 +695,7 @@ class PythonStatement(object):
       >>> PythonStatement('print("x",\n file=None)\n', flags=0x10000)
       PythonStatement('print("x",\n file=None)\n', flags=0x10000)
 
-    Implemented as a wrapper around a L{PythonBlock} containing at most one
+    Implemented as a wrapper around a `PythonBlock` containing at most one
     top-level AST node.
     """
 
@@ -728,43 +729,43 @@ class PythonStatement(object):
     @property
     def text(self):
         """
-        @rtype:
-          L{FileText}
+        :rtype:
+          `FileText`
         """
         return self.block.text
 
     @property
     def filename(self):
         """
-        @rtype:
-          L{Filename}
+        :rtype:
+          `Filename`
         """
         return self.text.filename
 
     @property
     def startpos(self):
         """
-        @rtype:
-          L{FilePos}
+        :rtype:
+          `FilePos`
         """
         return self.text.startpos
 
     @property
     def flags(self):
         """
-        @rtype:
-          L{CompilerFlags}
+        :rtype:
+          `CompilerFlags`
         """
         return self.block.flags
 
     @property
     def ast_node(self):
         """
-        A single AST node representing this statement, or C{None} if this
+        A single AST node representing this statement, or ``None`` if this
         object only represents comments/blanks.
 
-        @rtype:
-          C{ast.AST} or C{NoneType}
+        :rtype:
+          ``ast.AST`` or ``NoneType``
         """
         ast_nodes = self.block.ast_node.body
         if len(ast_nodes) == 0:
@@ -798,7 +799,7 @@ class PythonStatement(object):
           >>> PythonStatement('foo = {1: {2: 3}}').get_assignment_literal_value()
           ('foo', {1: {2: 3}})
 
-        @return:
+        :return:
           (target, literal_value)
         """
         if not self.is_single_assign:
@@ -846,7 +847,7 @@ class PythonStatement(object):
 class PythonBlock(object):
     r"""
     Representation of a sequence of consecutive top-level
-    L{PythonStatement}(s).
+    `PythonStatement` (s).
 
       >>> source_code = '# 1\nprint(2)\n# 3\n# 4\nprint(5)\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)
@@ -859,7 +860,7 @@ class PythonBlock(object):
       PythonStatement('x=[6,\n 7]\n', startpos=(6,1))
       PythonStatement('# 8\n', startpos=(8,1))
 
-    A C{PythonBlock} has a C{flags} attribute that gives the compiler_flags
+    A ``PythonBlock`` has a ``flags`` attribute that gives the compiler_flags
     associated with the __future__ features using which the code should be
     parsed.
 
@@ -891,24 +892,24 @@ class PythonBlock(object):
     def from_text(cls, text, filename=None, startpos=None, flags=None,
                   auto_flags=False):
         """
-        @type text:
-          L{FileText} or convertible
-        @type filename:
-          C{Filename}
-        @param filename:
-          Filename, if not already given by C{text}.
-        @type startpos:
-          C{FilePos}
-        @param startpos:
-          Starting position, if not already given by C{text}.
-        @type flags:
-          C{CompilerFlags}
-        @param flags:
+        :type text:
+          `FileText` or convertible
+        :type filename:
+          ``Filename``
+        :param filename:
+          Filename, if not already given by ``text``.
+        :type startpos:
+          ``FilePos``
+        :param startpos:
+          Starting position, if not already given by ``text``.
+        :type flags:
+          ``CompilerFlags``
+        :param flags:
           Input compiler flags.
-        @param auto_flags:
-          Whether to try other flags if C{flags} fails.
-        @rtype:
-          L{PythonBlock}
+        :param auto_flags:
+          Whether to try other flags if ``flags`` fails.
+        :rtype:
+          `PythonBlock`
         """
         text = FileText(text, filename=filename, startpos=startpos)
         self = object.__new__(cls)
@@ -940,9 +941,9 @@ class PythonBlock(object):
         """
         Concatenate a bunch of blocks into one block.
 
-        @type blocks:
-          sequence of L{PythonBlock}s and/or L{PythonStatement}s
-        @param assume_contiguous:
+        :type blocks:
+          sequence of `PythonBlock` s and/or `PythonStatement` s
+        :param assume_contiguous:
           Whether to assume, without checking, that the input blocks were
           originally all contiguous.  This must be set to True to indicate the
           caller understands the assumption; False is not implemented.
@@ -954,7 +955,7 @@ class PythonBlock(object):
             return blocks[0]
         assert blocks
         text = FileText.concatenate([b.text for b in blocks])
-        # The contiguous assumption is important here because C{ast_node}
+        # The contiguous assumption is important here because ``ast_node``
         # contains line information that would otherwise be wrong.
         ast_nodes = [n for b in blocks for n in b.annotated_ast_node.body]
         flags = blocks[0].flags
@@ -978,7 +979,7 @@ class PythonBlock(object):
         Attempt to parse this block of code into an abstract syntax tree.
         Cached (including exception case).
 
-        @return:
+        :return:
           Either ast_node or exception.
         """
         # This attribute may also be set by __construct_from_annotated_ast(),
@@ -1000,22 +1001,22 @@ class PythonBlock(object):
     @cached_attribute
     def parsable(self):
         """
-        Whether the contents of this C{PythonBlock} are parsable as Python
+        Whether the contents of this ``PythonBlock`` are parsable as Python
         code, using the given flags.
 
-        @rtype:
-          C{bool}
+        :rtype:
+          ``bool``
         """
         return isinstance(self._ast_node_or_parse_exception, ast.AST)
 
     @cached_attribute
     def parsable_as_expression(self):
         """
-        Whether the contents of this C{PythonBlock} are parsable as a single
+        Whether the contents of this ``PythonBlock`` are parsable as a single
         Python expression, using the given flags.
 
-        @rtype:
-          C{bool}
+        :rtype:
+          ``bool``
         """
         return self.parsable and self.expression_ast_node is not None
 
@@ -1025,14 +1026,14 @@ class PythonBlock(object):
         Parse this block of code into an abstract syntax tree.
 
         The returned object type is the kind of AST as returned by the
-        C{compile} built-in (rather than as returned by the older, deprecated
-        C{compiler} module).  The code is parsed using mode="exec".
+        ``compile`` built-in (rather than as returned by the older, deprecated
+        ``compiler`` module).  The code is parsed using mode="exec".
 
-        The result is a C{ast.Module} node, even if this block represents only
+        The result is a ``ast.Module`` node, even if this block represents only
         a subset of the entire file.
 
-        @rtype:
-          C{ast.Module}
+        :rtype:
+          ``ast.Module``
         """
         r = self._ast_node_or_parse_exception
         if isinstance(r, ast.AST):
@@ -1043,13 +1044,13 @@ class PythonBlock(object):
     @cached_attribute
     def annotated_ast_node(self):
         """
-        Return C{self.ast_node}, annotated in place with positions.
+        Return ``self.ast_node``, annotated in place with positions.
 
-        All nodes are annotated with C{startpos}.
-        All top-level nodes are annotated with C{endpos}.
+        All nodes are annotated with ``startpos``.
+        All top-level nodes are annotated with ``endpos``.
 
-        @rtype:
-          C{ast.Module}
+        :rtype:
+          ``ast.Module``
         """
         result = self.ast_node
         _annotate_ast_nodes(result)
@@ -1058,13 +1059,13 @@ class PythonBlock(object):
     @cached_attribute
     def expression_ast_node(self):
         """
-        Return an C{ast.Expression} if C{self.ast_node} can be converted into
+        Return an ``ast.Expression`` if ``self.ast_node`` can be converted into
         one.  I.e., return parse(self.text, mode="eval"), if possible.
 
-        Otherwise, return C{None}.
+        Otherwise, return ``None``.
 
-        @rtype:
-          C{ast.Expression}
+        :rtype:
+          ``ast.Expression``
         """
         node = self.ast_node
         if len(node.body) == 1 and isinstance(node.body[0], ast.Expr):
@@ -1076,13 +1077,13 @@ class PythonBlock(object):
         """
         Parse the source text into an AST.
 
-        @param mode:
+        :param mode:
           Compilation mode: "exec", "single", or "eval".  "exec", "single",
-          and "eval" work as the built-in C{compile} function do.  If C{None},
+          and "eval" work as the built-in ``compile`` function do.  If ``None``,
           then default to "eval" if the input is a string with a single
           expression, else "exec".
-        @rtype:
-          C{ast.AST}
+        :rtype:
+          ``ast.AST``
         """
         if mode == "exec":
             return self.ast_node
@@ -1105,8 +1106,8 @@ class PythonBlock(object):
         """
         Parse into AST and compile AST into code.
 
-        @rtype:
-          C{CodeType}
+        :rtype:
+          ``CodeType``
         """
         ast_node = self.parse(mode=mode)
         mode = infer_compile_mode(ast_node)
@@ -1116,8 +1117,8 @@ class PythonBlock(object):
     @cached_attribute
     def statements(self):
         r"""
-        Partition of this C{PythonBlock} into individual C{PythonStatement}s.
-        Each one contains at most 1 top-level ast node.  A C{PythonStatement}
+        Partition of this ``PythonBlock`` into individual ``PythonStatement`` s.
+        Each one contains at most 1 top-level ast node.  A ``PythonStatement``
         can contain no ast node to represent comments.
 
           >>> code = "# multiline\n# comment\n'''multiline\nstring'''\nblah\n"
@@ -1126,8 +1127,8 @@ class PythonBlock(object):
            PythonStatement("'''multiline\nstring'''\n", startpos=(3,1)),
            PythonStatement('blah\n', startpos=(5,1)))
 
-        @rtype:
-          C{tuple} of L{PythonStatement}s
+        :rtype:
+          ``tuple`` of `PythonStatement` s
         """
         node = self.annotated_ast_node
         nodes_subtexts = list(_split_code_lines(node.body, self.text))
@@ -1144,7 +1145,7 @@ class PythonBlock(object):
         for b in statement_blocks:
             statement = PythonStatement._construct_from_block(b)
             statements.append(statement)
-            # Optimization: set the new sub-block's C{statements} attribute
+            # Optimization: set the new sub-block's ``statements`` attribute
             # since we already know it contains exactly one statement, itself.
             assert 'statements' not in b.__dict__
             b.statements = (statement,)
@@ -1156,13 +1157,13 @@ class PythonBlock(object):
         If the AST contains __future__ imports, then the compiler_flags
         associated with them.  Otherwise, 0.
 
-        The difference between C{source_flags} and C{flags} is that C{flags}
+        The difference between ``source_flags`` and ``flags`` is that ``flags``
         may be set by the caller (e.g. based on an earlier __future__ import)
-        and include automatically guessed flags, whereas C{source_flags} is
+        and include automatically guessed flags, whereas ``source_flags`` is
         only nonzero if this code itself contains __future__ imports.
 
-        @rtype:
-          L{CompilerFlags}
+        :rtype:
+          `CompilerFlags`
         """
         return self.ast_node.source_flags
 
@@ -1173,20 +1174,20 @@ class PythonBlock(object):
         (possibly automatically guessed), and the flags from "__future__"
         imports in the source code text.
 
-        @rtype:
-          L{CompilerFlags}
+        :rtype:
+          `CompilerFlags`
         """
         return self.ast_node.flags
 
     def groupby(self, predicate):
         """
         Partition this block of code into smaller blocks of code which
-        consecutively have the same C{predicate}.
+        consecutively have the same ``predicate``.
 
-        @param predicate:
-          Function that takes a L{PythonStatement} and returns a value.
-        @return:
-          Generator that yields (group, L{PythonBlock}s).
+        :param predicate:
+          Function that takes a `PythonStatement` and returns a value.
+        :return:
+          Generator that yields (group, `PythonBlock` s).
         """
         cls = type(self)
         for pred, stmts in groupby(self.statements, predicate):
@@ -1197,14 +1198,14 @@ class PythonBlock(object):
         r"""
         Yield all string literals anywhere in this block.
 
-        The string literals have C{startpos} attributes attached.
+        The string literals have ``startpos`` attributes attached.
 
           >>> block = PythonBlock("'a' + ('b' + \n'c')")
           >>> [(f.s, f.startpos) for f in block.string_literals()]
           [('a', FilePos(1,1)), ('b', FilePos(1,8)), ('c', FilePos(2,1))]
 
-        @return:
-          Iterable of C{ast.Str}  or C{ast.Bytes} nodes
+        :return:
+          Iterable of ``ast.Str``  or ``ast.Bytes`` nodes
         """
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
             if isinstance(node, (ast.Str, Bytes)):
@@ -1215,15 +1216,16 @@ class PythonBlock(object):
         """
         Yield docstring AST nodes.
 
-        We consider the following to be docstrings:
+        We consider the following to be docstrings::
+
           - First literal string of function definitions, class definitions,
             and modules (the python standard)
           - Literal strings after assignments, per Epydoc
 
-        @rtype:
-          Generator of C{ast.Str} nodes
+        :rtype:
+          Generator of ``ast.Str`` nodes
         """
-        # This is similar to C{ast.get_docstring}, but:
+        # This is similar to ``ast.get_docstring``, but:
         #   - This function is recursive
         #   - This function yields the node object, rather than the string
         #   - This function yields multiple docstrings (even per ast node)
@@ -1260,8 +1262,8 @@ class PythonBlock(object):
           >>> PythonBlock("x\n'''\n >>> foo(bar\n ...     + baz)\n'''\n").get_doctests()
           [PythonBlock('foo(bar\n    + baz)\n', startpos=(3,2))]
 
-        @rtype:
-          C{list} of L{PythonStatement}s
+        :rtype:
+          ``list`` of `PythonStatement` s
         """
         import doctest
         parser = doctest.DocTestParser()
