@@ -36,7 +36,7 @@ def _find_etc_dir():
 
 def _get_env_var(env_var_name, default):
     '''
-    Get an environment variable and split on ":", replacing C{-} with the
+    Get an environment variable and split on ":", replacing ``-`` with the
     default.
     '''
     assert re.match("^[A-Z_]+$", env_var_name)
@@ -44,7 +44,7 @@ def _get_env_var(env_var_name, default):
     value = list(filter(None, os.environ.get(env_var_name, '').split(':')))
     if not value:
         return default
-    # Replace '-' with C{default}
+    # Replace '-' with ``default``
     try:
         idx = value.index('-')
     except ValueError:
@@ -58,14 +58,14 @@ def _get_python_path(env_var_name, default_path, target_dirname):
     '''
     Expand an environment variable specifying pyflyby input config files.
 
-      - Default to C{default_path} if the environment variable is undefined.
+      - Default to ``default_path`` if the environment variable is undefined.
       - Process colon delimiters.
-      - Replace "-" with C{default_path}.
+      - Replace "-" with ``default_path``.
       - Expand triple dots.
       - Recursively traverse directories.
 
-    @rtype:
-      C{tuple} of C{Filename}s
+    :rtype:
+      ``tuple`` of ``Filename`` s
     '''
     pathnames = _get_env_var(env_var_name, default_path)
     if pathnames == ["EMPTY"]:
@@ -106,17 +106,18 @@ def _get_st_dev(filename):
 
 def _ancestors_on_same_partition(filename):
     """
-    Generate ancestors of C{filename} that exist and are on the same partition
-    as the first existing ancestor of C{filename}.
+    Generate ancestors of ``filename`` that exist and are on the same partition
+    as the first existing ancestor of ``filename``.
 
     For example, suppose a partition is mounted on /u/homer; /u is a different
     partition.  Suppose /u/homer/aa exists but /u/homer/aa/bb does not exist.
     Then::
+
       >> _ancestors_on_same_partition("/u/homer/aa/bb/cc")
       [Filename("/u/homer", Filename("/u/homer/aa")]
 
-    @rtype:
-      C{list} of C{Filename}
+    :rtype:
+      ``list`` of ``Filename``
     """
     result = []
     dev = None
@@ -134,21 +135,22 @@ def _ancestors_on_same_partition(filename):
 
 def _expand_tripledots(pathnames, target_dirname):
     """
-    Expand pathnames of the form C{".../foo/bar"} as "../../foo/bar",
+    Expand pathnames of the form ``".../foo/bar"`` as "../../foo/bar",
     "../foo/bar", "./foo/bar" etc., up to the oldest ancestor with the same
     st_dev.
 
     For example, suppose a partition is mounted on /u/homer; /u is a different
     partition.  Then::
+
       >> _expand_tripledots(["/foo", ".../tt"], "/u/homer/aa")
       [Filename("/foo"), Filename("/u/homer/tt"), Filename("/u/homer/aa/tt")]
 
-    @type pathnames:
-      sequence of C{str} (not C{Filename})
-    @type target_dirname:
-      L{Filename}
-    @rtype:
-      C{list} of L{Filename}
+    :type pathnames:
+      sequence of ``str`` (not ``Filename``)
+    :type target_dirname:
+      `Filename`
+    :rtype:
+      ``list`` of `Filename`
     """
     target_dirname = Filename(target_dirname)
     if not isinstance(pathnames, (tuple, list)):
@@ -228,13 +230,13 @@ class ImportDB(object):
 
         Memoized.
 
-        @param target_filename:
+        :param target_filename:
           The target filename for which to get the import database.  Note that
           the target filename itself is not read.  Instead, the target
           filename is relevant because we look for .../.pyflyby based on the
           target filename.
-        @rtype:
-          L{ImportDB}
+        :rtype:
+          `ImportDB`
         """
         # We're going to canonicalize target_filenames in a number of steps.
         # At each step, see if we've seen the input so far.  We do the cache
@@ -362,7 +364,7 @@ class ImportDB(object):
     @classmethod
     def _from_args(cls, args):
         # TODO: support merging input ImportDBs.  For now we support
-        # L{PythonBlock}s and convertibles such as L{Filename}.
+        # `PythonBlock` s and convertibles such as `Filename`.
         return cls._from_code(args)
 
     @classmethod
@@ -400,8 +402,8 @@ class ImportDB(object):
             ]
           ''')
 
-        @rtype:
-          L{ImportDB}
+        :rtype:
+          `ImportDB`
         """
         if not isinstance(blocks, (tuple, list)):
             blocks = [blocks]
@@ -455,12 +457,12 @@ class ImportDB(object):
         This function exists to support deprecated behavior.
         When we stop supporting the old behavior, we will delete this function.
 
-        @type filenames:
-          Sequence of L{Filename}s
-        @param filenames:
+        :type filenames:
+          Sequence of `Filename` s
+        :param filenames:
           Filenames of files to read.
-        @rtype:
-          L{ImportDB}
+        :rtype:
+          `ImportDB`
         """
         if not isinstance(filenames, (tuple, list)):
             filenames = [filenames]
@@ -526,7 +528,7 @@ class ImportDB(object):
     @cached_attribute
     def by_fullname_or_import_as(self):
         """
-        Map from C{fullname} and C{import_as} to L{Import}s.
+        Map from ``fullname`` and ``import_as`` to `Import` s.
 
           >>> import pprint
           >>> db = ImportDB('from aa.bb import cc as dd')
@@ -535,8 +537,8 @@ class ImportDB(object):
            'aa.bb': (Import('import aa.bb'),),
            'dd': (Import('from aa.bb import cc as dd'),)}
 
-        @rtype:
-          C{dict} mapping from C{str} to tuple of L{Import}s
+        :rtype:
+          ``dict`` mapping from ``str`` to tuple of `Import` s
         """
         # TODO: make known_imports take into account the below forget_imports,
         # then move this function into ImportSet

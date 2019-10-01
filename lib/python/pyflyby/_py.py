@@ -116,42 +116,50 @@ Pseudo-actions valid before, after, or without code argument:
 Examples
 ========
 
-  Start IPython with pyflyby autoimporter enabled:
+  Start IPython with pyflyby autoimporter enabled::
+
     $ py
 
-  Start IPython/Jupyter Notebook with pyflyby autoimporter enabled:
+  Start IPython/Jupyter Notebook with pyflyby autoimporter enabled::
+
     $ py nb
 
-  Find the ASCII value of the letter "j" (apply builtin function):
+  Find the ASCII value of the letter "j" (apply builtin function)::
+
     $ py ord j
     [PYFLYBY] ord('j')
     106
 
-  Decode a base64-encoded string (apply autoimported function):
+  Decode a base64-encoded string (apply autoimported function)::
+
     $ py b64decode aGVsbG8=
     [PYFLYBY] from base64 import b64decode
     [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
     b'hello'
 
-  Find the day of the week of some date (apply function in module):
+  Find the day of the week of some date (apply function in module)::
+
     $ py calendar.weekday 2014 7 18
     [PYFLYBY] import calendar
     [PYFLYBY] calendar.weekday(2014, 7, 18)
     4
 
-  Using named arguments:
+  Using named arguments::
+
     $ py calendar.weekday --day=16 --month=7 --year=2014
     [PYFLYBY] import calendar
     [PYFLYBY] calendar.weekday(2014, 7, 16)
     2
 
-  Using short named arguments:
+  Using short named arguments::
+
     $ py calendar.weekday -m 7 -d 15 -y 2014
     [PYFLYBY] import calendar
     [PYFLYBY] calendar.weekday(2014, 7, 15)
     1
 
-  Invert a matrix (evaluate expression, with autoimporting):
+  Invert a matrix (evaluate expression, with autoimporting)::
+
     $ py 'matrix("1 3 3; 1 4 3; 1 3 4").I'
     [PYFLYBY] from numpy import matrix
     [PYFLYBY] matrix("1 3 3; 1 4 3; 1 3 4").I
@@ -159,7 +167,8 @@ Examples
             [-1.,  1.,  0.],
             [-1.,  0.,  1.]])
 
-  Plot cosine (evaluate expression, with autoimporting):
+  Plot cosine (evaluate expression, with autoimporting)::
+
     $ py 'plot(cos(arange(30)))'
     [PYFLYBY] from numpy import arange
     [PYFLYBY] from numpy import cos
@@ -167,11 +176,13 @@ Examples
     [PYFLYBY] plot(cos(arange(30)))
     <plot>
 
-  Command-line calculator (multiple arguments):
+  Command-line calculator (multiple arguments)::
+
     $ py 3 / 4
     0.75
 
-  Command-line calculator (single arguments):
+  Command-line calculator (single arguments)::
+
     $ py '(5+7j) ** 12'
     (65602966976-150532462080j)
 
@@ -201,35 +212,43 @@ Examples
     [PYFLYBY] (lambda x: x**2)(5)
     25
 
-  Find length of string (using "-" for stdin):
+  Find length of string (using "-" for stdin)::
+
     $ echo hello | py len -
     [PYFLYBY] len('hello\\n')
     6
 
-  Run stdin as code:
+  Run stdin as code::
+
     $ echo 'print(sys.argv[1:])' | py - hello world
     [PYFLYBY] import sys
     ['hello', 'world']
 
-  Run libc functions:
+  Run libc functions::
+
     $ py --quiet --output=none 'CDLL("libc.so.6").printf' %03d 7
     007
 
-  Download web page:
+  Download web page::
+
     $ py --print 'requests.get(sys.argv[1]).text' http://example.com
 
-  Get function help:
+  Get function help::
+
     $ py b64decode?
     [PYFLYBY] from base64 import b64decode
-    Python signature:
+    Python signature::
+
       >> b64decode(s, altchars=None, validate=False)
 
-    Command-line signature:
+    Command-line signature::
+
       $ py b64decode s [altchars [validate]]
       $ py b64decode --s=... [--altchars=...] [--validate=...]
     ...
 
-  Get module help:
+  Get module help::
+
     $ py pandas?
     [PYFLYBY] import pandas
     Version:
@@ -403,10 +422,10 @@ def _requires_parens_as_function(function_name):
     TODO: this might be obsolete if we use unparse instead of keeping original
     user formatting (or alternatively, unparse should use something like this).
 
-    @type function_name:
-      C{str}
-    @rtype:
-      C{bool}
+    :type function_name:
+      ``str``
+    :rtype:
+      ``bool``
     """
     function_name = PythonBlock(function_name, flags=FLAGS)
     node = function_name.expression_ast_node
@@ -524,7 +543,8 @@ class UserExpr(object):
 
       >>> ns = _Namespace()
 
-    Heuristic auto-evaluation:
+    Heuristic auto-evaluation::
+
       >>> UserExpr('5+2', ns, "auto").value
       7
 
@@ -535,22 +555,26 @@ class UserExpr(object):
       [PYFLYBY] import base64
       b'Halloween'
 
-    Returning an unparsable argument as a string:
+    Returning an unparsable argument as a string::
+
       >>> UserExpr('Victory Loop', ns, "auto").value
       'Victory Loop'
 
-    Returning an undefined (and not auto-importable) argument as a string:
+    Returning an undefined (and not auto-importable) argument as a string::
+
       >>> UserExpr('Willowbrook29817621+5', ns, "auto").value
       'Willowbrook29817621+5'
 
-    Explicit literal string:
+    Explicit literal string::
+
       >>> UserExpr("2+3", ns, "raw_value").value
       '2+3'
 
       >>> UserExpr("'2+3'", ns, "raw_value").value
       "'2+3'"
 
-    Other raw values:
+    Other raw values::
+
       >>> UserExpr(sys.exit, ns, "raw_value").value
       <built-in function exit>
     """
@@ -559,18 +583,18 @@ class UserExpr(object):
         """
         Construct a new UserExpr.
 
-        @type arg:
-          C{str} if C{arg_mode} is "eval" or "auto"; anything if C{arg_mode}
+        :type arg:
+          ``str`` if ``arg_mode`` is "eval" or "auto"; anything if ``arg_mode``
           is "raw_value"
-        @param arg:
+        :param arg:
           Input user argument.
-        @type namespace:
-          L{_Namespace}
-        @type arg_mode:
-          C{str}
-        @param arg_mode:
-          If C{"raw_value"}, then return C{arg} unchanged.  If C{"eval"}, then
-          always evaluate C{arg}.  If C{"auto"}, then heuristically evaluate
+        :type namespace:
+          `_Namespace`
+        :type arg_mode:
+          ``str``
+        :param arg_mode:
+          If ``"raw_value"``, then return ``arg`` unchanged.  If ``"eval"``, then
+          always evaluate ``arg``.  If ``"auto"``, then heuristically evaluate
           if appropriate.
         """
         if arg_mode == "string":
@@ -653,8 +677,8 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
     Parse command-line arguments heuristically.  Arguments that can be
     evaluated are evaluated; otherwise they are treated as strings.
 
-    @returns:
-      C{args}, C{kwargs}
+    :returns:
+      ``args``, ``kwargs``
     """
     # This is implemented manually instead of using optparse or argparse.  We
     # do so because neither supports dynamic keyword arguments well.  Optparse
@@ -827,12 +851,12 @@ def _get_help(expr, verbosity=1):
     """
     Construct a help string.
 
-    @type expr:
-      L{UserExpr}
-    @param expr:
+    :type expr:
+      `UserExpr`
+    :param expr:
       Object to generate help for.
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     # TODO: colorize headers
     result = ""
@@ -905,7 +929,7 @@ def _handle_user_exception(exc_info=None):
     if exc_info[2].tb_next:
         exc_info = (exc_info[0], exc_info[1],
                     exc_info[2].tb_next) # skip this traceback
-    # If C{_enable_postmortem_debugger} is enabled, then debug the exception.
+    # If ``_enable_postmortem_debugger`` is enabled, then debug the exception.
     # By default, this is enabled run running in a tty.
     # We check isatty(1) here because we want 'py ... | cat' to never go into
     # the debugger.  Note that debugger() also checks whether /dev/tty is
@@ -924,22 +948,22 @@ def _handle_user_exception(exc_info=None):
 def auto_apply(function, commandline_args, namespace, arg_mode=None,
                debug=False):
     """
-    Call C{function} on command-line arguments.  Arguments can be positional
+    Call ``function`` on command-line arguments.  Arguments can be positional
     or keyword arguments like "--foo=bar".  Arguments are by default
     heuristically evaluated.
 
-    @type function:
-      C{UserExpr}
-    @param function:
+    :type function:
+      ``UserExpr``
+    :param function:
       Function to apply.
-    @type commandline_args:
-      C{list} of C{str}
-    @param commandline_args:
-      Arguments to C{function} as strings.
-    @param arg_mode:
-      How to interpret C{commandline_args}.  If C{"string"}, then treat them
-      as literal strings.  If C{"eval"}, then evaluate all arguments as
-      expressions.  If C{"auto"} (the default), then heuristically decide
+    :type commandline_args:
+      ``list`` of ``str``
+    :param commandline_args:
+      Arguments to ``function`` as strings.
+    :param arg_mode:
+      How to interpret ``commandline_args``.  If ``"string"``, then treat them
+      as literal strings.  If ``"eval"``, then evaluate all arguments as
+      expressions.  If ``"auto"`` (the default), then heuristically decide
       whether to treat as expressions or strings.
     """
     if not isinstance(function, UserExpr):
@@ -1175,7 +1199,7 @@ def SysArgvCtx(*args):
 
 def _as_filename_if_seems_like_filename(arg):
     """
-    If C{arg} seems like a filename, then return it as one.
+    If ``arg`` seems like a filename, then return it as one.
 
       >>> bool(_as_filename_if_seems_like_filename("foo.py"))
       True
@@ -1192,10 +1216,10 @@ def _as_filename_if_seems_like_filename(arg):
       >>> bool(_as_filename_if_seems_like_filename("../foo/bar-24084866"))
       True
 
-    @type arg:
-      C{str}
-    @rtype:
-      C{Filename}
+    :type arg:
+      ``str``
+    :rtype:
+      ``Filename``
     """
     try:
         filename = Filename(arg)
@@ -1358,7 +1382,7 @@ class _Namespace(object):
     def auto_eval(self, block, mode=None, info=False, auto_import=True,
                   debug=False):
         """
-        Evaluate C{block} with auto-importing.
+        Evaluate ``block`` with auto-importing.
         """
         # Equivalent to::
         #   auto_eval(arg, mode=mode, flags=FLAGS, globals=self.globals)
@@ -1473,7 +1497,7 @@ class _PyMain(object):
         m = ModuleHandle(arg)
         if m.parent:
             # Auto-import the parent, which is necessary in order to get the
-            # filename of the module.  C{ModuleHandle.filename} does this
+            # filename of the module.  ``ModuleHandle.filename`` does this
             # automatically, but we do it explicitly here so that we log
             # the import of the parent module.
             if not self.namespace.auto_import(str(m.parent.name)):
@@ -1689,7 +1713,7 @@ class _PyMain(object):
                            "arg_mode", "arg-mode", "argmode"]:
                 # Interpret --args=eval|string|auto.
                 # Note that if the user didn't specify --args, then we
-                # intentionally leave C{opts.arg_mode} set to C{None} for now,
+                # intentionally leave ``opts.arg_mode`` set to ``None`` for now,
                 # because the default varies per action.
                 del args[0]
                 self.arg_mode = _interpret_arg_mode(popvalue())

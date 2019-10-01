@@ -39,10 +39,11 @@ class CompilerFlags(int):
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
     This can be used as an argument to the built-in compile() function. For
-    instance, in Python 2:
+    instance, in Python 2::
 
       >>> compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1) #doctest:+SKIP
       Traceback (most recent call last):
+
         ...
       SyntaxError: invalid syntax
 
@@ -53,13 +54,13 @@ class CompilerFlags(int):
 
     def __new__(cls, *args):
         """
-        Construct a new C{CompilerFlags} instance.
+        Construct a new ``CompilerFlags`` instance.
 
-        @param args:
-          Any number (zero or more) C{CompilerFlags}s, C{int}s, or C{str}s,
+        :param args:
+          Any number (zero or more) ``CompilerFlags`` s, ``int`` s, or ``str`` s,
           which are bitwise-ORed together.
-        @rtype:
-          L{CompilerFlags}
+        :rtype:
+          `CompilerFlags`
         """
         if len(args) == 0:
             return cls._ZERO
@@ -109,10 +110,10 @@ class CompilerFlags(int):
         """
         Parse the compiler flags from AST node(s).
 
-        @type nodes:
-          C{ast.AST} or sequence thereof
-        @rtype:
-          C{CompilerFlags}
+        :type nodes:
+          ``ast.AST`` or sequence thereof
+        :rtype:
+          ``CompilerFlags``
         """
         if isinstance(nodes, ast.Module):
             nodes = nodes.body

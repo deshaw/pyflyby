@@ -32,13 +32,13 @@ def dotted_prefixes(dotted_name, reverse=False):
       >>> dotted_prefixes("aa.bb.cc", reverse=True)
       ['aa.bb.cc', 'aa.bb', 'aa']
 
-    @type dotted_name:
-      C{str}
-    @param reverse:
+    :type dotted_name:
+      ``str``
+    :param reverse:
       If False (default), return shortest to longest.  If True, return longest
       to shortest.
-    @rtype:
-      C{list} of C{str}
+    :rtype:
+      ``list`` of ``str``
     """
     name_parts = dotted_name.split(".")
     if reverse:
@@ -56,7 +56,7 @@ _dotted_name_prefix_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z
 
 def is_identifier(s, dotted=False, prefix=False):
     """
-    Return whether C{s} is a valid Python identifier name.
+    Return whether ``s`` is a valid Python identifier name.
 
       >>> is_identifier("foo")
       True
@@ -67,9 +67,9 @@ def is_identifier(s, dotted=False, prefix=False):
       >>> is_identifier("from")
       False
 
-    By default, we check whether C{s} is a single valid identifier, meaning
-    dots are not allowed.  If C{dotted=True}, then we check each dotted
-    component:
+    By default, we check whether ``s`` is a single valid identifier, meaning
+    dots are not allowed.  If ``dotted=True``, then we check each dotted
+    component::
 
       >>> is_identifier("foo.bar")
       False
@@ -84,7 +84,7 @@ def is_identifier(s, dotted=False, prefix=False):
       False
 
     By default, the string must comprise a valid identifier.  If
-    C{prefix=True}, then allow strings that are prefixes of valid identifiers.
+    ``prefix=True``, then allow strings that are prefixes of valid identifiers.
     Prefix=False excludes the empty string, strings with a trailing dot, and
     strings with a trailing keyword component, but prefix=True does not
     exclude these.
@@ -101,18 +101,18 @@ def is_identifier(s, dotted=False, prefix=False):
       >>> is_identifier("foo.or", dotted=True, prefix=True)
       True
 
-    @type s:
-      C{str}
-    @param dotted:
-      If C{False} (default), then the input must be a single name such as
-      "foo".  If C{True}, then the input can be a single name or a dotted name
+    :type s:
+      ``str``
+    :param dotted:
+      If ``False`` (default), then the input must be a single name such as
+      "foo".  If ``True``, then the input can be a single name or a dotted name
       such as "foo.bar.baz".
-    @param prefix:
-      If C{False} (Default), then the input must be a valid identifier.  If
-      C{True}, then the input can be a valid identifier or the prefix of a
+    :param prefix:
+      If ``False`` (Default), then the input must be a valid identifier.  If
+      ``True``, then the input can be a valid identifier or the prefix of a
       valid identifier.
-    @rtype:
-      C{bool}
+    :rtype:
+      ``bool``
     """
     if not isinstance(s, six.string_types):
         raise TypeError("is_identifier(): expected a string; got a %s"

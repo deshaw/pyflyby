@@ -34,9 +34,9 @@ _builtins2 = {"__file__": None}
 
 class ScopeStack(Sequence):
     """
-    A stack of namespace scopes, as a tuple of C{dict}s.
+    A stack of namespace scopes, as a tuple of ``dict`` s.
 
-    Each entry is a C{dict}.
+    Each entry is a ``dict``.
 
     Ordered from most-global to most-local.
     Builtins are always included.
@@ -47,14 +47,14 @@ class ScopeStack(Sequence):
 
     def __init__(self, arg):
         """
-        Interpret argument as a C{ScopeStack}.
+        Interpret argument as a ``ScopeStack``.
 
-        @type arg:
-          C{ScopeStack}, C{dict}, C{list} of C{dict}
-        @param arg:
+        :type arg:
+          ``ScopeStack``, ``dict``, ``list`` of ``dict``
+        :param arg:
           Input namespaces
-        @rtype:
-          C{ScopeStack}
+        :rtype:
+          ``ScopeStack``
         """
         if isinstance(arg, ScopeStack):
             scopes = list(arg._tup)
@@ -93,14 +93,14 @@ class ScopeStack(Sequence):
 
     def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
         """
-        Return a new C{ScopeStack} with an additional empty scope.
+        Return a new ``ScopeStack`` with an additional empty scope.
 
-        @param include_class_scopes:
+        :param include_class_scopes:
           Whether to include previous scopes that are meant for ClassDefs.
-        @param new_class_scope:
+        :param new_class_scope:
           Whether the new scope is for a ClassDef.
-        @rtype:
-          C{ScopeStack}
+        :rtype:
+          ``ScopeStack``
         """
         if include_class_scopes:
             scopes = tuple(self)
@@ -117,7 +117,7 @@ class ScopeStack(Sequence):
 
     def clone_top(self):
         """
-        Return a new C{ScopeStack} referencing the same namespaces as C{self},
+        Return a new ``ScopeStack`` referencing the same namespaces as ``self``,
         but cloning the topmost namespace (and aliasing the others).
         """
         scopes = list(self)
@@ -129,8 +129,8 @@ class ScopeStack(Sequence):
         """
         Return a 2-tuple of dicts.
 
-        These can be used for functions that take a C{globals} and C{locals}
-        argument, such as C{eval}.
+        These can be used for functions that take a ``globals`` and ``locals``
+        argument, such as ``eval``.
 
         If there is only one entry, then return it twice.
 
@@ -138,8 +138,8 @@ class ScopeStack(Sequence):
         the more-global ones.  The most-local stack will alias the dict from
         the existing ScopeStack.
 
-        @rtype:
-          C{tuple} of (C{dict}, C{dict})
+        :rtype:
+          ``tuple`` of (``dict``, ``dict``)
         """
         assert len(self) >= 1
         if len(self) == 1:
@@ -175,11 +175,11 @@ class ScopeStack(Sequence):
 
 def symbol_needs_import(fullname, namespaces):
     """
-    Return whether C{fullname} is a symbol that needs to be imported, given
+    Return whether ``fullname`` is a symbol that needs to be imported, given
     the current namespace scopes.
 
     A symbol needs importing if it is not previously imported or otherwise
-    assigned.  C{namespaces} normally includes builtins and globals as well as
+    assigned.  ``namespaces`` normally includes builtins and globals as well as
     symbols imported/assigned locally within the scope.
 
     If the user requested "foo.bar.baz", and we see that "foo.bar" exists
@@ -189,18 +189,18 @@ def symbol_needs_import(fullname, namespaces):
     getattr(foo.bar, "baz"), since that could invoke code that is slow or
     has side effects.
 
-    @type fullname:
-      C{DottedIdentifier}
-    @param fullname:
+    :type fullname:
+      ``DottedIdentifier``
+    :param fullname:
       Fully-qualified symbol name, e.g. "os.path.join".
-    @type namespaces:
-      C{list} of C{dict}
-    @param namespaces:
+    :type namespaces:
+      ``list`` of ``dict``
+    :param namespaces:
       Stack of namespaces to search for existing items.
-    @rtype:
-      C{bool}
-    @return:
-      C{True} if C{fullname} needs import, else C{False}
+    :rtype:
+      ``bool``
+    :return:
+      ``True`` if ``fullname`` needs import, else ``False``
     """
     namespaces = ScopeStack(namespaces)
     fullname = DottedIdentifier(fullname)
@@ -248,7 +248,7 @@ def symbol_needs_import(fullname, namespaces):
                 #     type ModuleType.
                 if var is not sys.modules.get(pname, object()):
                     # The variable is not a module.  (If this came from a
-                    # local assignment then C{var} will just be "None"
+                    # local assignment then ``var`` will just be "None"
                     # here to indicate we know it was assigned but don't
                     # know about its type.)  Thus nothing under it needs
                     # import.
@@ -293,13 +293,14 @@ class _UseChecker(object):
 
 class _MissingImportFinder(object):
     """
-    A helper class to be used only by L{_find_missing_imports_in_ast}.
+    A helper class to be used only by `_find_missing_imports_in_ast`.
 
     This class visits every AST node and collects symbols that require
     importing.  A symbol requires importing if it is not already imported or
     otherwise defined/assigned in this scope.
 
     For attributes like "foo.bar.baz", we need to be more sophisticated:
+
     Suppose the user imports "foo.bar" and then accesses "foo.bar.baz.quux".
     Baz may be already available just by importing foo.bar, or it may require
     further import.  We decide as follows.  If foo.bar is not a module, then
@@ -313,9 +314,9 @@ class _MissingImportFinder(object):
         """
         Construct the AST visitor.
 
-        @type scopestack:
-          L{ScopeStack}
-        @param scopestack:
+        :type scopestack:
+          `ScopeStack`
+        :param scopestack:
           Initial scope stack.
         """
         # Create a stack of namespaces.  The caller should pass in a list that
@@ -356,7 +357,7 @@ class _MissingImportFinder(object):
             self.scopestack = oldscopestack
 
     def scan_for_import_issues(self, codeblock):
-        # See global L{scan_for_import_issues}
+        # See global `scan_for_import_issues`
         codeblock = PythonBlock(codeblock)
         node = codeblock.ast_node
         self._scan_node(node)
@@ -385,7 +386,7 @@ class _MissingImportFinder(object):
                 self.scopestack = self.scopestack.with_new_scope()
                 self._scan_node(block.ast_node)
                 self.scopestack = oldstack
-            # Find literal brace identifiers like "... L{Foo} ...".
+            # Find literal brace identifiers like "... `Foo` ...".
             # TODO: Do this inline: (1) faster; (2) can use proper scope of vars
             # Once we do that, use _check_load() with new args
             # check_missing_imports=False, check_unused_imports=True
@@ -407,8 +408,8 @@ class _MissingImportFinder(object):
         """
         Visit a node.
 
-        @type node:
-          C{ast.AST} or C{list} of C{ast.AST}
+        :type node:
+          ``ast.AST`` or ``list`` of ``ast.AST``
         """
         # Modification of ast.NodeVisitor.visit().  Support list inputs.
         logger.debug("_MissingImportFinder.visit(%r)", node)
@@ -428,7 +429,7 @@ class _MissingImportFinder(object):
     def generic_visit(self, node):
         """
         Generic visitor that visits all of the node's field values, in the
-        order declared by C{node._fields}.
+        order declared by ``node._fields``.
 
         Called if no explicit visitor function exists for a node.
         """
@@ -786,7 +787,7 @@ class _MissingImportFinder(object):
                 # 'del foo.bar.baz', 'del foo().bar', etc
                 # We ignore the 'del ...bar' part and just visit the
                 # left-hand-side of the delattr.  We need to do this explicitly
-                # instead of relying on a generic_visit on C{node} itself.
+                # instead of relying on a generic_visit on ``node`` itself.
                 # Reason: We want visit_Attribute to process a getattr for
                 # 'foo.bar'.
                 self.visit(target.value)
@@ -872,15 +873,16 @@ def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings
       >>> unused
       [(1, Import('from aa import bb as cc'))]
 
-    @type codeblock:
-      C{PythonBlock}
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param parse_docstrings:
+    :type codeblock:
+      ``PythonBlock``
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :param parse_docstrings:
       Whether to parse docstrings.
       Compare the following examples.  When parse_docstrings=True, 'bar' is
       not considered unused because there is a string that references it in
-      braces:
+      braces::
+
         >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n")
         ([], [(1, Import('import baz')), (1, Import('import foo as bar'))])
         >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n", parse_docstrings=True)
@@ -899,18 +901,18 @@ def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings
 def _find_missing_imports_in_ast(node, namespaces):
     """
     Find missing imports in an AST node.
-    Helper function to L{find_missing_imports}.
+    Helper function to `find_missing_imports`.
 
       >>> node = ast.parse("import numpy; numpy.arange(x) + arange(x)")
       >>> _find_missing_imports_in_ast(node, [{}])
       [DottedIdentifier('arange'), DottedIdentifier('x')]
 
-    @type node:
-      C{ast.AST}
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @rtype:
-      C{list} of C{DottedIdentifier}
+    :type node:
+      ``ast.AST``
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :rtype:
+      ``list`` of ``DottedIdentifier``
     """
     if not isinstance(node, ast.AST):
         raise TypeError
@@ -929,7 +931,7 @@ def _find_missing_imports_in_ast(node, namespaces):
 def _find_missing_imports_in_code(co, namespaces):
     """
     Find missing imports in a code object.
-    Helper function to L{find_missing_imports}.
+    Helper function to `find_missing_imports`.
 
       >>> f = lambda: foo.bar(x) + baz(y)
       >>> [str(m) for m in _find_missing_imports_in_code(f.__code__, [{}])]
@@ -939,12 +941,12 @@ def _find_missing_imports_in_code(co, namespaces):
       >>> _find_missing_imports_in_code(f.__code__, [{}])
       [DottedIdentifier('y')]
 
-    @type co:
-      C{types.CodeType}
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @rtype:
-      C{list} of C{str}
+    :type co:
+      ``types.CodeType``
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :rtype:
+      ``list`` of ``str``
     """
     loads_without_stores = set()
     _find_loads_without_stores_in_code(co, loads_without_stores)
@@ -958,18 +960,18 @@ def _find_missing_imports_in_code(co, namespaces):
 def _find_loads_without_stores_in_code(co, loads_without_stores):
     """
     Find global LOADs without corresponding STOREs, by disassembling code.
-    Recursive helper for L{_find_missing_imports_in_code}.
+    Recursive helper for `_find_missing_imports_in_code`.
 
-    @type co:
-      C{types.CodeType}
-    @param co:
-      Code object, e.g. C{function.__code__}
-    @type loads_without_stores:
-      C{set}
-    @param loads_without_stores:
+    :type co:
+      ``types.CodeType``
+    :param co:
+      Code object, e.g. ``function.__code__``
+    :type loads_without_stores:
+      ``set``
+    :param loads_without_stores:
       Mutable set to which we add loads without stores.
-    @return:
-      C{None}
+    :return:
+      ``None``
     """
     if not isinstance(co, types.CodeType):
         raise TypeError(
@@ -985,11 +987,11 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     STORE_GLOBAL = opmap['STORE_GLOBAL']
     STORE_NAME   = opmap['STORE_NAME']
     # Keep track of the partial name so far that started with a LOAD_GLOBAL.
-    # If C{pending} is not None, then it is a list representing the name
+    # If ``pending`` is not None, then it is a list representing the name
     # components we've seen so far.
     pending = None
     # Disassemble the code.  Look for LOADs and STOREs.  This code is based on
-    # C{dis.disassemble}.
+    # ``dis.disassemble``.
     #
     # Scenarios:
     #
@@ -1174,7 +1176,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     loads_without_stores.update( loads_before_label_without_stores ) # case 1
     loads_without_stores.update( loads_after_label - stores )        # case 2
 
-    # The C{pending} variable should have been reset at this point, because a
+    # The ``pending`` variable should have been reset at this point, because a
     # function should always end with a RETURN_VALUE opcode and therefore not
     # end in a LOAD_ATTR.
     assert pending is None
@@ -1196,7 +1198,8 @@ def _find_earliest_backjump_label(bytecode):
 
     These normally represent loops.
 
-    For example, given the source code:
+    For example, given the source code::
+
       >>> def f():
       ...     if foo1():
       ...         foo2()
@@ -1207,6 +1210,7 @@ def _find_earliest_backjump_label(bytecode):
       ...         foo6()
 
     In python 2.6, the disassembled bytecode is::
+
       >> import dis
       >> dis.dis(f)
         2           0 LOAD_GLOBAL              0 (foo1)
@@ -1245,6 +1249,7 @@ def _find_earliest_backjump_label(bytecode):
 
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
+
       >> _find_earliest_backjump_label(f.__code__.co_code)
       38
 
@@ -1255,13 +1260,13 @@ def _find_earliest_backjump_label(bytecode):
     If there are no backward jumps, return an offset that points after the end
     of the bytecode.
 
-    @type bytecode:
-      C{bytes}
-    @param bytecode:
-      Compiled bytecode, e.g. C{function.__code__.co_code}.
-    @rtype:
-      C{int}
-    @return:
+    :type bytecode:
+      ``bytes``
+    :param bytecode:
+      Compiled bytecode, e.g. ``function.__code__.co_code``.
+    :rtype:
+      ``int``
+    :return:
       The earliest target of a backward jump, as an offset into the bytecode.
     """
     # Code based on dis.findlabels().
@@ -1304,27 +1309,32 @@ def find_missing_imports(arg, namespaces):
     in the same lexical scope.
 
     For example, if we use an empty list of namespaces, then "os.path.join" is
-    a symbol that requires import:
+    a symbol that requires import::
+
       >>> [str(m) for m in find_missing_imports("os.path.join", namespaces=[{}])]
       ['os.path.join']
 
     But if the global namespace already has the "os" module imported, then we
-    know that C{os} has a "path" attribute, which has a "join" attribute, so
-    nothing needs import:
+    know that ``os`` has a "path" attribute, which has a "join" attribute, so
+    nothing needs import::
+
       >>> import os
       >>> find_missing_imports("os.path.join", namespaces=[{"os":os}])
       []
 
-    Builtins are always included:
+    Builtins are always included::
+
       >>> [str(m) for m in find_missing_imports("os, sys, eval", [{"os": os}])]
       ['sys']
 
-    All symbols that are not defined are included:
+    All symbols that are not defined are included::
+
       >>> [str(m) for m in find_missing_imports("numpy.arange(x) + arange(y)", [{"y": 3}])]
       ['arange', 'numpy.arange', 'x']
 
     If something is imported/assigned/etc within the scope, then we assume it
-    doesn't require importing:
+    doesn't require importing::
+
       >>> [str(m) for m in find_missing_imports("import numpy; numpy.arange(x) + arange(x)", [{}])]
       ['arange', 'x']
 
@@ -1341,16 +1351,19 @@ def find_missing_imports(arg, namespaces):
       ['a.b.x', 'a.b.z']
 
     find_missing_imports() parses the AST, so it understands scoping.  In the
-    following example, C{x} is never undefined:
+    following example, ``x`` is never undefined::
+
       >>> find_missing_imports("(lambda x: x*x)(7)", [{}])
       []
 
-    but this example, C{x} is undefined at global scope:
+    but this example, ``x`` is undefined at global scope::
+
       >>> [str(m) for m in find_missing_imports("(lambda x: x*x)(7) + x", [{}])]
       ['x']
 
     The (unintuitive) rules for generator expressions and list comprehensions
-    in Python 2 are handled correctly:
+    in Python 2 are handled correctly::
+
       >>> # Python 3
       >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['y', 'z']
@@ -1362,23 +1375,23 @@ def find_missing_imports(arg, namespaces):
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
       ['y', 'z']
 
-    Only fully-qualified names starting at top-level are included:
+    Only fully-qualified names starting at top-level are included::
 
       >>> [str(m) for m in find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])]
       ['a.b.x.y', 'c', 'd']
 
-    @type arg:
-      C{str}, C{ast.AST}, L{PythonBlock}, C{callable}, or C{types.CodeType}
-    @param arg:
+    :type arg:
+      ``str``, ``ast.AST``, `PythonBlock`, ``callable``, or ``types.CodeType``
+    :param arg:
       Python code, either as source text, a parsed AST, or compiled code; can
       be as simple as a single qualified name, or as complex as an entire
       module text.
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param namespaces:
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :param namespaces:
       Stack of namespaces of symbols that exist per scope.
-    @rtype:
-      C{list} of C{DottedIdentifier}
+    :rtype:
+      ``list`` of ``DottedIdentifier``
     """
     namespaces = ScopeStack(namespaces)
     if isinstance(arg, (DottedIdentifier, six.string_types)):
@@ -1428,14 +1441,15 @@ def get_known_import(fullname, db=None):
     Get the deepest known import.
 
     For example, suppose:
+
       - The user accessed "foo.bar.baz",
       - We know imports for "foo", "foo.bar", and "foo.bar.quux".
 
     Then we return "import foo.bar".
 
-    @type fullname:
-      L{DottedIdentifier}
-    @param fullname:
+    :type fullname:
+      `DottedIdentifier`
+    :param fullname:
       Fully-qualified name, such as "scipy.interpolate"
     """
     # Get the import database.
@@ -1474,22 +1488,22 @@ def clear_failed_imports_cache():
 def _try_import(imp, namespace):
     """
     Try to execute an import.  Import the result into the namespace
-    C{namespace}.
+    ``namespace``.
 
     Print to stdout what we're about to do.
 
-    Only import into C{namespace} if we won't clobber an existing definition.
+    Only import into ``namespace`` if we won't clobber an existing definition.
 
-    @type imp:
-      C{Import} or C{str}
-    @param imp:
+    :type imp:
+      ``Import`` or ``str``
+    :param imp:
       The import to execute, e.g. "from numpy import arange"
-    @type namespace:
-      C{dict}
-    @param namespace:
+    :type namespace:
+      ``dict``
+    :param namespace:
       Namespace to import into.
-    @return:
-      C{True} on success, C{False} on failure
+    :return:
+      ``True`` on success, ``False`` on failure
     """
     # TODO: generalize "imp" to any python statement whose toplevel is a
     # single Store (most importantly import and assignment, but could also
@@ -1503,9 +1517,9 @@ def _try_import(imp, namespace):
     name0 = impas.split(".", 1)[0]
     stmt = str(imp)
     logger.info(stmt)
-    # Do the import in a temporary namespace, then copy it to C{namespace}
+    # Do the import in a temporary namespace, then copy it to ``namespace``
     # manually.  We do this instead of just importing directly into
-    # C{namespace} for the following reason: Suppose the user wants "foo.bar",
+    # ``namespace`` for the following reason: Suppose the user wants "foo.bar",
     # but "foo" already exists in the global namespace.  In order to import
     # "foo.bar" we need to import its parent module "foo".  We only want to do
     # the "foo.bar" import if what we import as "foo" is the same as the
@@ -1542,34 +1556,34 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
     """
     Try to auto-import a single name.
 
-    @type fullname:
-      C{str}
-    @param fullname:
+    :type fullname:
+      ``str``
+    :param fullname:
       Fully-qualified module name, e.g. "sqlalchemy.orm".
-    @type namespaces:
-      C{list} of C{dict}, e.g. [globals()].
-    @param namespaces:
+    :type namespaces:
+      ``list`` of ``dict``, e.g. [globals()].
+    :param namespaces:
       Namespaces to check.  Namespace[-1] is the namespace to import into.
-    @type db:
-      L{ImportDB}
-    @param db:
+    :type db:
+      `ImportDB`
+    :param db:
       Import database to use.
-    @param autoimported:
-      If not C{None}, then a dictionary of identifiers already attempted.
-      C{auto_import} will not attempt to auto-import symbols already in this
+    :param autoimported:
+      If not ``None``, then a dictionary of identifiers already attempted.
+      ``auto_import`` will not attempt to auto-import symbols already in this
       dictionary, and will add attempted symbols to this dictionary, with
-      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
       did not succeed.
-    @rtype:
-      C{bool}
-    @param post_import_hook:
+    :rtype:
+      ``bool``
+    :param post_import_hook:
       A callable that is invoked if an import was successfully made.
-      It is invoked with the L{Import} object representing the successful import
-    @type post_import_hook:
-      C{callable}
-    @return:
-      C{True} if the symbol was already in the namespace, or the auto-import
-      succeeded; C{False} if the auto-import failed.
+      It is invoked with the `Import` object representing the successful import
+    :type post_import_hook:
+      ``callable``
+    :return:
+      ``True`` if the symbol was already in the namespace, or the auto-import
+      succeeded; ``False`` if the auto-import failed.
     """
     namespaces = ScopeStack(namespaces)
     if not symbol_needs_import(fullname, namespaces):
@@ -1656,41 +1670,41 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
 
 def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=None):
     """
-    Parse C{arg} for symbols that need to be imported and automatically import
+    Parse ``arg`` for symbols that need to be imported and automatically import
     them.
 
-    @type arg:
-      C{str}, C{ast.AST}, L{PythonBlock}, C{callable}, or C{types.CodeType}
-    @param arg:
+    :type arg:
+      ``str``, ``ast.AST``, `PythonBlock`, ``callable``, or ``types.CodeType``
+    :param arg:
       Python code, either as source text, a parsed AST, or compiled code; can
       be as simple as a single qualified name, or as complex as an entire
       module text.
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param namespaces:
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :param namespaces:
       Namespaces to check.  Namespace[-1] is the namespace to import into.
-    @type db:
-      L{ImportDB}
-    @param db:
+    :type db:
+      `ImportDB`
+    :param db:
       Import database to use.
-    @type autoimported:
-      C{dict}
-    @param autoimported:
-      If not C{None}, then a dictionary of identifiers already attempted.
-      C{auto_import} will not attempt to auto-import symbols already in this
+    :type autoimported:
+      ``dict``
+    :param autoimported:
+      If not ``None``, then a dictionary of identifiers already attempted.
+      ``auto_import`` will not attempt to auto-import symbols already in this
       dictionary, and will add attempted symbols to this dictionary, with
-      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
       did not succeed.
-    @rtype:
-      C{bool}
-    @param post_import_hook:
+    :rtype:
+      ``bool``
+    :param post_import_hook:
       A callable invoked on each successful import. This is passed to
-      L{auto_import_symbol}
-    @type post_import_hook:
-      C{callable}
-    @return:
-      C{True} if all symbols are already in the namespace or successfully
-      auto-imported; C{False} if any auto-imports failed.
+      `auto_import_symbol`
+    :type post_import_hook:
+      ``callable``
+    :return:
+      ``True`` if all symbols are already in the namespace or successfully
+      auto-imported; ``False`` if any auto-imports failed.
     """
     namespaces = ScopeStack(namespaces)
     if isinstance(arg, PythonBlock):
@@ -1720,13 +1734,15 @@ def auto_eval(arg, filename=None, mode=None,
     """
     Evaluate/execute the given code, automatically importing as needed.
 
-    C{auto_eval} will default the compilation C{mode} to "eval" if possible:
+    ``auto_eval`` will default the compilation ``mode`` to "eval" if possible::
+
       >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
       [PYFLYBY] from base64 import b64decode
       b'hello!'
 
-    C{auto_eval} will default the compilation C{mode} to "exec" if the input
-    is not a single expression:
+    ``auto_eval`` will default the compilation ``mode`` to "exec" if the input
+    is not a single expression::
+
       >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
       [PYFLYBY] from base64 import b64decode
       hello
@@ -1734,45 +1750,45 @@ def auto_eval(arg, filename=None, mode=None,
     This is roughly equivalent to "auto_import(arg); eval(arg)", but handles
     details better and more efficiently.
 
-    @type arg:
-      C{str}, C{ast.AST}, C{code}, L{Filename}, L{FileText}, L{PythonBlock}
-    @param arg:
+    :type arg:
+      ``str``, ``ast.AST``, ``code``, `Filename`, `FileText`, `PythonBlock`
+    :param arg:
       Code to evaluate.
-    @type filename:
-      C{str}
-    @param filename:
-      Filename for compilation error messages.  If C{None}, defaults to
-      C{arg.filename} if relevant, else C{"<stdin>"}.
-    @type mode:
-      C{str}
-    @param mode:
-      Compilation mode: C{None}, "exec", "single", or "eval".  "exec",
-      "single", and "eval" work as the built-in C{compile} function do.
-      If C{None}, then default to "eval" if the input is a string with a
+    :type filename:
+      ``str``
+    :param filename:
+      Filename for compilation error messages.  If ``None``, defaults to
+      ``arg.filename`` if relevant, else ``"<stdin>"``.
+    :type mode:
+      ``str``
+    :param mode:
+      Compilation mode: ``None``, "exec", "single", or "eval".  "exec",
+      "single", and "eval" work as the built-in ``compile`` function do.
+      If ``None``, then default to "eval" if the input is a string with a
       single expression, else "exec".
-    @type flags:
-      C{CompilerFlags} or convertible (C{int}, C{list} of C{str}, etc.)
-    @param flags:
+    :type flags:
+      ``CompilerFlags`` or convertible (``int``, ``list`` of ``str``, etc.)
+    :param flags:
       Compilation feature flags, e.g. ["division", "with_statement"].  If
-      C{None}, defaults to no flags.  Does not inherit flags from parent
+      ``None``, defaults to no flags.  Does not inherit flags from parent
       scope.
-    @type auto_flags:
-      C{bool}
-    @param auto_flags:
-      Whether to try other flags if C{flags} causes SyntaxError.
-    @type globals:
-      C{dict}
-    @param globals:
-      Globals for evaluation.  If C{None}, use an empty dictionary.
-    @type locals:
-      C{dict}
-    @param locals:
-      Locals for evaluation.  If C{None}, use C{globals}.
-    @type db:
-      L{ImportDB}
-    @param db:
+    :type auto_flags:
+      ``bool``
+    :param auto_flags:
+      Whether to try other flags if ``flags`` causes SyntaxError.
+    :type globals:
+      ``dict``
+    :param globals:
+      Globals for evaluation.  If ``None``, use an empty dictionary.
+    :type locals:
+      ``dict``
+    :param locals:
+      Locals for evaluation.  If ``None``, use ``globals``.
+    :type db:
+      `ImportDB`
+    :param db:
       Import database to use.
-    @return:
+    :return:
       Result of evaluation (for mode="eval")
     """
     flags = CompilerFlags(flags)
@@ -1808,7 +1824,7 @@ def auto_eval(arg, filename=None, mode=None,
         # Infer mode from ast object.
         mode = infer_compile_mode(arg)
         # Compile ast node => code object.  This step is necessary because
-        # eval() doesn't work on AST objects.  We don't need to pass C{flags}
+        # eval() doesn't work on AST objects.  We don't need to pass ``flags``
         # to compile() because flags are irrelevant when we already have an
         # AST node.
         code = compile(arg, str(filename or "<unknown>"), mode)
@@ -1830,7 +1846,7 @@ class LoadSymbolError(Exception):
 def load_symbol(fullname, namespaces, autoimport=False, db=None,
                 autoimported=None):
     """
-    Load the symbol C{fullname}.
+    Load the symbol ``fullname``.
 
       >>> import os
       >>> load_symbol("os.path.join.__name__", {"os": os})
@@ -1838,38 +1854,38 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
 
       >>> load_symbol("os.path.join.asdf", {"os": os})
       Traceback (most recent call last):
-        ...
+      ...
       pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
       >>> load_symbol("os.path.join", {})
       Traceback (most recent call last):
-        ...
+      ...
       pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
-    @type fullname:
-      C{str}
-    @param fullname:
+    :type fullname:
+      ``str``
+    :param fullname:
       Fully-qualified symbol name, e.g. "os.path.join".
-    @type namespaces:
-      C{dict} or C{list} of C{dict}
-    @param namespaces:
+    :type namespaces:
+      ``dict`` or ``list`` of ``dict``
+    :param namespaces:
       Namespaces to check.
-    @param autoimport:
-      If C{False} (default), the symbol must already be imported.
-      If C{True}, then auto-import the symbol first.
-    @type db:
-      L{ImportDB}
-    @param db:
-      Import database to use when C{autoimport=True}.
-    @param autoimported:
-      If not C{None}, then a dictionary of identifiers already attempted.
-      C{auto_import} will not attempt to auto-import symbols already in this
+    :param autoimport:
+      If ``False`` (default), the symbol must already be imported.
+      If ``True``, then auto-import the symbol first.
+    :type db:
+      `ImportDB`
+    :param db:
+      Import database to use when ``autoimport=True``.
+    :param autoimported:
+      If not ``None``, then a dictionary of identifiers already attempted.
+      ``auto_import`` will not attempt to auto-import symbols already in this
       dictionary, and will add attempted symbols to this dictionary, with
-      value C{True} if the autoimport succeeded, or C{False} if the autoimport
+      value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
       did not succeed.
-    @return:
+    :return:
       Object.
-    @raise LoadSymbolError:
+    :raise LoadSymbolError:
       Object was not found or there was another exception.
     """
     namespaces = ScopeStack(namespaces)

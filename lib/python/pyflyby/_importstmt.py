@@ -20,7 +20,7 @@ from   pyflyby._util            import (Inf, cached_attribute, cmp,
 class ImportFormatParams(FormatParams):
     align_imports = True
     """
-    Whether and how to align 'from modulename import aliases...'.  If C{True},
+    Whether and how to align 'from modulename import aliases...'.  If ``True``,
     then the 'import' keywords will be aligned within a block.  If an integer,
     then the 'import' keyword will always be at that column.  They will be
     wrapped if necessary.
@@ -34,8 +34,8 @@ class ImportFormatParams(FormatParams):
     separate_from_imports = True
     """
     Whether all 'from ... import ...' in an import block should come after
-    'import ...' statements.  C{separate_from_imports = False} works well with
-    C{from_spaces = 3}.  ('from __future__ import ...' always comes first.)
+    'import ...' statements.  ``separate_from_imports = False`` works well with
+    ``from_spaces = 3``.  ('from __future__ import ...' always comes first.)
     """
 
     align_future = False
@@ -55,9 +55,10 @@ ImportSplit = namedtuple("ImportSplit",
                          "module_name member_name import_as")
 """
 Representation of a single import at the token level::
+
   from [...]<module_name> import <member_name> as <import_as>
 
-If <module_name> is C{None}, then there is no "from" clause; instead just::
+If <module_name> is ``None``, then there is no "from" clause; instead just::
   import <member_name> as <import_as>
 """
 
@@ -114,10 +115,10 @@ class Import(object):
     @classmethod
     def _from_statement(cls, statement):
         """
-        @type statement:
-          L{ImportStatement} or convertible (L{PythonStatement}, C{str})
-        @rtype:
-          L{Import}
+        :type statement:
+          `ImportStatement` or convertible (`PythonStatement`, ``str``)
+        :rtype:
+          `Import`
         """
         statement = ImportStatement(statement)
         imports = statement.imports
@@ -137,8 +138,8 @@ class Import(object):
           >>> Import._from_identifier_or_statement('import foo.bar.baz')
           Import('import foo.bar.baz')
 
-        @rtype:
-          L{Import}
+        :rtype:
+          `Import`
         """
         if is_identifier(arg, dotted=True):
             return cls.from_parts(arg, arg.split('.')[-1])
@@ -148,12 +149,12 @@ class Import(object):
     @cached_attribute
     def split(self):
         """
-        Split this L{Import} into a C{ImportSplit} which represents the
-        token-level C{module_name}, C{member_name}, C{import_as}.
+        Split this `Import` into a ``ImportSplit`` which represents the
+        token-level ``module_name``, ``member_name``, ``import_as``.
 
-        Note that at the token level, C{import_as} can be C{None} to represent
+        Note that at the token level, ``import_as`` can be ``None`` to represent
         that the import statement doesn't have an "as ..." clause, whereas the
-        C{import_as} attribute on an C{Import} object is never C{None}.
+        ``import_as`` attribute on an ``Import`` object is never ``None``.
 
           >>> Import.from_parts(".foo.bar", "bar").split
           ImportSplit(module_name='.foo', member_name='bar', import_as=None)
@@ -167,8 +168,8 @@ class Import(object):
           >>> Import.from_parts("foo.bar", "foo.bar").split
           ImportSplit(module_name=None, member_name='foo.bar', import_as=None)
 
-        @rtype:
-          L{ImportSplit}
+        :rtype:
+          `ImportSplit`
         """
         if self.import_as == self.fullname:
             return ImportSplit(None, self.fullname, None)
@@ -193,11 +194,11 @@ class Import(object):
     @classmethod
     def from_split(cls, impsplit):
         """
-        Construct an L{Import} instance from C{module_name}, C{member_name},
-        C{import_as}.
+        Construct an `Import` instance from ``module_name``, ``member_name``,
+        ``import_as``.
 
-        @rtype:
-          L{Import}
+        :rtype:
+          `Import`
         """
         impsplit = ImportSplit(*impsplit)
         module_name, member_name, import_as = impsplit
@@ -218,15 +219,15 @@ class Import(object):
 
     def prefix_match(self, imp):
         """
-        Return the longest common prefix between C{self} and C{imp}.
+        Return the longest common prefix between ``self`` and ``imp``.
 
           >>> Import("import ab.cd.ef").prefix_match(Import("import ab.cd.xy"))
           ('ab', 'cd')
 
-        @type imp:
-          L{Import}
-        @rtype:
-          C{tuple} of C{str}
+        :type imp:
+          `Import`
+        :rtype:
+          ``tuple`` of ``str``
         """
         imp = Import(imp)
         n1 = self.fullname.split('.')
@@ -235,7 +236,7 @@ class Import(object):
 
     def replace(self, prefix, replacement):
         """
-        Return a new C{Import} that replaces C{prefix} with C{replacement}.
+        Return a new ``Import`` that replaces ``prefix`` with ``replacement``.
 
           >>> Import("from aa.bb import cc").replace("aa.bb", "xx.yy")
           Import('from xx.yy import cc')
@@ -243,8 +244,8 @@ class Import(object):
           >>> Import("from aa import bb").replace("aa.bb", "xx.yy")
           Import('from xx import yy as bb')
 
-        @rtype:
-          C{Import}
+        :rtype:
+          ``Import``
         """
         prefix_parts = prefix.split('.')
         replacement_parts = replacement.split('.')
@@ -316,8 +317,8 @@ class Import(object):
 class ImportStatement(object):
     """
     Token-level representation of an import statement containing multiple
-    imports from a single module.  Corresponds to an C{ast.ImportFrom} or
-    C{ast.Import}.
+    imports from a single module.  Corresponds to an ``ast.ImportFrom`` or
+    ``ast.Import``.
     """
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -375,10 +376,10 @@ class ImportStatement(object):
           >>> ImportStatement._from_statement("from .  import bar, bar2")
           ImportStatement('from . import bar, bar2')
 
-        @type statement:
-          L{PythonStatement}
-        @rtype:
-          L{ImportStatement}
+        :type statement:
+          `PythonStatement`
+        :rtype:
+          `ImportStatement`
         """
         statement = PythonStatement(statement)
         return cls._from_ast_node(statement.ast_node)
@@ -386,10 +387,10 @@ class ImportStatement(object):
     @classmethod
     def _from_ast_node(cls, node):
         """
-        Construct an L{ImportStatement} from an L{ast} node.
+        Construct an `ImportStatement` from an `ast` node.
 
-        @rtype:
-          L{ImportStatement}
+        :rtype:
+          `ImportStatement`
         """
         if isinstance(node, ast.ImportFrom):
             if isinstance(node.module, str):
@@ -412,13 +413,13 @@ class ImportStatement(object):
     @classmethod
     def _from_imports(cls, imports):
         """
-        Construct an L{ImportStatement} from a sequence of C{Import}s.  They
-        must all have the same C{fromname}.
+        Construct an `ImportStatement` from a sequence of ``Import`` s.  They
+        must all have the same ``fromname``.
 
-        @type imports:
-          Sequence of L{Import}s
-        @rtype:
-          L{ImportStatement}
+        :type imports:
+          Sequence of `Import` s
+        :rtype:
+          `ImportStatement`
         """
         if not all(isinstance(imp, Import) for imp in imports):
             raise TypeError
@@ -435,10 +436,10 @@ class ImportStatement(object):
     @cached_attribute
     def imports(self):
         """
-        Return a sequence of L{Import}s.
+        Return a sequence of `Import` s.
 
-        @rtype:
-          C{tuple} of L{Import}s
+        :rtype:
+          ``tuple`` of `Import` s
         """
         return tuple(
             Import.from_split((self.fromname, alias[0], alias[1]))
@@ -457,12 +458,12 @@ class ImportStatement(object):
         """
         Pretty-print into a single string.
 
-        @type params:
-          L{FormatParams}
-        @param modulename_ljust:
+        :type params:
+          `FormatParams`
+        :param modulename_ljust:
           Number of characters to left-justify the 'from' name.
-        @rtype:
-          C{str}
+        :rtype:
+          ``str``
         """
         s0 = ''
         s = ''
