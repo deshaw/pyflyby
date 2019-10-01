@@ -99,9 +99,9 @@ def _StdioCtx(tty="/dev/tty"):
     sys.{stdin,stdout,stderr} to fd.  This allows us to use the debugger even
     if stdio is otherwise redirected.
 
-    @type tty:
-      C{int} or C{str}
-    @param tty:
+    :type tty:
+      ``int`` or ``str``
+    :param tty:
       Tty to use.  Either a file descriptor or a name of a tty.
     '''
     from ._interactive import UpdateIPythonStdioCtx
@@ -163,7 +163,7 @@ def _StdioCtx(tty="/dev/tty"):
 @contextmanager
 def _ExceptHookCtx():
     '''
-    Context manager that restores C{sys.excepthook} upon exit.
+    Context manager that restores ``sys.excepthook`` upon exit.
     '''
     saved_excepthook = sys.excepthook
     try:
@@ -176,7 +176,7 @@ def _ExceptHookCtx():
 @contextmanager
 def _DisplayHookCtx():
     '''
-    Context manager that resets C{sys.displayhook} to the default value upon
+    Context manager that resets ``sys.displayhook`` to the default value upon
     entry, and restores the pre-context value upon exit.
     '''
     saved_displayhook = sys.displayhook
@@ -193,7 +193,7 @@ def print_traceback(*exc_info):
 
     Output goes to /dev/tty.
 
-    @param exc_info:
+    :param exc_info:
       3 arguments as returned by sys.exc_info().
     """
     from pyflyby._interactive import print_verbose_tb
@@ -209,7 +209,7 @@ def _DebuggerCtx(tty="/dev/tty"):
     A context manager that sets up the environment (stdio, sys hooks) for a
     debugger, initializes IPython if necessary, and creates a debugger instance.
 
-    @return:
+    :return:
       Context manager that yields a Pdb instance.
     """
     from pyflyby._interactive import new_IPdb_instance
@@ -225,8 +225,8 @@ def _get_caller_frame():
     '''
     Get the closest frame from outside this module.
 
-    @rtype:
-      C{FrameType}
+    :rtype:
+      ``FrameType``
     '''
     this_filename = _get_caller_frame.__code__.co_filename
     f = sys._getframe()
@@ -277,9 +277,9 @@ def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"
     """
     Run code under the debugger.
 
-    @type arg:
-      C{str}, C{Callable}, C{CodeType}, C{PythonStatement}, C{PythonBlock},
-      C{FileText}
+    :type arg:
+      ``str``, ``Callable``, ``CodeType``, ``PythonStatement``, ``PythonBlock``,
+      ``FileText``
     """
     if globals is None or locals is None:
         caller_frame = _get_caller_frame()
@@ -322,7 +322,7 @@ def debugger(*args, **kwargs):
     '''
     Entry point for debugging.
 
-    C{debugger()} can be used in the following ways:
+    ``debugger()`` can be used in the following ways::
 
     1. Breakpoint mode, entering debugger in executing code::
          >> def foo():
@@ -351,7 +351,7 @@ def debugger(*args, **kwargs):
          >> debugger(foo)
          >> debugger(lambda: foo(6))
 
-    4. Debug an exception:
+    4. Debug an exception::
 
          >> try:
          ..     ...
@@ -366,10 +366,10 @@ def debugger(*args, **kwargs):
     with no stepping allowed.  The process will continue running after this
     debug session's "continue".
 
-    C{debugger()} is suitable to be called interactively, from scripts, in
+    ``debugger()`` is suitable to be called interactively, from scripts, in
     sys.excepthook, and in signal handlers.
 
-    @param args:
+    :param args:
       What to debug:
         - If a string or callable, then run it under the debugger.
         - If a frame, then debug the frame.
@@ -380,23 +380,23 @@ def debugger(*args, **kwargs):
           is attaching a debugger.
         - If nothing specified, then enter the debugger at the statement
           following the call to debug().
-    @kwarg tty:
-      Tty to connect to.  If C{None} (default): if /dev/tty is usable, then
+    :kwarg tty:
+      Tty to connect to.  If ``None`` (default): if /dev/tty is usable, then
       use it; else call wait_for_debugger_to_attach() instead (unless
       wait_for_attach==False).
-    @kwarg on_continue:
+    :kwarg on_continue:
       Function to call upon exiting the debugger and continuing with regular
       execution.
-    @kwarg wait_for_attach:
+    :kwarg wait_for_attach:
       Whether to wait for a remote terminal to attach (with 'py -d PID').
-      If C{True}, then always wait for a debugger to attach.
-      If C{False}, then never wait for a debugger to attach; debug in the
+      If ``True``, then always wait for a debugger to attach.
+      If ``False``, then never wait for a debugger to attach; debug in the
       current terminal.
-      If unset, then defaults to true only when C{tty} is unspecified and
+      If unset, then defaults to true only when ``tty`` is unspecified and
       /dev/tty is not usable.
-    @kwarg background:
-      If C{False}, then pause execution to debug.
-      If C{True}, then fork a process and wait for a debugger to attach in the
+    :kwarg background:
+      If ``False``, then pause execution to debug.
+      If ``True``, then fork a process and wait for a debugger to attach in the
       forked child.
     '''
     from ._parse import PythonStatement, PythonBlock, FileText
@@ -550,16 +550,16 @@ def wait_for_debugger_to_attach(arg, mailto=None, background=False, timeout=8640
     """
     Send email to user and wait for debugger to attach.
 
-    @param arg:
+    :param arg:
       What to debug.  Should be a sys.exc_info() result or a sys._getframe()
       result.
-    @param mailto:
+    :param mailto:
       Recipient to email.  Defaults to $USER or current user.
-    @param background:
+    :param background:
       If True, fork a child process.  The parent process continues immediately
       without waiting.  The child process waits for a debugger to attach, and
       exits when the debugging session completes.
-    @param timeout:
+    :param timeout:
       Maximum number of seconds to wait for user to attach debugger.
     """
     import traceback
@@ -772,7 +772,7 @@ def enable_signal_handler_debugger(enable=True):
 
 def enable_exception_handler_debugger():
     '''
-    Enable C{sys.excepthook = debugger} so that we automatically enter
+    Enable ``sys.excepthook = debugger`` so that we automatically enter
     the debugger upon uncaught exceptions.
     '''
     sys.excepthook = debugger
@@ -794,12 +794,12 @@ def enable_sigterm_handler(on_existing_handler='raise'):
     Install a handler for SIGTERM that causes Python to print a stack trace
     before exiting.
 
-    @param on_existing_handler:
+    :param on_existing_handler:
       What to do when a SIGTERM handler was already registered.
-        - If C{"raise"}, then keep the existing handler and raise an exception.
-        - If C{"keep_existing"}, then silently keep the existing handler.
-        - If C{"warn_and_override"}, then override the existing handler and log a warning.
-        - If C{"silently_override"}, then silently override the existing handler.
+        - If ``"raise"``, then keep the existing handler and raise an exception.
+        - If ``"keep_existing"``, then silently keep the existing handler.
+        - If ``"warn_and_override"``, then override the existing handler and log a warning.
+        - If ``"silently_override"``, then silently override the existing handler.
     """
     old_handler = signal.signal(signal.SIGTERM, _sigterm_handler)
     if old_handler == signal.SIG_DFL or old_handler == _sigterm_handler:
@@ -861,10 +861,10 @@ def get_executable(pid):
     """
     Get the full path for the target process.
 
-    @type pid:
-      C{int}
-    @rtype:
-      L{Filename}
+    :type pid:
+      ``int``
+    :rtype:
+      `Filename`
     """
     uname = os.uname()[0]
     if uname == 'Linux':
@@ -909,8 +909,8 @@ def _dev_null_w():
     Return a file object opened for writing to /dev/null.
     Memoized.
 
-    @rtype:
-      C{file}
+    :rtype:
+      ``file``
     """
     global _memoized_dev_null_w
     if _memoized_dev_null_w is None:
@@ -920,19 +920,19 @@ def _dev_null_w():
 
 def inject(pid, statements, wait=True, show_gdb_output=False):
     """
-    Execute C{statements} in a running Python process.
+    Execute ``statements`` in a running Python process.
 
-    @type pid:
-      C{int}
-    @param pid:
+    :type pid:
+      ``int``
+    :param pid:
       Id of target process
-    @type statements:
+    :type statements:
       Iterable of strings
-    @param statements:
+    :param statements:
       Python statements to execute.
-    @return:
-      Then process ID of the gdb process if C{wait} is False; C{None} if
-      C{wait} is True.
+    :return:
+      Then process ID of the gdb process if ``wait`` is False; ``None`` if
+      ``wait`` is True.
     """
     import subprocess
     os.kill(pid, 0) # raises OSError "No such process" unless pid exists
@@ -999,12 +999,12 @@ class Pty(object):
 
 def process_exists(pid):
     """
-    Return whether C{pid} exists.
+    Return whether ``pid`` exists.
 
-    @type pid:
-      C{int}
-    @rtype:
-      C{bool}
+    :type pid:
+      ``int``
+    :rtype:
+      ``bool``
     """
     try:
         os.kill(pid, 0)
@@ -1017,11 +1017,11 @@ def process_exists(pid):
 
 def kill_process(pid, kill_signals):
     """
-    Kill process C{pid} using various signals.
+    Kill process ``pid`` using various signals.
 
-    @param kill_signals:
+    :param kill_signals:
       Sequence of (signal, delay) tuples.  Each signal is tried in sequence,
-      waiting up to C{delay} seconds before trying the next signal.
+      waiting up to ``delay`` seconds before trying the next signal.
     """
     for sig, delay in kill_signals:
         start_time = time.time()
@@ -1042,7 +1042,7 @@ def attach_debugger(pid):
     """
     Attach command-line debugger to a running process.
 
-    @param pid:
+    :param pid:
       Process id of target process.
     """
     import pyflyby
@@ -1107,14 +1107,14 @@ def remote_print_stack(pid, output=1):
     This currently only handles the main thread.
     TODO: handle multiple threads.
 
-    @param pid:
+    :param pid:
       PID of target process.
-    @type output:
-      C{int}, C{file}, or C{str}
-    @param output:
+    :type output:
+      ``int``, ``file``, or ``str``
+    :param output:
       Output file descriptor.
     """
-    # Interpret C{output} argument as a file-like object, file descriptor, or
+    # Interpret ``output`` argument as a file-like object, file descriptor, or
     # filename.
     if hasattr(output, 'write'): # file-like object
         output_fh = output
@@ -1152,7 +1152,7 @@ def remote_print_stack(pid, output=1):
     # simply check whether we ourselves can open the file.  Typically output
     # will be fd 1 and we will have access to write to it.  However, if we're
     # sudoed, we won't be able to re-open it via the proc symlink, even though
-    # we already currently have it open.  Another case is C{output} is a
+    # we already currently have it open.  Another case is ``output`` is a
     # file-like object that isn't a real file, e.g. a StringO.  In each case
     # we we don't have a usable filename for the remote process yet.  To
     # address these situations, we create a temporary file for the remote

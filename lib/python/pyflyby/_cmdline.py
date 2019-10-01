@@ -262,8 +262,8 @@ def filename_args(args, on_error=_default_on_error):
     """
     Return list of filenames given command-line arguments.
 
-    @rtype:
-      C{list} of L{Filename}
+    :rtype:
+      ``list`` of `Filename`
     """
     if args:
         return expand_py_files_from_args(args, on_error)
