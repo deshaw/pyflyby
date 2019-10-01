@@ -13,21 +13,23 @@ This addresses cases where one module imported functions from another
 module.
 
 For example, suppose m1.py contains::
+
   from m2 import foo
   def print_foo():
       return foo()
 
 and m2.py contains::
+
   def foo():
       return 42
 
-If you edit m2.py and modify C{foo}, then reload(m2) on its own would not do
+If you edit m2.py and modify ``foo``, then reload(m2) on its own would not do
 what you want.  You would also need to reload(m1) after reload(m2).  This is
 because the built-in reload affects the module being reloaded, but references
 to the old module remain.  On the other hand, xreload() patches the existing
 m2.foo, so that live references to it are updated.
 
-In table form:
+In table form::
 
   Undesired effect:  reload(m2)
   Undesired effect:  reload(m1);  reload(m2)
@@ -44,6 +46,7 @@ xreload() really shines in that case.
 
 This implementation of xreload() was originally based the following
 mailing-list post by Guido van Rossum:
+
     https://mail.python.org/pipermail/edu-sig/2007-February/007787.html
 
 Customizing behavior
@@ -54,37 +57,37 @@ function is called *instead* of performing the regular livepatch mechanism.
 
 The __livepatch__() function is called with the following arguments:
 
-  - C{old}         : The object to be updated with contents of C{new}
-  - C{new}         : The object whose contents to put into C{old}
-  - C{do_livepatch}: A function that can be called to do the standard
-                     livepatch, replacing the contents of C{old} with C{new}.
-                     If it's not possible to livepatch C{old}, it returns
-                     C{new}.  The C{do_livepatch} function takes no arguments.
-                     Calling the C{do_livepatch} function is roughly
-                     equivalent to calling C{pyflyby.livepatch(old, new,
-                     modname=modname, heed_hook=False)}.
-  - C{modname}     : The module currently being updated.  Recursively called
-                     updates should keep track of the module being updated to
-                     avoid touching other modules.
+  - ``old``         : The object to be updated with contents of ``new``
+  - ``new``         : The object whose contents to put into ``old``
+  - ``do_livepatch``: A function that can be called to do the standard
+                      livepatch, replacing the contents of ``old`` with ``new``.
+                      If it's not possible to livepatch ``old``, it returns
+                      ``new``.  The ``do_livepatch`` function takes no arguments.
+                      Calling the ``do_livepatch`` function is roughly
+                      equivalent to calling ``pyflyby.livepatch(old, new,
+                      modname=modname, heed_hook=False)``.
+  - ``modname``     : The module currently being updated.  Recursively called
+                      updates should keep track of the module being updated to
+                      avoid touching other modules.
 
 These arguments are matched by *name* and are passed only if the
-C{__livepatch__} function is declared to take such named arguments or it takes
-**kwargs.  If the C{__livepatch__} function takes **kwargs, it should ignore
+``__livepatch__`` function is declared to take such named arguments or it takes
+**kwargs.  If the ``__livepatch__`` function takes **kwargs, it should ignore
 unknown arguments, in case new parameters are added in the future.
 
-If the object being updated is an object instance, and C{__livepatch__} is a
-method, then the function is bound to the new object, i.e. the C{self}
-parameter is the same as C{new}.
+If the object being updated is an object instance, and ``__livepatch__`` is a
+method, then the function is bound to the new object, i.e. the ``self``
+parameter is the same as ``new``.
 
-If the C{__livepatch__} function successfully patched the C{old} object, then
-it should return C{old}.  If it is unable to patch, it should return C{new}.
+If the ``__livepatch__`` function successfully patched the ``old`` object, then
+it should return ``old``.  If it is unable to patch, it should return ``new``.
 
 Examples
 --------
 
 By default, any attributes on an existing function are updated with ones from
 the new function.  If you want a memoized function to keep its cache across
-xreload, you could implement that like this:
+xreload, you could implement that like this::
 
   def memoize(function):
       cache = {}
@@ -165,34 +168,34 @@ def livepatch(old, new, modname=None,
               visit_stack=(), cache=None, assume_type=None,
               heed_hook=True):
     """
-    Livepatch C{old} with contents of C{new}.
+    Livepatch ``old`` with contents of ``new``.
 
-    If C{old} can't be livepatched, then return C{new}.
+    If ``old`` can't be livepatched, then return ``new``.
 
-    @param old:
+    :param old:
       The object to be updated
-    @param new:
+    :param new:
       The object used as the source for the update.
-    @type modname:
-      C{str}
-    @param modname:
-      Only livepatch C{old} if it was defined in the given fully-qualified
-      module name.  If C{None}, then update regardless of module.
-    @param assume_type:
-      Update as if both C{old} and C{new} were of type C{assume_type}.  If
-      C{None}, then C{old} and C{new} must have the same type.
+    :type modname:
+      ``str``
+    :param modname:
+      Only livepatch ``old`` if it was defined in the given fully-qualified
+      module name.  If ``None``, then update regardless of module.
+    :param assume_type:
+      Update as if both ``old`` and ``new`` were of type ``assume_type``.  If
+      ``None``, then ``old`` and ``new`` must have the same type.
       For internal use.
-    @param cache:
+    :param cache:
       Cache of already-updated objects.  Map from (id(old), id(new)) to result.
-    @param visit_stack:
+    :param visit_stack:
       Ids of objects that are currently being updated.
       Used to deal with reference cycles.
       For internal use.
-    @param heed_hook:
-      If C{True}, heed the C{__livepatch__} hook on C{new}, if any.
-      If C{False}, ignore any C{__livepatch__} hook on C{new}.
-    @return:
-      Either live-patched C{old}, or C{new}.
+    :param heed_hook:
+      If ``True``, heed the ``__livepatch__`` hook on ``new``, if any.
+      If ``False``, ignore any ``__livepatch__`` hook on ``new``.
+    :return:
+      Either live-patched ``old``, or ``new``.
     """
     if old is new:
         return new
@@ -241,7 +244,7 @@ def livepatch(old, new, modname=None,
             mro = [use_type, object] # old-style class
         # Dispatch on type.  Include parent classes (in C3 linearized
         # method resolution order), in particular so that this works on
-        # classes with custom metaclasses that subclass C{type}.
+        # classes with custom metaclasses that subclass ``type``.
         for t in mro:
             try:
                 update = _LIVEPATCH_DISPATCH_TABLE[t]
@@ -249,7 +252,7 @@ def livepatch(old, new, modname=None,
             except KeyError:
                 pass
         else:
-            # We should have found at least C{object}
+            # We should have found at least ``object``
             raise AssertionError("unreachable")
         # Dispatch.
         return update(old, new, modname=modname,
@@ -411,6 +414,7 @@ def _livepatch__method(old_method, new_method, modname, cache, visit_stack):
 def _livepatch__setattr(oldobj, newobj, name, modname, cache, visit_stack):
     """
     Livepatch something via setattr, i.e.::
+
        oldobj.{name} = livepatch(oldobj.{name}, newobj.{name}, ...)
     """
     newval = getattr(newobj, name)
@@ -490,7 +494,7 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
     """
     Livepatch a general object.
     """
-    # It's not obvious whether C{oldobj} and C{newobj} are actually supposed
+    # It's not obvious whether ``oldobj`` and ``newobj`` are actually supposed
     # to represent the same object.  For now, we take a middle ground of
     # livepatching iff the class was also defined in the same module.  In that
     # case at least we know that the object was defined in this module and
@@ -546,18 +550,18 @@ elif six.PY3:
 
 def _get_definition_module(obj):
     """
-    Get the name of the module that an object is defined in, or C{None} if
+    Get the name of the module that an object is defined in, or ``None`` if
     unknown.
 
-    For classes and functions, this returns the C{__module__} attribute.
+    For classes and functions, this returns the ``__module__`` attribute.
 
-    For object instances, this returns C{None}, ignoring the C{__module__}
-    attribute.  The reason is that the C{__module__} attribute on an instance
+    For object instances, this returns ``None``, ignoring the ``__module__``
+    attribute.  The reason is that the ``__module__`` attribute on an instance
     just gives the module that the class was defined in, which is not
     necessarily the module where the instance was constructed.
 
-    @rtype:
-      C{str}
+    :rtype:
+      ``str``
     """
     if isinstance(obj, (type, six.class_types, types.FunctionType,
                         types.MethodType)):
@@ -633,13 +637,13 @@ def _xreload_module(module, filename, force=False):
     """
     Reload a module in place, using livepatch.
 
-    @type module:
-      C{ModuleType}
-    @param module:
+    :type module:
+      ``ModuleType``
+    :param module:
       Module to reload.
-    @param force:
+    :param force:
       Whether to reload even if the module has not been modified since the
-      previous load.  If C{False}, then do nothing.  If C{True}, then reload.
+      previous load.  If ``False``, then do nothing.  If ``True``, then reload.
     """
     import linecache
     if not filename or not filename.endswith(".py"):
@@ -706,17 +710,17 @@ def _xreload_module(module, filename, force=False):
         # Temporarily put the temporary module in sys.modules, in case the
         # code references sys.modules[__name__] for some reason.  Normally on
         # success, we will revert this what that was there before (which
-        # normally should be C{module}).  If an error occurs, we'll also
+        # normally should be ``module``).  If an error occurs, we'll also
         # revert.  If the user has defined a __livepatch__ hook at the module
         # level, it's possible for result to not be the old module.
         sys.modules[module.__name__] = new_mod
         # *** Execute new code ***
         exec(code, new_mod.__dict__)
-        # Normally C{module} is of type C{ModuleType}.  However, in some
+        # Normally ``module`` is of type ``ModuleType``.  However, in some
         # cases, the module might have done a "proxy module" trick where the
         # module is replaced by a proxy object of some other type.  Regardless
-        # of the actual type, we do the update as C{module} were of type
-        # C{ModuleType}.
+        # of the actual type, we do the update as ``module`` were of type
+        # ``ModuleType``.
         assume_type = types.ModuleType
         # Livepatch the module.
         result = livepatch(module, new_mod, module.__name__,
@@ -760,22 +764,24 @@ def xreload(*args):
     module.
 
     For example, suppose m1.py contains::
+
       from m2 import foo
       def print_foo():
           return foo()
 
     and m2.py contains::
+
       def foo():
           return 42
 
-    If you edit m2.py and modify C{foo}, then reload(m2) on its own would not
+    If you edit m2.py and modify ``foo``, then reload(m2) on its own would not
     do what you want.  The built-in reload affects the module being reloaded,
     but references to the old module remain.  On the other hand, xreload()
     patches the existing m2.foo, so that live references to it are updated.
 
-    @type args:
-      C{str}s and/or C{ModuleType}s
-    @param args:
+    :type args:
+      ``str`` s and/or ``ModuleType`` s
+    :param args:
       Module(s) to reload.  If no argument is specified, then reload all
       recently modified modules.
     """

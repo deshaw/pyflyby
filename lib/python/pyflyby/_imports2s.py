@@ -42,10 +42,10 @@ class SourceToSourceTransformationBase(object):
 
     def output(self, params=None):
         """
-        Pretty-print and return as a L{PythonBlock}.
+        Pretty-print and return as a `PythonBlock`.
 
-        @rtype:
-          L{PythonBlock}
+        :rtype:
+          `PythonBlock`
         """
         result = self.pretty_print(params=params)
         result = PythonBlock(result, filename=self.input.filename)
@@ -104,10 +104,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         """
         Find the import block containing the given line number.
 
-        @type lineno:
-          C{int}
-        @rtype:
-          L{SourceToSourceImportBlockTransformation}
+        :type lineno:
+          ``int``
+        :rtype:
+          `SourceToSourceImportBlockTransformation`
         """
         results = [
             b
@@ -123,10 +123,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         """
         Remove the given import.
 
-        @type imp:
-          L{Import}
-        @type lineno:
-          C{int}
+        :type imp:
+          `Import`
+        :type lineno:
+          ``int``
         """
         block = self.find_import_block_by_lineno(lineno)
         try:
@@ -142,16 +142,16 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
     def select_import_block_by_closest_prefix_match(self, imp, max_lineno):
         """
-        Heuristically pick an import block that C{imp} "fits" best into.  The
+        Heuristically pick an import block that ``imp`` "fits" best into.  The
         selection is based on the block that contains the import with the
         longest common prefix.
 
-        @type imp:
-          L{Import}
-        @param max_lineno:
-          Only return import blocks earlier than C{max_lineno}.
-        @rtype:
-          L{SourceToSourceImportBlockTransformation}
+        :type imp:
+          `Import`
+        :param max_lineno:
+          Only return import blocks earlier than ``max_lineno``.
+        :rtype:
+          `SourceToSourceImportBlockTransformation`
         """
         # Create a data structure that annotates blocks with data by which
         # we'll sort.
@@ -226,10 +226,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         add to, or if none found, creates a new one near the beginning of the
         module.
 
-        @type imp:
-          L{Import}
-        @param lineno:
-          Line before which to add the import.  C{Inf} means no constraint.
+        :type imp:
+          `Import`
+        :param lineno:
+          Line before which to add the import.  ``Inf`` means no constraint.
         """
         try:
             block = self.select_import_block_by_closest_prefix_match(
@@ -263,12 +263,12 @@ def reformat_import_statements(codeblock, params=None):
       from foo import bar0
       <BLANKLINE>
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @type params:
-      L{ImportFormatParams}
-    @rtype:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :type params:
+      `ImportFormatParams`
+    :rtype:
+      `PythonBlock`
     """
     params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
@@ -277,11 +277,11 @@ def reformat_import_statements(codeblock, params=None):
 
 def ImportPathForRelativeImportsCtx(codeblock):
     """
-    Context manager that temporarily modifies C{sys.path} so that relative
-    imports for the given C{codeblock} work as expected.
+    Context manager that temporarily modifies ``sys.path`` so that relative
+    imports for the given ``codeblock`` work as expected.
 
-    @type codeblock:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock`
     """
     codeblock = PythonBlock(codeblock)
     if not codeblock.filename:
@@ -302,8 +302,8 @@ def fix_unused_and_missing_imports(codeblock,
 
     Also formats imports.
 
-    In the example below, C{m1} and C{m3} are unused, so are automatically
-    removed.  C{np} was undefined, so an C{import numpy as np} was
+    In the example below, ``m1`` and ``m3`` are unused, so are automatically
+    removed.  ``np`` was undefined, so an ``import numpy as np`` was
     automatically added.
 
       >>> codeblock = PythonBlock(
@@ -318,10 +318,10 @@ def fix_unused_and_missing_imports(codeblock,
       from foo import m2, m4
       m2, m4, np.foo
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @rtype:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :rtype:
+      `PythonBlock`
     """
     codeblock = PythonBlock(codeblock)
     if remove_unused == "AUTOMATIC":
@@ -420,10 +420,10 @@ def remove_broken_imports(codeblock, params=None):
 
     Also formats imports.
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @rtype:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :rtype:
+      `PythonBlock`
     """
     codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
@@ -446,32 +446,34 @@ def remove_broken_imports(codeblock, params=None):
 def replace_star_imports(codeblock, params=None):
     r"""
     Replace lines such as::
+
       from foo.bar import *
     with
       from foo.bar import f1, f2, f3
 
-    Note that this requires involves actually importing C{foo.bar}, which may
+    Note that this requires involves actually importing ``foo.bar``, which may
     have side effects.  (TODO: rewrite to avoid this?)
 
-    The result includes all imports from the C{email} module.  The result
+    The result includes all imports from the ``email`` module.  The result
     excludes shadowed imports.  In this example:
-      1. The original C{MIMEAudio} import is shadowed, so it is removed.
-      2. The C{MIMEImage} import in the C{email} module is shadowed by a
-         subsequent import, so it is omitted.
 
-      >>> codeblock = PythonBlock('from keyword import *', filename="/tmp/x.py")
+        1. The original ``MIMEAudio`` import is shadowed, so it is removed.
+        2. The ``MIMEImage`` import in the ``email`` module is shadowed by a
+           subsequent import, so it is omitted.
 
-      >>> print(replace_star_imports(codeblock))
-      [PYFLYBY] /tmp/x.py: replaced 'from keyword import *' with 2 imports
-      from keyword import iskeyword, kwlist
-      <BLANKLINE>
+        >>> codeblock = PythonBlock('from keyword import *', filename="/tmp/x.py")
+
+        >>> print(replace_star_imports(codeblock))
+        [PYFLYBY] /tmp/x.py: replaced 'from keyword import *' with 2 imports
+        from keyword import iskeyword, kwlist
+        <BLANKLINE>
 
     Usually you'll want to remove unused imports after replacing star imports.
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @rtype:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :rtype:
+      `PythonBlock`
     """
     from pyflyby._modules import ModuleHandle
     params = ImportFormatParams(params)
@@ -479,8 +481,8 @@ def replace_star_imports(codeblock, params=None):
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
-        # Iterate over the import statements in C{block.input}.  We do this
-        # instead of using C{block.importset} because the latter doesn't
+        # Iterate over the import statements in ``block.input``.  We do this
+        # instead of using ``block.importset`` because the latter doesn't
         # preserve the order of inputs.  The order is important for
         # determining what's shadowed.
         imports = [
@@ -535,7 +537,7 @@ def replace_star_imports(codeblock, params=None):
 
 def transform_imports(codeblock, transformations, params=None):
     """
-    Transform imports as specified by C{transformations}.
+    Transform imports as specified by ``transformations``.
 
     transform_imports() perfectly replaces all imports in top-level import
     blocks.
@@ -549,14 +551,14 @@ def transform_imports(codeblock, transformations, params=None):
       >>> print(result.text.joined.strip())
       from m.y import z as x
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @type transformations:
-      C{dict} from C{str} to C{str}
-    @param transformations:
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :type transformations:
+      ``dict`` from ``str`` to ``str``
+    :param transformations:
       A map of import prefixes to replace, e.g. {"aa.bb": "xx.yy"}
-    @rtype:
-      L{PythonBlock}
+    :rtype:
+      `PythonBlock`
     """
     codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
@@ -589,13 +591,13 @@ def transform_imports(codeblock, transformations, params=None):
 
 def canonicalize_imports(codeblock, params=None, db=None):
     """
-    Transform C{codeblock} as specified by C{__canonical_imports__} in the
+    Transform ``codeblock`` as specified by ``__canonical_imports__`` in the
     global import library.
 
-    @type codeblock:
-      L{PythonBlock} or convertible (C{str})
-    @rtype:
-      L{PythonBlock}
+    :type codeblock:
+      `PythonBlock` or convertible (``str``)
+    :rtype:
+      `PythonBlock`
     """
     codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)

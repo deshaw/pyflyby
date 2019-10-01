@@ -18,13 +18,15 @@ install:
   # PROMPT_TOOLKIT_NO_CPR environment variable support.
   # Install jupyter_console from
   # https://github.com/jupyter/jupyter_console/pull/187 until it is included
-  # in a release
+  # in a release.
+  # Install ipykernel from master until a version after 5.1.2 is released.
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
         pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8;
     else
         pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8;
         pip install -U git+https://github.com/prompt-toolkit/python-prompt-toolkit@2.0;
         pip install -U git+https://github.com/asmeurer/jupyter_console@display_completions;
+        pip install -U git+https://github.com/ipython/ipykernel;
     fi
   - pip list
 
