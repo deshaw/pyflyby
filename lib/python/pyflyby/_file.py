@@ -12,9 +12,14 @@ import re
 import six
 import sys
 
-from   six                      import string_types
+from   six                      import string_types, PY3
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
+
+if PY3:
+    from tokenize import detect_encoding
+else:
+    from lib2to3.pgen2.tokenize import detect_encoding
 
 class UnsafeFilenameError(ValueError):
     pass
@@ -635,10 +640,16 @@ class FileText(object):
 
 def read_file(filename):
     filename = Filename(filename)
+    try:
+        with io.open(str(filename), 'br') as f:
+            encoding, _ = detect_encoding(f.readline)
+    except SyntaxError:
+        encoding = None
+
     if filename == Filename.STDIN:
         data = sys.stdin.read()
     else:
-        with io.open(str(filename), 'r') as f:
+        with io.open(str(filename), 'r', encoding=encoding) as f:
             data = f.read()
     return FileText(data, filename=filename)
 
