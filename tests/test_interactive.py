@@ -3148,19 +3148,19 @@ def test_ipython_notebook_basic_1():
 @retry
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
+        # 1. Verify that the auto importer isn't enabled yet.
+        # 2. Enable the auto importer.
+        # 3. Verify that the auto importer and tab completion work.
         ipython(
-            # Verify that the auto importer isn't enabled yet.
             """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>
-            NameError: name 'b64decode' is not defined"""
-            # Enable the auto importer.
-            """
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
-            # Verify that the auto importer and tab completion work.
-            """
+            NameError: name 'b64decode' is not defined
+
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()
+
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
             Out[3]: b'hazelnut'
