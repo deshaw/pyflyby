@@ -834,6 +834,40 @@ def test_PythonBlock_compound_statements_1():
     assert block.statements == expected
 
 
+@pytest.mark.xfail
+def test_str_lineno_expression():
+    # Code that used to be in test_interactive. _annotate_ast_startpos does
+    # not work on it because it cannot handle multiline strings that contained
+    # in a larger expression (they are joined implicitly because of the
+    # parenthesis, even though the delimiters aren't on the same line). This
+    # should start to work correctly in Python 3.8 because it marks the lineno
+    # for multiline strings as the first line rather than the last. See issue #12.
+    code = r'''
+        ipython(
+            # Verify that the auto importer isn't enabled yet.
+            """
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in <module>()
+            NameError: name 'b64decode' is not defined"""
+            # Enable the auto importer.
+            """
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
+            # Verify that the auto importer and tab completion work.
+            """
+            In [3]: b64deco\tde('aGF6ZWxudXQ=')
+            [PYFLYBY] from base64 import b64decode
+            Out[3]: 'hazelnut'
+            """, args=['console'], kernel=kernel)
+'''
+
+    block = PythonBlock(dedent(code).lstrip())
+    # XXX: This currently raises. Once it is fixed, update this test with the
+    # correct output.
+    block.statements
+
+
 def test_PythonBlock_decorator_1():
     block = PythonBlock(dedent('''
         @foo1
