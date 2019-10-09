@@ -8,11 +8,11 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 import contextlib
 import copy
-import sys
-import types
 import six
 from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
+import sys
+import types
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
