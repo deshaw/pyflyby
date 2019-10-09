@@ -3158,9 +3158,7 @@ def test_ipython_notebook_1():
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>
             NameError: name 'b64decode' is not defined
-
             In [2]: import pyflyby; pyflyby.enable_auto_importer()
-
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
             Out[3]: b'hazelnut'
