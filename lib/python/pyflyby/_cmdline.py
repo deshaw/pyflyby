@@ -327,7 +327,7 @@ class Modifier(object):
         if six.PY3:
             f.write(bytes(self.output_content.joined, "utf-8"))
         else:
-            f.write(self.output_content.joined)
+            f.write(self.output_content.joined.encode('utf-8'))
         f.flush()
         return fname
 
