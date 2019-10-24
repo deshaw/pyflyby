@@ -496,8 +496,7 @@ class FileText(object):
 
           >>> FileText("a\\nb\\nc\\nd")[0]
           Traceback (most recent call last):
-
-            ...
+          ...
           IndexError: Line number 0 out of range [1, 4)
 
         When slicing, the input arguments can also be given as ``FilePos``
