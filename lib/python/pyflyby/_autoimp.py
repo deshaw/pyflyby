@@ -1182,7 +1182,7 @@ def _find_earliest_backjump_label(bytecode):
     In python 2.6, the disassembled bytecode is::
 
       >>> import dis
-      >>> dis.dis(f)
+      >>> dis.dis(f) # doctest: +SKIP
         2           0 LOAD_GLOBAL              0 (foo1)
                     3 CALL_FUNCTION            0
                     6 JUMP_IF_FALSE           11 (to 20)
@@ -1220,7 +1220,7 @@ def _find_earliest_backjump_label(bytecode):
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
 
-      >>> _find_earliest_backjump_label(f.__code__.co_code)
+      >>> _find_earliest_backjump_label(f.__code__.co_code) # doctest: +SKIP
       38
 
     Note that in this example there are earlier targets of jumps at bytecode

@@ -113,7 +113,7 @@ def _ancestors_on_same_partition(filename):
     partition.  Suppose /u/homer/aa exists but /u/homer/aa/bb does not exist.
     Then::
 
-      >>> _ancestors_on_same_partition("/u/homer/aa/bb/cc")
+      >>> _ancestors_on_same_partition(Filename("/u/homer/aa/bb/cc")) # doctest: +SKIP
       [Filename("/u/homer", Filename("/u/homer/aa")]
 
     :rtype:
@@ -142,7 +142,7 @@ def _expand_tripledots(pathnames, target_dirname):
     For example, suppose a partition is mounted on /u/homer; /u is a different
     partition.  Then::
 
-      >>> _expand_tripledots(["/foo", ".../tt"], "/u/homer/aa")
+      >>> _expand_tripledots(["/foo", ".../tt"], "/u/homer/aa") # doctest: +SKIP
       [Filename("/foo"), Filename("/u/homer/tt"), Filename("/u/homer/aa/tt")]
 
     :type pathnames:
