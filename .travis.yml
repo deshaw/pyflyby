@@ -49,7 +49,10 @@ script:
   - python -We:invalid -m compileall -f -q lib/ etc/;
   - export DEBUG_TEST_PYFLYBY=1
   - pytest --doctest-modules lib tests
-  - cd doc
-  - make html
-  - pip install doctr
-  - doctr deploy .
+  - |
+    if [ "$TRAVIS_PYTHON_VERSION" = "3.7" ]; then
+        cd doc;
+        make html;
+        pip install doctr;
+        doctr deploy .;
+    fi
