@@ -1,5 +1,10 @@
 language: python
 
+env:
+  global:
+    # Doctr deploy key for pyflyby/pyflyby
+    - secure: "rT3KNEN4zfVPtQstm6LpAa+maL6YBG2FDAKQg7UIAMZLNLQp/lQKF3X1LRAACIGU925KYSLYW/4Ly1YqddK137sgw62tndCb2Llx2v3gNa9Ew4GxG5b7Z2Ase5lu4t69AP/ka5mFhpTZJ4MBJoPvw7iw/Vom9jUoypxLhy/+EvCmGwX/HeYbrjEPhyYPIrREH5wLXHru/XMVI0qaqWviIab0CCvqEWehRqHs1k6CoS5hPeBTJnIJzqa34Xl3O88ECwMFnpg5ap9+02hDV1vfMxJehghynHWG2feyTxjGLtcmQMrLFXQDsLtQUq6DIjKDWMrjGpgj1Jb5HnYa8Kn+FBBmZd9QnVtFCIsW/hEPdyVkiYNYysFqHSI1Mfr/Lnhy1irP2vLi/YfJ82GV5k9a8FTy/IlbwEbmXsrCESEN/GGqUrTP+FvbXRBG767ykZ7gnRNKNbITVoQn/loenzh+8bkVR9luhalUBI7n/i2ayhV9iWeg8ZacOcj+4nwJJbJMZgLlFJMjs86ZWcUpjMWZB2ZaDRSKD9LGMfiJ8AzH/lsMK797ytPWLUX3ah2utEbLLBTRv2Kaj24Dj0LbHk/ZvlVl8Ut6TRs2uy5LIq3bHW9x58VU2PVhrf5B6M6XUhkzH/zFszEipgWobZRZys+h4FZb1d7pg1bqnl9R9L82Q38="
+
 sudo: false
 python:
   - 2.7
@@ -33,6 +38,7 @@ install:
 
 script:
   - set -x
+  - set -e
   - shopt -s extglob globstar
   # pyflakes all files except for known_imports/*, etc/*, and __init__.py,
   # which are all unused imports. We use flake8 so we can use noqa if
@@ -45,10 +51,5 @@ script:
   - pytest --doctest-modules lib tests
   - cd doc
   - make html
-
-after_success:
-  - ./doc/push_docs.sh
-
-env:
-  global:
-    - secure: "W6JE7GsO3VlM30I++g2xaJE4IRKkZna7oyL94DNO2DDSZe/yO6qjYEa1gOqMUie38U1J5MErd9ZYHmuLUsy6Kc3miG9Hw6TVVKhUre4uo4SS2pzgRaMt7F3PBh5DoKMPKDotmcUprH3NYwnEofIApQhQ6xlAxkvFlbvr4Z1oRb/Q4rdspqYmpem+irmNPQXS/s7CRFy0c/WEFWyfeZew0Xvg9Fe2R72CSRUCnrGQAhQ1/w3jM1O9g2/2HQdvUUcF0rBtPBxbxRAFI07HDSQKu9WfsAURVI1k52h/VSWaKToGzW5iA4Nb5601wfzJmAXHBeE82AMVbIi6S3T5dJVstHvpOP7Scq+dDjNVszBH1DA8w2gSGSZMIesWs28OCBQhdxoVt4jbw9euG0mctsIB5qYzRqaNUQc4GMZneJO18n0x+Mms/n213+3oEN1BjNRjmZFJtrmXuxuGKOKWMIAPaSv7QgjinsFJMf5oEOLV/uLfOTt0C5hG+WUiQuBvsj7E6DgJwTxU1huaK9utIujwBPgp5WHUUVVhYN0AbSuNqRe6zjg3VJ7RaDJpl8iY9JtUesK1Jc59aDj8wPGE+mbAjuez3QtEhSuOwfx6ws+yGW3FKjsOLmCbKJ8pKHz1xmKO6/9iUO+CxsyQe+Dj0GEaW1kzx7GVJUk6jA3XiQRMgM4="
+  - pip install doctr
+  - doctr deploy .
