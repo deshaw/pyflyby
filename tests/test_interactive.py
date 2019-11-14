@@ -656,6 +656,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b"\x1b[?2004l", b"")        # no bracketed paste mode
         arg = arg.replace(b"\x1b[?7h", b"")           # wraparound mode
         arg = arg.replace(b"\x1b[?25h", b"")          # show cursor
+        arg = arg.replace(b"\x1b[23;0t", b"")          # restore window title
         arg = arg.replace(b"\x1b[?2004h", b"")        # bracketed paste mode
         arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
