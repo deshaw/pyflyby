@@ -1454,9 +1454,7 @@ def test_scan_for_import_issues_setattr_1():
         bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(4, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
@@ -1470,12 +1468,22 @@ def test_scan_for_import_issues_setattr_in_func_1():
             bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(5, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
+
+def test_setattr_is_not_unused():
+    code = dedent("""
+        from a import b
+        def f():
+            b.xx.yy = 1
+
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # b should be considered used
+    assert missing == []
+    assert unused == []
 
 
 def test_load_symbol_1():
