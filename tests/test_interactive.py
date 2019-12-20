@@ -4,8 +4,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function,
+                        with_statement)
 
 import IPython
 import atexit
@@ -656,6 +656,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b"\x1b[?2004l", b"")        # no bracketed paste mode
         arg = arg.replace(b"\x1b[?7h", b"")           # wraparound mode
         arg = arg.replace(b"\x1b[?25h", b"")          # show cursor
+        arg = arg.replace(b"\x1b[23;0t", b"")          # restore window title
         arg = arg.replace(b"\x1b[?2004h", b"")        # bracketed paste mode
         arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
@@ -3148,19 +3149,17 @@ def test_ipython_notebook_basic_1():
 @retry
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
+        # 1. Verify that the auto importer isn't enabled yet.
+        # 2. Enable the auto importer.
+        # 3. Verify that the auto importer and tab completion work.
         ipython(
-            # Verify that the auto importer isn't enabled yet.
             """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
             <ipython-input> in <module>
-            NameError: name 'b64decode' is not defined"""
-            # Enable the auto importer.
-            """
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
-            # Verify that the auto importer and tab completion work.
-            """
+            NameError: name 'b64decode' is not defined
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
             Out[3]: b'hazelnut'

@@ -218,6 +218,13 @@ def _test_parse_string_literal(text, flags):
       'foo\n\\nbar'
 
     """
+    text = FileText(text)
+    if PY2:
+        try:
+            text.joined.encode('ascii')
+        except UnicodeError:
+            text = FileText(u'# encoding: utf-8\n' + unicode(text), filename=text.filename)
+
     try:
         module_node = _parse_ast_nodes(text, flags, False, "eval")
     except SyntaxError:

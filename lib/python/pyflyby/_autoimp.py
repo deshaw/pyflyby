@@ -9,11 +9,11 @@ import ast
 from collections import Sequence
 import contextlib
 import copy
-import sys
-import types
 import six
 from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
+import sys
+import types
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -572,13 +572,14 @@ class _MissingImportFinder(object):
         #    def f(x=y, y=x): pass
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
-
         # We assume visit_arguments is always called from a _NewScopeCtx
         # context
         with self._UpScopeCtx():
             self.visit(node.defaults)
             if PY3:
-                self.visit(node.kw_defaults)
+                for i in node.kw_defaults:
+                    if i:
+                        self.visit(i)
         # Store arg names.
         self.visit(node.args)
         if PY3:
@@ -759,20 +760,18 @@ class _MissingImportFinder(object):
             if fullname != '*':
                 # If we're storing "foo.bar.baz = 123", then "foo" and
                 # "foo.bar" have now been used and the import should not be
-                # removed.  Call symbol_needs_import() to use the side-effect
-                # of triggering the "variable is used".  [TODO: refactor.]
+                # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
-                    symbol_needs_import(ancestor, self.scopestack)
+                    if symbol_needs_import(ancestor, self.scopestack):
+                        m = (self._lineno, DottedIdentifier(fullname))
+                        if m not in self.missing_imports:
+                            self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)
             if type(oldvalue) is _UseChecker and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
-        # If someone writes "numpy.foo = 1" then one could argue that we
-        # should auto-import numpy if needed.  However, it seems more likely
-        # to be a mistake to mutate something in another module.  For now, we
-        # intentionally don't auto-import on the left-hand-side of a Store.
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
