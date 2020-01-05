@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
+from collections import Sequence
 import contextlib
 import copy
 import six
@@ -31,7 +32,7 @@ class _ClassScope(dict):
 _builtins2 = {"__file__": None}
 
 
-class ScopeStack(tuple):
+class ScopeStack(Sequence):
     """
     A stack of namespace scopes, as a tuple of ``dict`` s.
 
@@ -44,7 +45,7 @@ class ScopeStack(tuple):
 
     _cached_has_star_import = False
 
-    def __new__(cls, arg):
+    def __init__(self, arg):
         """
         Interpret argument as a ``ScopeStack``.
 
@@ -56,8 +57,8 @@ class ScopeStack(tuple):
           ``ScopeStack``
         """
         if isinstance(arg, ScopeStack):
-            return arg
-        if isinstance(arg, dict):
+            scopes = list(arg._tup)
+        elif isinstance(arg, dict):
             scopes = [arg]
         elif isinstance(arg, (tuple, list)):
             scopes = list(arg)
@@ -79,8 +80,16 @@ class ScopeStack(tuple):
                 continue
             seen.add(id(scope))
             result.append(scope)
-        self = tuple.__new__(cls, result)
-        return self
+        tup = tuple(result)
+        self._tup = tup
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            return self.__class__(self._tup[item])
+        return self._tup[item]
+
+    def __len__(self):
+        return len(self._tup)
 
     def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
         """
@@ -103,7 +112,7 @@ class ScopeStack(tuple):
         else:
             new_scope = {}
         cls = type(self)
-        result = tuple.__new__(cls, scopes + (new_scope,))
+        result = cls(scopes + (new_scope,))
         return result
 
     def clone_top(self):
@@ -114,7 +123,7 @@ class ScopeStack(tuple):
         scopes = list(self)
         scopes[-1] = copy.copy(scopes[-1])
         cls = type(self)
-        return tuple.__new__(cls, scopes)
+        return cls(scopes)
 
     def merged_to_two(self):
         """
@@ -462,6 +471,22 @@ class _MissingImportFinder(object):
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
+    @contextlib.contextmanager
+    def _UpScopeCtx(self):
+        """
+        Context manager that temporarily moves up one in the scope stack
+        """
+        if len(self.scopestack) < 2:
+            raise ValueError("There must be at least two scopes on the stack to move up a scope.")
+        prev_scopestack = self.scopestack
+        new_scopestack = prev_scopestack[:-1]
+        try:
+            self.scopestack = new_scopestack
+            yield
+        finally:
+            assert self.scopestack is new_scopestack
+            self.scopestack = prev_scopestack
+
     def visit_Assign(self, node):
         # Visit an assignment statement (lhs = rhs).  This implementation of
         # visit_Assign is just like the generic one, but we make sure we visit
@@ -539,18 +564,22 @@ class _MissingImportFinder(object):
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
-        # Argument/parameter list.  Visit 'defaults' first because these
-        # should be checked for missing imports before the stores from the
-        # args/varargs/kwargs.
+        # Argument/parameter list.  Note that the defaults should be
+        # considered "Load"s from the upper scope, and the argument names are
+        # "Store"s in the function scope.
+
         # E.g. consider:
         #    def f(x=y, y=x): pass
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
-        self.visit(node.defaults)
-        if PY3:
-            for i in node.kw_defaults:
-                if i:
-                    self.visit(i)
+        # We assume visit_arguments is always called from a _NewScopeCtx
+        # context
+        with self._UpScopeCtx():
+            self.visit(node.defaults)
+            if PY3:
+                for i in node.kw_defaults:
+                    if i:
+                        self.visit(i)
         # Store arg names.
         self.visit(node.args)
         if PY3:

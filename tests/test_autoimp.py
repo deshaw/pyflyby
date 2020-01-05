@@ -242,6 +242,19 @@ def test_find_missing_imports_function_paramlist_1():
     assert expected == result
 
 
+def test_find_missing_imports_function_paramlist_2():
+    code = dedent("""
+        from somewhere import given, data
+
+        @given(data())
+        def blargh(data):
+            pass
+    """)
+    result  = find_missing_imports(code, [{}])
+    result  = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
 def test_find_missing_imports_function_defaults_1():
     code = dedent("""
         e = 1
