@@ -852,6 +852,7 @@ _IS_PDB_IGNORE_PKGS = frozenset([
     'prompt_toolkit',
     'pyflyby',
     'rlipython',
+    'asyncio',
 ])
 
 _IS_PDB_IGNORE_PKGS_OTHER_THREADS = frozenset([
