@@ -5,7 +5,10 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
+
+import ast
 from   functools                import total_ordering
+import itertools
 import os
 import re
 import six
@@ -317,8 +320,8 @@ class ModuleHandle(object):
         """
         Get symbols exported by this module.
 
-        Note that this requires involves actually importing this module, which
-        may have side effects.  (TODO: rewrite to avoid this?)
+        Note that this will not recognize symbols that are dynamically
+        introduced to the module's namespace or __all__ list.
 
         :rtype:
           `ImportSet` or ``None``
@@ -326,28 +329,90 @@ class ModuleHandle(object):
           Exports, or ``None`` if nothing exported.
         """
         from pyflyby._importclns import ImportStatement, ImportSet
-        module = self.module
+
+        filename = None
         try:
-            members = module.__all__
-        except AttributeError:
-            members = dir(module)
-            # Filter by non-private.
-            members = [n for n in members if not n.startswith("_")]
-            # Filter by definition in the module.
-            def from_this_module(name):
-                # TODO: could do this more robustly by parsing the AST and
-                # looking for STOREs (definitions/assignments/etc).
-                x = getattr(module, name)
-                m = getattr(x, "__module__", None)
-                if not m:
-                    return False
-                return DottedIdentifier(m).startswith(self.name)
-            members = [n for n in members if from_this_module(n)]
-        else:
+            filename = self.filename
+        except:
+            pass
+        if not filename or not filename.exists:
+            # Try to load the module to get the filename
+            filename = Filename(self.module.__file__)
+        text = FileText(filename)
+
+        ast_mod = ast.parse(str(text), str(filename)).body
+
+        # First, add members that are explicitly defined in the module
+        def member_from_node(node):
+            extractors = {
+                # Top-level assignments (as opposed to member assignments
+                # whose targets are of type ast.Attribute).
+                ast.Assign:      lambda x: [t.id for t in x.targets
+                                            if isinstance(t, ast.Name)],
+                ast.ClassDef:    lambda x: [x.name],
+                ast.FunctionDef: lambda x: [x.name],
+            }
+            if isinstance(node, tuple(extractors.keys())):
+                return extractors[type(node)](node)
+            else:
+                return []
+        members = list(itertools.chain(*[member_from_node(n) \
+                                         for n in ast_mod]))
+
+        # If __all__ is defined, try to use it
+        all_is_good = False  # pun intended
+        if "__all__" in members:
+            # Iterate through the nodes and reconstruct the
+            # value of __all__
+            for n in ast_mod:
+                if isinstance(n, ast.Assign):
+                    if "__all__" in member_from_node(n):
+                        try:
+                            all_members = list(ast.literal_eval(n.value))
+                            all_is_good = True
+                        except ValueError, TypeError:
+                            all_is_good = False
+                elif isinstance(n, ast.AugAssign) and \
+                     isinstance(n.target, ast.Name) and \
+                     n.target.id == "__all__" and all_is_good:
+                    try:
+                        all_members += list(ast.literal_eval(n.value))
+                    except ValueError, TypeError:
+                        all_is_good = False
             if not all(type(s) == str for s in members):
                 raise Exception(
                     "Module %r contains non-string entries in __all__"
                     % (str(self.name),))
+
+        if all_is_good:
+            members = all_members
+        else:
+            # Add "from" imports that belong to submodules
+            # (note: this will fail to recognize implicit relative imports)
+            imported_members = []
+            imp_nodes = [n for n in ast_mod if isinstance(n, ast.ImportFrom)]
+            for imp_node in imp_nodes:
+                if imp_node.level == 0:
+                    from_mod = DottedIdentifier(imp_node.module)
+                    if not from_mod.startswith(self.name):
+                        continue
+                elif imp_node.level == 1 and \
+                     filename.base == "__init__.py":
+                    # Special case: a relative import can be from a submodule only if
+                    # our module's filename is  __init__.py.
+                    from_mod = self.name
+                    if imp_node.module:
+                        from_mod += imp_node.module
+                else:
+                    continue
+                for n in imp_node.names:
+                    m  = n.asname or n.name
+                    if n.name != "*" and not ModuleHandle(from_mod + m).exists:
+                        members.append(m)
+
+        # Filter by non-private.
+        members = [n for n in members if not n.startswith("_")]
+
         # Filter out artificially added "deep" members.
         members = [n for n in members if "." not in n]
         if not members:

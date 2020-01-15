@@ -210,7 +210,7 @@ class DottedIdentifier(object):
         return (type(self)(x) for x in self.parts)
 
     def __add__(self, suffix):
-        return type(self)("%s.%s") % (self, suffix)
+        return type(self)("%s.%s" % (self, suffix))
 
     def __str__(self):
         return self.name
