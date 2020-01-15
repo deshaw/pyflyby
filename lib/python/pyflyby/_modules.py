@@ -370,14 +370,14 @@ class ModuleHandle(object):
                         try:
                             all_members = list(ast.literal_eval(n.value))
                             all_is_good = True
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             all_is_good = False
                 elif isinstance(n, ast.AugAssign) and \
                      isinstance(n.target, ast.Name) and \
                      n.target.id == "__all__" and all_is_good:
                     try:
                         all_members += list(ast.literal_eval(n.value))
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         all_is_good = False
             if not all(type(s) == str for s in members):
                 raise Exception(
