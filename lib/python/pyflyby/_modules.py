@@ -71,13 +71,13 @@ def import_module(module_name):
                      real_importerror1, real_importerror2, real_importerror3)
         if real_importerror1 and real_importerror2 and real_importerror3:
             raise
-        reraise(ErrorDuringImportError(
+        reraise(ErrorDuringImportError, ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2])
+            % (module_name, type(e).__name__, e)), sys.exc_info()[2])
     except Exception as e:
-        reraise(ErrorDuringImportError(
+        reraise(ErrorDuringImportError, ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), None, sys.exc_info()[2])
+            % (module_name, type(e).__name__, e)), sys.exc_info()[2])
 
 
 def _my_iter_modules(path, prefix=''):
