@@ -1598,6 +1598,9 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
     # important, since we're going to attempt that import anyway if it looks
     # like a "sqlalchemy" package is importable.
     imports = get_known_import(fullname, db=db)
+    # successful_import will store last successfully executed import statement
+    # to be passed to post_import_hook
+    successful_import = None
     logger.debug("auto_import_symbol(%r): get_known_import() => %r",
                  fullname, imports)
     if imports is None:
@@ -1624,6 +1627,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
                 autoimported[DottedIdentifier(fullname)] = False
                 return False
             # Succeeded.
+            successful_import = str(imp)
             autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
                 if post_import_hook:
@@ -1658,12 +1662,15 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
                          fullname, pmodule)
             autoimported[pmodule_name] = False
             return False
-        result = _try_import("import %s" % pmodule_name, namespaces[-1])
+        imp_stmt = "import %s" % pmodule_name
+        result = _try_import(imp_stmt, namespaces[-1])
         autoimported[pmodule_name] = result
         if not result:
             return False
-    if post_import_hook:
-        post_import_hook(Import("import %s" % ModuleHandle(fullname).ancestors[-1].name))
+        else:
+          successful_import = imp_stmt
+    if post_import_hook and successful_import:
+        post_import_hook(successful_import)
     return True
 
 
