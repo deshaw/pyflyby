@@ -39,7 +39,7 @@ script:
   # Python version)
   - python -We:invalid -m compileall -f -q lib/ etc/;
   - export DEBUG_TEST_PYFLYBY=1
-  - pytest --doctest-modules lib tests
+  - pytest -v --doctest-modules lib tests
   # Smoke test tidy-imports on the codebase. This only fails if there is an
   # exception from a bug, but we could also make it fail if there are imports
   # that need to be tidied.
