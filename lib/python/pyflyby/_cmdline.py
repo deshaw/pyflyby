@@ -5,12 +5,14 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
+from   distutils.spawn          import find_executable
 import optparse
 import os
 import signal
 import six
 from   six                      import reraise
 from   six.moves                import input
+import subprocess
 import sys
 from   textwrap                 import dedent
 import traceback
@@ -139,7 +141,22 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             "--diff-replace", "-R", action='callback',
             callback=action_callbacker([action_ifchanged, action_diff, action_replace]),
             help=hfmt('''Equivalent to --action=IFCHANGED,DIFF,REPLACE'''))
+        group.add_option('--py23-fallback', dest='py23_fallback',
+                         default=True, action='callback',
+                         callback=action_callbacker([action_python_fallback]),
+                         help=hfmt('''
+                             (Default) Automatically fallback to
+                             python2/python3 if the source file has a syntax
+                             error.'''))
+        group.add_option('--no-py23-fallback', dest='py23_fallback',
+                         default=True, action='callback',
+                         callback=action_callbacker([action_python_fallback]),
+                         help=hfmt('''
+                             Do not automatically fallback to
+                             python2/python3 if the source file has a syntax
+                             error.'''))
         actions_interactive = [
+            action_python_fallback,
             action_ifchanged, action_diff,
             action_query("Replace {filename}?"), action_replace]
         group.add_option(
@@ -437,3 +454,18 @@ def action_query(prompt="Proceed?"):
         print("Aborted")
         raise AbortActions
     return action
+
+def action_python_fallback(m):
+    try:
+        m.output_content
+    except SyntaxError:
+        python = 'python2' if sys.version_info[0] == 3 else 'python3'
+        python_full = find_executable(python)
+        if not python_full:
+            print("Fallback failed: could not find", python,
+                  file=sys.stderr)
+            raise
+        print("SyntaxError detected, falling back to", python)
+        args = [python_full] + sys.argv + ['--no-py23-fallback']
+        subprocess.Popen(args, stdin=0, stdout=1, stderr=2)
+        raise AbortActions
