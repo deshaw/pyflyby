@@ -925,6 +925,18 @@ def test_PythonBlock_doctest_with_1():
     expected = (PythonStatement("with 11:\n  22\n", startpos=(5, 11)),)
     assert doctest_block.statements == expected
 
+def test_PythonBlock_doctest_ignore_doctest_options_1():
+    block = PythonBlock(dedent('''
+        def foo():
+            """
+            >>> 123 # doctest:+FOOBAR
+            """
+    '''))
+    doctest_blocks = block.get_doctests()
+    doctest_block, = doctest_blocks
+    expected = (PythonStatement("123 # doctest:+FOOBAR\n", startpos=(4, 9)),)
+    assert doctest_block.statements == expected
+
 
 @pytest.mark.skipif(
     sys.version_info < (2,7),

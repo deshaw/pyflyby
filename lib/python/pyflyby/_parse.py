@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import ast
 from   collections              import namedtuple
+from   doctest                  import DocTestParser
 from   functools                import total_ordering
 from   itertools                import groupby
 import re
@@ -1272,8 +1273,7 @@ class PythonBlock(object):
         :rtype:
           ``list`` of `PythonStatement` s
         """
-        import doctest
-        parser = doctest.DocTestParser()
+        parser = IgnoreOptionsDocTestParser()
         doctest_blocks = []
         filename = self.filename
         flags = self.flags
@@ -1348,3 +1348,10 @@ class PythonBlock(object):
         h = hash((self.text, self.flags))
         self.__hash__ = lambda: h
         return h
+
+class IgnoreOptionsDocTestParser(DocTestParser):
+    def _find_options(self, source, name, lineno):
+        # Ignore doctest options. We don't use them, and we don't want to
+        # error on unknown options, which is what the default DocTestParser
+        # does.
+        return {}
