@@ -1864,3 +1864,35 @@ def test_auto_import_nameerror_1(tpp, capsys):
         Traceback (most recent call last):
     """).lstrip()
     assert out.startswith(expected)
+
+
+def test_post_import_hook_incomplete_import():
+    db = ImportDB('import glob')
+    expected = Import('import glob')
+    def test_hook(val):
+        assert val == expected
+    auto_import("glob.glob('*')", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_alias_import():
+    db = ImportDB('import numpy as np')
+    expected = Import('import numpy as np')
+    def test_hook(val):
+        assert val == expected
+    auto_import("np", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_from_statement():
+    db = ImportDB('from numpy import compat')
+    expected = Import('from numpy import compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("compat", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_fullname():
+    db = ImportDB('import numpy.compat')
+    expected = Import('import numpy.compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)

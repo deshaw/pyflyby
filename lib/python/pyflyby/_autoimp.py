@@ -1627,7 +1627,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
                 autoimported[DottedIdentifier(fullname)] = False
                 return False
             # Succeeded.
-            successful_import = str(imp)
+            successful_import = imp
             autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
                 if post_import_hook:
@@ -1668,7 +1668,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
         if not result:
             return False
         else:
-          successful_import = imp_stmt
+            successful_import = Import(imp_stmt)
     if post_import_hook and successful_import:
         post_import_hook(successful_import)
     return True
