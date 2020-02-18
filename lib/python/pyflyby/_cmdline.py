@@ -17,6 +17,7 @@ import sys
 from   textwrap                 import dedent
 import traceback
 
+
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
@@ -106,6 +107,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
             set_actions([parse_action(v) for v in action_args])
+
         def action_callbacker(actions):
             def callback(option, opt_str, value, parser):
                 set_actions(actions)
@@ -141,22 +143,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             "--diff-replace", "-R", action='callback',
             callback=action_callbacker([action_ifchanged, action_diff, action_replace]),
             help=hfmt('''Equivalent to --action=IFCHANGED,DIFF,REPLACE'''))
-        group.add_option('--py23-fallback', dest='py23_fallback',
-                         default=True, action='callback',
-                         callback=action_callbacker([action_python_fallback]),
-                         help=hfmt('''
-                             (Default) Automatically fallback to
-                             python2/python3 if the source file has a syntax
-                             error.'''))
-        group.add_option('--no-py23-fallback', dest='py23_fallback',
-                         default=True, action='callback',
-                         callback=action_callbacker([action_python_fallback]),
-                         help=hfmt('''
-                             Do not automatically fallback to
-                             python2/python3 if the source file has a syntax
-                             error.'''))
         actions_interactive = [
-            action_python_fallback,
             action_ifchanged, action_diff,
             action_query("Replace {filename}?"), action_replace]
         group.add_option(
@@ -368,7 +355,8 @@ class Modifier(object):
             f.close()
 
 
-def process_actions(filenames, actions, modify_function):
+def process_actions(filenames, actions, modify_function,
+                    reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
@@ -381,6 +369,8 @@ def process_actions(filenames, actions, modify_function):
                 action(m)
         except AbortActions:
             continue
+        except reraise_exceptions:
+            raise
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)

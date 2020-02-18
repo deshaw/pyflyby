@@ -20,13 +20,18 @@ Only top-level import statements are touched.
 # Copyright (C) 2011, 2012, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
+from __future__ import print_function, absolute_import, division, with_statement
+
+from   distutils.spawn          import find_executable
+import subprocess
+import sys
 
 from   pyflyby._cmdline         import hfmt, parse_args, process_actions
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
                                         replace_star_imports,
                                         transform_imports)
+from   pyflyby._log             import logger
 
 
 def main():
@@ -77,6 +82,20 @@ def main():
                           default=True, action='store_false',
                           help=hfmt('''
                               Don't canonicalize imports.'''))
+        parser.add_option('--py23-fallback', dest='py23_fallback',
+                         default=True, action='store_true',
+                         help=hfmt('''
+                             (Default) Automatically fallback to
+                             python2/python3 if the source file has a syntax
+                             error.'''))
+        parser.add_option('--no-py23-fallback', dest='py23_fallback',
+                         default=True, action='store_false',
+                         help=hfmt('''
+                             Do not automatically fallback to
+                             python2/python3 if the source file has a syntax
+                             error.'''))
+
+
         def transform_callback(option, opt_str, value, group):
             k, v = value.split("=", 1)
             group.values.transformations[k] = v
@@ -111,7 +130,22 @@ def main():
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             )
-    process_actions(args, options.actions, modify)
+
+    if options.py23_fallback:
+        try:
+            process_actions(args, options.actions, modify,
+                            reraise_exceptions=SyntaxError)
+        except SyntaxError:
+            python = 'python2' if sys.version_info[0] == 3 else 'python3'
+            python_full = find_executable(python)
+            if not python_full:
+                logger.error("Fallback failed: could not find %s", python)
+                raise
+            logger.info("SyntaxError detected, falling back to %s", python)
+            args = [python_full] + sys.argv + ['--no-py23-fallback']
+            subprocess.Popen(args, stdin=0, stdout=1, stderr=2)
+    else:
+        process_actions(args, options.actions, modify)
 
 
 if __name__ == '__main__':
