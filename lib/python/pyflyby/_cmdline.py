@@ -444,18 +444,3 @@ def action_query(prompt="Proceed?"):
         print("Aborted")
         raise AbortActions
     return action
-
-def action_python_fallback(m):
-    try:
-        m.output_content
-    except SyntaxError:
-        python = 'python2' if sys.version_info[0] == 3 else 'python3'
-        python_full = find_executable(python)
-        if not python_full:
-            print("Fallback failed: could not find", python,
-                  file=sys.stderr)
-            raise
-        print("SyntaxError detected, falling back to", python)
-        args = [python_full] + sys.argv + ['--no-py23-fallback']
-        subprocess.Popen(args, stdin=0, stdout=1, stderr=2)
-        raise AbortActions
