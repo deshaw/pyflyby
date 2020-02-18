@@ -5,14 +5,12 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-from   distutils.spawn          import find_executable
 import optparse
 import os
 import signal
 import six
 from   six                      import reraise
 from   six.moves                import input
-import subprocess
 import sys
 from   textwrap                 import dedent
 import traceback
