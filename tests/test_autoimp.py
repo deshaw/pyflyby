@@ -242,6 +242,19 @@ def test_find_missing_imports_function_paramlist_1():
     assert expected == result
 
 
+def test_find_missing_imports_function_paramlist_2():
+    code = dedent("""
+        from somewhere import given, data
+
+        @given(data())
+        def blargh(data):
+            pass
+    """)
+    result  = find_missing_imports(code, [{}])
+    result  = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
 def test_find_missing_imports_function_defaults_1():
     code = dedent("""
         e = 1
@@ -871,6 +884,33 @@ def test_find_missing_imports_keyword_only_args_1():
 @pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
+def test_find_missing_imports_keyword_only_args_2():
+    code = dedent("""
+        def func(*args, kwonly):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_keyword_only_args_3():
+    code = dedent("""
+        def func(*args, kwonly, kwonly2=b):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
 def test_find_missing_imports_annotations_1():
     code = dedent("""
         def func(a: b) -> c:
@@ -1427,9 +1467,7 @@ def test_scan_for_import_issues_setattr_1():
         bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(4, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
@@ -1443,12 +1481,22 @@ def test_scan_for_import_issues_setattr_in_func_1():
             bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(5, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
+
+def test_setattr_is_not_unused():
+    code = dedent("""
+        from a import b
+        def f():
+            b.xx.yy = 1
+
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # b should be considered used
+    assert missing == []
+    assert unused == []
 
 
 def test_load_symbol_1():
@@ -1816,3 +1864,35 @@ def test_auto_import_nameerror_1(tpp, capsys):
         Traceback (most recent call last):
     """).lstrip()
     assert out.startswith(expected)
+
+
+def test_post_import_hook_incomplete_import():
+    db = ImportDB('import glob')
+    expected = Import('import glob')
+    def test_hook(val):
+        assert val == expected
+    auto_import("glob.glob('*')", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_alias_import():
+    db = ImportDB('import numpy as np')
+    expected = Import('import numpy as np')
+    def test_hook(val):
+        assert val == expected
+    auto_import("np", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_from_statement():
+    db = ImportDB('from numpy import compat')
+    expected = Import('from numpy import compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("compat", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_fullname():
+    db = ImportDB('import numpy.compat')
+    expected = Import('import numpy.compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)

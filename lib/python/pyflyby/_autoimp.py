@@ -6,13 +6,14 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
+from collections import Sequence
 import contextlib
 import copy
-import sys
-import types
 import six
 from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
+import sys
+import types
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -32,7 +33,7 @@ class _ClassScope(dict):
 _builtins2 = {"__file__": None}
 
 
-class ScopeStack(tuple):
+class ScopeStack(Sequence):
     """
     A stack of namespace scopes, as a tuple of ``dict`` s.
 
@@ -45,7 +46,7 @@ class ScopeStack(tuple):
 
     _cached_has_star_import = False
 
-    def __new__(cls, arg):
+    def __init__(self, arg):
         """
         Interpret argument as a ``ScopeStack``.
 
@@ -57,8 +58,8 @@ class ScopeStack(tuple):
           ``ScopeStack``
         """
         if isinstance(arg, ScopeStack):
-            return arg
-        if isinstance(arg, dict):
+            scopes = list(arg._tup)
+        elif isinstance(arg, dict):
             scopes = [arg]
         elif isinstance(arg, (tuple, list)):
             scopes = list(arg)
@@ -80,8 +81,16 @@ class ScopeStack(tuple):
                 continue
             seen.add(id(scope))
             result.append(scope)
-        self = tuple.__new__(cls, result)
-        return self
+        tup = tuple(result)
+        self._tup = tup
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            return self.__class__(self._tup[item])
+        return self._tup[item]
+
+    def __len__(self):
+        return len(self._tup)
 
     def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
         """
@@ -104,7 +113,7 @@ class ScopeStack(tuple):
         else:
             new_scope = {}
         cls = type(self)
-        result = tuple.__new__(cls, scopes + (new_scope,))
+        result = cls(scopes + (new_scope,))
         return result
 
     def clone_top(self):
@@ -115,7 +124,7 @@ class ScopeStack(tuple):
         scopes = list(self)
         scopes[-1] = copy.copy(scopes[-1])
         cls = type(self)
-        return tuple.__new__(cls, scopes)
+        return cls(scopes)
 
     def merged_to_two(self):
         """
@@ -461,6 +470,22 @@ class _MissingImportFinder(object):
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
+    @contextlib.contextmanager
+    def _UpScopeCtx(self):
+        """
+        Context manager that temporarily moves up one in the scope stack
+        """
+        if len(self.scopestack) < 2:
+            raise ValueError("There must be at least two scopes on the stack to move up a scope.")
+        prev_scopestack = self.scopestack
+        new_scopestack = prev_scopestack[:-1]
+        try:
+            self.scopestack = new_scopestack
+            yield
+        finally:
+            assert self.scopestack is new_scopestack
+            self.scopestack = prev_scopestack
+
     def visit_Assign(self, node):
         # Visit an assignment statement (lhs = rhs).  This implementation of
         # visit_Assign is just like the generic one, but we make sure we visit
@@ -538,16 +563,22 @@ class _MissingImportFinder(object):
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
-        # Argument/parameter list.  Visit 'defaults' first because these
-        # should be checked for missing imports before the stores from the
-        # args/varargs/kwargs.
+        # Argument/parameter list.  Note that the defaults should be
+        # considered "Load"s from the upper scope, and the argument names are
+        # "Store"s in the function scope.
+
         # E.g. consider:
         #    def f(x=y, y=x): pass
         # Both x and y should be considered undefined (unless they were indeed
         # defined before the def).
-        self.visit(node.defaults)
-        if PY3:
-            self.visit(node.kw_defaults)
+        # We assume visit_arguments is always called from a _NewScopeCtx
+        # context
+        with self._UpScopeCtx():
+            self.visit(node.defaults)
+            if PY3:
+                for i in node.kw_defaults:
+                    if i:
+                        self.visit(i)
         # Store arg names.
         self.visit(node.args)
         if PY3:
@@ -728,20 +759,18 @@ class _MissingImportFinder(object):
             if fullname != '*':
                 # If we're storing "foo.bar.baz = 123", then "foo" and
                 # "foo.bar" have now been used and the import should not be
-                # removed.  Call symbol_needs_import() to use the side-effect
-                # of triggering the "variable is used".  [TODO: refactor.]
+                # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
-                    symbol_needs_import(ancestor, self.scopestack)
+                    if symbol_needs_import(ancestor, self.scopestack):
+                        m = (self._lineno, DottedIdentifier(fullname))
+                        if m not in self.missing_imports:
+                            self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)
             if type(oldvalue) is _UseChecker and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
-        # If someone writes "numpy.foo = 1" then one could argue that we
-        # should auto-import numpy if needed.  However, it seems more likely
-        # to be a mistake to mutate something in another module.  For now, we
-        # intentionally don't auto-import on the left-hand-side of a Store.
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
@@ -1571,6 +1600,9 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
     # important, since we're going to attempt that import anyway if it looks
     # like a "sqlalchemy" package is importable.
     imports = get_known_import(fullname, db=db)
+    # successful_import will store last successfully executed import statement
+    # to be passed to post_import_hook
+    successful_import = None
     logger.debug("auto_import_symbol(%r): get_known_import() => %r",
                  fullname, imports)
     if imports is None:
@@ -1597,6 +1629,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
                 autoimported[DottedIdentifier(fullname)] = False
                 return False
             # Succeeded.
+            successful_import = imp
             autoimported[DottedIdentifier(imp.import_as)] = True
             if imp.import_as == fullname:
                 if post_import_hook:
@@ -1631,12 +1664,15 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
                          fullname, pmodule)
             autoimported[pmodule_name] = False
             return False
-        result = _try_import("import %s" % pmodule_name, namespaces[-1])
+        imp_stmt = "import %s" % pmodule_name
+        result = _try_import(imp_stmt, namespaces[-1])
         autoimported[pmodule_name] = result
         if not result:
             return False
-    if post_import_hook:
-        post_import_hook(Import("import %s" % ModuleHandle(fullname).ancestors[-1].name))
+        else:
+            successful_import = Import(imp_stmt)
+    if post_import_hook and successful_import:
+        post_import_hook(successful_import)
     return True
 
 

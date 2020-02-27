@@ -115,8 +115,16 @@ class Filename(object):
         return type(self)(os.path.realpath(self._filename))
 
     @property
+    def realpath(self):
+        return type(self)(os.path.realpath(self._filename))
+
+    @property
     def exists(self):
         return os.path.exists(self._filename)
+
+    @property
+    def islink(self):
+        return os.path.islink(self._filename)
 
     @property
     def isdir(self):

@@ -15,11 +15,12 @@ import sys
 from   textwrap                 import dedent
 import traceback
 
+
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, indent
 
 
 def hfmt(s):
@@ -104,6 +105,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
             set_actions([parse_action(v) for v in action_args])
+
         def action_callbacker(actions):
             def callback(option, opt_str, value, parser):
                 set_actions(actions)
@@ -154,6 +156,12 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             default_actions = [action_print]
         parser.set_default('actions', tuple(default_actions))
         parser.add_option_group(group)
+
+        parser.add_option(
+            '--symlinks', action='callback', nargs=1, type=str,
+            dest='symlinks', callback=symlink_callback, help="--symlinks should be one of: " + symlinks_help,
+        )
+        parser.set_defaults(symlinks='error')
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
@@ -234,7 +242,13 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         parser.add_option_group(group)
     if addopts is not None:
         addopts(parser)
-    options, args = parser.parse_args()
+    # This is the only way to provide a default value for an option with a
+    # callback.
+    if modify_action_params:
+        args = ["--symlinks=error"] + sys.argv[1:]
+    else:
+        args = None
+    options, args = parser.parse_args(args=args)
     if import_format_params:
         align_imports_args = [int(x.strip())
                               for x in options.align_imports.split(",")]
@@ -327,7 +341,7 @@ class Modifier(object):
         if six.PY3:
             f.write(bytes(self.output_content.joined, "utf-8"))
         else:
-            f.write(self.output_content.joined)
+            f.write(self.output_content.joined.encode('utf-8'))
         f.flush()
         return fname
 
@@ -351,7 +365,8 @@ class Modifier(object):
             f.close()
 
 
-def process_actions(filenames, actions, modify_function):
+def process_actions(filenames, actions, modify_function,
+                    reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
@@ -364,6 +379,8 @@ def process_actions(filenames, actions, modify_function):
                 action(m)
         except AbortActions:
             continue
+        except reraise_exceptions:
+            raise
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
@@ -437,3 +454,57 @@ def action_query(prompt="Proceed?"):
         print("Aborted")
         raise AbortActions
     return action
+
+def symlink_callback(option, opt_str, value, parser):
+    parser.values.actions = tuple(i for i in parser.values.actions if i not in
+    symlink_callbacks.values())
+    if value in symlink_callbacks:
+        parser.values.actions = (symlink_callbacks[value],) + parser.values.actions
+    else:
+        raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', or 'replace'. Got %r" % value)
+
+symlinks_help = """\
+--symlinks=error (default; gives an error on symlinks),
+--symlinks=follow (follows symlinks),
+--symlinks=skip (skips symlinks),
+--symlinks=replace (replaces symlinks with the target file\
+"""
+
+# Warning, the symlink actions will only work if they are run first.
+# Otherwise, output_content may already be cached
+def symlink_error(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        raise SystemExit("""\
+Error: %s appears to be a symlink. Use one of the following options to allow symlinks:
+%s
+""" % (m.filename, indent(symlinks_help, '    ')))
+
+def symlink_follow(m):
+    if m.filename == Filename.STDIN:
+        return
+    if m.filename.islink:
+        logger.info("Following symlink %s" % m.filename)
+        m.filename = m.filename.realpath
+
+def symlink_skip(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        logger.info("Skipping symlink %s" % m.filename)
+        raise AbortActions
+
+def symlink_replace(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        logger.info("Replacing symlink %s" % m.filename)
+        # The current behavior automatically replaces symlinks, so do nothing
+
+symlink_callbacks = {
+    'error': symlink_error,
+    'follow': symlink_follow,
+    'skip': symlink_skip,
+    'replace': symlink_replace,
+}
