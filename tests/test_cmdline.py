@@ -481,3 +481,167 @@ def test_tidy_imports_py3_fallback():
         assert b"SyntaxError detected, falling back" in proc_output
     else:
         assert b"SyntaxError detected, falling back" not in proc_output
+
+def test_tidy_imports_symlinks_default():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Error: %s appears to be a symlink" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+
+def test_tidy_imports_symlinks_error():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=error', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Error: %s appears to be a symlink" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+def test_tidy_imports_symlinks_follow():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=follow', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("y\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Following symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert 'import x' not in output
+    assert 'import x' not in symlink_output
+
+def test_tidy_imports_symlinks_skip():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=skip',
+                                                        symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Skipping symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+def test_tidy_imports_symlinks_replace():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlink=replace', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("y\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert not os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Replacing symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert 'import x' not in symlink_output
+
+def test_tidy_imports_symlinks_bad_argument():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=bad', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"error: --symlinks must be one of" in proc_output
+    assert output == input
+    assert symlink_output == input
