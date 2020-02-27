@@ -473,6 +473,8 @@ symlinks_help = """\
 # Warning, the symlink actions will only work if they are run first.
 # Otherwise, output_content may already be cached
 def symlink_error(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
     if m.filename.islink:
         raise SystemExit("""\
 Error: %s appears to be a symlink. Use one of the following options to allow symlinks:
@@ -480,16 +482,22 @@ Error: %s appears to be a symlink. Use one of the following options to allow sym
 """ % (m.filename, indent(symlinks_help, '    ')))
 
 def symlink_follow(m):
+    if m.filename == Filename.STDIN:
+        return
     if m.filename.islink:
         logger.info("Following symlink %s" % m.filename)
         m.filename = m.filename.realpath
 
 def symlink_skip(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
     if m.filename.islink:
         logger.info("Skipping symlink %s" % m.filename)
         raise AbortActions
 
 def symlink_replace(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
     if m.filename.islink:
         logger.info("Replacing symlink %s" % m.filename)
         # The current behavior automatically replaces symlinks, so do nothing
