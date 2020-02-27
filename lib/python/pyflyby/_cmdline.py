@@ -15,6 +15,7 @@ import sys
 from   textwrap                 import dedent
 import traceback
 
+
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
@@ -104,6 +105,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
             set_actions([parse_action(v) for v in action_args])
+
         def action_callbacker(actions):
             def callback(option, opt_str, value, parser):
                 set_actions(actions)
@@ -351,7 +353,8 @@ class Modifier(object):
             f.close()
 
 
-def process_actions(filenames, actions, modify_function):
+def process_actions(filenames, actions, modify_function,
+                    reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
@@ -364,6 +367,8 @@ def process_actions(filenames, actions, modify_function):
                 action(m)
         except AbortActions:
             continue
+        except reraise_exceptions:
+            raise
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
