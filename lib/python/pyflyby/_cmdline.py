@@ -12,7 +12,7 @@ import six
 from   six                      import reraise
 from   six.moves                import input
 import sys
-from   textwrap                 import dedent, indent
+from   textwrap                 import dedent
 import traceback
 
 
@@ -20,7 +20,7 @@ from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, indent
 
 
 def hfmt(s):
