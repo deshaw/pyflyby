@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from   textwrap                 import dedent
 
-from   six                      import PY2
+from   six                      import PY2, PY3
 
 from   pyflyby._util            import EnvVarCtx
 
@@ -429,3 +429,55 @@ def test_tidy_imports_query_junk_1():
     assert b"[y/N] zxcv" in proc_output
     assert b"Aborted" in proc_output
     assert output == input
+
+
+# Note, these tests will fail if the system does not have both python2 and
+# python3 in the PATH
+def test_tidy_imports_py2_fallback():
+    input = dedent('''
+        import x
+
+        def f(*args, x=1):
+            pass
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("n\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert b"removed unused 'import x'" in proc_output
+    assert output == input
+    if PY2:
+        assert b"SyntaxError detected, falling back" in proc_output
+    else:
+        assert b"SyntaxError detected, falling back" not in proc_output
+
+def test_tidy_imports_py3_fallback():
+    input = dedent('''
+        import x
+
+        print 1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("n\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert b"removed unused 'import x'" in proc_output
+    assert output == input
+    if PY3:
+        assert b"SyntaxError detected, falling back" in proc_output
+    else:
+        assert b"SyntaxError detected, falling back" not in proc_output
