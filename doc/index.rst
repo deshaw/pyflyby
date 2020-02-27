@@ -7,6 +7,8 @@ Welcome to the pyflyby API documentation!
 
    ./api/api
 
+.. include:: ../README.rst
+
 Indices and tables
 ==================
 
