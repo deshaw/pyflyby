@@ -80,21 +80,23 @@ To use tidy-imports, just specify the filename(s) to tidy.
 
 For example:
 
-$ echo 're.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)' > foo.py
+.. code::
 
-$ tidy-imports foo.py
-    --- /tmp/foo.py
-    +++ /tmp/foo.py
-    @@ -1 +1,9 @@
-    +from __future__ import absolute_import, division, with_statement
-    +
-    +from   numpy                    import arange
-    +from   scipy.stats              import chisqprob
-    +import re
-    +
-     re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
+   $ echo 're.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)' > foo.py
 
-    Replace /tmp/foo.py? [y/N]
+   $ tidy-imports foo.py
+       --- /tmp/foo.py
+       +++ /tmp/foo.py
+       @@ -1 +1,9 @@
+       +from __future__ import absolute_import, division, with_statement
+       +
+       +from   numpy                    import arange
+       +from   scipy.stats              import chisqprob
+       +import re
+       +
+        re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
+
+       Replace /tmp/foo.py? [y/N]
 
 
 Quick start: import libraries
@@ -105,7 +107,7 @@ Create a file named .pyflyby with lines such as::
     import anotherpackage.anothermodule
 
 You can put this file in your home directory or in the same directory as your
-*.py files.
+``*.py`` files.
 
 
 Details: automatic imports
@@ -216,9 +218,13 @@ Known imports
 Find-imports, tidy-imports, and autoimport consult the database of known
 imports to figure out where to get an import.  For example, if the
 imports database contains::
+
     from numpy import arange, NaN
+
 then when you type the following in IPython::
+
     print arange(10)
+
 the autoimporter would automatically execute "from numpy import arange".
 
 The database can be one file or multiple files.  This makes it easy to have
@@ -226,15 +232,20 @@ project-specific known_imports along with global and per-user defaults.
 
 The PYFLYBY_PATH environment variable specifies which files to read.
 This is a colon-separated list of filenames or directory names.  The default
-is:
+is::
+
   PYFLYBY_PATH=/etc/pyflyby:~/.pyflyby:.../.pyflyby
 
-If you set
+If you set::
+
   PYFLYBY_PATH=/foo1/bar1:/foo2/bar2
+
 then this replaces the default.
 
-You can use a hyphen to include the default in the path.  If you set
+You can use a hyphen to include the default in the path.  If you set::
+
   PYFLYBY_PATH=/foo1/bar1:-:/foo2/bar2
+
 then this reads /foo1/bar1, then the default locations, then /foo2/bar2.
 
 In $PYFLYBY_PATH, ".../.pyflyby" (with _three_ dots) means that all ancestor
@@ -253,7 +264,8 @@ Further, suppose:
   * $HOME=/u/quarl
 
 Then "tidy-imports /proj/share/mypythonstuff/foo/bar/quux/zot.py" will by
-default use the following:
+default use the following::
+
   /etc/pyflyby/stuff.py
   /u/quarl/.pyflyby/blah1.py
   /u/quarl/.pyflyby/more/blah2.py
@@ -265,7 +277,7 @@ Notes:
     boundaries, and in this example, /proj is on a different file system than
     /.
   * .pyflyby (in $HOME or near the target file) can be a file or a directory.
-    If it is a directory, then it is recursively searched for *.py files.
+    If it is a directory, then it is recursively searched for ``*.py`` files.
   * The order usually doesn't matter, but if there are "forget" instructions
     (see below), then the order matters.  In the default $PYFLYBY_PATH,
     .../.pyflyby is placed last so that per-directory configuration can
@@ -325,7 +337,7 @@ Soapbox: avoid "star" imports
 =============================
 
 When programming in Python, a good software engineering practice is to avoid
-using "from foopackage import *" in production code.
+using ``from foopackage import *`` in production code.
 
 This style is a maintenance nightmare:
 
@@ -335,20 +347,20 @@ This style is a maintenance nightmare:
   * It's hard to tell what gets shadowed by what.
 
   * When the package changes in trivial ways, your code will be affected.
-    Consider the following example: Suppose foopackage.py contains "import
-    sys", and myprogram.py contains "from foopackage import *; if
-    some_condition: sys.exit(0)".  If foopackage.py changes so that "import
-    sys" is removed, myprogram.py is now broken because it's missing "import
-    sys".
+    Consider the following example: Suppose foopackage.py contains ``import
+    sys``, and myprogram.py contains ``from foopackage import *; if
+    some_condition: sys.exit(0)``.  If foopackage.py changes so that ``import
+    sys`` is removed, myprogram.py is now broken because it's missing ``import
+    sys``.
 
-To fix such code, you can run `tidy-imports --replace-star-imports' to
+To fix such code, you can run ``tidy-imports --replace-star-imports`` to
 automatically replace star imports with the specific needed imports.
 
 
 Emacs support
 =============
 
-* To get a `M-x tidy-imports' command in GNU Emacs, add to your ~/.emacs:
+* To get a ``M-x tidy-imports`` command in GNU Emacs, add to your ~/.emacs:
 
     (load "/path/to/pyflyby/lib/emacs/pyflyby.el")
 
