@@ -159,7 +159,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
 
         parser.add_option(
             '--symlinks', action='callback', nargs=1, type=str,
-            dest='symlinks', callback=symlink_callback, help=symlinks_help,
+            dest='symlinks', callback=symlink_callback, help="--symlinks should be one of: " + symlinks_help,
         )
         parser.set_defaults(symlinks='error')
 
@@ -464,8 +464,6 @@ def symlink_callback(option, opt_str, value, parser):
         raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', or 'replace'. Got %r" % value)
 
 symlinks_help = """\
---symlinks should be one of:
-
 --symlinks=error (default; gives an error on symlinks),
 --symlinks=follow (follows symlinks),
 --symlinks=skip (skips symlinks),
@@ -477,7 +475,7 @@ symlinks_help = """\
 def symlink_error(m):
     if m.filename.islink:
         raise SystemExit("""\
-%s appears to be a symlink. Use one of the following options to allow symlinks:
+Error: %s appears to be a symlink. Use one of the following options to allow symlinks:
 %s
 """ % (m.filename, indent(symlinks_help, '    ')))
 
