@@ -6,4 +6,4 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-__version__ = '1.4.6'
+__version__ = '1.5.0'
