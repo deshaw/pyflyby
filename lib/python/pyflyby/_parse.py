@@ -262,7 +262,7 @@ def _annotate_ast_nodes(ast_node):
 
 
 def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
-    """
+    r"""
     Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
     of the node within ``text``.
 
@@ -290,11 +290,11 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     :type ast_node:
       ``ast.AST``
     :type minpos:
-      `FilePos`
+      ``FilePos``
     :param minpos:
       Earliest position to check, in the number space of ``text``.
     :type text:
-      `FileText`
+      ``FileText``
     :param text:
       Source text that was used to parse the AST, whose ``startpos`` should be
       used in interpreting ``ast_node.lineno`` (which always starts at 1 for

@@ -671,10 +671,10 @@ def atomic_write_file(filename, data):
 
 def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
     """
-    Enumerate *.py files, recursively.
+    Enumerate ``*.py`` files, recursively.
 
     Arguments that are files are always included.
-    Arguments that are directories are recursively searched for *.py files.
+    Arguments that are directories are recursively searched for ``*.py`` files.
 
     :type pathnames:
       ``list`` of `Filename` s

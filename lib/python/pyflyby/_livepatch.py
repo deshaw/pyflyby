@@ -1,7 +1,7 @@
 # pyflyby/_livepatch.py
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 
-"""
+r"""
 livepatch/xreload: Alternative to reload().
 
 xreload performs a "live patch" of the modules/classes/functions/etc that have
@@ -72,7 +72,7 @@ The __livepatch__() function is called with the following arguments:
 
 These arguments are matched by *name* and are passed only if the
 ``__livepatch__`` function is declared to take such named arguments or it takes
-**kwargs.  If the ``__livepatch__`` function takes **kwargs, it should ignore
+\**kwargs.  If the ``__livepatch__`` function takes \**kwargs, it should ignore
 unknown arguments, in case new parameters are added in the future.
 
 If the object being updated is an object instance, and ``__livepatch__`` is a

@@ -39,7 +39,7 @@ class WrappedAttributeError(Exception):
 
 
 class cached_attribute(object):
-    '''Computes attribute value and caches it in instance.
+    """Computes attribute value and caches it in instance.
 
     Example::
 
@@ -47,7 +47,8 @@ class cached_attribute(object):
             @cached_attribute
             def myMethod(self):
                 # ...
-    Use "del inst.myMethod" to clear cache.'''
+
+    Use "del inst.myMethod" to clear cache."""
     # http://code.activestate.com/recipes/276643/
 
     def __init__(self, method, name=None):

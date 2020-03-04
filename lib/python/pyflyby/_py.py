@@ -2,13 +2,16 @@
 # Copyright (C) 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-"""
-The `py' program (part of the pyflyby project) is a command-line multitool for
+r"""
+The `py` program (part of the pyflyby project) is a command-line multitool for
 running python code, with heuristic intention guessing, automatic importing,
 and debugging support.
 
 Invocation summary
 ==================
+
+.. code::
+
   py [--file]   filename.py arg1 arg2   Execute a file
   py [--eval]  'function(arg1, arg2)'   Evaluate an expression/statement
   py [--apply]  function arg1 arg2      Call function(arg1, arg2)
@@ -33,6 +36,7 @@ Features
   * Heuristic action mode guessing: If none of --file, --eval, --apply,
     --module, or --map is specified, then guess what to do, choosing one of
     these actions:
+
       * Execute (run) a file
       * Evaluate concatenated arguments
       * Run a module
@@ -42,8 +46,8 @@ Features
   * Automatic importing: All action modes (except run_module) automatically
     import as needed.
 
-  * Heuristic argument evaluation: By default, `py --eval', `py --apply', and
-    `py --map' guess whether the arguments should be interpreted as
+  * Heuristic argument evaluation: By default, `py --eval`, `py --apply`, and
+    `py --map` guess whether the arguments should be interpreted as
     expressions or literal strings. A "--" by itself will designate subsequent
     args as strings.  A "-" by itself will be replaced by the contents of
     stdin as a string.
@@ -70,47 +74,50 @@ Features
 
 Warning
 =======
-`py' is intended as an interactive tool.  When writing shell aliases for
-interactive use, the `--safe' option can be useful.  When writing scripts,
-it's better to avoid all heuristic guessing; use regular `python -c ...', or
+`py` is intended as an interactive tool.  When writing shell aliases for
+interactive use, the `--safe` option can be useful.  When writing scripts,
+it's better to avoid all heuristic guessing; use regular `python -c ...`, or
 better yet, a full-fledged python program (and run tidy-imports).
 
 
 Options
 =======
 
-Global options valid before code argument:
+.. code::
 
-  --args=string    Interpret all arguments as literal strings.
-                   (The "--" argument also specifies remaining arguments to be
-                   literal strings.)
-  --args=eval      Evaluate all arguments as expressions.
-  --args=auto      (Default) Heuristically guess whether to evaluate arguments
-                   as literal strings or expressions.
-  --output=silent  Don't print the result of evaluation.
-  --output=str     Print str(result).
-  --output=repr    Print repr(result).
-  --output=pprint  Print pprint.pformat(result).
-  --output=repr-if-not-none
-                   Print repr(result), but only if result is not None.
-  --output=pprint-if-not-none
-                   Print pprint.pformat(result), but only if result is not None.
-  --output=interactive
-                   (Default) Print result.__interactive_display__() if defined,
-                   else pprint if result is not None.
-  --output=exit    Raise SystemExit(result).
-  --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
-  --quiet/-q       Log only error messages to stderr; omit info and warnings.
-  --interactive/-i Run an IPython shell after completion
-  --debug/-d       Run the target code/file/etc under the debugger.  If a PID is
-                   given, then instead attach a debugger to the target PID.
-  --verbose        Turn on verbose messages from pyflyby.
+    Global options valid before code argument:
 
-Pseudo-actions valid before, after, or without code argument:
+      --args=string    Interpret all arguments as literal strings.
+                       (The "--" argument also specifies remaining arguments to be
+                       literal strings.)
+      --args=eval      Evaluate all arguments as expressions.
+      --args=auto      (Default) Heuristically guess whether to evaluate arguments
+                       as literal strings or expressions.
+      --output=silent  Don't print the result of evaluation.
+      --output=str     Print str(result).
+      --output=repr    Print repr(result).
+      --output=pprint  Print pprint.pformat(result).
+      --output=repr-if-not-none
+                       Print repr(result), but only if result is not None.
+      --output=pprint-if-not-none
+                       Print pprint.pformat(result), but only if result is not None.
+      --output=interactive
+                       (Default) Print result.__interactive_display__() if defined,
+                       else pprint if result is not None.
+      --output=exit    Raise SystemExit(result).
+      --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
+      --quiet, --q     Log only error messages to stderr; omit info and warnings.
+      --interactive, --i
+                       Run an IPython shell after completion
+      --debug, --d     Run the target code file etc under the debugger.  If a PID is
+                       given, then instead attach a debugger to the target PID.
+      --verbose        Turn on verbose messages from pyflyby.
 
-  --version        Print pyflyby version or version of a module.
-  --help/-h/?      Print this help or help for a function or module.
-  --source/??      Print source code for a function or module.
+    Pseudo-actions valid before, after, or without code argument:
+
+      --version        Print pyflyby version or version of a module.
+      --help, --h, --? Print this help or help for a function or module.
+      --source, --??   Print source code for a function or module.
 
 
 Examples
@@ -183,33 +190,37 @@ Examples
 
   Command-line calculator (single arguments)::
 
-    $ py '(5+7j) ** 12'
+    $ py '(5+7j) \** 12'
     (65602966976-150532462080j)
 
-  Rationalize a decimal (apply bound method)
+  Rationalize a decimal (apply bound method)::
+
     $ py 2.5.as_integer_ratio
     [PYFLYBY] 2.5.as_integer_ratio()
     (5, 2)
 
-  Rationalize a decimal (apply unbound method)
+  Rationalize a decimal (apply unbound method)::
+
     $ py float.as_integer_ratio 2.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
 
-  Rationalize decimals (map/apply)
+  Rationalize decimals (map/apply)::
+
     $ py --map float.as_integer_ratio 2.5 3.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
     [PYFLYBY] float.as_integer_ratio(3.5)
     (7, 2)
 
-  Square numbers (map lambda)
-    $ py --map 'lambda x: x**2' 3 4 5
-    [PYFLYBY] (lambda x: x**2)(3)
+  Square numbers (map lambda)::
+
+    $ py --map 'lambda x: x \**2' 3 4 5
+    [PYFLYBY] (lambda x: x \**2)(3)
     9
-    [PYFLYBY] (lambda x: x**2)(4)
+    [PYFLYBY] (lambda x: x \**2)(4)
     16
-    [PYFLYBY] (lambda x: x**2)(5)
+    [PYFLYBY] (lambda x: x \**2)(5)
     25
 
   Find length of string (using "-" for stdin)::
@@ -419,14 +430,14 @@ def _requires_parens_as_function(function_name):
       >>> _requires_parens_as_function("(foo)+(bar)")
       True
 
-    TODO: this might be obsolete if we use unparse instead of keeping original
-    user formatting (or alternatively, unparse should use something like this).
-
     :type function_name:
       ``str``
     :rtype:
       ``bool``
     """
+    # TODO: this might be obsolete if we use unparse instead of keeping original
+    #     user formatting (or alternatively, unparse should use something like this).
+
     function_name = PythonBlock(function_name, flags=FLAGS)
     node = function_name.expression_ast_node
     if not node:

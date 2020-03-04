@@ -25,6 +25,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
+
 class _ClassScope(dict):
     pass
 
@@ -172,7 +173,6 @@ class ScopeStack(Sequence):
             return False
 
 
-
 def symbol_needs_import(fullname, namespaces):
     """
     Return whether ``fullname`` is a symbol that needs to be imported, given
@@ -288,7 +288,6 @@ class _UseChecker(object):
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
-
 
 
 class _MissingImportFinder(object):
@@ -860,7 +859,6 @@ class _MissingImportFinder(object):
         unused_imports.sort()
 
 
-
 def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings=False):
     """
     Find missing and unused imports, by lineno.
@@ -1185,11 +1183,13 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         if isinstance(arg, types.CodeType):
             _find_loads_without_stores_in_code(arg, loads_without_stores)
 
+
 def _op(c):
     # bytecode is bytes in Python 3, which when indexed gives integers
     if PY2:
         return ord(c)
     return c
+
 
 def _find_earliest_backjump_label(bytecode):
     """
@@ -1210,8 +1210,8 @@ def _find_earliest_backjump_label(bytecode):
 
     In python 2.6, the disassembled bytecode is::
 
-      >> import dis
-      >> dis.dis(f)
+      >>> import dis
+      >>> dis.dis(f) # doctest: +SKIP
         2           0 LOAD_GLOBAL              0 (foo1)
                     3 CALL_FUNCTION            0
                     6 JUMP_IF_FALSE           11 (to 20)
@@ -1249,7 +1249,7 @@ def _find_earliest_backjump_label(bytecode):
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
 
-      >> _find_earliest_backjump_label(f.__code__.co_code)
+      >>> _find_earliest_backjump_label(f.__code__.co_code) # doctest: +SKIP
       38
 
     Note that in this example there are earlier targets of jumps at bytecode
@@ -1475,6 +1475,7 @@ _IMPORT_FAILED = set()
 Set of imports we've already attempted and failed.
 """
 
+
 def clear_failed_imports_cache():
     """
     Clear the cache of previously failed imports.
@@ -1483,6 +1484,7 @@ def clear_failed_imports_cache():
         logger.debug("Clearing all %d entries from cache of failed imports",
                      len(_IMPORT_FAILED))
         _IMPORT_FAILED.clear()
+
 
 def _try_import(imp, namespace):
     """
@@ -1742,16 +1744,16 @@ def auto_eval(arg, filename=None, mode=None,
 
     ``auto_eval`` will default the compilation ``mode`` to "eval" if possible::
 
-      >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
-      [PYFLYBY] from base64 import b64decode
-      b'hello!'
+    >>> auto_eval("b64decode('aGVsbG8=')") + b"!"
+    [PYFLYBY] from base64 import b64decode
+    b'hello!'
 
     ``auto_eval`` will default the compilation ``mode`` to "exec" if the input
     is not a single expression::
 
-      >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
-      [PYFLYBY] from base64 import b64decode
-      hello
+    >>> auto_eval("if True: print(b64decode('aGVsbG8=').decode('utf-8'))")
+    [PYFLYBY] from base64 import b64decode
+    hello
 
     This is roughly equivalent to "auto_import(arg); eval(arg)", but handles
     details better and more efficiently.
@@ -1848,25 +1850,24 @@ class LoadSymbolError(Exception):
         return r
 
 
-
 def load_symbol(fullname, namespaces, autoimport=False, db=None,
                 autoimported=None):
     """
     Load the symbol ``fullname``.
 
-      >>> import os
-      >>> load_symbol("os.path.join.__name__", {"os": os})
-      'join'
+    >>> import os
+    >>> load_symbol("os.path.join.__name__", {"os": os})
+    'join'
 
-      >>> load_symbol("os.path.join.asdf", {"os": os})
-      Traceback (most recent call last):
-      ...
-      pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
+    >>> load_symbol("os.path.join.asdf", {"os": os})
+    Traceback (most recent call last):
+    ...
+    pyflyby._autoimp.LoadSymbolError: os.path.join.asdf: AttributeError: 'function' object has no attribute 'asdf'
 
-      >>> load_symbol("os.path.join", {})
-      Traceback (most recent call last):
-      ...
-      pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
+    >>> load_symbol("os.path.join", {})
+    Traceback (most recent call last):
+    ...
+    pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
     :type fullname:
       ``str``
