@@ -143,7 +143,10 @@ def main():
                 raise
             logger.info("SyntaxError detected, falling back to %s", python)
             args = [python_full] + sys.argv + ['--no-py23-fallback']
-            subprocess.call(args)
+            try:
+                subprocess.call(args)
+            except KeyboardInterrupt:
+                pass
     else:
         process_actions(args, options.actions, modify)
 
