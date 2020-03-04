@@ -29,5 +29,9 @@ autodoc_default_options = {
     'private-members': True
 }
 
+html_theme_options = {
+    'collapse_navigation': False,
+    'navigation_depth': -1,
+}
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
