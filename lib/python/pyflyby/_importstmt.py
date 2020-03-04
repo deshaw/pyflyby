@@ -454,7 +454,7 @@ class ImportStatement(object):
         return CompilerFlags(*[imp.flags for imp in self.imports])
 
     def pretty_print(self, params=FormatParams(),
-                     import_column=None, from_spaces=1):
+                     import_column=None, from_spaces=1, use_black=False):
         """
         Pretty-print into a single string.
 
@@ -462,6 +462,8 @@ class ImportStatement(object):
           `FormatParams`
         :param modulename_ljust:
           Number of characters to left-justify the 'from' name.
+        :param use_black:
+          Use black to format the import. If this is True, other flags are ignored.
         :rtype:
           ``str``
         """
@@ -490,7 +492,11 @@ class ImportStatement(object):
             else:
                 t = "%s" % (importname,)
             tokens.append(t)
-        return s0 + pyfill(s, tokens, params=params)
+        res = s0 + pyfill(s, tokens, params=params)
+        if use_black:
+            import black
+            return black.format_str(res, mode=black.FileMode())
+        return res
 
     @property
     def _data(self):
