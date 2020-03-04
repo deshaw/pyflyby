@@ -11,13 +11,19 @@ python:
 matrix:
   include:
     - python: 2.7
+      env:
+        - TESTS="true"
     - python: 3.7
       dist: xenial
+      env:
+        - TESTS="true"
+    - python: 3.7
+      env:
+        - DOCS="true"
 
 install:
   - set -e
   - pip install -U pip
-  - pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
   # Install prompt-toolkit from git until a release is made with
   # PROMPT_TOOLKIT_NO_CPR environment variable support.
   # Install jupyter_console from
@@ -29,6 +35,9 @@ install:
     else
         pip install -U git+https://github.com/asmeurer/jupyter_console@display_completions;
         pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8;
+    fi
+  - if [[ "${DOCS}" == "true" ]]; then
+        pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints;
     fi
   - pip list
 
@@ -50,7 +59,7 @@ script:
   # that need to be tidied.
   - ./bin/tidy-imports -d lib/python/ tests/
   - |
-    if [ "$TRAVIS_PYTHON_VERSION" = "3.7" ]; then
+    if [ "${DOCS}" = "true" ]; then
         cd doc;
         make html;
         pip install doctr;
