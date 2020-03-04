@@ -11,7 +11,9 @@ project = 'pyflyby'
 copyright = '2019, Karl Chen'
 author = 'Karl Chen'
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+import pyflyby
+
+release = pyflyby.__version__
 
 
 # -- General configuration ---------------------------------------------------
