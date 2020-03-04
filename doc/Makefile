@@ -20,3 +20,8 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 html: SPHINXOPTS += -W
+
+# Open in a browser and autoupdate when changes are made. To use this, install
+# sphinx-autobuild.
+livehtml:
+	sphinx-autobuild -B -z .. -p 0 -b html $(SOURCEDIR) $(ALLSPHINXOPTS) $(BUILDDIR)/html
