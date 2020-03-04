@@ -77,6 +77,7 @@ script:
     if [ "${DOCS}" = "true" ]; then
         cd doc;
         make html;
+        cd ..;
         pip install doctr;
         doctr deploy .;
     fi
