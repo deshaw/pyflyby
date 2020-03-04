@@ -5,7 +5,6 @@ env:
     # Doctr deploy key for pyflyby/pyflyby
     - secure: "rT3KNEN4zfVPtQstm6LpAa+maL6YBG2FDAKQg7UIAMZLNLQp/lQKF3X1LRAACIGU925KYSLYW/4Ly1YqddK137sgw62tndCb2Llx2v3gNa9Ew4GxG5b7Z2Ase5lu4t69AP/ka5mFhpTZJ4MBJoPvw7iw/Vom9jUoypxLhy/+EvCmGwX/HeYbrjEPhyYPIrREH5wLXHru/XMVI0qaqWviIab0CCvqEWehRqHs1k6CoS5hPeBTJnIJzqa34Xl3O88ECwMFnpg5ap9+02hDV1vfMxJehghynHWG2feyTxjGLtcmQMrLFXQDsLtQUq6DIjKDWMrjGpgj1Jb5HnYa8Kn+FBBmZd9QnVtFCIsW/hEPdyVkiYNYysFqHSI1Mfr/Lnhy1irP2vLi/YfJ82GV5k9a8FTy/IlbwEbmXsrCESEN/GGqUrTP+FvbXRBG767ykZ7gnRNKNbITVoQn/loenzh+8bkVR9luhalUBI7n/i2ayhV9iWeg8ZacOcj+4nwJJbJMZgLlFJMjs86ZWcUpjMWZB2ZaDRSKD9LGMfiJ8AzH/lsMK797ytPWLUX3ah2utEbLLBTRv2Kaj24Dj0LbHk/ZvlVl8Ut6TRs2uy5LIq3bHW9x58VU2PVhrf5B6M6XUhkzH/zFszEipgWobZRZys+h4FZb1d7pg1bqnl9R9L82Q38="
 
-sudo: false
 python:
   - 2.7
 
@@ -14,7 +13,6 @@ matrix:
     - python: 2.7
     - python: 3.7
       dist: xenial
-      sudo: true
 
 install:
   - set -e
