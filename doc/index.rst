@@ -1,13 +1,15 @@
-Welcome to the pyflyby API documentation!
-=========================================
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   ./api/api
+Welcome to the Pyflyby documentation!
+=====================================
 
 .. include:: ../README.rst
+
+Table of Contents
+=================
+
+.. toctree::
+   :maxdepth: -1
+
+   ./api/api
 
 Indices and tables
 ==================
