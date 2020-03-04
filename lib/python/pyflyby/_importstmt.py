@@ -495,7 +495,11 @@ class ImportStatement(object):
         res = s0 + pyfill(s, tokens, params=params)
         if use_black:
             import black
-            return black.format_str(res, mode=black.FileMode())
+            if import_column is None:
+                mode = black.FileMode()
+            else:
+                mode = black.FileMode(line_length=import_column)
+            return black.format_str(res, mode=mode)
         return res
 
     @property
