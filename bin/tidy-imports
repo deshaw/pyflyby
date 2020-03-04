@@ -146,7 +146,7 @@ def main():
             try:
                 subprocess.call(args)
             except KeyboardInterrupt:
-                pass
+                sys.exit(1)
     else:
         process_actions(args, options.actions, modify)
 
