@@ -218,7 +218,7 @@ def symbol_needs_import(fullname, namespaces):
                 continue
             # If we're doing static analysis where we also care about which
             # imports are unused, then mark the used ones now.
-            if type(var) is _UseChecker:
+            if isinstance(var, _UseChecker):
                 var.used = True
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
@@ -768,7 +768,7 @@ class _MissingImportFinder(object):
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)
-            if type(oldvalue) is _UseChecker and not oldvalue.used:
+            if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
 
@@ -851,7 +851,7 @@ class _MissingImportFinder(object):
             return
         scope = self.scopestack[-1]
         for name, value in six.iteritems(scope):
-            if type(value) is not _UseChecker:
+            if not isinstance(value, _UseChecker):
                 continue
             if value.used:
                 continue
