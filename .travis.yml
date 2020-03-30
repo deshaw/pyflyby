@@ -17,6 +17,10 @@ matrix:
       dist: xenial
       env:
         - TESTS="true"
+    - python: 3.8
+      dist: xenial
+      env:
+        - TESTS="true"
     - python: 3.7
       env:
         - DOCS="true"
