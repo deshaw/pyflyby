@@ -869,6 +869,19 @@ def test_find_missing_imports_code_loop_1():
     assert expected == result
 
 @pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only syntax.")
+def test_find_missing_imports_positional_only_args_1():
+    code = dedent("""
+        def func(x, /, y):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+@pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
 def test_find_missing_imports_keyword_only_args_1():
