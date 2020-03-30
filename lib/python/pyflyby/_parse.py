@@ -354,17 +354,29 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
                     "probably the handler for ast.%s." % type(ast_node).__name__)
             child_minpos = child_node.startpos
         is_first_child = False
+
     # If the node has no lineno at all, then skip it.  This should only happen
     # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
     if not hasattr(ast_node, 'lineno'):
         return False
     # If col_offset is set then the lineno should be correct also.
     if ast_node.col_offset >= 0:
+        # In Python 3.8+, FunctionDef.lineno is the line with the def. To
+        # account for decorators, we need the lineno of the first decorator
+        if (sys.version_info >= (3, 8)
+            and isinstance(ast_node, (ast.FunctionDef, ast.ClassDef))
+            and ast_node.decorator_list):
+            delta = (ast_node.decorator_list[0].lineno-1,
+                     # The col_offset doesn't include the @
+                     ast_node.decorator_list[0].col_offset - 1)
+        else:
+            delta = (ast_node.lineno-1, ast_node.col_offset)
+
         # Not a multiline string literal.  (I.e., it could be a non-string or
         # a single-line string.)
         # Easy.
-        delta = (ast_node.lineno-1, ast_node.col_offset)
         startpos = text.startpos + delta
+
         # Special case for 'with' statements.  Consider the code:
         #    with X: pass
         #    ^0   ^5
@@ -397,6 +409,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             assert str(text[startpos:(startpos+(0,4))]) == "with"
         ast_node.startpos = startpos
         return False
+
     assert ast_node.col_offset == -1
     if leftstr_node:
         # This is an ast node where the leftmost deepest leaf is a
@@ -421,6 +434,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         assert leftstr_node.col_offset == -1
         ast_node.startpos = leftstr_node.startpos
         return True
+
     # It should now be the case that we are looking at a multi-line string
     # literal.
     if not isinstance(ast_node, (ast.Str, Bytes)):
@@ -445,6 +459,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             (_m.group()[-1], FilePos(start_lineno, _m.start()+start_line_colno))
             for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
+
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
     # file.  This could be because of a dastardly concatenated string like
