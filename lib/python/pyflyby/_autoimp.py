@@ -532,6 +532,8 @@ class _MissingImportFinder(object):
         #     args/decorator_list).
         if PY2:
             assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         else:
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
@@ -540,6 +542,9 @@ class _MissingImportFinder(object):
             if PY3:
                 if node.returns:
                     self.visit(node.returns)
+            if sys.version_info >= (3, 8):
+                if node.type_comment:
+                    self.visit(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx():
@@ -561,6 +566,8 @@ class _MissingImportFinder(object):
     def visit_arguments(self, node):
         if PY2:
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Note that the defaults should be
@@ -583,6 +590,8 @@ class _MissingImportFinder(object):
         self.visit(node.args)
         if PY3:
             self.visit(node.kwonlyargs)
+        if sys.version_info >= (3, 8):
+            self.visit(node.posonlyargs)
         # Store vararg/kwarg names.
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
