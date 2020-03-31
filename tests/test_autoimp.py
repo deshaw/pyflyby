@@ -1179,6 +1179,22 @@ def test_find_missing_imports_exception_3():
     expected = ['SomeException']
     assert expected == result
 
+# Only Python 3.8 includes type comments in the ast, so we only support this
+# there (see issue #31).
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_1():
+    code = dedent("""
+    from typing import Sequence
+    def foo(strings  # type: Sequence[str]
+            ):
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
         y1 = y2 = 1234

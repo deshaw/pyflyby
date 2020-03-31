@@ -153,6 +153,10 @@ def _flags_to_try(source, flags, auto_flags, mode):
     If ``auto_flags`` is True, then yield ``flags`` and ``flags ^ print_function``.
     """
     flags = CompilerFlags(flags)
+    if sys.version_info >= (3, 8):
+        flags = flags | CompilerFlags('type_comments')
+        yield flags
+        return
     if not auto_flags:
         yield flags
         return

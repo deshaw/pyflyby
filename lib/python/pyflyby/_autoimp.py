@@ -543,8 +543,7 @@ class _MissingImportFinder(object):
                 if node.returns:
                     self.visit(node.returns)
             if sys.version_info >= (3, 8):
-                if node.type_comment:
-                    self.visit(node.type_comment)
+                self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx():
@@ -562,6 +561,12 @@ class _MissingImportFinder(object):
             with self._NewScopeCtx():
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
+
+    def _visit_typecomment(self, typecomment):
+        if typecomment is None:
+            return
+        node = ast.parse(typecomment)
+        self.visit(node)
 
     def visit_arguments(self, node):
         if PY2:
@@ -707,10 +712,17 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_arg(self, node):
+        assert not PY2
+        if sys.version_info >= (3, 8):
+            assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
+        else:
+            assert node._fields == ('arg', 'annotation'), node._fields
         if node.annotation:
             self.visit(node.annotation)
         # Treat it like a Name node would from Python 2
         self._visit_fullname(node.arg, ast.Param())
+        if sys.version_info >= (3, 8):
+            self._visit_typecomment(node.type_comment)
 
     def visit_Attribute(self, node):
         name_revparts = []
@@ -1416,7 +1428,8 @@ def find_missing_imports(arg, namespaces):
             else:
                 return []
         # Parse the string into an AST.
-        node = ast.parse(arg) # may raise SyntaxError
+        kw = {} if sys.version_info < (3, 8) else {'type_comments': True}
+        node = ast.parse(arg, **kw) # may raise SyntaxError
         # Get missing imports from AST.
         return _find_missing_imports_in_ast(node, namespaces)
     elif isinstance(arg, PythonBlock):
