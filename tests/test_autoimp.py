@@ -1195,6 +1195,26 @@ def test_scan_for_import_issues_type_comment_1():
     assert unused == []
     assert missing == []
 
+# Python 3.8 uses the correct line number for multiline strings (the first
+# line), making _annotate_ast_startpos irrelevant. Otherwise, the logic for
+# getting this right is too hard. See issue #12.
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_multiline_string_1():
+    code = dedent('''
+    x = (
+        """
+        a
+        """
+        # blah
+        "z"
+    )
+    ''')
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
         y1 = y2 = 1234
