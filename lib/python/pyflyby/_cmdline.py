@@ -203,6 +203,11 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option('--width', type='int', default=79, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
+        group.add_option('--black', action='store_true', default=False,
+                         help=hfmt('''
+                             Use black to format imports. If this option is
+                             used, all other formatting options except for
+                             --width are ignored.'''))
         group.add_option('--hanging-indent', type='choice', default='never',
                          choices=['never','auto','always'],
                          metavar='never|auto|always',
@@ -263,6 +268,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             from_spaces           =options.from_spaces,
             separate_from_imports =options.separate_from_imports,
             max_line_length       =options.width,
+            use_black             =options.black,
             align_future          =options.align_future,
             hanging_indent        =options.hanging_indent,
             )

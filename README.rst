@@ -1,3 +1,12 @@
+###########
+Pyflyby
+###########
+.. image:: https://badge.fury.io/py/pyflyby.svg
+    :target: https://pypi.org/project/pyflyby/
+
+.. image:: https://travis-ci.com/deshaw/pyflyby.png?branch=master
+    :target: https://travis-ci.com/deshaw/pyflyby
+
 Pyflyby is a set of Python programming productivity tools.
 
 For command-line interaction:
@@ -388,6 +397,16 @@ Emacs support
 
 Authorship
 ==========
+This plugin was contributed back to the community by the `D. E. Shaw group
+<https://www.deshaw.com/>`_.
+
+.. raw:: html
+
+   <p align="center">
+       <a href="https://www.deshaw.com">
+          <img src="https://www.deshaw.com/assets/logos/black_logo_417x125.png" alt" height="75" >
+       </a>
+   </p>
 
 Pyflyby is written by Karl Chen <quarl@8166.clguba.z.quarl.org>
 
