@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 transform-imports --transform aa.bb=xx.yy *.py
 transform-imports --transform aa.bb=xx.yy < foo.py
