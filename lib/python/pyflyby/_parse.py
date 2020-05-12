@@ -154,7 +154,8 @@ def _flags_to_try(source, flags, auto_flags, mode):
     """
     flags = CompilerFlags(flags)
     if sys.version_info >= (3, 8):
-        flags = flags | CompilerFlags('type_comments')
+        if re.search(r"# *type:", source):
+            flags = flags | CompilerFlags('type_comments')
         yield flags
         return
     if not auto_flags:
