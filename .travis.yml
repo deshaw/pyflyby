@@ -1,10 +1,5 @@
 language: python
 
-env:
-  global:
-    # Doctr deploy key for pyflyby/pyflyby
-    - secure: "rT3KNEN4zfVPtQstm6LpAa+maL6YBG2FDAKQg7UIAMZLNLQp/lQKF3X1LRAACIGU925KYSLYW/4Ly1YqddK137sgw62tndCb2Llx2v3gNa9Ew4GxG5b7Z2Ase5lu4t69AP/ka5mFhpTZJ4MBJoPvw7iw/Vom9jUoypxLhy/+EvCmGwX/HeYbrjEPhyYPIrREH5wLXHru/XMVI0qaqWviIab0CCvqEWehRqHs1k6CoS5hPeBTJnIJzqa34Xl3O88ECwMFnpg5ap9+02hDV1vfMxJehghynHWG2feyTxjGLtcmQMrLFXQDsLtQUq6DIjKDWMrjGpgj1Jb5HnYa8Kn+FBBmZd9QnVtFCIsW/hEPdyVkiYNYysFqHSI1Mfr/Lnhy1irP2vLi/YfJ82GV5k9a8FTy/IlbwEbmXsrCESEN/GGqUrTP+FvbXRBG767ykZ7gnRNKNbITVoQn/loenzh+8bkVR9luhalUBI7n/i2ayhV9iWeg8ZacOcj+4nwJJbJMZgLlFJMjs86ZWcUpjMWZB2ZaDRSKD9LGMfiJ8AzH/lsMK797ytPWLUX3ah2utEbLLBTRv2Kaj24Dj0LbHk/ZvlVl8Ut6TRs2uy5LIq3bHW9x58VU2PVhrf5B6M6XUhkzH/zFszEipgWobZRZys+h4FZb1d7pg1bqnl9R9L82Q38="
-
 python:
   - 2.7
 
@@ -24,6 +19,8 @@ matrix:
     - python: 3.7
       env:
         - DOCS="true"
+        # Doctr deploy key for pyflyby/pyflyby
+        - secure: "hLezkTmoSLQIKKll+vzfhqxqIR6fekQrjigNcOYT6iUGElB0xRgCdHcHWvb/VHEDqcsIz7OgicrCiWulwo/qzHgm7Lz+T+cqXtslD84X0z81HwKhn6d1cFdo7G2QWWuzGPCTYEIHqFfGcqpOLxXBr7wfkK1o0tp5WPFhKyfS6IvYvr6CLQXbILyaUnwVTbro+UWkCIXihpVNtVfxwXmdTEo+S4sFqCshza0odPFFnb9y9hnyA+uYpaPJMIUnpXzNUbZkoBk9mE351oXBVvGBaAkohC9YoulbrgasXo+XHAGChFagP5/gHw2Xl2niVbc7EpJdVEe7ouLT6R9nc65MBi0Na5oO2bwQMFoaoIeyGq8R2HXGo48Y3GC5PcqAxCMGSlpkBV8bR6VlhZj2yUh2fXleMhV45i492cjsl+AXyVVxPWE2F0afopHr+S5NbRqN6A3Ld8JwDoQatHXkJKHsxXvfufRFXAgkoHFVLlO0YL7L7uJzMhNCds0/abfjGmqSOB9ihYHsW6roPY7258jjn3sfasDsXjKvmmtTc0IKjX/D/woruP3kpq8417dzhQz/YBFuj8NE6p64fXN1DOJhPEpU5JTZaV0LjtIQvVnuQnau6xlpAH/jk7fO2LWhu+c7/BPXrQhZB2EvQ6XahEtyoIDdn+F+DoI39iZ9JGKnxWQ="
 
 install:
   - set -e
