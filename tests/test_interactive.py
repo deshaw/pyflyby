@@ -549,15 +549,16 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     """
     Prepare the command to run IPython.
     """
+    python = sys.executable
     ipython_dir = Filename(ipython_dir)
-    cmd = []
+    cmd = [python]
     if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
-    if '/.tox/' in sys.prefix:
-        # Get the ipython from our (tox virtualenv) path.
-        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
+    if prog == "py":
+        cmd += [str(PYFLYBY_BIN / prog)]
     else:
-        cmd += [prog]
+        # Get the program from the python that is running.
+        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     if isinstance(args, six.string_types):
         args = [args]
     if args and not args[0].startswith("-"):

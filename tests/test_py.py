@@ -43,7 +43,11 @@ def flatten(args):
     return result
 
 
+python = sys.executable
+
 def pipe(command, stdin="", env=None, retretcode="automatic"):
+    if command[0] != python:
+        command = (python,) + command
     proc = subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
@@ -135,7 +139,7 @@ def writetext(filename, text, mode='w'):
 
 def test_0prefix_raw_1():
     # Verify that we're testing the virtualenv we think we are.
-    result = pipe(['python', '-c', 'import sys; print(sys.prefix)'])
+    result = pipe([python, '-c', 'import sys; print(sys.prefix)'])
     expected = sys.prefix
     assert expected == result
 
