@@ -8,6 +8,7 @@ from __future__ import (absolute_import, division, print_function,
 
 from   io                       import BytesIO
 import os
+import sys
 import pexpect
 import subprocess
 import tempfile
@@ -21,9 +22,11 @@ PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
 
 
+python = sys.executable
+
 def pipe(command, stdin=""):
     return subprocess.Popen(
-        command,
+        [python] + command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
@@ -351,7 +354,7 @@ def test_tidy_imports_query_no_change_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         # We expect no "Replace [y/N]" query, since nothing changed.
         child.expect(pexpect.EOF)
@@ -371,7 +374,7 @@ def test_tidy_imports_query_y_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -397,7 +400,7 @@ def test_tidy_imports_query_n_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -418,7 +421,7 @@ def test_tidy_imports_query_junk_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("zxcv\n")
@@ -443,7 +446,7 @@ def test_tidy_imports_py2_fallback():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -467,7 +470,7 @@ def test_tidy_imports_py3_fallback():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -492,7 +495,7 @@ def test_tidy_imports_symlinks_default():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")
@@ -520,7 +523,7 @@ def test_tidy_imports_symlinks_error():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=error', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=error', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")
@@ -547,7 +550,7 @@ def test_tidy_imports_symlinks_follow():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=follow', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=follow', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -574,7 +577,7 @@ def test_tidy_imports_symlinks_skip():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=skip',
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=skip',
                                                         symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
@@ -602,7 +605,7 @@ def test_tidy_imports_symlinks_replace():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlink=replace', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlink=replace', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -629,7 +632,7 @@ def test_tidy_imports_symlinks_bad_argument():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', ['--symlinks=bad', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=bad', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")

@@ -549,15 +549,16 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     """
     Prepare the command to run IPython.
     """
+    python = sys.executable
     ipython_dir = Filename(ipython_dir)
-    cmd = []
+    cmd = [python]
     if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
-    if '/.tox/' in sys.prefix:
-        # Get the ipython from our (tox virtualenv) path.
-        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
+    if prog == "py":
+        cmd += [str(PYFLYBY_BIN / prog)]
     else:
-        cmd += [prog]
+        # Get the program from the python that is running.
+        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     if isinstance(args, six.string_types):
         args = [args]
     if args and not args[0].startswith("-"):
@@ -3457,6 +3458,7 @@ def test_installed_in_config_ipython_py_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="old IPython doesn't support startup directory")
+@retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
     writetext(tmp.ipython_dir/"profile_default/startup/foo.py", """
@@ -3489,6 +3491,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support ipython_config.py")
+@retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
         c = get_config()
@@ -3506,6 +3509,7 @@ def test_manual_install_exec_lines_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support ipython_config.py")
+@retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -3525,6 +3529,7 @@ def test_manual_install_exec_files_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION >= (0, 11),
     reason="IPython 0.11+ doesn't support ipythonrc")
+@retry
 def test_manual_install_ipythonrc_execute_1(tmp):
     writetext(tmp.ipython_dir/"ipythonrc", """
         execute __import__("pyflyby").enable_auto_importer()
@@ -3539,6 +3544,7 @@ def test_manual_install_ipythonrc_execute_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION >= (0, 11),
     reason="IPython 0.11+ doesn't support ipy_user_conf")
+@retry
 def test_manual_install_ipy_user_conf_1(tmp):
     writetext(tmp.ipython_dir/"ipy_user_conf.py", """
         import pyflyby

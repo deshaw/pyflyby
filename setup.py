@@ -185,7 +185,7 @@ setup(
         ('share/doc/pyflyby', glob.glob('doc/*.txt')),
         ('share/emacs/site-lisp', ['lib/emacs/pyflyby.el']),
     ],
-    long_description=read('doc/README.txt'),
+    long_description=read('README.rst'),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Software Development",
