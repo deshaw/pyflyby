@@ -1,6 +1,3 @@
-Welcome to the Pyflyby documentation!
-=====================================
-
 .. include:: ../README.rst
 
 Table of Contents

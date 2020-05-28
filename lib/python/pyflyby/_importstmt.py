@@ -490,7 +490,12 @@ class ImportStatement(object):
             else:
                 t = "%s" % (importname,)
             tokens.append(t)
-        return s0 + pyfill(s, tokens, params=params)
+        res = s0 + pyfill(s, tokens, params=params)
+        if params.use_black:
+            import black
+            mode = black.FileMode(line_length=params.max_line_length)
+            return black.format_str(res, mode=mode)
+        return res
 
     @property
     def _data(self):
