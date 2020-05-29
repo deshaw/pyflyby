@@ -195,7 +195,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
     ],
-    install_requires=['pyflakes'],
+    install_requires=['pyflakes', 'six'],
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,
