@@ -87,16 +87,26 @@ def _iter_child_nodes_in_order_internal_1(node):
         yield list(zip(node.keys, node.values))
     elif isinstance(node, ast.FunctionDef):
         if six.PY2:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list')
+            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
+            yield node.decorator_list, node.args, node.body
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('name', 'args', 'body', 'decorator_list',
+                                    'returns', 'type_comment'), node._fields
+            yield node.type_comment, node.returns, node.decorator_list, node.args, node.body
         else:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns')
-        yield node.decorator_list, node.args, node.body
+            assert node._fields == ('name', 'args', 'body', 'decorator_list',
+                                    'returns'), node._fields
+            yield node.returns, node.decorator_list, node.args, node.body
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
         if six.PY2:
-            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults')
+            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
+                                    'kw_defaults', 'kwarg', 'defaults'), node._fields
         else:
-            assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults')
+            assert node._fields == ('args', 'vararg', 'kwonlyargs',
+                                    'kw_defaults', 'kwarg', 'defaults'), node._fields
         defaults = node.defaults or ()
         num_no_default = len(node.args)-len(defaults)
         yield node.args[:num_no_default]
@@ -143,6 +153,11 @@ def _flags_to_try(source, flags, auto_flags, mode):
     If ``auto_flags`` is True, then yield ``flags`` and ``flags ^ print_function``.
     """
     flags = CompilerFlags(flags)
+    if sys.version_info >= (3, 8):
+        if re.search(r"# *type:", source):
+            flags = flags | CompilerFlags('type_comments')
+        yield flags
+        return
     if not auto_flags:
         yield flags
         return
@@ -344,17 +359,29 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
                     "probably the handler for ast.%s." % type(ast_node).__name__)
             child_minpos = child_node.startpos
         is_first_child = False
+
     # If the node has no lineno at all, then skip it.  This should only happen
     # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
     if not hasattr(ast_node, 'lineno'):
         return False
     # If col_offset is set then the lineno should be correct also.
     if ast_node.col_offset >= 0:
+        # In Python 3.8+, FunctionDef.lineno is the line with the def. To
+        # account for decorators, we need the lineno of the first decorator
+        if (sys.version_info >= (3, 8)
+            and isinstance(ast_node, (ast.FunctionDef, ast.ClassDef))
+            and ast_node.decorator_list):
+            delta = (ast_node.decorator_list[0].lineno-1,
+                     # The col_offset doesn't include the @
+                     ast_node.decorator_list[0].col_offset - 1)
+        else:
+            delta = (ast_node.lineno-1, ast_node.col_offset)
+
         # Not a multiline string literal.  (I.e., it could be a non-string or
         # a single-line string.)
         # Easy.
-        delta = (ast_node.lineno-1, ast_node.col_offset)
         startpos = text.startpos + delta
+
         # Special case for 'with' statements.  Consider the code:
         #    with X: pass
         #    ^0   ^5
@@ -387,6 +414,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             assert str(text[startpos:(startpos+(0,4))]) == "with"
         ast_node.startpos = startpos
         return False
+
     assert ast_node.col_offset == -1
     if leftstr_node:
         # This is an ast node where the leftmost deepest leaf is a
@@ -411,6 +439,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         assert leftstr_node.col_offset == -1
         ast_node.startpos = leftstr_node.startpos
         return True
+
     # It should now be the case that we are looking at a multi-line string
     # literal.
     if not isinstance(ast_node, (ast.Str, Bytes)):
@@ -435,6 +464,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             (_m.group()[-1], FilePos(start_lineno, _m.start()+start_line_colno))
             for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
+
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
     # file.  This could be because of a dastardly concatenated string like

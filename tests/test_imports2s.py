@@ -941,10 +941,10 @@ def test_fix_unused_imports_dunder_file_1(capsys):
         __file__, __asdf__
     '''))
     assert expected == output
-    captured = capsys.readouterr()
-    assert "undefined name '__asdf__'"     in captured.out
-    assert "undefined name '__file__'" not in captured.out
-
+    out, err = capsys.readouterr()
+    assert "undefined name '__asdf__'"     in out
+    assert "undefined name '__file__'" not in out
+    assert not err
 
 def test_fix_unused_imports_submodule_1():
     input = PythonBlock(dedent('''

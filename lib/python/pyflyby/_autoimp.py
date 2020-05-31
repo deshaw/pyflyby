@@ -218,7 +218,7 @@ def symbol_needs_import(fullname, namespaces):
                 continue
             # If we're doing static analysis where we also care about which
             # imports are unused, then mark the used ones now.
-            if type(var) is _UseChecker:
+            if isinstance(var, _UseChecker):
                 var.used = True
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
@@ -532,6 +532,8 @@ class _MissingImportFinder(object):
         #     args/decorator_list).
         if PY2:
             assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         else:
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
@@ -540,6 +542,8 @@ class _MissingImportFinder(object):
             if PY3:
                 if node.returns:
                     self.visit(node.returns)
+            if sys.version_info >= (3, 8):
+                self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx():
@@ -558,9 +562,17 @@ class _MissingImportFinder(object):
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
 
+    def _visit_typecomment(self, typecomment):
+        if typecomment is None:
+            return
+        node = ast.parse(typecomment)
+        self.visit(node)
+
     def visit_arguments(self, node):
         if PY2:
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+        elif sys.version_info >= (3, 8):
+            assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Note that the defaults should be
@@ -583,6 +595,8 @@ class _MissingImportFinder(object):
         self.visit(node.args)
         if PY3:
             self.visit(node.kwonlyargs)
+        if sys.version_info >= (3, 8):
+            self.visit(node.posonlyargs)
         # Store vararg/kwarg names.
         self._visit_Store(node.vararg)
         self._visit_Store(node.kwarg)
@@ -698,10 +712,17 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_arg(self, node):
+        assert not PY2
+        if sys.version_info >= (3, 8):
+            assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
+        else:
+            assert node._fields == ('arg', 'annotation'), node._fields
         if node.annotation:
             self.visit(node.annotation)
         # Treat it like a Name node would from Python 2
         self._visit_fullname(node.arg, ast.Param())
+        if sys.version_info >= (3, 8):
+            self._visit_typecomment(node.type_comment)
 
     def visit_Attribute(self, node):
         name_revparts = []
@@ -768,7 +789,7 @@ class _MissingImportFinder(object):
             # If we're redefining something, and it has not been used, then
             # record it as unused.
             oldvalue = scope.get(fullname)
-            if type(oldvalue) is _UseChecker and not oldvalue.used:
+            if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
 
@@ -851,7 +872,7 @@ class _MissingImportFinder(object):
             return
         scope = self.scopestack[-1]
         for name, value in six.iteritems(scope):
-            if type(value) is not _UseChecker:
+            if not isinstance(value, _UseChecker):
                 continue
             if value.used:
                 continue
@@ -1407,7 +1428,8 @@ def find_missing_imports(arg, namespaces):
             else:
                 return []
         # Parse the string into an AST.
-        node = ast.parse(arg) # may raise SyntaxError
+        kw = {} if sys.version_info < (3, 8) else {'type_comments': True}
+        node = ast.parse(arg, **kw) # may raise SyntaxError
         # Get missing imports from AST.
         return _find_missing_imports_in_ast(node, namespaces)
     elif isinstance(arg, PythonBlock):

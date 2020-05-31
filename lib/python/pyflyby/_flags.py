@@ -21,6 +21,12 @@ for name in __future__.all_feature_names:
     flag = getattr(__future__, name).compiler_flag
     _FLAG2NAME[flag] = name
     _NAME2FLAG[name] = flag
+for name in dir(ast):
+    if name.startswith('PyCF'):
+        flag_name = name[len('PyCF_'):].lower()
+        flag = getattr(ast, name)
+        _FLAG2NAME[flag] = flag_name
+        _NAME2FLAG[flag_name] = flag
 _FLAGNAME_ITEMS = sorted(_FLAG2NAME.items())
 _ALL_FLAGS = reduce(operator.or_, _FLAG2NAME.keys())
 

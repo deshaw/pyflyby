@@ -478,6 +478,17 @@ def test_PythonBlock_flags_deduce_1():
     assert block.flags == CompilerFlags(0x10000)
 
 
+def test_PythonBlock_flags_type_comment_1():
+    block = PythonBlock(dedent('''
+    a = 1 # type: int
+    ''').lstrip())
+    if sys.version_info >= (3, 8):
+        # Includes the type_comments flag
+        assert block.flags == CompilerFlags(0x01000)
+    else:
+        assert block.flags == CompilerFlags(0x0000)
+
+
 def test_PythonBlock_flags_deduce_eq_1():
     block1 = PythonBlock(dedent('''
         from __future__ import print_function
@@ -1234,8 +1245,12 @@ def test_PythonStatement_flags_1():
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
     assert s1.block.source_flags == CompilerFlags(0)
-    assert s0.block.flags        == CompilerFlags("unicode_literals", "division")
-    assert s1.block.flags        == CompilerFlags("unicode_literals", "division")
+    if sys.version_info >= (3, 8):
+        assert s0.block.flags == CompilerFlags("unicode_literals", "division",)
+        assert s1.block.flags == CompilerFlags("unicode_literals", "division",)
+    else:
+        assert s0.block.flags == CompilerFlags("unicode_literals", "division")
+        assert s1.block.flags == CompilerFlags("unicode_literals", "division")
 
 
 def test_PythonStatement_auto_flags_1():
@@ -1246,7 +1261,8 @@ def test_PythonStatement_auto_flags_1():
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
     assert s1.block.source_flags == CompilerFlags(0)
     if PY2:
-        expected = CompilerFlags("unicode_literals", "division", "print_function")
+        expected = CompilerFlags("unicode_literals", "division",
+                                 "print_function")
     else:
         expected = CompilerFlags("unicode_literals", "division")
     assert s0.block.flags        == expected

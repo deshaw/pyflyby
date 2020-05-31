@@ -869,6 +869,19 @@ def test_find_missing_imports_code_loop_1():
     assert expected == result
 
 @pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only syntax.")
+def test_find_missing_imports_positional_only_args_1():
+    code = dedent("""
+        def func(x, /, y):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+@pytest.mark.skipif(
     PY2,
     reason="Python 3-only syntax.")
 def test_find_missing_imports_keyword_only_args_1():
@@ -1165,6 +1178,42 @@ def test_find_missing_imports_exception_3():
     result = _dilist2strlist(result)
     expected = ['SomeException']
     assert expected == result
+
+# Only Python 3.8 includes type comments in the ast, so we only support this
+# there (see issue #31).
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_1():
+    code = dedent("""
+    from typing import Sequence
+    def foo(strings  # type: Sequence[str]
+            ):
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
+# Python 3.8 uses the correct line number for multiline strings (the first
+# line), making _annotate_ast_startpos irrelevant. Otherwise, the logic for
+# getting this right is too hard. See issue #12.
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_multiline_string_1():
+    code = dedent('''
+    x = (
+        """
+        a
+        """
+        # blah
+        "z"
+    )
+    ''')
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
 
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
