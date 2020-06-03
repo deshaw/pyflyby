@@ -135,16 +135,17 @@ def main():
         try:
             process_actions(args, options.actions, modify,
                             reraise_exceptions=SyntaxError)
-        except SyntaxError:
+        except SyntaxError as e:
             python = 'python2' if sys.version_info[0] == 3 else 'python3'
             python_full = find_executable(python)
             if not python_full:
                 logger.error("Fallback failed: could not find %s", python)
                 raise
-            logger.info("SyntaxError detected, falling back to %s", python)
+            logger.info("SyntaxError detected ({}), falling back to {}".format(
+                e, python))
             args = [python_full] + sys.argv + ['--no-py23-fallback']
             try:
-                subprocess.call(args)
+                raise SystemExit(subprocess.call(args))
             except KeyboardInterrupt:
                 sys.exit(1)
     else:
