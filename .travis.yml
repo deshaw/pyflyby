@@ -24,7 +24,6 @@ matrix:
 
 install:
   - set -e
-  - python3 --version
   - pip install -U pip
   # Install prompt-toolkit from git until a release is made with
   # PROMPT_TOOLKIT_NO_CPR environment variable support.
