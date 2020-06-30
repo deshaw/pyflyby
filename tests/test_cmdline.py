@@ -457,9 +457,11 @@ def test_tidy_imports_py2_fallback():
     assert b"removed unused 'import x'" in proc_output
     assert output == input
     if PY2:
-        assert b"SyntaxError detected, falling back" in proc_output
+        assert b"SyntaxError detected" in proc_output, proc_output
+        assert b"falling back" in proc_output, proc_output
     else:
-        assert b"SyntaxError detected, falling back" not in proc_output
+        assert b"SyntaxError detected" not in proc_output, proc_output
+        assert b"falling back" not in proc_output, proc_output
 
 def test_tidy_imports_py3_fallback():
     input = dedent('''
@@ -481,9 +483,11 @@ def test_tidy_imports_py3_fallback():
     assert b"removed unused 'import x'" in proc_output
     assert output == input
     if PY3:
-        assert b"SyntaxError detected, falling back" in proc_output
+        assert b"SyntaxError detected" in proc_output, proc_output
+        assert b"falling back" in proc_output, proc_output
     else:
-        assert b"SyntaxError detected, falling back" not in proc_output
+        assert b"SyntaxError detected" not in proc_output, proc_output
+        assert b"falling back" not in proc_output, proc_output
 
 def test_tidy_imports_symlinks_default():
     input = dedent('''
