@@ -206,8 +206,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option('--black', action='store_true', default=False,
                          help=hfmt('''
                              Use black to format imports. If this option is
-                             used, all other formatting options except for
-                             --width are ignored.'''))
+                             used, all other formatting options are ignored.'''))
         group.add_option('--hanging-indent', type='choice', default='never',
                          choices=['never','auto','always'],
                          metavar='never|auto|always',

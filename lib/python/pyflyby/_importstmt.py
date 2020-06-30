@@ -493,7 +493,7 @@ class ImportStatement(object):
         res = s0 + pyfill(s, tokens, params=params)
         if params.use_black:
             import black
-            mode = black.FileMode(line_length=params.max_line_length)
+            mode = black.FileMode()
             return black.format_str(res, mode=mode)
         return res
 
