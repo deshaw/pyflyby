@@ -11,6 +11,8 @@ import sys
 from   textwrap                 import dedent
 import types
 
+from   six                      import PY2
+
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -845,6 +847,22 @@ def test_canonicalize_imports_1():
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_canonicalize_imports_f_string_1():
+    input = PythonBlock(dedent('''
+        a = 1
+        print(f"{a:2d}")
+    ''').lstrip(), filename="/foo/test_canonicalize_imports_f_string_1.py")
+    db = ImportDB("""
+    """)
+    output = canonicalize_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        a = 1
+        print(f"{a:2d}")
+    ''').lstrip(), filename="/foo/test_canonicalize_imports_f_string_1.py")
+    assert output == expected
 
 def test_empty_file_1():
     input = PythonBlock('', filename="/foo/test_empty_file_1.py")

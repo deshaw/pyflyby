@@ -122,6 +122,9 @@ def _iter_child_nodes_in_order_internal_1(node):
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
+    elif six.PY3 and isinstance(node, ast.FormattedValue):
+        assert node._fields == ('value', 'conversion', 'format_spec')
+        yield node.value,
     else:
         # Default behavior.
         yield ast.iter_child_nodes(node)
