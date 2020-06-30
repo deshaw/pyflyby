@@ -389,7 +389,6 @@ class ModuleHandle(object):
         else:
             # Add "from" imports that belong to submodules
             # (note: this will fail to recognize implicit relative imports)
-            imported_members = []
             imp_nodes = [n for n in ast_mod if isinstance(n, ast.ImportFrom)]
             for imp_node in imp_nodes:
                 if imp_node.level == 0:
