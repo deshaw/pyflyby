@@ -24,12 +24,14 @@ BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
 
 python = sys.executable
 
-def pipe(command, stdin=""):
+def pipe(command, stdin="", cwd=None, env=None):
     return subprocess.Popen(
         [python] + command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT
+        stderr=subprocess.STDOUT,
+        cwd=cwd,
+        env=env
     ).communicate(stdin.encode('utf-8'))[0].decode('utf-8').strip()
 
 
@@ -267,6 +269,77 @@ def test_collect_exports_1():
     ''').strip()
     assert result == expected
 
+def test_collect_exports_module_1():
+    with tempfile.TemporaryDirectory() as d:
+        os.mkdir(os.path.join(d, 'test_mod'))
+        with open(os.path.join(d, 'test_mod', '__init__.py'), 'w') as f:
+            f.write(dedent('''
+                # test_mod/__init__.py
+
+                from .submod import e
+
+                a = 1
+                b = 2
+                c = 3
+                d = 4
+
+                print("The test_mod code is being executed")
+
+            ''').lstrip())
+        with open(os.path.join(d, 'test_mod', 'submod.py'), 'w') as f:
+            f.write(dedent('''
+                # test_mod/submod.py
+
+                e = 5
+                f = 6
+            ''').lstrip())
+
+        env = os.environ.copy()
+        env['PYTHONPATH'] = '.'
+        result = pipe([BIN_DIR+"/collect-exports", 'test_mod'], cwd=d, env=env)
+        # TODO: Make this work statically
+        expected = dedent('''
+            The test_mod code is being executed
+            from   test_mod                 import a, b, c, d, e
+        ''').strip()
+        assert result == expected
+
+
+def test_collect_exports_module_2():
+    with tempfile.TemporaryDirectory() as d:
+        os.mkdir(os.path.join(d, 'test_mod'))
+        with open(os.path.join(d, 'test_mod', '__init__.py'), 'w') as f:
+            f.write(dedent('''
+                # test_mod/__init__.py
+
+                __all__ = ['a', 'b', 'e']
+
+                from .submod import e
+
+                a = 1
+                b = 2
+                c = 3
+                d = 4
+
+                print("The test_mod code is being executed")
+
+            ''').lstrip())
+        with open(os.path.join(d, 'test_mod', 'submod.py'), 'w') as f:
+            f.write(dedent('''
+                # test_mod/submod.py
+
+                e = 5
+                f = 6
+            ''').lstrip())
+
+        env = os.environ.copy()
+        env['PYTHONPATH'] = '.'
+        result = pipe([BIN_DIR+"/collect-exports", 'test_mod'], cwd=d, env=env)
+
+        expected = dedent('''
+            from   test_mod                 import a, b, e
+        ''').strip()
+        assert result == expected
 
 def test_find_import_1():
     result = pipe([BIN_DIR+"/find-import", "np"])
