@@ -278,6 +278,7 @@ def test_collect_exports_module_1():
 
                 from .submod import e
 
+                _private = 0
                 a = 1
                 b = 2
                 c = 3
@@ -316,6 +317,7 @@ def test_collect_exports_module_2():
 
                 from .submod import e
 
+                _private = 0
                 a = 1
                 b = 2
                 c = 3
