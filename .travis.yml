@@ -36,6 +36,7 @@ install:
     else
         pip install -U git+https://github.com/asmeurer/jupyter_console@display_completions;
         pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8 'notebook<6.1';
+        pip install 'prompt_toolkit<3.0.6';
     fi
   - if [[ "${DOCS}" == "true" ]]; then
         pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints;
