@@ -1839,6 +1839,10 @@ class AutoImporter(object):
                 logger.debug("reset_auto_importer_state(%r)", line)
                 self.reset_state_new_cell()
                 return line
+            # on IPython 7.17 (July 2020) or above, the check_complete 
+            # path of the code will not call  transformer that have this magic attribute 
+            # when trying to check whether the code is complete. 
+            reset_auto_importer_state.has_side_effect = True
             ip.input_transformers_cleanup.append(reset_auto_importer_state)
             return True
         elif hasattr(ip, "input_transformer_manager"):

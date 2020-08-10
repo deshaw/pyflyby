@@ -1878,13 +1878,21 @@ def test_autoimport_autocall_arg_1():
             [PYFLYBY] from base64 import b64decode
             Out[2]: 'KEYBOARD'
         """, autocall=True)
-    else:
+    elif IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
             ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'KEYBOARD'
+        """, autocall=True)
+    else:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
             ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
             [PYFLYBY] from base64 import b64decode
             Out[2]: b'KEYBOARD'
@@ -1901,7 +1909,7 @@ def test_autoimport_autocall_function_1():
             ------> b64decode('bW91c2U=')
             Out[2]: 'mouse'
         """, autocall=True)
-    else:
+    elif IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -1909,6 +1917,14 @@ def test_autoimport_autocall_function_1():
             In [2]: b64decode 'bW91c2U='
             [PYFLYBY] from base64 import b64decode
             ------> b64decode('bW91c2U=')
+            ------> b64decode('bW91c2U=')
+            Out[2]: b'mouse'
+        """, autocall=True)
+    else:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: b64decode 'bW91c2U='
+            [PYFLYBY] from base64 import b64decode
             ------> b64decode('bW91c2U=')
             Out[2]: b'mouse'
         """, autocall=True)
@@ -2271,7 +2287,7 @@ def test_complete_symbol_autocall_arg_1():
             [PYFLYBY] from base64 import b64decode
             Out[2]: 'CHEWBACCA'
         """, autocall=True)
-    else:
+    elif IPython.version_info < (7,17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2282,6 +2298,16 @@ def test_complete_symbol_autocall_arg_1():
             [PYFLYBY] from base64 import b64decode
             Out[2]: b'CHEWBACCA'
         """, autocall=True)
+    else:
+        # IPython 7.17+ shoudl have fixed double autocall
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
+            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'CHEWBACCA'
+        """, autocall=True)
+
 
 @retry
 def test_complete_symbol_any_module_1(frontend, tmp):
