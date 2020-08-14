@@ -155,7 +155,11 @@ setup(
     description = ("pyflyby - Python development productivity tools, in particular automatic import management"),
     license = "MIT",
     keywords = "pyflyby py autopython autoipython productivity automatic imports autoimporter tidy-imports",
-    url = "http://packages.python.org/pyflyby",
+    url = "https://pypi.org/project/pyflyby/",
+    project_urls={
+          'Documentation': 'https://deshaw.github.io/pyflyby/',
+          'Source'       : 'https://github.com/deshaw/pyflyby',
+      }
     package_dir={'': 'lib/python'},
     packages=['pyflyby'],
     entry_points={'console_scripts':
