@@ -1295,3 +1295,14 @@ def test_parsable_missing_flags_no_auto_flags_1():
 def test_parsable_missing_flags_auto_flags_1():
     block = PythonBlock("print(3, file=4)", auto_flags=True)
     assert block.parsable
+
+@pytest.mark.skipif(sys.version_info < (3,7), reason='invalid early python syntax')
+@pytest.mark.parametrize('input', [
+    "print(abc=123, *args, **kwargs)",
+    "print(*args, ijk=123, **kwargs)",
+    "print(7, *args, **kwargs)",
+    "print(*args, 12, **kwargs)",
+    ])
+def test_parsable_Call_Ast_args_kwargs(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node

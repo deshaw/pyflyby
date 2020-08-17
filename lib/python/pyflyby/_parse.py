@@ -115,6 +115,12 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.IfExp):
         assert node._fields == ('test', 'body', 'orelse')
         yield node.body, node.test, node.orelse
+    elif isinstance(node, ast.Call):
+        # call arguments order are lost by ast, re-order them
+        yield node.func
+        args = sorted([(k.value.lineno, k.value.col_offset, k) for k in node.keywords]+
+                      [(k.lineno,k.col_offset, k) for k in node.args])
+        yield [a[2] for a in args]
     elif isinstance(node, ast.ClassDef):
         if six.PY2:
             assert node._fields == ('name', 'bases', 'body', 'decorator_list')
