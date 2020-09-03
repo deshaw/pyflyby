@@ -1821,7 +1821,8 @@ def auto_eval(arg, filename=None, mode=None,
     :return:
       Result of evaluation (for mode="eval")
     """
-    flags = CompilerFlags(flags)
+    if isinstance(flags, int):
+        assert isinstance(flags, CompilerFlags)
     if isinstance(arg, (six.string_types, Filename, FileText, PythonBlock)):
         block = PythonBlock(arg, filename=filename, flags=flags,
                             auto_flags=auto_flags)

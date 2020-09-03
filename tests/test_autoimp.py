@@ -22,6 +22,7 @@ from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
                                         scan_for_import_issues)
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
+from   pyflyby._flags           import CompilerFlags
 
 
 @pytest.fixture
@@ -1670,11 +1671,11 @@ def test_auto_eval_exec_1():
 
 def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
     if PY2:
-        auto_eval("print 3.00", flags=0, auto_flags=False)
+        auto_eval("print 3.00", flags=None, auto_flags=False)
         out, _ = capsys.readouterr()
         assert out == "3.0\n"
     else:
-        auto_eval("print(3.00)", flags=0, auto_flags=False)
+        auto_eval("print(3.00)", flags=CompilerFlags.from_int(0), auto_flags=False)
         out, _ = capsys.readouterr()
         assert out == "3.0\n"
 
@@ -1688,7 +1689,7 @@ def test_auto_eval_no_auto_flags_ps_flag_pf1():
     reason="print function is not invalid syntax in Python 3.")
 def test_auto_eval_no_auto_flags_pf_flagps_1():
     with pytest.raises(SyntaxError):
-        auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=False)
+        auto_eval("print(3.00, file=sys.stdout)", flags=None, auto_flags=False)
 
 
 def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
@@ -1700,31 +1701,31 @@ def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
 
 def test_auto_eval_auto_flags_ps_flagps_1(capsys):
     if PY2:
-        auto_eval("print 3.00", flags=0, auto_flags=True)
+        auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
         out, _ = capsys.readouterr()
         assert out == "3.0\n"
     else:
         with pytest.raises(SyntaxError):
-            auto_eval("print 3.00", flags=0, auto_flags=True)
+            auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
 
 @pytest.mark.skipif(
     PY3,
     reason="print not as a function cannot be valid syntax in Python 3.")
 def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
-    auto_eval("print 3.00", flags="print_function", auto_flags=True)
+    auto_eval("print 3.00", flags=CompilerFlags("print_function"), auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "3.0\n"
 
 
 def test_auto_eval_auto_flags_pf_flagps_1(capsys):
-    auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=True)
+    auto_eval("print(3.00, file=sys.stdout)", flags=CompilerFlags.from_int(0), auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import sys\n3.0\n"
 
 
 def test_auto_eval_auto_flags_pf_flag_pf1(capsys):
     auto_eval("print(3.00, file=sys.stdout)",
-              flags="print_function", auto_flags=True)
+              flags=CompilerFlags("print_function"), auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import sys\n3.0\n"
 

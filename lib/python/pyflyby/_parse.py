@@ -218,7 +218,6 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
       ``ast.Module``
     """
     text = FileText(text)
-    flags = CompilerFlags(flags)
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
@@ -252,7 +251,7 @@ def _test_parse_string_literal(text, flags):
     Attempt to parse ``text``.  If it parses cleanly to a single string
     literal, return its value.  Otherwise return ``None``.
 
-      >>> _test_parse_string_literal(r'"foo\n" r"\nbar"', 0)
+      >>> _test_parse_string_literal(r'"foo\n" r"\nbar"', None)
       'foo\n\\nbar'
 
     """
@@ -752,7 +751,7 @@ class PythonStatement(object):
     Representation of a top-level Python statement or consecutive
     comments/blank lines.
 
-      >>> PythonStatement('print("x",\n file=None)\n', flags=0x10000)
+      >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')  #doctest: +SKIP
       PythonStatement('print("x",\n file=None)\n', flags=0x10000)
 
     Implemented as a wrapper around a `PythonBlock` containing at most one

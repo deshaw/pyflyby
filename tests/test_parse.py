@@ -9,6 +9,7 @@ from __future__ import (absolute_import, division, print_function,
 import pytest
 import sys
 from   textwrap                 import dedent
+import warnings
 
 from   six                      import PY2, PY3
 
@@ -17,11 +18,23 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._parse           import PythonBlock, PythonStatement
 
 
+if sys.version_info < (3, 8, 3):
+    print_function_flag = CompilerFlags.from_int(0x10000)
+else:
+    print_function_flag = CompilerFlags.from_int(0x100000)
+
+
 def test_PythonBlock_FileText_1():
-    text = FileText(dedent('''
+    text = FileText(
+        dedent(
+            """
         foo()
         bar()
-    ''').lstrip(), filename="/foo/test_PythonBlock_1.py", startpos=(101,55))
+    """
+        ).lstrip(),
+        filename="/foo/test_PythonBlock_1.py",
+        startpos=(101, 55),
+    )
     block = PythonBlock(text)
     assert text is block.text
     assert text is FileText(block)
@@ -466,87 +479,126 @@ def test_PythonBlock_flags_good_1():
 
 def test_PythonBlock_flags_1():
     block = PythonBlock('print("x",\n file=None)\n', flags="print_function")
-    assert block.flags == CompilerFlags(0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert block.flags == print_function_flag
 
 
 def test_PythonBlock_flags_deduce_1():
-    block = PythonBlock(dedent('''
+    block = PythonBlock(
+        dedent(
+            """
         from __future__ import print_function
         print("x",
               file=None)
-    ''').lstrip())
-    assert block.flags == CompilerFlags(0x10000)
+    """
+        ).lstrip()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert block.flags == print_function_flag
 
 
 def test_PythonBlock_flags_type_comment_1():
-    block = PythonBlock(dedent('''
+    block = PythonBlock(
+        dedent(
+            """
     a = 1 # type: int
-    ''').lstrip())
+    """
+        ).lstrip()
+    )
     if sys.version_info >= (3, 8):
         # Includes the type_comments flag
-        assert block.flags == CompilerFlags(0x01000)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert block.flags == CompilerFlags(0x01000)
     else:
-        assert block.flags == CompilerFlags(0x0000)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert block.flags == CompilerFlags(0x0000)
 
 
 def test_PythonBlock_flags_deduce_eq_1():
-    block1 = PythonBlock(dedent('''
+    block1 = PythonBlock(
+        dedent(
+            """
         from __future__ import print_function
         print("x",
               file=None)
-    ''').lstrip())
-    block2 = PythonBlock(dedent('''
-        from __future__ import print_function
-        print("x",
-              file=None)
-    ''').lstrip(), flags=0x10000)
+    """
+        ).lstrip()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        block2 = PythonBlock(
+            dedent(
+                """
+            from __future__ import print_function
+            print("x",
+                  file=None)
+        """
+            ).lstrip(),
+            flags=CompilerFlags.print_function,
+        )
     assert block1 == block2
 
 
 def test_PythonBlock_eqne_1():
     b1a = PythonBlock("foo()\nbar()\n")
     b1b = PythonBlock("foo()\nbar()\n")
-    b2  = PythonBlock("foo()\nBAR()\n")
-    assert     (b1a == b1b)
+    b2 = PythonBlock("foo()\nBAR()\n")
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonBlock_eqne_startpos_1():
     b1a = PythonBlock("foo()\nbar()\n")
-    b1b = PythonBlock("foo()\nbar()\n", startpos=(1,1))
-    b2  = PythonBlock("foo()\nbar()\n", startpos=(1,2))
-    assert     (b1a == b1b)
+    b1b = PythonBlock("foo()\nbar()\n", startpos=(1, 1))
+    b2 = PythonBlock("foo()\nbar()\n", startpos=(1, 2))
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonBlock_eqne_flags_1():
     b1a = PythonBlock("foo", flags="print_function")
-    b1b = PythonBlock("foo", flags=0x10000)
-    b2  = PythonBlock("foo")
-    assert     (b1a == b1b)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        b1b = PythonBlock("foo", flags=CompilerFlags.print_function)
+    b2 = PythonBlock("foo")
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonStatement_from_source_1():
-    stmt = PythonStatement('print("x",\n file=None)\n', flags=0x10000)
-    assert stmt.block == PythonBlock('print("x",\n file=None)\n', flags=0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        stmt = PythonStatement(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
+        assert stmt.block == PythonBlock(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
 
 
 def test_PythonStatement_startpos_1():
-    stmt = PythonStatement('foo()', startpos=(20,30))
-    assert stmt.startpos            == FilePos(20,30)
-    assert stmt.block.startpos      == FilePos(20,30)
-    assert stmt.block.text.startpos == FilePos(20,30)
+    stmt = PythonStatement("foo()", startpos=(20, 30))
+    assert stmt.startpos == FilePos(20, 30)
+    assert stmt.block.startpos == FilePos(20, 30)
+    assert stmt.block.text.startpos == FilePos(20, 30)
 
 
 def test_PythonStatement_from_block_1():
-    block = PythonBlock('print("x",\n file=None)\n', flags=0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        block = PythonBlock(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
     stmt = PythonStatement(block)
     assert stmt.block is block
 
@@ -555,9 +607,8 @@ def test_PythonStatement_bad_from_multi_statements_1():
     with pytest.raises(ValueError):
         PythonStatement("a\nb\n")
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
+
+@pytest.mark.skipif(PY3, reason="print function is not invalid syntax in Python 3.")
 def test_PythonStatement_flags_bad_1():
     # In Python2.x, this should cause a syntax error, since we didn't do
     # flags='print_function':
@@ -1244,7 +1295,9 @@ def test_PythonStatement_flags_1():
                         flags="division")
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
-    assert s1.block.source_flags == CompilerFlags(0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert s1.block.source_flags == CompilerFlags(0)
     if sys.version_info >= (3, 8):
         assert s0.block.flags == CompilerFlags("unicode_literals", "division",)
         assert s1.block.flags == CompilerFlags("unicode_literals", "division",)
@@ -1259,7 +1312,9 @@ def test_PythonStatement_auto_flags_1():
         flags="division", auto_flags=True)
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
-    assert s1.block.source_flags == CompilerFlags(0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert s1.block.source_flags == CompilerFlags(0)
     if PY2:
         expected = CompilerFlags("unicode_literals", "division",
                                  "print_function")
