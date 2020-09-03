@@ -32,10 +32,10 @@ install:
   # in a release.
   # Install ipykernel from master until a version after 5.1.2 is released.
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-        pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8;
+        pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8 wheel;
     else
         pip install -U git+https://github.com/asmeurer/jupyter_console@display_completions;
-        pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.6';
+        pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.6' wheel;
     fi
   - if [[ "${DOCS}" == "true" ]]; then
         pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints;
@@ -46,6 +46,7 @@ script:
   # - set -x
   - set -e
   - shopt -s extglob globstar
+  - python setup.py sdist bdist_wheel
   # pyflakes all files except for known_imports/*, etc/*, and __init__.py,
   # which are all unused imports. We use flake8 so we can use noqa if
   # necessary.
