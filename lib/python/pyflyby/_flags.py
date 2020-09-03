@@ -7,11 +7,18 @@ from __future__ import (absolute_import, division, print_function,
 
 import __future__
 import ast
+import sys
 import operator
 import six
+import warnings
 from   six.moves                import reduce
 
 from   pyflyby._util            import cached_attribute
+
+if sys.version_info >= (3, 9):
+    SHIFT = 0x4
+else:
+    SHIFT = 0
 
 
 # Initialize mappings from compiler_flag to feature name and vice versa.
@@ -29,6 +36,7 @@ for name in dir(ast):
         _NAME2FLAG[flag_name] = flag
 _FLAGNAME_ITEMS = sorted(_FLAG2NAME.items())
 _ALL_FLAGS = reduce(operator.or_, _FLAG2NAME.keys())
+
 
 
 class CompilerFlags(int):
@@ -77,7 +85,10 @@ class CompilerFlags(int):
             elif arg is None:
                 return cls._ZERO
             elif isinstance(arg, int):
-                return cls.from_int(arg)
+                warnings.warn('creating CompilerFlags from integers is deprecated, '
+                ' flags values change between Python versions. If you are sure use .from_int',
+                DeprecationWarning, stacklevel=2)
+                return cls.from_int(arg << SHIFT)
             elif isinstance(arg, six.string_types):
                 return cls.from_str(arg)
             elif isinstance(arg, ast.AST):
@@ -148,24 +159,27 @@ class CompilerFlags(int):
     def __or__(self, o):
         if o == 0:
             return self
-        o = CompilerFlags(o)
+        if not isinstance(o, CompilerFlags):
+            o = CompilerFlags(o)
         if self == 0:
             return o
-        return CompilerFlags(int(self) | int(o))
+        return CompilerFlags.from_int(int(self) | int(o))
 
     def __ror__(self, o):
         return self | o
 
     def __and__(self, o):
-        o = CompilerFlags(o)
-        return CompilerFlags(int(self) & int(o))
+        if not isinstance(o, CompilerFlags):
+            o = CompilerFlags(o)
+        return CompilerFlags.from_int(int(self) & int(o))
 
     def __rand__(self, o):
         return self & o
 
     def __xor__(self, o):
-        o = CompilerFlags(o)
-        return CompilerFlags(int(self) ^ int(o))
+        if not isinstance(o, CompilerFlags):
+            o = CompilerFlags(o)
+        return CompilerFlags.from_int(int(self) ^ int(o))
 
     def __rxor__(self, o):
         return self ^ o

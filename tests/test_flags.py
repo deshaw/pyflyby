@@ -16,14 +16,8 @@ from   pyflyby._flags           import CompilerFlags
 
 import sys
 
-SHIFT = 0x0
-if sys.version_info >= (3, 9):
-    # in 3.9 flags values have shifted by 0x4 to avoid conflicts. 
-    SHIFT = 0x4
-
-
 def test_CompilerFlags_1():
-    assert int(CompilerFlags(0x18000 << SHIFT)) == 0x18000 << SHIFT
+    assert int(CompilerFlags(0x18000)) == 0x18000
 
 
 def test_CompilerFlags_zero_1():
@@ -31,10 +25,10 @@ def test_CompilerFlags_zero_1():
 
 
 def test_CompilerFlags_eqne_1():
-    assert      CompilerFlags(0x18000 <<SHIFT) == CompilerFlags(0x18000 <<SHIFT)
-    assert not (CompilerFlags(0x18000 <<SHIFT) != CompilerFlags(0x18000 <<SHIFT))
-    assert      CompilerFlags(0x18000 <<SHIFT) != CompilerFlags(0x10000 <<SHIFT)
-    assert not (CompilerFlags(0x18000 <<SHIFT) == CompilerFlags(0x10000 <<SHIFT))
+    assert      CompilerFlags(0x18000) == CompilerFlags(0x18000)
+    assert not (CompilerFlags(0x18000) != CompilerFlags(0x18000))
+    assert      CompilerFlags(0x18000) != CompilerFlags(0x10000)
+    assert not (CompilerFlags(0x18000) == CompilerFlags(0x10000))
 
 
 def test_CompilerFlags_eqne_other_1():
@@ -42,43 +36,43 @@ def test_CompilerFlags_eqne_other_1():
 
 
 def test_CompilerFlags_names_1():
-    assert CompilerFlags(0x18000 << SHIFT).names == ("with_statement", "print_function")
+    assert CompilerFlags(0x18000).names == ("with_statement", "print_function")
 
 
 def test_CompilerFlags_from_int_multi_1():
-    assert CompilerFlags(0x10000 << SHIFT, 0x8000 << SHIFT) == CompilerFlags(0x18000 <<SHIFT)
-    assert CompilerFlags(0x10000 << SHIFT, 0x8000 << SHIFT, 0) == CompilerFlags(0x18000 << SHIFT)
+    assert CompilerFlags(0x10000, 0x8000) == CompilerFlags(0x18000)
+    assert CompilerFlags(0x10000, 0x8000, 0) == CompilerFlags(0x18000)
 
 
 def test_CompilerFlags_from_CompilerFlags_1():
-    result = CompilerFlags(CompilerFlags(0x10000 << SHIFT), CompilerFlags(0x8000 << SHIFT))
-    assert result == CompilerFlags(0x18000 << SHIFT)
+    result = CompilerFlags(CompilerFlags(0x10000), CompilerFlags(0x8000))
+    assert result == CompilerFlags(0x18000)
 
 
 def test_CompilerFlags_from_names_multi_1():
     result = CompilerFlags("with_statement", "print_function")
-    assert result == CompilerFlags(0x18000 << SHIFT)
+    assert result == CompilerFlags(0x18000)
 
 
 def test_CompilerFlags_from_names_single_1():
     result = CompilerFlags("with_statement")
-    assert result == CompilerFlags(0x8000 << SHIFT)
+    assert result == CompilerFlags(0x8000)
 
 
 def test_CompilerFlags_from_names_list_1():
     result = CompilerFlags(["with_statement", "print_function"])
-    assert result == CompilerFlags(0x18000 << SHIFT)
+    assert result == CompilerFlags(0x18000)
 
 
 def test_CompilerFlags_from_mixed_multi_1():
-    result = CompilerFlags("print_function", 0x8000 << SHIFT, CompilerFlags("division"))
-    assert result == CompilerFlags(0x1a000 << SHIFT)
+    result = CompilerFlags("print_function", 0x8000, CompilerFlags("division"))
+    assert result == CompilerFlags(0x1a000)
 
 
 def test_CompilerFlags_from_ast_1():
     node = ast.parse("from __future__ import with_statement, print_function")
     result = CompilerFlags(node)
-    assert result == CompilerFlags(0x18000 << SHIFT)
+    assert result == CompilerFlags(0x18000)
 
 
 @pytest.mark.skipif(
@@ -104,4 +98,4 @@ def test_CompilerFlags_bad_int_1():
 
 def test_CompilerFlags_bad_multi_int_1():
     with pytest.raises(ValueError):
-        CompilerFlags((0x8000^1) << SHIFT, 0)
+        CompilerFlags((0x8000^1), 0)
