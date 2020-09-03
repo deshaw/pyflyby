@@ -14,8 +14,6 @@ import pytest
 
 from   pyflyby._flags           import CompilerFlags
 
-import sys
-
 def test_CompilerFlags_1():
     assert int(CompilerFlags(0x18000)) == 0x18000
 
