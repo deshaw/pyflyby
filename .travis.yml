@@ -20,11 +20,30 @@ matrix:
       dist: xenial
       env:
         - LINT="true"
+    - os: osx
+      language: generic
+      python: 3.7
+      env: TRAVIS_PYTHON_VERSION=3.7
     - python: 3.7
       env:
         - DOCS="true"
         # Doctr deploy key for pyflyby/pyflyby
         - secure: "hLezkTmoSLQIKKll+vzfhqxqIR6fekQrjigNcOYT6iUGElB0xRgCdHcHWvb/VHEDqcsIz7OgicrCiWulwo/qzHgm7Lz+T+cqXtslD84X0z81HwKhn6d1cFdo7G2QWWuzGPCTYEIHqFfGcqpOLxXBr7wfkK1o0tp5WPFhKyfS6IvYvr6CLQXbILyaUnwVTbro+UWkCIXihpVNtVfxwXmdTEo+S4sFqCshza0odPFFnb9y9hnyA+uYpaPJMIUnpXzNUbZkoBk9mE351oXBVvGBaAkohC9YoulbrgasXo+XHAGChFagP5/gHw2Xl2niVbc7EpJdVEe7ouLT6R9nc65MBi0Na5oO2bwQMFoaoIeyGq8R2HXGo48Y3GC5PcqAxCMGSlpkBV8bR6VlhZj2yUh2fXleMhV45i492cjsl+AXyVVxPWE2F0afopHr+S5NbRqN6A3Ld8JwDoQatHXkJKHsxXvfufRFXAgkoHFVLlO0YL7L7uJzMhNCds0/abfjGmqSOB9ihYHsW6roPY7258jjn3sfasDsXjKvmmtTc0IKjX/D/woruP3kpq8417dzhQz/YBFuj8NE6p64fXN1DOJhPEpU5JTZaV0LjtIQvVnuQnau6xlpAH/jk7fO2LWhu+c7/BPXrQhZB2EvQ6XahEtyoIDdn+F+DoI39iZ9JGKnxWQ="
+
+before_install:
+  - |
+    # install Python on macOS
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      env | sort
+      if ! which python$TRAVIS_PYTHON_VERSION; then
+        HOMEBREW_NO_AUTO_UPDATE=1 brew tap minrk/homebrew-python-frameworks
+        HOMEBREW_NO_AUTO_UPDATE=1 brew cask install python-framework-${TRAVIS_PYTHON_VERSION/./}
+      fi
+      python3 -m pip install virtualenv
+      python3 -m virtualenv -p $(which python$TRAVIS_PYTHON_VERSION) ~/travis-env
+      source ~/travis-env/bin/activate
+    fi
+  - python --version
 
 install:
   - set -e
@@ -48,8 +67,12 @@ install:
 
 script:
   # - set -x
-  - set -e
-  - shopt -s extglob globstar
+  - |
+    # install Python on macOS
+    if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
+      set -e
+      shopt -s extglob globstar
+    fi
   - python setup.py sdist bdist_wheel
   # pyflakes all files except for known_imports/*, etc/*, and __init__.py,
   # which are all unused imports. We use flake8 so we can use noqa if
