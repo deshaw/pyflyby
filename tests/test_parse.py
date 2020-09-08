@@ -1306,3 +1306,18 @@ def test_parsable_missing_flags_auto_flags_1():
 def test_parsable_Call_Ast_args_kwargs(input):
     block = PythonBlock(input, auto_flags=True)
     assert block.annotated_ast_node
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="invalid early python syntax")
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+def func(x: List[int], y: List[int]) -> List[int]:
+    return x + y
+"""
+    ],
+)
+def test_parsable_annotation_order(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
