@@ -181,12 +181,12 @@ def test_ImportStatement_relative_local_1():
 
 def test_ImportStatement_flags_1():
     stmt = ImportStatement("from __future__ import division, print_function")
-    assert stmt.flags == CompilerFlags(0x12000)
+    assert stmt.flags == CompilerFlags('division', 'print_function')
 
 
 def test_ImportStatement_flags_2():
     stmt = ImportStatement("from _future__ import division, print_function")
-    assert stmt.flags == CompilerFlags(0)
+    assert stmt.flags == CompilerFlags.from_int(0)
 
 
 def test_ImportStatement_eqne_1():

@@ -262,9 +262,15 @@ def test_collect_imports_include_dot_1():
 
 def test_collect_exports_1():
     result = pipe([BIN_DIR+"/collect-exports", "fractions"])
-    expected = dedent('''
-        from   fractions                import Fraction, gcd
-    ''').strip()
+    if sys.version_info < (3,9):
+        expected = dedent('''
+            from   fractions                import Fraction, gcd
+        ''').strip()
+    else:
+        expected = dedent('''
+            from   fractions                import Fraction
+        ''').strip()
+
     assert result == expected
 
 

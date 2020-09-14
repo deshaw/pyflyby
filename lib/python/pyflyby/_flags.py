@@ -10,9 +10,9 @@ import ast
 import operator
 import six
 from   six.moves                import reduce
+import warnings
 
 from   pyflyby._util            import cached_attribute
-
 
 # Initialize mappings from compiler_flag to feature name and vice versa.
 _FLAG2NAME = {}
@@ -31,17 +31,18 @@ _FLAGNAME_ITEMS = sorted(_FLAG2NAME.items())
 _ALL_FLAGS = reduce(operator.or_, _FLAG2NAME.keys())
 
 
+
 class CompilerFlags(int):
     """
     Representation of Python "compiler flags", i.e. features from __future__.
 
-      >>> print(CompilerFlags(0x18000).__interactive_display__())
+      >>> print(CompilerFlags(0x18000).__interactive_display__()) # doctest: +SKIP
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print(CompilerFlags(0x10000, 0x8000).__interactive_display__())
+      >>> print(CompilerFlags(0x10000, 0x8000).__interactive_display__()) # doctest: +SKIP
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__())
+      >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__()) # doctest: +SKIP
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
     This can be used as an argument to the built-in compile() function. For
@@ -77,6 +78,9 @@ class CompilerFlags(int):
             elif arg is None:
                 return cls._ZERO
             elif isinstance(arg, int):
+                warnings.warn('creating CompilerFlags from integers is deprecated, '
+                ' flags values change between Python versions. If you are sure use .from_int',
+                DeprecationWarning, stacklevel=2)
                 return cls.from_int(arg)
             elif isinstance(arg, six.string_types):
                 return cls.from_str(arg)
@@ -88,18 +92,38 @@ class CompilerFlags(int):
                 raise TypeError("CompilerFlags: unknown type %s"
                                 % (type(arg).__name__,))
         else:
-            flags = [int(cls(x)) for x in args]
+            flags = []
+            for x in args:
+                if isinstance(x, cls):
+                    flags.append(int(x))
+                elif isinstance(x, int):
+                    warnings.warn(
+                        "creating CompilerFlags from integers is deprecated, "
+                        " flags values change between Python versions. If you are sure use .from_int",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    flags.append(x)
+                elif isinstance(x, str):
+                    flags.append(int(cls(x)))
+                else:
+                    raise ValueError
+
+            #assert flags == [0x10000, 0x8000], flags
+                
             return cls.from_int(reduce(operator.or_, flags))
 
     @classmethod
     def from_int(cls, arg):
+        if arg == -1:
+            return cls._UNKNOWN  # Instance optimization
         if arg == 0:
             return cls._ZERO # Instance optimization
         self = int.__new__(cls, arg)
         bad_flags = int(self) & ~_ALL_FLAGS
         if bad_flags:
             raise ValueError(
-                "CompilerFlags: unknown flag value(s) %s" % (bin(bad_flags),))
+                "CompilerFlags: unknown flag value(s) %s %s" % (bin(bad_flags), hex(bad_flags)))
         return self
 
     @classmethod
@@ -148,24 +172,27 @@ class CompilerFlags(int):
     def __or__(self, o):
         if o == 0:
             return self
-        o = CompilerFlags(o)
+        if not isinstance(o, CompilerFlags):
+            o = CompilerFlags(o)
         if self == 0:
             return o
-        return CompilerFlags(int(self) | int(o))
+        return CompilerFlags.from_int(int(self) | int(o))
 
     def __ror__(self, o):
         return self | o
 
     def __and__(self, o):
-        o = CompilerFlags(o)
-        return CompilerFlags(int(self) & int(o))
+        if not isinstance(o, int):
+            o = CompilerFlags(o)
+        return CompilerFlags.from_int(int(self) & int(o))
 
     def __rand__(self, o):
         return self & o
 
     def __xor__(self, o):
-        o = CompilerFlags(o)
-        return CompilerFlags(int(self) ^ int(o))
+        if not isinstance(o, CompilerFlags):
+            o = CompilerFlags.from_int(o)
+        return CompilerFlags.from_int(int(self) ^ int(o))
 
     def __rxor__(self, o):
         return self ^ o
@@ -184,3 +211,26 @@ class CompilerFlags(int):
 
 
 CompilerFlags._ZERO = int.__new__(CompilerFlags, 0)
+CompilerFlags._UNKNOWN = int.__new__(CompilerFlags, -1)
+
+# flags that _may_ exists on future versions.
+_future_flags = {
+    "nested_scopes",
+    "generators",
+    "division",
+    "absolute_import",
+    "with_statement",
+    "print_function",
+    "unicode_literals",
+    "barry_as_FLUFL",
+    "generator_stop",
+    "annotations",
+    "allow_top_level_await",
+    "only_ast",
+    "type_comments",
+}
+for k in _future_flags:
+    setattr(CompilerFlags, k, CompilerFlags._UNKNOWN)
+
+for k, v in _NAME2FLAG.items():
+    setattr(CompilerFlags, k, CompilerFlags.from_int(v))

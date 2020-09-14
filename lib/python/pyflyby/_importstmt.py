@@ -269,7 +269,7 @@ class Import(object):
         if self.split.module_name == "__future__":
             return CompilerFlags(self.split.member_name)
         else:
-            return CompilerFlags(0)
+            return CompilerFlags.from_int(0)
 
     @property
     def _data(self):
