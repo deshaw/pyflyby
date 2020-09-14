@@ -95,7 +95,6 @@ class CompilerFlags(int):
             flags = []
             for x in args:
                 if isinstance(x, cls):
-                    #assert False
                     flags.append(int(x))
                 elif isinstance(x, int):
                     warnings.warn(
