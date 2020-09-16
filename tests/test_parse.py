@@ -1376,3 +1376,19 @@ def func(x: List[int], y: List[int]) -> List[int]:
 def test_parsable_annotation_order(input):
     block = PythonBlock(input, auto_flags=True)
     assert block.annotated_ast_node
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="invalid early python syntax")
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+x = 123
+fail_here = f"{x.stem} is no-op. \\
+(Do we need to delete this still?)"
+"""
+    ],
+)
+def test_join_formatted_string_columns(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
