@@ -345,6 +345,18 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     :raise ValueError:
       Could not find the starting line number.
     """
+    # joined strings and children do not carry a column offset on pre-3.8
+    # this prevent reformatting.
+    # set the column offset to the parent value before 3.8
+    if (3, 6) < sys.version_info < (3, 8):
+        if (
+            isinstance(ast_node, getattr(ast, "JoinedStr", None))
+            or isinstance(
+                parent_ast_node, (getattr(ast, "JoinedStr", None), ast.FormattedValue)
+            )
+        ) and ast_node.col_offset == -1:
+            ast_node.col_offset = parent_ast_node.col_offset
+
     # First, traverse child nodes.  If the first child node (recursively) is a
     # multiline string, then we need to transfer its information to this node.
     # Walk all nodes/fields of the AST.  We implement this as a custom
