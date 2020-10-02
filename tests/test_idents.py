@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pyflyby/test_idents.py
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
