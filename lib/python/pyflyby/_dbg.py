@@ -5,7 +5,6 @@
 from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
-from   collections              import Callable
 from   contextlib               import contextmanager
 import errno
 from   functools                import wraps
@@ -18,6 +17,11 @@ from   types                    import CodeType, FrameType, TracebackType
 
 import six
 from   six.moves                import builtins
+
+if six.PY3:
+    from   collections.abc          import Callable
+else:
+    from   collections              import Callable
 
 from   pyflyby._file            import Filename
 

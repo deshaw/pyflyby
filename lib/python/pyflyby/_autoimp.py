@@ -6,7 +6,6 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
-from collections import Sequence
 import contextlib
 import copy
 import six
@@ -14,6 +13,13 @@ from   six                      import PY2, PY3, exec_, reraise
 from   six.moves                import builtins
 import sys
 import types
+
+if PY3:
+    from collections.abc import Sequence
+else:
+    # This is deprecated in Python 3
+    from collections import Sequence
+
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
