@@ -117,6 +117,13 @@ def is_identifier(s, dotted=False, prefix=False):
     if not isinstance(s, six.string_types):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))
+    if six.PY3:
+        if prefix:
+            return is_identifier(s + '_', dotted=dotted, prefix=False)
+        if dotted:
+            return all(is_identifier(w, dotted=False) for w in s.split('.'))
+        return s.isidentifier() and not _my_iskeyword(s)
+
     if prefix:
         if not s:
             return True
