@@ -1489,6 +1489,14 @@ def get_known_import(fullname, db=None):
             logger.debug("get_known_import(%r): no known import for %r", fullname, partial_name)
             pass
     logger.debug("get_known_import(%r): found nothing", fullname)
+    """
+    # Write unknown imports to file which can later be removed as encountered
+    target_filename = Filename(target_filename or ".")
+    if target_filename.startswith("/dev"):
+        target_filename = Filename(".")
+    target_dirname = target_filename
+    write_file(target_dirname+"/unknown.py", fullname)
+    """
     return None
 
 
