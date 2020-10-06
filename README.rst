@@ -26,6 +26,21 @@ For editing python source code:
     in the form of import statements.
   * ``transform-imports``: renames imported modules/functions.
 
+Installation
+============
+
+.. code:: bash
+
+    $ pip install pyflyby
+
+This creates an alias for your `ipython` named `py` which runs the `pyflyby` plug internally.
+ `pyflyby` has a dependency on `ipython`, if it isn't already installed do install it with:
+
+.. code:: bash
+
+    $ pip install ipython
+
+
 Quick start: Autoimporter + IPython
 ===================================
 
