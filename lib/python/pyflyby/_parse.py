@@ -498,6 +498,9 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
 
+    if isinstance(target_str, bytes) and sys.version_info[:2] == (3, 7):
+        target_str = target_str.decode()
+
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
     # file.  This could be because of a dastardly concatenated string like
@@ -556,6 +559,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             # string literal.
             subtext = text[startpos:endpos]
             candidate_str = _test_parse_string_literal(subtext, flags)
+            if isinstance(candidate_str, bytes) and sys.version_info[:2] == (3, 7):
+                candidate_str = candidate_str.decode()
             if candidate_str is None:
                 continue
             elif target_str == candidate_str:
