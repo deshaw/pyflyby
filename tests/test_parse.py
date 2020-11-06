@@ -1382,6 +1382,42 @@ def test_parsable_annotation_order(input):
 @pytest.mark.parametrize(
     "input",
     [
+        '''x='abc'
+f"""\
+This is a
+multi-line
+f-string
+with input {x}.\
+"""
+''',
+        '''x=123
+f"""\
+{x}
+is the value x
+"""
+''',
+        '''x=456
+f"""{x}
+is the value x
+"""
+''',
+        '''x=123
+f"""\
+In the middle
+{x}
+is the value.
+"""
+''',
+    ],
+)
+def test_parse_f_string_ast_ann(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="invalid early python syntax")
+@pytest.mark.parametrize(
+    "input",
+    [
         """
 x = 123
 fail_here = f"{x.stem} is no-op. \\
