@@ -1392,3 +1392,25 @@ fail_here = f"{x.stem} is no-op. \\
 def test_join_formatted_string_columns(input):
     block = PythonBlock(input, auto_flags=True)
     assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        '''b"""
+two
+""" b"""
+four
+five
+six
+"""
+''',
+        '''
+print(b"""
+""", sep="")
+''',
+    ],
+)
+def test_bytes_concat(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
