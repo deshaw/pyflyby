@@ -426,6 +426,11 @@ class _MissingImportFinder(object):
                 self.visit(item)
         elif isinstance(node, ast.AST):
             method = 'visit_' + node.__class__.__name__
+            if not hasattr(self, method):
+                logger.debug(
+                    "_MissingImportFinder has no method %r, using generic_visit", method
+                )
+
             visitor = getattr(self, method, self.generic_visit)
             return visitor(node)
         else:
@@ -527,6 +532,9 @@ class _MissingImportFinder(object):
         # The class's name is only visible to others (not to the body to the
         # class).
         self._visit_Store(node.name)
+
+    def visit_AsyncFunctionDef(self, node):
+        return self.visit_FunctionDef(node)
 
     def visit_FunctionDef(self, node):
         # Visit a function definition.
