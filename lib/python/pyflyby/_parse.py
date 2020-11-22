@@ -29,6 +29,7 @@ if PY3:
 else:
     Bytes = ast.Str
 
+
 def _is_comment_or_blank(line):
     """
     Returns whether a line of python code contains only a comment is blank.
@@ -350,7 +351,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     # set the column offset to the parent value before 3.8
     if (3, 6) < sys.version_info < (3, 8):
         if (
-            isinstance(ast_node, getattr(ast, "JoinedStr", None))
+            isinstance(ast_node, (getattr(ast, "JoinedStr", None), ast.FormattedValue))
             or isinstance(
                 parent_ast_node, (getattr(ast, "JoinedStr", None), ast.FormattedValue)
             )
@@ -475,6 +476,11 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
     # It should now be the case that we are looking at a multi-line string
     # literal.
+    if sys.version_info >= (3, 6) and isinstance(ast_node, ast.FormattedValue):
+        ast_node.startpos = ast_node.value.startpos
+        ast_node.endpos = ast_node.value.startpos
+
+        return True
     if not isinstance(ast_node, (ast.Str, Bytes)):
         raise ValueError(
             "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
@@ -517,6 +523,10 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     # have much to go on to figure out that the real end_lineno is 7.  If we
     # don't find the string ending on L3, then search forward looking for the
     # real end of the string.  Yuck!
+    #
+    # This is now complicated by fstrings that do interpolate variable on 3.7 fixed on 3.8+)
+    # where we'll try to guess based on prefix
+    f_string_candidate_prefixes = []
     for end_lineno in range(first_end_lineno, text.endpos.lineno+1):
         # Compute possible end positions.  We're given the line we're ending
         # on, but not the column position.  Note that the ending line could
@@ -559,19 +569,34 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             # string literal.
             subtext = text[startpos:endpos]
             candidate_str = _test_parse_string_literal(subtext, flags)
-            if isinstance(candidate_str, bytes) and sys.version_info[:2] == (3, 7):
-                candidate_str = candidate_str.decode()
             if candidate_str is None:
                 continue
-            elif target_str == candidate_str:
+            if isinstance(candidate_str, bytes) and sys.version_info[:2] == (3, 7):
+                candidate_str = candidate_str.decode()
+
+            maybe_fstring = False
+            try:
+                if (3, 6) <= sys.version_info <= (3, 8):
+                    potential_start = text.lines[startpos.lineno - 1]
+                    maybe_fstring = ("f'" in potential_start) or (
+                        'f"' in potential_start
+                    )
+            except IndexError:
+                pass
+
+            if target_str == candidate_str and target_str:
                 # Success!
                 ast_node.startpos = startpos
                 ast_node.endpos   = endpos
                 # This node is a multiline string; and, it's a leaf, so by
                 # definition it is the leftmost node.
-                return True # all done
-            elif target_str.startswith(candidate_str):
+                return True  # all done
+            elif candidate_str and target_str.startswith(candidate_str):
                 matched_prefix.add(startpos)
+            elif maybe_fstring:
+                candidate_prefix = candidate_str.split("{")[0]
+                if candidate_prefix and target_str.startswith(candidate_prefix):
+                    f_string_candidate_prefixes.append((startpos, endpos))
         # We didn't find a string given the current end_lineno candidate.
         # Only continue checking the startpos candidates that so far produced
         # prefixes of the string we're looking for.
@@ -582,9 +607,18 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             for (sq, sp) in startpos_candidates
             if sp in matched_prefix
         ]
-    raise ValueError(
-        "Couldn't find exact position of %s"
-        % (ast.dump(ast_node)))
+    if (3, 6) <= sys.version_info <= (3, 8):
+        if len(f_string_candidate_prefixes) == 1:
+            # we did not find the string but there is one fstring candidate starting it
+
+            ast_node.startpos, ast_node.endpos = f_string_candidate_prefixes[0]
+            return True
+        elif isinstance(parent_ast_node, ast.JoinedStr):
+            self_pos = parent_ast_node.values.index(ast_node)
+            ast_node.startpos = parent_ast_node.values[self_pos - 1].startpos
+            ast_node.endpos = parent_ast_node.values[self_pos - 1].endpos
+            return True
+    raise ValueError("Couldn't find exact position of %s" % (ast.dump(ast_node)))
 
 
 def _annotate_ast_context(ast_node):

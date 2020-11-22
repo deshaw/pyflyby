@@ -1421,6 +1421,7 @@ def _normalize_python_2_3(template):
         print("_normalize_python_2_3() %r => %r" % (template0, template))
     return template
 
+
 @retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
