@@ -964,6 +964,25 @@ def test_fix_unused_imports_dunder_file_1(capsys):
     assert "undefined name '__file__'" not in out
     assert not err
 
+
+def test_x_shadow_comprehension(capsys):
+    input = PythonBlock(
+        dedent(
+            """
+    def f():
+        x = 1
+        y = [x for _ in range(5)]
+        del x
+    """
+        )
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    out, err = capsys.readouterr()
+    assert output == input
+    assert "undefined name 'x'" not in out
+    assert not err
+
 def test_fix_unused_imports_submodule_1():
     input = PythonBlock(dedent('''
         import m2.y
