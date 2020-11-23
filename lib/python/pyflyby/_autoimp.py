@@ -854,8 +854,10 @@ class _MissingImportFinder(object):
             # On the other hand, we intentionally alias the other scopes
             # rather than cloning them, because the point is to allow them to
             # be modified until we do the check at the end.
-            data = (fullname, self.scopestack.clone_top(), self._lineno)
-            self._deferred_load_checks.append(data)
+
+            if symbol_needs_import(fullname, self.scopestack):
+                data = (fullname, self.scopestack.clone_top(), self._lineno)
+                self._deferred_load_checks.append(data)
         else:
             # We're not in a FunctionDef.  Deferring would give us the same
             # result; we do the check now to avoid the overhead of cloning the
