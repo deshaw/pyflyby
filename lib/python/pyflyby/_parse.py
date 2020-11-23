@@ -142,7 +142,7 @@ def _iter_child_nodes_in_order_internal_1(node):
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
-    elif sys.version_info >= (3, 6) and isinstance(node, ast.FormattedValue):
+    elif sys.version_info >= (3, 7) and isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
         yield node.value,
     else:
@@ -349,7 +349,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     # joined strings and children do not carry a column offset on pre-3.8
     # this prevent reformatting.
     # set the column offset to the parent value before 3.8
-    if (3, 6) < sys.version_info < (3, 8):
+    if (3, 7) < sys.version_info < (3, 8):
         if (
             isinstance(ast_node, (getattr(ast, "JoinedStr", None), ast.FormattedValue))
             or isinstance(
@@ -476,7 +476,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
     # It should now be the case that we are looking at a multi-line string
     # literal.
-    if sys.version_info >= (3, 6) and isinstance(ast_node, ast.FormattedValue):
+    if sys.version_info >= (3, 7) and isinstance(ast_node, ast.FormattedValue):
         ast_node.startpos = ast_node.value.startpos
         ast_node.endpos = ast_node.value.startpos
 
@@ -576,7 +576,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
             maybe_fstring = False
             try:
-                if (3, 6) <= sys.version_info <= (3, 8):
+                if (3, 7) <= sys.version_info <= (3, 8):
                     potential_start = text.lines[startpos.lineno - 1]
                     maybe_fstring = ("f'" in potential_start) or (
                         'f"' in potential_start
@@ -607,7 +607,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             for (sq, sp) in startpos_candidates
             if sp in matched_prefix
         ]
-    if (3, 6) <= sys.version_info <= (3, 8):
+    if (3, 7) <= sys.version_info <= (3, 8):
         if len(f_string_candidate_prefixes) == 1:
             # we did not find the string but there is one fstring candidate starting it
 
