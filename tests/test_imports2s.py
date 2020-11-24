@@ -604,6 +604,16 @@ def test_fix_missing_imports_nonlocal_post_store_1():
 
 
 def test_fix_missing_imports_nonlocal_post_del_1():
+    """
+    Calling F2 after the deletion of x2 in the enclosing scope make no sens, it
+    would trigger a:
+
+    NameError: free variable 'x2' referenced before assignment in enclosing scope
+
+    Regardless as to whether x2 is defines at module scope or not.
+
+    Therefore we do not expect x2 to be imported
+    """
     input = PythonBlock(dedent('''
         def F1():
             x1 = x2 = None
@@ -614,7 +624,7 @@ def test_fix_missing_imports_nonlocal_post_del_1():
     db = ImportDB("from m2 import x1, x2, x3, x4")
     output = fix_unused_and_missing_imports(input, db=db)
     expected = PythonBlock(dedent('''
-        from m2 import x2, x3
+        from m2 import x3
 
     ''').lstrip() + str(input))
     assert output == expected
