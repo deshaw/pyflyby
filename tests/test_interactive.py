@@ -663,6 +663,23 @@ class AnsiFilterDecoder(object):
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
+
+        
+        # cursor movement on PTK 3.0.6+ compute the number of back and forth and
+        # insert that many spaces.
+        pat = br"\x1b\[(\d+)D\x1b\[(\d+)C"
+        match = re.search(pat, arg)
+
+        while match:
+            backward, forward = match.groups()
+            backward, forward = int(backward), int(forward)
+            n_spaces = forward - backward
+            start, stop = match.start(), match.end()
+            arg = arg[:start]+n_spaces*b' '+arg[stop:]
+            match = re.search(pat, arg)
+
+
+
         arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
