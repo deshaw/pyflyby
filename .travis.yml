@@ -62,7 +62,7 @@ install:
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
         pip install -U "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8 wheel;
     else
-        pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.6' wheel 'jupyter_console>=6.2';
+        pip install -U "pexpect>=3.3" pyflakes pytest rlipython requests jupyter flaky flake8 'notebook<6.1' prompt_toolkit wheel 'jupyter_console>=6.2';
     fi
   - if [[ "${DOCS}" == "true" ]]; then
         pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints;
