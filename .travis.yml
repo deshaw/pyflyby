@@ -97,7 +97,7 @@ script:
     fi
   - |
     if [[ "${TESTS}" == "true" ]]; then
-        pytest --doctest-modules lib tests;
+        pytest -x --doctest-modules lib tests;
     fi
   # Smoke test tidy-imports on the codebase. This only fails if there is an
   # exception from a bug, but we could also make it fail if there are imports
