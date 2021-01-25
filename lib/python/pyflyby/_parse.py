@@ -447,6 +447,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             startpos = FilePos(startpos.lineno, startpos.colno - lk)
             assert str(text[startpos:(startpos+(0,4))]) == "with"
         ast_node.startpos = startpos
+        if sys.version_info <= (3, 8):
+            ast_node.startpos = max(startpos, minpos)
         return False
 
     assert ast_node.col_offset == -1
