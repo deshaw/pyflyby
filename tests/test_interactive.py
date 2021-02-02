@@ -663,6 +663,8 @@ class AnsiFilterDecoder(object):
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
+        arg = arg.replace(b'?[33m', b'')              # (???)
+        arg = arg.replace(b'?[0m', b'')              # (???)
 
         
         # cursor movement on PTK 3.0.6+ compute the number of back and forth and
