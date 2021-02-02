@@ -1427,7 +1427,22 @@ def test_parse_f_string_ast_ann(input):
 x = 123
 fail_here = f"{x.stem} is no-op. \\
 (Do we need to delete this still?)"
-"""
+""",'''
+BLAH = "blah"
+
+def f(t):
+    pass
+
+f(f"""
+{BLAH}
+""")
+''',
+'''
+def foo():
+    return f"""
+        {name}
+    """
+'''
     ],
 )
 def test_join_formatted_string_columns(input):
