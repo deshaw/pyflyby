@@ -1,6 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
 from   pyflyby._log             import logger
+from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
+from   pyflyby._importstmt      import Import
 import six
 
 # These are comm targets that the frontend (lab/notebook) is expected to
@@ -97,7 +99,23 @@ def comm_open_handler(comm, message):
 
     @comm.on_msg
     def _recv(msg):
+        data = msg["content"]["data"]
+        if data["type"] == FORMATTING_IMPORTS:
+            imports = data.get('imports', None)
+            input_code = data["input_code"]
+            if imports is not None:
+                transform = SourceToSourceFileImportsTransformation(input_code)
 
-        if msg["content"]["data"]["type"] == FORMATTING_IMPORTS:
-            fmt_code = reformat_import_statements(msg["content"]["data"]["input_code"])
+                if isinstance(imports, str):
+                    imports = [imports]
+
+                for imp in imports:
+                    assert isinstance(imp, str)
+                    if not imp.strip():
+                        continue
+                    transform.add_import(Import(imp))
+                input_code = str(transform.output())
+
+
+            fmt_code = reformat_import_statements(input_code)
             comm.send({"formatted_code": str(fmt_code), "type": FORMATTING_IMPORTS})
