@@ -1061,11 +1061,36 @@ def attach_debugger(pid):
     # Inject a call to 'debugger()' into target process.
     # Set on_continue to signal ourselves that we're done.
     on_continue = "lambda: __import__('os').kill(%d, %d)" % (os.getpid(), signal.SIGUSR1)
-    gdb_pid = inject(pid, [
-            "__import__('sys').path.insert(0, %r)" % (pyflyby_lib_path,),
-            ("__import__('pyflyby').debugger(tty=%r, on_continue=%s)"
-             % (terminal.ttyname, on_continue)),
-            ], wait=False)
+
+    # Use Python import machinery to import pyflyby from its directory.
+    #
+    # Adding the path to sys.path might have side effects. For e.g., a package
+    # with the same name as a built-in module could exist in `pyflyby_dir`.
+    # Adding `pyflyby_dir` to sys.path will make the package get imported from
+    # `pyflyby_dir` instead of deferring this decision to the user Python
+    # environment.
+    #
+    # As a concrete example, `typing` module is a package as well a built-in
+    # module from Python version >= 3.5
+    if six.PY2:
+        statements = [(
+            "location = __import__('imp').find_module('pyflyby', ['{pyflyby_dir}'])"
+            .format(pyflyby_dir=pyflyby_lib_path)),
+            "pyflyby = __import__('pkgutil').ImpLoader('pyflyby', *location).load_module('pyflyby')"
+            ]
+    else:
+        statements = [
+            "loader = __import__('importlib').machinery.PathFinder.find_module("
+            "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
+                pyflyby_dir=pyflyby_lib_path),
+            "pyflyby = loader.load_module('pyflyby')"
+        ]
+    statements.append(
+        ("pyflyby.debugger(tty=%r, on_continue=%s)"
+         % (terminal.ttyname, on_continue))
+        )
+
+    gdb_pid = inject(pid, statements=";".join(statements), wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
     # gdb process exits, and make sure the gdb process exits if we exit.
     parent_pid = os.getpid()
