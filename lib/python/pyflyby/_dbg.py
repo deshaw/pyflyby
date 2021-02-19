@@ -33,6 +33,27 @@ and if so what.
 _waiting_for_debugger = None
 
 
+_ORIG_SYS_EXCEPTHOOK = sys.excepthook
+
+def _reset_excepthook():
+    if _ORIG_SYS_EXCEPTHOOK:
+        sys.excepthook = _ORIG_SYS_EXCEPTHOOK
+        return True
+    return False
+
+
+def _override_excepthook(hook):
+    """
+    Override sys.excepthook with `hook` but also support resetting.
+
+    Users should call this function instead of directly overiding
+    sys.excepthook. This is helpful in resetting sys.excepthook in certain cases.
+    """
+    global _ORIG_SYS_EXCEPTHOOK
+    _ORIG_SYS_EXCEPTHOOK = hook
+    sys.excepthook = hook
+
+
 class _NoTtyError(Exception):
     pass
 
@@ -574,6 +595,17 @@ def wait_for_debugger_to_attach(arg, mailto=None, background=False, timeout=8640
     else:
         originalpid = None
     try:
+        # Reset the exception hook after the first exception.
+        #
+        # In case the code injected by the remote client causes some error in
+        # the debugged process, another email is sent for the new exception. This can
+        # lead to an infinite loop of sending mail for each successive exceptions
+        # everytime a remote client tries to connect. Our process might never get
+        # a chance to exit and the remote client might just hang.
+        #
+        if not _reset_excepthook():
+            raise ValueError("Couldn't reset sys.excepthook. Aborting remote "
+                             "debugging.")
         # Send email.
         _send_email_with_attach_instructions(arg, mailto, originalpid=originalpid)
         # Sleep until the debugger to attaches.
@@ -779,7 +811,7 @@ def enable_exception_handler_debugger():
     Enable ``sys.excepthook = debugger`` so that we automatically enter
     the debugger upon uncaught exceptions.
     '''
-    sys.excepthook = debugger
+    _override_excepthook(debugger)
 
 
 # Handle SIGTERM with traceback+exit.
