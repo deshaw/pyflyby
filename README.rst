@@ -417,7 +417,7 @@ Authorship
 This plugin was contributed back to the community by the `D. E. Shaw group
 <https://www.deshaw.com/>`_.
 
-.. image:: https://www.deshaw.com/assets/logos/black_logo_417x125.png
+.. image:: https://www.deshaw.com/assets/logos/blue_logo_417x125.png
    :target: https://www.deshaw.com
    :height: 75 px
 
