@@ -19,7 +19,7 @@ For IPython interaction:
 For editing python source code:
   * ``tidy-imports``: adds missing 'import's, removes unused 'import's,
     and also reformats import blocks.
-  * ``find-imports``: prints to stdout how to import a particular symbol.
+  * ``find-import``: prints to stdout how to import a particular symbol.
   * ``reformat-imports``: reformats ``import`` blocks
   * ``collect-imports``: prints out all the imports in a given set of files.
   * ``collect-exports``: prints out definitions in a given set of modules,
