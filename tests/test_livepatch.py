@@ -1110,6 +1110,34 @@ def test_xreload_dict_1(tpp):
     assert a() == 25077523
 
 
+def test_xreload_dict_2(tpp):
+    # Check dictionaries with non-string keys
+    writetext(tpp/"conviction55423660.py", """
+        d = {}
+        d['one'] = lambda: 2
+        d[1] = lambda: 'two'
+    """)
+    import conviction55423660
+    from conviction55423660 import d
+    assert sorted(d.keys(), key=str) == [1, 'one']
+    a = d['one']
+    assert a() == 2
+    assert d['one']() == 2
+    assert d[1]() == 'two'
+    writetext(tpp/"conviction55423660.py", """
+        d = {}
+        d['one'] = lambda: 2
+        d[2] = lambda: 'one'
+    """)
+    xreload("conviction55423660")
+    assert conviction55423660.d is d
+    assert conviction55423660.d['one'] is a
+    assert sorted(d.keys(), key=str) == [2, 'one']
+    assert d['one']() == 2
+    assert d[2]() == 'one'
+    assert a() == 2
+
+
 def test_xreload_decorated_1(tpp):
     writetext(tpp/"investigator73085685.py", """
         from contextlib import contextmanager
