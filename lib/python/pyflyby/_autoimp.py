@@ -516,7 +516,21 @@ class _MissingImportFinder(object):
         # therefore think that the 'import foo' on L1 could be removed.
         self.visit(node.value)
         self.visit(node.targets)
+        self._visit__all__(node)
 
+    def _visit__all__(self, node):
+        if self._in_FunctionDef:
+            return
+        if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == '__all__'):
+            if not isinstance(node.value, ast.List):
+                logger.warning("Don't know how to handle __all__ as (%s)" % node.value)
+                return
+            if not all(isinstance(e, ast.Str) for e in node.value.elts):
+                logger.warning("Don't know how to handle __all__ with list elements other than str")
+                return
+            for e in node.value.elts:
+                self._visit_Load(e.s)
 
     def visit_ClassDef(self, node):
         if PY3:
