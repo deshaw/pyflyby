@@ -212,8 +212,6 @@ def which(program):
     :return:
       Program on $PATH, or ``None`` if not found.
     """
-    if "/" in program:
-        raise ValueError("which(): input should be a basename")
     # See if it exists in the current directory.
     candidate = Filename(program)
     if candidate.isreadable:
