@@ -340,7 +340,7 @@ def _livepatch__dict(old_dict, new_dict, modname, cache, visit_stack):
     for name in oldnames - newnames:
         del old_dict[name]
     # Livepatch existing entries.
-    updated_names = sorted(oldnames & newnames)
+    updated_names = sorted(oldnames & newnames, key=str)
     for name in updated_names:
         old = old_dict[name]
         updated = livepatch(old, new_dict[name],
