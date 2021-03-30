@@ -1564,6 +1564,17 @@ def test_setattr_is_not_unused():
     assert unused == []
 
 
+def test_all_exports_1():
+    code = dedent("""
+        from os import path, walk, read
+        __all__ = ['path', 'rmdir', 'walk']
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # path and walk should not be unused
+    assert missing == [(3, DottedIdentifier('rmdir'))]
+    assert unused == [(2, Import('from os import read'))]
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
