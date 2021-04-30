@@ -939,19 +939,19 @@ def _escape_for_gdb(string):
     return ''.join(result)
 
 
-_memoized_dev_null_w = None
-def _dev_null_w():
+_memoized_dev_null = None
+def _dev_null():
     """
-    Return a file object opened for writing to /dev/null.
+    Return a file object opened for reading/writing to /dev/null.
     Memoized.
 
     :rtype:
       ``file``
     """
-    global _memoized_dev_null_w
-    if _memoized_dev_null_w is None:
-        _memoized_dev_null_w = open("/dev/null", 'w')
-    return _memoized_dev_null_w
+    global _memoized_dev_null
+    if _memoized_dev_null is None:
+        _memoized_dev_null = open("/dev/null", 'w+')
+    return _memoized_dev_null
 
 
 def inject(pid, statements, wait=True, show_gdb_output=False):
@@ -995,11 +995,20 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
             "pid %s uses executable %s, which does not appear to be python"
             % (pid, python_path))
     # TODO: check that gdb is found and that the version is new enough (7.x)
+    #
+    # A note about --interpreter=mi: mi stands for Machine Interface and it's
+    # the blessed way to control gdb from a pipe, since the output is much
+    # easier to parse than the normal human-oriented output (it is also worth
+    # noting that at the moment we are never parsig the output, but it's still
+    # a good practice to use --interpreter=mi).
     command = (
-        ['gdb', str(python_path), '-p', str(pid), '-batch']
+        ['gdb', str(python_path), '-p', str(pid), '-batch', '--interpreter=mi']
         + [ '-eval-command=call %s' % (c,) for c in gdb_commands ])
-    output = None if show_gdb_output else _dev_null_w()
-    process = subprocess.Popen(command, stdout=output, stderr=output)
+    output = None if show_gdb_output else _dev_null()
+    process = subprocess.Popen(command,
+                               stdin=_dev_null(),
+                               stdout=output,
+                               stderr=output)
     if wait:
         retcode = process.wait()
         if retcode:
