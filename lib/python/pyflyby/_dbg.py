@@ -1049,6 +1049,8 @@ class Pty(object):
             restore = False
         try:
             pty._copy(self.master_fd)
+        except KeyboardInterrupt:
+            print('^C\r') # we need the \r because we are still in raw mode
         finally:
             if restore:
                 tty.tcsetattr(pty.STDIN_FILENO, tty.TCSAFLUSH, mode)
@@ -1151,29 +1153,35 @@ def attach_debugger(pid):
     watchdog_pid = os.fork()
     if watchdog_pid == 0:
         while True:
-            if not process_exists(gdb_pid):
-                kill_process(
-                    parent_pid,
-                    [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
-                     (signal.SIGKILL, 60)])
-                break
-            if not process_exists(pid):
-                start_time = time.time()
-                os.kill(parent_pid, signal.SIGUSR1)
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                kill_process(
-                    parent_pid,
-                    [(0, (5 + time.time() - start_time)),
-                     (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            if not process_exists(parent_pid):
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            time.sleep(0.1)
+            try:
+                if not process_exists(gdb_pid):
+                    kill_process(
+                        parent_pid,
+                        [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
+                         (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(pid):
+                    start_time = time.time()
+                    os.kill(parent_pid, signal.SIGUSR1)
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    kill_process(
+                        parent_pid,
+                        [(0, (5 + time.time() - start_time)),
+                         (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(parent_pid):
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                time.sleep(0.1)
+            except KeyboardInterrupt:
+                # if the user pressed CTRL-C the parent process is about to
+                # die, so we will detect the death in the next iteration of
+                # the loop and exit cleanly after killing also gdb
+                pass
         os._exit(0)
     # Communicate with pseudo tty.
     try:
