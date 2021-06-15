@@ -1019,6 +1019,28 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
         return process.pid
 
 
+import tty
+
+
+# Copy of tty.setraw that does not set ISIG,
+# in order to keep CTRL-C sending Keybord Interrupt.
+def setraw_but_sigint(fd, when=tty.TCSAFLUSH):
+    """Put terminal into a raw mode."""
+    mode = tty.tcgetattr(fd)
+    mode[tty.IFLAG] = mode[tty.IFLAG] & ~(
+        tty.BRKINT | tty.ICRNL | tty.INPCK | tty.ISTRIP | tty.IXON
+    )
+    mode[tty.OFLAG] = mode[tty.OFLAG] & ~(tty.OPOST)
+    mode[tty.CFLAG] = mode[tty.CFLAG] & ~(tty.CSIZE | tty.PARENB)
+    mode[tty.CFLAG] = mode[tty.CFLAG] | tty.CS8
+    mode[tty.LFLAG] = mode[tty.LFLAG] & ~(
+        tty.ECHO | tty.ICANON | tty.IEXTEN
+    )  # NOT ISIG HERE.
+    mode[tty.CC][tty.VMIN] = 1
+    mode[tty.CC][tty.VTIME] = 0
+    tty.tcsetattr(fd, when, mode)
+
+
 class Pty(object):
     def __init__(self):
         import pty
@@ -1030,12 +1052,14 @@ class Pty(object):
         import pty
         try:
             mode = tty.tcgetattr(pty.STDIN_FILENO)
-            tty.setraw(pty.STDIN_FILENO)
+            setraw_but_sigint(pty.STDIN_FILENO)
             restore = True
         except tty.error:
             restore = False
         try:
             pty._copy(self.master_fd)
+        except KeyboardInterrupt:
+            print('^C\r') # we need the \r because we are still in raw mode
         finally:
             if restore:
                 tty.tcsetattr(pty.STDIN_FILENO, tty.TCSAFLUSH, mode)
@@ -1138,29 +1162,35 @@ def attach_debugger(pid):
     watchdog_pid = os.fork()
     if watchdog_pid == 0:
         while True:
-            if not process_exists(gdb_pid):
-                kill_process(
-                    parent_pid,
-                    [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
-                     (signal.SIGKILL, 60)])
-                break
-            if not process_exists(pid):
-                start_time = time.time()
-                os.kill(parent_pid, signal.SIGUSR1)
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                kill_process(
-                    parent_pid,
-                    [(0, (5 + time.time() - start_time)),
-                     (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            if not process_exists(parent_pid):
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            time.sleep(0.1)
+            try:
+                if not process_exists(gdb_pid):
+                    kill_process(
+                        parent_pid,
+                        [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
+                         (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(pid):
+                    start_time = time.time()
+                    os.kill(parent_pid, signal.SIGUSR1)
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    kill_process(
+                        parent_pid,
+                        [(0, (5 + time.time() - start_time)),
+                         (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(parent_pid):
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                time.sleep(0.1)
+            except KeyboardInterrupt:
+                # if the user pressed CTRL-C the parent process is about to
+                # die, so we will detect the death in the next iteration of
+                # the loop and exit cleanly after killing also gdb
+                pass
         os._exit(0)
     # Communicate with pseudo tty.
     try:
