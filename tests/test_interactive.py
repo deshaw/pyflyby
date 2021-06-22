@@ -2801,6 +2801,46 @@ def test_run_i_auto_import_1(tmp):
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
+def test_run_d_donterase(tmp):
+    """
+    accessing f_locals may reset namespace,
+    here we check that myvar changes after assignment in the debugger.
+    """
+    ipython(
+        """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def simple_f():
+           ...:     myvar = 1
+           ...:     print(myvar)
+           ...:     1/0
+           ...:     print(myvar)
+           ...: simple_f()
+        1
+        ---------------------------------------------------------------------------
+        ZeroDivisionError                         Traceback (most recent call last)
+        <ipython-input> in <module>
+              4     1/0
+              5     print(myvar)
+        <ipython-input> in simple_f()
+              2 myvar = 1
+              3 print(myvar)
+              5 print(myvar)
+        ZeroDivisionError: division by zero
+        In [3]: %debug
+        > <ipython-input>(4)simple_f()
+              2     myvar = 1
+              3     print(myvar)
+              5     print(myvar)
+              6 simple_f()
+        ipdb> myvar
+        1
+        ipdb> myvar = 2
+        ipdb> myvar
+        2
+        ipdb> c
+"""
+    )
+
 
 @retry
 def test_run_i_already_imported_1(tmp):

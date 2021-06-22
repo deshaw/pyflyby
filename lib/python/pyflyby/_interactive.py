@@ -897,6 +897,7 @@ def _get_pdb_if_is_in_pdb():
     # Found a pdb frame.
     pdb_frame = pdb_frames[0]
     import pdb
+
     pdb_instance = pdb_frame.f_locals.get("self", None)
     if (type(pdb_instance).__name__ == "Pdb" or
         isinstance(pdb_instance, pdb.Pdb)):
@@ -937,7 +938,7 @@ def get_global_namespaces(ip):
     # logger.debug("get_global_namespaces(): pdb_instance=%r", pdb_instance)
     if pdb_instance:
         frame = pdb_instance.curframe
-        return [frame.f_globals, frame.f_locals]
+        return [frame.f_globals, pdb_instance.curframe_locals]
     elif ip:
         return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
     else:
@@ -1114,7 +1115,7 @@ def _list_members_for_completion(obj, ip):
 
 def _auto_import_in_pdb_frame(pdb_instance, arg):
     frame = pdb_instance.curframe
-    namespaces = [ frame.f_globals, frame.f_locals ]
+    namespaces = [ frame.f_globals, pdb_instance.curframe_locals ]
     filename = frame.f_code.co_filename
     if not filename or filename.startswith("<"):
         filename = "."
