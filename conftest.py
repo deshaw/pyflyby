@@ -81,7 +81,7 @@ in_tox = '/.tox/' in sys.prefix
 
 if in_tox:
     # When in tox, we shouldn't have any usercustomize messing this up.
-    for k in sys.modules.keys():
+    for k in list(sys.modules.keys()):
         assert not k == "pyflyby" or k.startswith("pyflyby.")
 
     import pyflyby
@@ -92,7 +92,7 @@ else:
     # Unload any already-imported pyflyby.  This could happen if the user's
     # usercustomize imported pyflyby.  That would probably be the "production"
     # pyflyby rather than the one being developed & tested.
-    for k in sys.modules.keys():
+    for k in list(sys.modules.keys()):
         if k == "pyflyby" or k.startswith("pyflyby."):
             del sys.modules[k]
 
