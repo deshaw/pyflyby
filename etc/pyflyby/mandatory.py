@@ -5,6 +5,6 @@
 # You can write this in any *.py file in your $PYFLYBY_PATH,
 # e.g. ~/.pyflyby/mandatory.py.
 
-__mandatory_imports__ = [
-    'from __future__ import absolute_import, division',
-]
+# __mandatory_imports__ = [
+#     'from __future__ import absolute_import, division',
+# ]
