@@ -178,6 +178,21 @@ class ScopeStack(Sequence):
             # there might be a star import later.
             return False
 
+    def __repr__(self):
+        scopes_reprs = [
+            "{:2}".format(i) + " : " + repr(namespace)
+            for i, namespace in enumerate(self)
+        ][1:]
+
+        return (
+            "<{class_name} object at 0x{hex_id} with namespaces: [\n".format(
+                class_name=self.__class__.__name__, hex_id=id(self)
+            )
+            + " 0 : {builtins namespace elided.}\n"
+            + "\n".join(scopes_reprs)
+            + "\n]>"
+        )
+
 
 def symbol_needs_import(fullname, namespaces):
     """
@@ -345,6 +360,7 @@ class _MissingImportFinder(object):
         self._in_FunctionDef = False
         # Current lineno.
         self._lineno = None
+        self._in_class_def = False
 
     def find_missing_imports(self, node):
         self._scan_node(node)
@@ -533,18 +549,23 @@ class _MissingImportFinder(object):
                 self._visit_Load(e.s)
 
     def visit_ClassDef(self, node):
+        logger.debug("visit_ClassDef(%r)", node)
         if PY3:
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         else:
             assert node._fields == ('name', 'bases', 'body', 'decorator_list')
         self.visit(node.bases)
         self.visit(node.decorator_list)
+        # The class's name is only visible to others (not to the body to the
+        # class), but is accessible in the methods themselves. See https://github.com/deshaw/pyflyby/issues/147
         if PY3:
             self.visit(node.keywords)
         with self._NewScopeCtx(new_class_scope=True):
+            if not self._in_class_def:
+                self._in_classdef = True
+                self._visit_Store(node.name)
             self.visit(node.body)
-        # The class's name is only visible to others (not to the body to the
-        # class).
+            self._in_class_def = False
         self._visit_Store(node.name)
 
     def visit_AsyncFunctionDef(self, node):
