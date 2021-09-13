@@ -455,14 +455,29 @@ def test_find_missing_imports_class_base_1():
     assert expected == result
 
 
+def test_find_missing_imports_class_name_2():
+    code = dedent(
+        """
+        class Decimal:
+            def foo(self):
+
+                Decimal.x = 1
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
 def test_find_missing_imports_class_name_1():
     code = dedent("""
         class Corinne(object):
             pass
         class Bobtail(object):
             class Chippewa(object):
-                pass
-            Rockton = Passall, Corinne, Bobtail, Chippewa
+                Bobtail
+            Rockton = Passall, Corinne, Chippewa
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
