@@ -20,18 +20,18 @@ from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
 
 @memoize
-def _find_etc_dir():
-    dir = Filename(__file__).real.dir
-    while True:
+def _find_etc_dirs():
+    result = []
+    dirs = Filename(__file__).real.dir.ancestors[:-1]
+    for dir in dirs:
         candidate = dir / "etc/pyflyby"
         if candidate.isdir:
-            return candidate
-        parent = dir.dir
-        if parent == dir:
+            result.append(candidate)
             break
-        dir = parent
-    return None
-
+    global_dir = Filename("/etc/pyflyby")
+    if global_dir.exists:
+        result.append(global_dir)
+    return result
 
 
 def _get_env_var(env_var_name, default):
@@ -277,9 +277,7 @@ class ImportDB(object):
             except KeyError:
                 pass
         DEFAULT_PYFLYBY_PATH = []
-        etc_dir = _find_etc_dir()
-        if etc_dir:
-            DEFAULT_PYFLYBY_PATH.append(str(etc_dir))
+        DEFAULT_PYFLYBY_PATH += [str(p) for p in _find_etc_dirs()]
         DEFAULT_PYFLYBY_PATH += [
             ".../.pyflyby",
             "~/.pyflyby",
