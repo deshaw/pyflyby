@@ -6,8 +6,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
     env:
       DEBUG_TEST_PYFLYBY: 1
 
@@ -21,6 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install --upgrade "pexpect>=3.3" pyflakes pytest rlipython ipykernel==5.4.3 requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2'
+        pip install -e .
     - name: test release build
       run: |
         python setup.py sdist bdist_wheel
@@ -32,7 +34,7 @@ jobs:
         python -We:invalid -m compileall -f -q lib/ etc/;
     - name: pytest
       run: |
-        pytest -x --doctest-modules lib tests
+        python -m pytest --doctest-modules lib tests
     - name: Self-tidy-import
       run: |
         ./bin/tidy-imports -d lib/python/ tests/

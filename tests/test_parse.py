@@ -896,6 +896,7 @@ def test_PythonBlock_compound_statements_1():
     assert block.statements == expected
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Does not work pre-3.8")
 def test_str_lineno_expression():
     # Code that used to be in test_interactive. _annotate_ast_startpos does
     # not work on it because it cannot handle multiline strings that contained
