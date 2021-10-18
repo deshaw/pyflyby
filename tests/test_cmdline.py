@@ -38,10 +38,6 @@ def test_tidy_imports_stdin_1():
     expected = dedent('''
         [PYFLYBY] /dev/stdin: added 'import os'
         [PYFLYBY] /dev/stdin: added 'import sys'
-        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import absolute_import'
-        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import division'
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
@@ -53,8 +49,6 @@ def test_tidy_imports_stdin_1():
 def test_tidy_imports_quiet_1():
     result = pipe([BIN_DIR+"/tidy-imports", "--quiet"], stdin="os, sys")
     expected = dedent('''
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
@@ -67,8 +61,6 @@ def test_tidy_imports_log_level_1():
     with EnvVarCtx(PYFLYBY_LOG_LEVEL="WARNING"):
         result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
         expected = dedent('''
-            from __future__ import absolute_import, division
-
             import os
             import sys
 
@@ -89,11 +81,7 @@ def test_tidy_imports_filename_action_print_1():
         expected = dedent('''
             [PYFLYBY] {f.name}: added 'import os'
             [PYFLYBY] {f.name}: added 'import sys'
-            [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
-            [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
             # hello
-            from __future__ import absolute_import, division
-
             import os
             import sys
 
@@ -118,8 +106,6 @@ def test_tidy_imports_filename_action_replace_1():
         [PYFLYBY] {f.name}: removed unused 'import b'
         [PYFLYBY] {f.name}: added 'import os'
         [PYFLYBY] {f.name}: added 'import sys'
-        [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
-        [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
         [PYFLYBY] {f.name}: *** modified ***
     ''').strip().format(f=f)
     assert cmd_output == expected_cmd_output
@@ -127,8 +113,6 @@ def test_tidy_imports_filename_action_replace_1():
         result = f.read()
     expected_result = dedent('''
         "hello"
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
