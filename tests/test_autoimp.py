@@ -1296,10 +1296,11 @@ def test_scan_for_import_issues_class_subclass_imported_class_1():
     assert unused == []
 
 
-# This is currently buggy.
-# The problem is that we postpone the check for C1.base = m1.C1, and by the
-# time we check it, we've already replaced the thing in the scope.
-@pytest.mark.xfail
+# This is now an XPASS, let's remove the xfail to see if it fails only on some CI version.
+# # This is currently buggy.
+# # The problem is that we postpone the check for C1.base = m1.C1, and by the
+# # time we check it, we've already replaced the thing in the scope.
+# @pytest.mark.xfail
 def test_scan_for_import_issues_class_subclass_imported_class_in_func_1():
     code = dedent("""
         def f1():
@@ -1459,8 +1460,8 @@ def test_scan_for_import_issues_comprehension_attribute_missing_1():
     assert missing == [(3, DottedIdentifier('xx'))]
     assert unused == []
 
-
-@pytest.mark.xfail
+# this is now an XPASS, check that it's passing everywhere in CI
+# @pytest.mark.xfail
 def test_scan_for_import_issues_comprehension_attribute_complex_1():
     code = dedent("""
         dd = []

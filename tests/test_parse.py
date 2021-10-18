@@ -896,7 +896,7 @@ def test_PythonBlock_compound_statements_1():
     assert block.statements == expected
 
 
-@pytest.mark.xfail
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Does not work pre-3.8")
 def test_str_lineno_expression():
     # Code that used to be in test_interactive. _annotate_ast_startpos does
     # not work on it because it cannot handle multiline strings that contained
@@ -925,9 +925,8 @@ def test_str_lineno_expression():
 '''
 
     block = PythonBlock(dedent(code).lstrip())
-    # XXX: This currently raises. Once it is fixed, update this test with the
-    # correct output.
-    block.statements
+    assert len(block.statements) == 1
+    assert isinstance(block.statements[0], PythonStatement)
 
 
 def test_PythonBlock_decorator_1():
