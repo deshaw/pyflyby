@@ -39,6 +39,7 @@ jobs:
       run: |
         python setup.py sdist bdist_wheel
     - name: lint
+      if: ${{ matrix.python-version == '3.9'}}
       run: |
         flake8 --exclude known_imports,etc,__init__.py --select=F;
     - name: compileall
@@ -47,6 +48,13 @@ jobs:
     - name: pytest
       run: |
         python -m pytest --doctest-modules lib tests
+    - name: Build docs
+      if: ${{ matrix.python-version == '3.9'}}
+      run: |
+        pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
+        cd doc
+        make html
+        cd ..
     - name: Self-tidy-import
       run: |
         ./bin/tidy-imports -d lib/python/ tests/
