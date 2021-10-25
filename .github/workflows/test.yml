@@ -4,11 +4,16 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        os: [ubuntu-latest]
+        python-version: ["2.7", "3.7", "3.8", "3.9"]
+        include:
+          - os: macos-latest
+            python-version: "3.9"
+
     env:
       DEBUG_TEST_PYFLYBY: 1
 
@@ -18,7 +23,14 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install and update Python dependencies
+    - name: Install and update Python dependencies on Python 2
+      if: ${{ matrix.python-version == '2.7'}}
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install --upgrade "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8 wheel;
+        pip install -e .
+    - name: Install and update Python dependencies on Python 3
+      if: ${{ matrix.python-version != '2.7'}}
       run: |
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install --upgrade "pexpect>=3.3" pyflakes pytest rlipython ipykernel==5.4.3 requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2'
