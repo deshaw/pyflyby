@@ -47,7 +47,7 @@ jobs:
         python -We:invalid -m compileall -f -q lib/ etc/;
     - name: pytest
       run: |
-        python -m pytest --cov=pyflyby --doctest-modules lib tests
+        python -m pytest --cov=pyflyby --cov-report=xml --doctest-modules lib tests
     - uses: codecov/codecov-action@v2
     - name: Build docs
       if: ${{ matrix.python-version == '3.9'}}

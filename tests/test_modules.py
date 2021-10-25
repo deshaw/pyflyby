@@ -69,6 +69,6 @@ def test_filename_noload_1():
         from pyflyby._modules import ModuleHandle
         import sys
         ModuleHandle("multiprocessing").filename
-        sys.exit("multiprocessing" in sys.modules)
+        sys.exit("multiprocessing" not in sys.modules)
     ''')])
     assert retcode == 0
