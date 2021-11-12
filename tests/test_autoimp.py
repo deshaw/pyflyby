@@ -1210,6 +1210,17 @@ def test_find_missing_imports_exception_3():
     expected = ['SomeException']
     assert expected == result
 
+
+def test_find_missing_imports_tuple_ellipsis_type_1():
+    code = dedent("""
+    tuple[Foo, ..., Bar]
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ['Bar', 'Foo']
+    assert expected == result
+
+
 # Only Python 3.8 includes type comments in the ast, so we only support this
 # there (see issue #31).
 @pytest.mark.skipif(

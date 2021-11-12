@@ -32,6 +32,9 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
 
+NoneType = type(None)
+EllipsisType = type(Ellipsis)
+
 class _ClassScope(dict):
     pass
 
@@ -474,7 +477,8 @@ class _MissingImportFinder(object):
                         "unexpected %s" %
                         (', '.join(type(v).__name__ for v in value)))
             elif isinstance(value, (six.integer_types, float, complex,
-                                    str, six.text_type, type(None), bytes)):
+                                    str, six.text_type, NoneType, bytes,
+                                    EllipsisType)):
                 pass
             else:
                 raise TypeError(
