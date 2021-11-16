@@ -2174,7 +2174,7 @@ class AutoImporter(object):
                 if completer.python_matches not in completer.matchers:
                     @self._advise(type(completer).matchers)
                     def matchers_with_python_matches(completer):
-                        return [completer.python_matches] + __original__.fget(completer)
+                        return __original__.fget(completer)+[completer.python_matches]
 
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
