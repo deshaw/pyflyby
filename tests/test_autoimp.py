@@ -470,8 +470,23 @@ def test_find_missing_imports_class_name_2():
     assert expected == result
 
 
+@pytest.mark.xfail
+def test_find_missing_import_xfail_after_pr_152():
+    code = dedent(
+        """
+        class MyClass(object):
+            Outer = MyClass
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ["MyClass"]
+    assert result == expected
+
+
 def test_find_missing_imports_class_name_1():
-    code = dedent("""
+    code = dedent(
+        """
         class Corinne(object):
             pass
         class Bobtail(object):
@@ -483,6 +498,7 @@ def test_find_missing_imports_class_name_1():
     result   = _dilist2strlist(result)
     expected = ['Bobtail', 'Passall']
     assert expected == result
+
 
 
 def test_find_missing_imports_class_members_1():
