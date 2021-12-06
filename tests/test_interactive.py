@@ -164,7 +164,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
         result = re.sub(ignore, b"", result)
 
         # ignore self exit on readline.
-        result = re.sub(b"In \[\d+\]: exit\(\)", b"", result)
+        result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
 
         if sys.version_info[0] == 2:
             # ignore "double blank lines" due to \n\r
@@ -1568,7 +1568,6 @@ def test_ipython_tab_1(frontend):
     """, frontend=frontend)
 
 @retry
-# @pytest.mark.xfail
 def test_ipython_tab_fail_1(frontend):
     # Test that our test harness works for tab when it should match nothing.
     ipython("""
@@ -2817,6 +2816,7 @@ def test_run_i_auto_import_1(tmp):
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
+@pytest.mark.xfail
 def test_run_d_donterase(tmp):
     """
     accessing f_locals may reset namespace,
@@ -2831,6 +2831,7 @@ def test_run_d_donterase(tmp):
            ...:     1/0
            ...:     print(myvar)
            ...: simple_f()
+           ...:
         1
         ---------------------------------------------------------------------------
         ZeroDivisionError                         Traceback (most recent call last)
