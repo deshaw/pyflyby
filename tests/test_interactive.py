@@ -1568,8 +1568,7 @@ def test_ipython_tab_1(frontend):
     """, frontend=frontend)
 
 @retry
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_ipython_tab_fail_1(frontend):
     # Test that our test harness works for tab when it should match nothing.
     ipython("""
@@ -1650,8 +1649,6 @@ def test_autoimport_1():
         Out[2]: b'@Hello@'
     """)
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
@@ -1670,8 +1667,6 @@ skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="IPython version %s does not support %load_ext, so nothing to test")
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_load_ext_1():
@@ -1687,8 +1682,6 @@ def test_load_ext_1():
     """)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_unload_ext_1():
@@ -1712,8 +1705,6 @@ def test_unload_ext_1():
 
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_1():
@@ -1733,8 +1724,6 @@ def test_reload_ext_1():
     """)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_reload_importdb_1(tmp):
@@ -1765,8 +1754,6 @@ def test_reload_ext_reload_importdb_1(tmp):
     """.format(tmp=tmp), PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_retry_failed_imports_1(tmp):
@@ -1900,8 +1887,6 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_pyflyby_path_1(tmp):
     writetext(tmp.file, "from itertools import product\n")
@@ -1980,8 +1965,6 @@ def test_autoimport_autocall_function_1():
             Out[2]: b'mouse'
         """, autocall=True)
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     # Verify that we print out all candidate autoimports, when there are
@@ -2005,8 +1988,6 @@ def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_repeated_1(tmp):
     # Verify that we print out the candidate list for another cell.
@@ -2035,8 +2016,6 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     # Verify that if an expression contains multiple ambiguous imports, we
@@ -2063,8 +2042,6 @@ def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     # Verify that if an expression contains an ambiguous import twice, we only
@@ -2086,8 +2063,6 @@ def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_ofind_1(tmp):
     # Verify that the multi-candidate menu works even with ofind.
@@ -2105,8 +2080,6 @@ def test_autoimport_multiple_candidates_ofind_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     # Verify that the autoimport menu is only printed once, even when multiple
@@ -2403,8 +2376,6 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
@@ -2422,8 +2393,6 @@ def test_complete_symbol_bad_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
@@ -2440,8 +2409,6 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_complete_symbol_nonmodule_1(frontend, tmp):
     # Verify that completion works even if a module replaced itself in
@@ -2591,8 +2558,6 @@ def test_property_no_superfluous_access_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_disable_reenable_autoimport_1():
     ipython("""
@@ -2616,8 +2581,6 @@ def test_disable_reenable_autoimport_1():
     """)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_disable_reenable_completion_1():
     ipython("""
@@ -2658,8 +2621,6 @@ def test_pinfo_1(tmp):
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_error_during_auto_import_symbol_1(tmp):
     writetext(tmp.file, "3+")
@@ -2684,8 +2645,6 @@ def test_error_during_auto_import_symbol_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_error_during_auto_import_expression_1(tmp):
     writetext(tmp.file, "3+")
@@ -2858,8 +2817,6 @@ def test_run_i_auto_import_1(tmp):
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 def test_run_d_donterase(tmp):
     """
     accessing f_locals may reset namespace,
@@ -3050,8 +3007,6 @@ def test_timeit_complete_autoimport_member_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_noninteractive_timeit_unaffected_1():
     # Verify that the regular timeit module is unaffected, i.e. that we only
@@ -3161,8 +3116,6 @@ def test_prun_1():
     """)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @retry
 def test_noninteractive_profile_unaffected_1():
     # Verify that the profile module itself is not affected (i.e. verify that
@@ -3180,8 +3133,6 @@ def test_noninteractive_profile_unaffected_1():
 
 
 @retry
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 def test_error_during_enable_1():
     # Verify that if an error occurs during enabling, that we disable the
     # autoimporter.  Verify that we don't attempt to re-enable again.
@@ -3214,8 +3165,6 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 # won't work.
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
 @pytest.mark.parametrize('sendeof', [False, True])
@@ -3242,8 +3191,6 @@ def test_ipython_console_1(sendeof):
     """, args='console', sendeof=sendeof)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_kernel_console_existing_1():
@@ -3260,8 +3207,6 @@ def test_ipython_kernel_console_existing_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_kernel_console_multiple_existing_1():
@@ -3304,8 +3249,6 @@ def test_ipython_notebook_basic_1():
             Out[2]: 77
             """, args=['console'], kernel=kernel)
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_notebook_1():
@@ -3327,8 +3270,6 @@ def test_ipython_notebook_1():
             """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_notebook_reconnect_1():
@@ -3381,8 +3322,6 @@ def test_py_i_interactive_1(tmp):
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_py_console_1():
@@ -3394,8 +3333,6 @@ def test_py_console_1():
     """, prog="py", args=['console'])
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_py_kernel_1():
@@ -3410,8 +3347,6 @@ def test_py_kernel_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_py_console_existing_1():
@@ -3428,8 +3363,6 @@ def test_py_console_existing_1():
         """, prog="py", args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_py_notebook_1():
@@ -3511,8 +3444,6 @@ def test_installed_in_config_redundant_1(tmp):
     """)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_installed_in_config_ipython_console_1(tmp):
@@ -3526,8 +3457,6 @@ def test_installed_in_config_ipython_console_1(tmp):
     """, args=['console'], ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_installed_in_config_ipython_kernel_1(tmp):
@@ -3542,8 +3471,6 @@ def test_installed_in_config_ipython_kernel_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason="skipping until restored properly")
-@pytest.mark.xfail
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_installed_in_config_ipython_notebook_1(tmp):
