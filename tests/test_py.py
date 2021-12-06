@@ -824,6 +824,7 @@ def test_heuristic_eval_symbol_submodule_1():
     result = py("xml.dom.minidom.XMLNS_NAMESPACE")
     expected = dedent("""
         [PYFLYBY] import xml.dom
+        [PYFLYBY] import xml.dom.minidom
         [PYFLYBY] xml.dom.minidom.XMLNS_NAMESPACE
         'http://www.w3.org/2000/xmlns/'
     """).strip()

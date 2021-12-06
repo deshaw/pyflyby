@@ -51,7 +51,6 @@ def assert_fail():
     """
     return pytest.raises(_Failed)
 
-@pytest.mark.skip(reason="skipping until restored properly")
 @pytest.mark.xfail
 def test_failing():
     """
