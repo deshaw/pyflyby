@@ -497,7 +497,8 @@ def _build_pythonpath(PYTHONPATH):
       ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    pypath += _extra_readline_pythonpath_dirs()
+    if sys.version_info < (3, 9):
+        pypath += _extra_readline_pythonpath_dirs()
     if isinstance(PYTHONPATH, (Filename, six.string_types)):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
