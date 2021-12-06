@@ -4031,7 +4031,6 @@ def test_debug_namespace_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        [PYFLYBY] import base64
         ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==").decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         AtlanticPacific
@@ -4039,6 +4038,7 @@ def test_debug_namespace_1(frontend):
         b'Continental'
         ipdb> q
         In [5]: base64.b64de\t
+        [PYFLYBY] import base64
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
         Out[5]: b'HillLake'
