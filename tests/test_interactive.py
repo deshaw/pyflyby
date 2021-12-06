@@ -461,8 +461,8 @@ except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 # Prompts that we expect for.
-_IPYTHON_PROMPT1 = br"\nIn \[([0-9]+)\]: "
-_IPYTHON_PROMPT2 = br"\n   [.][.][.]+: "
+_IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
+_IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
 _IPDB_PROMPT = br"\nipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
