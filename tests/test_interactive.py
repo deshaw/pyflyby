@@ -163,6 +163,13 @@ def assert_match(result, expected, ignore_prompt_number=False):
             )?
         """).strip().encode('utf-8')
         result = re.sub(ignore, b"", result)
+
+        # ignore self exit on readline.
+        result = re.sub(b"In \[\d+\]: exit\(\)", b"", result)
+
+        if sys.version_info[0] == 2:
+            # ignore "double blank lines" due to \n\r
+            result = result.replace("\n\r", "\n")
     if _IPYTHON_VERSION < (1, 0):
         # IPython 0.13 console prints kernel info; ignore it.
         #   [IPKernelApp] To connect another client to this kernel, use:
