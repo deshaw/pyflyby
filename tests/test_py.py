@@ -818,13 +818,15 @@ def test_heuristic_eval_expression_nonmodule_1():
     assert expected == result
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] == 3, reason="xml.dom.minidom also need import on py3"
+)
 def test_heuristic_eval_symbol_submodule_1():
     # Verify that heuristic eval of an expression in a module in a package
     # works, and also verify that we log the submodule import.
     result = py("xml.dom.minidom.XMLNS_NAMESPACE")
     expected = dedent("""
         [PYFLYBY] import xml.dom
-        [PYFLYBY] import xml.dom.minidom
         [PYFLYBY] xml.dom.minidom.XMLNS_NAMESPACE
         'http://www.w3.org/2000/xmlns/'
     """).strip()

@@ -38,6 +38,7 @@ from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
 
 DEFAULT_TIMEOUT = float(os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", "-1"))
+DEFAULT_TIMEOUT_REQUEST = DEFAULT_TIMEOUT if DEFAULT_TIMEOUT > 0 else None
 
 
 def _get_Failed_class():
@@ -1167,7 +1168,9 @@ def IPythonNotebookCtx(**kwargs):
                 token = child.match.group(2)
                 params = dict(token=token)
                 response = requests.post(
-                    baseurl + "/api/contents", params=params, timeout=DEFAULT_TIMEOUT
+                    baseurl + "/api/contents",
+                    params=params,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 201
                 # Get the notebook path & name for the new notebook.
@@ -1181,7 +1184,7 @@ def IPythonNotebookCtx(**kwargs):
                     baseurl + "/api/sessions",
                     data=request_data,
                     params=params,
-                    timeout=timeout,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
@@ -1200,14 +1203,16 @@ def IPythonNotebookCtx(**kwargs):
                     baseurl + "/login",
                     data=dict(password=passwd_plaintext),
                     allow_redirects=False,
-                    timeout=DEFAULT_TIMEOUT,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 302
                 cookies = response.cookies
                 # Create a new notebook.
                 # Get notebooks.
                 response = requests.post(
-                    baseurl + "/api/notebooks", cookies=cookies, timeout=DEFAULT_TIMEOUT
+                    baseurl + "/api/notebooks",
+                    cookies=cookies,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 expected = 200 if _IPYTHON_VERSION >= (3,) else 201
                 assert response.status_code == expected
@@ -1222,7 +1227,7 @@ def IPythonNotebookCtx(**kwargs):
                     baseurl + "/api/sessions",
                     data=request_data,
                     cookies=cookies,
-                    timeout=DEFAULT_TIMEOUT,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
@@ -1256,7 +1261,7 @@ def IPythonNotebookCtx(**kwargs):
                 # Start a kernel for the notebook.
                 response = requests.post(
                     baseurl + "/kernels?notebook=" + notebook_id,
-                    timeout=DEFAULT_TIMEOUT,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 200
                 # Get the kernel_id for the new kernel.
@@ -3249,7 +3254,8 @@ def test_ipython_kernel_console_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_ipython_kernel_console_multiple_existing_1():
