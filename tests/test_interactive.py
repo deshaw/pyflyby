@@ -814,13 +814,13 @@ class MySpawn(pexpect.spawn):
         return super(MySpawn, self).send(arg)
 
 
-    def expect(self, arg, timeout=-1):
+    def expect(self, arg, timeout=DEFAULT_TIMEOUT):
         if DEBUG:
             print("MySpawn.expect(%r)" % (arg,))
         return super(MySpawn, self).expect(arg, timeout=timeout)
 
 
-    def expect_exact(self, arg, timeout=-1):
+    def expect_exact(self, arg, timeout=DEFAULT_TIMEOUT):
         if DEBUG:
             print("MySpawn.expect_exact(%r)" % (arg,))
         return super(MySpawn, self).expect_exact(arg, timeout=timeout)
@@ -1098,8 +1098,11 @@ def IPythonKernelCtx(**kwargs):
     __tracebackhide__ = True
     with IPythonCtx(args='kernel', **kwargs) as child:
         # Get the kernel info: --existing kernel-1234.json
-        child.expect(r"To connect another client to this kernel, use:\s*"
-                     r"(?:\[IPKernelApp\])?\s*(--existing .*?json)")
+        child.expect(
+            r"To connect another client to this kernel, use:\s*"
+            r"(?:\[IPKernelApp\])?\s*(--existing .*?json)",
+            timeout=DEFAULT_TIMEOUT,
+        )
         kernel_info = child.match.group(1).split()
         # Yield control to caller.
         child.kernel_info = kernel_info
@@ -1157,8 +1160,11 @@ def IPythonNotebookCtx(**kwargs):
         with IPythonCtx(args=args, **kwargs) as child:
             if _IPYTHON_VERSION >= (5,):
                 # Get the base URL from the notebook app.
-                child.expect(r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 token = child.match.group(2)
                 params = dict(token=token)
                 response = requests.post(baseurl + "/api/contents",
@@ -1181,8 +1187,11 @@ def IPythonNotebookCtx(**kwargs):
                 kernel_id = response_data['kernel']['id']
             elif _IPYTHON_VERSION >= (2,):
                 # Get the base URL from the notebook app.
-                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
@@ -1213,8 +1222,11 @@ def IPythonNotebookCtx(**kwargs):
                 kernel_id = response_data['kernel']['id']
             elif _IPYTHON_VERSION >= (0, 12):
                 # Get the base URL from the notebook app.
-                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
@@ -1338,14 +1350,16 @@ def _wait_nonce(child):
         nonce = "<SIG%s />" % (int(random.random()*1e9))
         child.send(nonce)
         # Wait for the nonce.
-        child.expect_exact(nonce)
+        child.expect_exact(nonce, timeout=DEFAULT_TIMEOUT)
         data_after_tab = child.before
         # Log what came before the nonce (but not the nonce itself).
         logfile_read.write(data_after_tab)
         # Delete the nonce we typed.
-        child.send("\b"*len(nonce))
-        child.expect([r"\x1b\[%dD" % len(nonce),    # IPython <  5
-                      r"\x08\x1b\[K" * len(nonce)]) # IPython >= 5 + rlipython
+        child.send("\b" * len(nonce))
+        child.expect(
+            [r"\x1b\[%dD" % len(nonce), r"\x08\x1b\[K" * len(nonce)],  # IPython <  5
+            timeout=DEFAULT_TIMEOUT,
+        )  # IPython >= 5 + rlipython
 
     finally:
         child.logfile_read = logfile_read
@@ -3172,6 +3186,9 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
+@pytest.mark.xfail(
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+)
 @pytest.mark.parametrize('sendeof', [False, True])
 def test_ipython_console_1(sendeof):
     # Verify that autoimport and tab completion work in IPython console.
@@ -3197,6 +3214,9 @@ def test_ipython_console_1(sendeof):
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+)
 @retry
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
