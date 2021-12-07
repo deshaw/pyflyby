@@ -1167,8 +1167,9 @@ def IPythonNotebookCtx(**kwargs):
                 baseurl = child.match.group(1).decode("utf-8")
                 token = child.match.group(2)
                 params = dict(token=token)
-                response = requests.post(baseurl + "/api/contents",
-                                         params=params)
+                response = requests.post(
+                    baseurl + "/api/contents", params=params, timeout=DEFAULT_TIMEOUT
+                )
                 assert response.status_code == 201
                 # Get the notebook path & name for the new notebook.
                 text = response.text
@@ -1176,10 +1177,13 @@ def IPythonNotebookCtx(**kwargs):
                 path = response_data['path']
                 name = response_data['name']
                 # Create a session & kernel for the new notebook.
-                request_data = json.dumps(
-                    dict(notebook=dict(path=path, name=name)))
-                response = requests.post(baseurl + "/api/sessions",
-                                         data=request_data, params=params)
+                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
+                response = requests.post(
+                    baseurl + "/api/sessions",
+                    data=request_data,
+                    params=params,
+                    timeout=timeout,
+                )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -1196,13 +1200,16 @@ def IPythonNotebookCtx(**kwargs):
                 response = requests.post(
                     baseurl + "/login",
                     data=dict(password=passwd_plaintext),
-                    allow_redirects=False
+                    allow_redirects=False,
+                    timeout=DEFAULT_TIMEOUT,
                 )
                 assert response.status_code == 302
                 cookies = response.cookies
                 # Create a new notebook.
                 # Get notebooks.
-                response = requests.post(baseurl + "/api/notebooks", cookies=cookies)
+                response = requests.post(
+                    baseurl + "/api/notebooks", cookies=cookies, timeout=DEFAULT_TIMEOUT
+                )
                 expected = 200 if _IPYTHON_VERSION >= (3,) else 201
                 assert response.status_code == expected
                 # Get the notebook path & name for the new notebook.
@@ -1211,10 +1218,13 @@ def IPythonNotebookCtx(**kwargs):
                 path = response_data['path']
                 name = response_data['name']
                 # Create a session & kernel for the new notebook.
-                request_data = json.dumps(
-                    dict(notebook=dict(path=path, name=name)))
-                response = requests.post(baseurl + "/api/sessions",
-                                         data=request_data, cookies=cookies)
+                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
+                response = requests.post(
+                    baseurl + "/api/sessions",
+                    data=request_data,
+                    cookies=cookies,
+                    timeout=DEFAULT_TIMEOUT,
+                )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -1231,7 +1241,8 @@ def IPythonNotebookCtx(**kwargs):
                 response = requests.post(
                     baseurl + "/login",
                     data=dict(password=passwd_plaintext),
-                    allow_redirects=False
+                    allow_redirects=False,
+                    timeout=DEFAULT_TIMEOUT,
                 )
                 assert response.status_code == 302
                 cookies = response.cookies
@@ -1244,7 +1255,10 @@ def IPythonNotebookCtx(**kwargs):
                 assert m is not None
                 notebook_id = m.group(1)
                 # Start a kernel for the notebook.
-                response = requests.post(baseurl + "/kernels?notebook=" + notebook_id)
+                response = requests.post(
+                    baseurl + "/kernels?notebook=" + notebook_id,
+                    timeout=DEFAULT_TIMEOUT,
+                )
                 assert response.status_code == 200
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -3187,7 +3201,8 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @pytest.mark.parametrize('sendeof', [False, True])
 def test_ipython_console_1(sendeof):
@@ -3215,7 +3230,8 @@ def test_ipython_console_1(sendeof):
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_ipython_kernel_console_existing_1():
@@ -3279,7 +3295,8 @@ def test_ipython_notebook_basic_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_ipython_notebook_1():
@@ -3358,7 +3375,8 @@ def test_py_i_interactive_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_py_console_1():
@@ -3389,7 +3407,8 @@ def test_py_kernel_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_py_console_existing_1():
@@ -3493,7 +3512,8 @@ def test_installed_in_config_redundant_1(tmp):
 @skipif_ipython_too_old_for_kernel
 @retry
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
@@ -3525,7 +3545,8 @@ def test_installed_in_config_ipython_kernel_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 @pytest.mark.xfail(
@@ -3999,7 +4020,8 @@ def test_debug_postmortem_tab_completion_1(frontend):
 
 @retry
 @pytest.mark.xfail(
-    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions"
+    sys.version_info[0] == 3,
+    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
 )
 def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
