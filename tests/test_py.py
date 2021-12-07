@@ -2578,8 +2578,10 @@ def test_info_function_lambda_1():
     assert expected == result
 
 
-@pytest.mark.skipif(os.uname()[0] not in ["Linux", "Darwin"],
-                    reason="unsupported OS")
+@pytest.mark.skipif(
+    (os.uname()[0] not in ["Linux", "Darwin"]) or (sys.version_info[0] == 3),
+    reason="unsupported OS",
+)
 def test_ctypes_1():
     uname = os.uname()[0]
     if uname == 'Linux':
