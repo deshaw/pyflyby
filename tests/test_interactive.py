@@ -3978,6 +3978,9 @@ def test_debug_postmortem_tab_completion_1(frontend):
 
 
 @retry
+@pytest.mark.xfail(
+    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions"
+)
 def test_debug_namespace_1(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
