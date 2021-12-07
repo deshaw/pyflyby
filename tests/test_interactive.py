@@ -1386,7 +1386,9 @@ def _wait_nonce(child):
         # Delete the nonce we typed.
         child.send("\b" * len(nonce))
         child.expect(
-            [r"\x1b\[%dD" % len(nonce), r"\x08\x1b\[K" * len(nonce)],  # IPython <  5
+            [r"\x1b\[%dD" % len(nonce), r"\x08\x1b\[K" * len(nonce), # IPython <  5
+             r"\x08 \x08"*len(nonce) # GitHub CI seem to overwrite with spaces on top of moving cursor ?
+            ],
             timeout=DEFAULT_TIMEOUT,
         )  # IPython >= 5 + rlipython
 
