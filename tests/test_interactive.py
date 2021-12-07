@@ -37,8 +37,19 @@ from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
 
-DEFAULT_TIMEOUT = float(os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", "-1"))
-DEFAULT_TIMEOUT_REQUEST = DEFAULT_TIMEOUT if DEFAULT_TIMEOUT > 0 else None
+_env_timeout = os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", None)
+if _env_timeout is not None:
+    DEFAULT_TIMEOUT = float(_env_timeout)
+    DEFAULT_TIMEOUT_REQUEST = DEFAULT_TIMEOUT
+else:
+    DEFAULT_TIMEOUT = -1
+    DEFAULT_TIMEOUT_REQUEST = None
+
+
+if os.getenv("PYFLYBYTEST_NORETRY", None):
+    retry = lambda x: x
+else:
+    retry = flaky.flaky(max_runs=5 if DEFAULT_TIMEOUT < 0 else 1)
 
 
 def _get_Failed_class():
@@ -125,7 +136,7 @@ class _TmpFixture(object):
         self._request.addfinalizer(lambda: os.unlink(f))
         return Filename(f)
 
-retry = flaky.flaky(max_runs=5)
+
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
@@ -3325,7 +3336,8 @@ def test_ipython_notebook_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
 def test_ipython_notebook_reconnect_1():
@@ -3395,6 +3407,7 @@ def test_py_console_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
+    sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
 )
 @retry
@@ -3432,6 +3445,7 @@ def test_py_console_existing_1():
 
 @skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
+    sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
 )
 @retry
@@ -3534,6 +3548,7 @@ def test_installed_in_config_ipython_console_1(tmp):
 @skipif_ipython_too_old_for_kernel
 @retry
 @pytest.mark.xfail(
+    sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
 )
 def test_installed_in_config_ipython_kernel_1(tmp):
@@ -3554,9 +3569,6 @@ def test_installed_in_config_ipython_kernel_1(tmp):
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
 )
 @retry
-@pytest.mark.xfail(
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited"
-)
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
     with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
