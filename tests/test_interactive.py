@@ -11,7 +11,6 @@ import IPython
 import atexit
 from   contextlib               import contextmanager
 import difflib
-import flaky
 import json
 import os
 import pexpect
@@ -45,11 +44,12 @@ else:
     DEFAULT_TIMEOUT = -1
     DEFAULT_TIMEOUT_REQUEST = None
 
-
-if os.getenv("PYFLYBYTEST_NORETRY", None):
+_RETRY = int(os.getenv("PYFLYBYTEST_RETRY", '5'))
+if _RETRY == 0:
     retry = lambda x: x
 else:
-    retry = flaky.flaky(max_runs=5 if DEFAULT_TIMEOUT < 0 else 1)
+    import flaky
+    retry = flaky.flaky(max_runs=_RETRY)
 
 
 def _get_Failed_class():
