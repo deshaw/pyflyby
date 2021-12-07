@@ -817,7 +817,7 @@ class MySpawn(pexpect.spawn):
         # decoding.  This is a bit hacky because it's an internal thing that
         # could change.
         self._decoder = AnsiFilterDecoder()
-
+        self.str_last_chars = 1000
 
     def send(self, arg):
         if DEBUG:
