@@ -48,8 +48,9 @@ _RETRY = int(os.getenv("PYFLYBYTEST_RETRY", '5'))
 if _RETRY == 0:
     retry = lambda x: x
 else:
-    import flaky
-    retry = flaky.flaky(max_runs=_RETRY)
+    #import flaky
+    #retry = flaky.flaky(max_runs=_RETRY)
+    retry = lambda x: x
 
 
 def _get_Failed_class():
