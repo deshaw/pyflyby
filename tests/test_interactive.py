@@ -125,7 +125,6 @@ class _TmpFixture(object):
         return Filename(f)
 
 retry = flaky.flaky(max_runs=5)
-retry = lambda x: x
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
