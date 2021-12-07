@@ -37,6 +37,9 @@ from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
 
+DEFAULT_TIMEOUT = float(os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", "-1"))
+
+
 def _get_Failed_class():
     import _pytest
     try:
@@ -935,7 +938,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
     for line in lines:
         # Wait for the "In [N]:" prompt.
         while True:
-            expect_result = child.expect(_IPYTHON_PROMPTS)
+            expect_result = child.expect(_IPYTHON_PROMPTS, timeout=DEFAULT_TIMEOUT)
             if expect_result == 0:
                 # We got "In [N]:".
                 # Check if we got the same prompt as before.  If so then keep
@@ -982,7 +985,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
             # Send the input (up to tab or newline).
             child.send(left)
             # Check that the client IPython gets the input.
-            child.expect_exact(left)
+            child.expect_exact(left, timeout=DEFAULT_TIMEOUT)
             if tab:
                 # Send the tab.
                 child.send(tab)
@@ -1002,9 +1005,9 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
     if sendeof:
         child.sendeof()
     if waiteof:
-        child.expect(pexpect.EOF)
+        child.expect(pexpect.EOF, timeout=DEFAULT_TIMEOUT)
     else:
-        child.expect(_IPYTHON_PROMPTS)
+        child.expect(_IPYTHON_PROMPTS, timeout=DEFAULT_TIMEOUT)
     # Get output.
     output = child.logfile_read
     result = output.getvalue()
