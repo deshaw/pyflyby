@@ -16,6 +16,8 @@ import subprocess
 import sys
 from   textwrap                 import dedent
 
+import pytest
+
 
 def test_ModuleHandle_1():
     m = ModuleHandle("sys")
