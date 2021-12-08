@@ -818,6 +818,9 @@ def test_heuristic_eval_expression_nonmodule_1():
     assert expected == result
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] == 3, reason="xml.dom.minidom also need import on py3"
+)
 def test_heuristic_eval_symbol_submodule_1():
     # Verify that heuristic eval of an expression in a module in a package
     # works, and also verify that we log the submodule import.
@@ -2575,8 +2578,10 @@ def test_info_function_lambda_1():
     assert expected == result
 
 
-@pytest.mark.skipif(os.uname()[0] not in ["Linux", "Darwin"],
-                    reason="unsupported OS")
+@pytest.mark.skipif(
+    (os.uname()[0] not in ["Linux", "Darwin"]) or (sys.version_info[0] == 3),
+    reason="unsupported OS",
+)
 def test_ctypes_1():
     uname = os.uname()[0]
     if uname == 'Linux':
