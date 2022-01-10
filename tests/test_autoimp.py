@@ -484,6 +484,35 @@ def test_find_missing_import_xfail_after_pr_152():
     assert result == expected
 
 
+def test_method_reference_current_class():
+    """
+    A method can reference the current class
+
+    But only if this is a toplevel class, nesting won't work in Python.
+    """
+    code = dedent(
+        """
+       class Decimal:
+           def foo(self):
+               Decimal.x = 1
+               Float.y=1
+
+           class Real:
+
+               def foo():
+                   Real.r = 1
+   """
+    )
+    missing, unused = scan_for_import_issues(code, [{}])
+    # result = _dilist2strlist(result)
+    assert missing == [
+        (5, DottedIdentifier("Float.y")),
+        (10, DottedIdentifier("Real.r")),
+    ]
+    assert unused == []
+
+
+
 def test_find_missing_imports_class_name_1():
     code = dedent(
         """
