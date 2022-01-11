@@ -39,6 +39,10 @@ class _ClassScope(dict):
     pass
 
 
+    def __repr__(self):
+        return "_ClassScope(" + repr(super()) + ")"
+
+
 _builtins2 = {"__file__": None}
 
 
@@ -55,7 +59,7 @@ class ScopeStack(Sequence):
 
     _cached_has_star_import = False
 
-    def __init__(self, arg):
+    def __init__(self, arg, _class_delayed=None):
         """
         Interpret argument as a ``ScopeStack``.
 
@@ -93,6 +97,12 @@ class ScopeStack(Sequence):
         tup = tuple(result)
         self._tup = tup
 
+        # class name definitions scope may need to be delayed.
+        # so we store them separately, and if they are present in methods def, we can readd them
+        if _class_delayed is None:
+            _class_delayed = {}
+        self._class_delayed = _class_delayed
+
     def __getitem__(self, item):
         if isinstance(item, slice):
             return self.__class__(self._tup[item])
@@ -101,7 +111,9 @@ class ScopeStack(Sequence):
     def __len__(self):
         return len(self._tup)
 
-    def with_new_scope(self, include_class_scopes=False, new_class_scope=False):
+    def with_new_scope(
+        self, include_class_scopes=False, new_class_scope=False, unhide_classdef=False
+    ):
         """
         Return a new ``ScopeStack`` with an additional empty scope.
 
@@ -109,6 +121,8 @@ class ScopeStack(Sequence):
           Whether to include previous scopes that are meant for ClassDefs.
         :param new_class_scope:
           Whether the new scope is for a ClassDef.
+        :param unhide_classdef:
+          Unhide class definitiion scope (when we enter a method)
         :rtype:
           ``ScopeStack``
         """
@@ -122,7 +136,9 @@ class ScopeStack(Sequence):
         else:
             new_scope = {}
         cls = type(self)
-        result = cls(scopes + (new_scope,))
+        if unhide_classdef and self._class_delayed:
+            scopes = tuple([self._class_delayed]) + scopes
+        result = cls(scopes + (new_scope,), _class_delayed=self._class_delayed)
         return result
 
     def clone_top(self):
@@ -298,7 +314,11 @@ def symbol_needs_import(fullname, namespaces):
                 return False
     # We didn't find any scope that defined the name.  Therefore it needs
     # import.
-    logger.debug("symbol_needs_import(%r): no match found in namespaces; it needs import", fullname)
+    logger.debug(
+        "symbol_needs_import(%r): no match found in namespaces %s; it needs import",
+        fullname,
+        namespaces,
+    )
     return True
 
 
@@ -363,7 +383,7 @@ class _MissingImportFinder(object):
         self._in_FunctionDef = False
         # Current lineno.
         self._lineno = None
-        self._in_class_def = False
+        self._in_class_def = 0
 
     def find_missing_imports(self, node):
         self._scan_node(node)
@@ -564,12 +584,17 @@ class _MissingImportFinder(object):
         # class), but is accessible in the methods themselves. See https://github.com/deshaw/pyflyby/issues/147
         if PY3:
             self.visit(node.keywords)
+
+        # we only care about the first defined class,
+        # we don't detect issues with nested classes.
+        if self._in_class_def == 0:
+            self.scopestack._class_delayed[node.name] = None
         with self._NewScopeCtx(new_class_scope=True):
             if not self._in_class_def:
-                self._in_classdef = True
+                self._in_class_def += 1
                 self._visit_Store(node.name)
             self.visit(node.body)
-            self._in_class_def = False
+            self._in_class_def -= 1
         self._visit_Store(node.name)
 
     def visit_AsyncFunctionDef(self, node):
@@ -599,7 +624,7 @@ class _MissingImportFinder(object):
                 self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
-            with self._NewScopeCtx():
+            with self._NewScopeCtx(unhide_classdef=True):
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
         self._visit_Store(node.name)
