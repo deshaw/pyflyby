@@ -67,7 +67,8 @@ import filecmp
 import fileinput
 import functional
 import functools
-from   functools                import partial, reduce, update_wrapper, wraps
+from   functools                import (partial, reduce, total_ordering,
+                                        update_wrapper, wraps)
 import gc
 import getpass
 from   getpass                  import getuser
