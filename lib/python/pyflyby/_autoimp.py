@@ -640,7 +640,7 @@ class _MissingImportFinder(object):
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
 
-    def _visit_typecomment(self, typecomment:str):
+    def _visit_typecomment(self, typecomment):
         """
         Warning, when a type comment the node is a string, not an ast node.
         We also get two types of type comments:
