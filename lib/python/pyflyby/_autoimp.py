@@ -641,9 +641,33 @@ class _MissingImportFinder(object):
             self._in_FunctionDef = old_in_FunctionDef
 
     def _visit_typecomment(self, typecomment):
+        """
+        Warning, when a type comment the node is a string, not an ast node.
+        We also get two types of type comments:
+
+
+        The signature one just after a function definition
+
+            def foo(a):
+                # type: int -> None
+                pass
+
+        And the variable annotation ones:
+
+            def foo(a #type: int
+                ):
+                pass
+
+        ast parse  "func_type" mode only support the first one.
+
+        """
         if typecomment is None:
             return
-        node = ast.parse(typecomment)
+        if '->' in typecomment:
+            node = ast.parse(typecomment, mode='func_type')
+        else:
+            node = ast.parse(typecomment)
+
         self.visit(node)
 
     def visit_arguments(self, node):

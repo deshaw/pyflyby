@@ -1282,6 +1282,52 @@ def test_scan_for_import_issues_type_comment_1():
     assert unused == []
     assert missing == []
 
+
+# Only Python 3.8 includes type comments in the ast, so we only support this
+# there (see issue #31, 171, 174).
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_2():
+    code = dedent("""
+    from typing import Sequence
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_3():
+    code = dedent("""
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == [(1, DottedIdentifier('Sequence'))]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_4():
+    code = dedent("""
+    from typing import Sequence, Tuple
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == [(2, Import('from typing import Tuple'))]
+    assert missing == []
+
 # Python 3.8 uses the correct line number for multiline strings (the first
 # line), making _annotate_ast_startpos irrelevant. Otherwise, the logic for
 # getting this right is too hard. See issue #12.

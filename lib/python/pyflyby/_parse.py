@@ -57,6 +57,9 @@ def _flatten_ast_nodes(arg):
         pass
     elif isinstance(arg, ast.AST):
         yield arg
+    elif isinstance(arg, str):
+        #FunctionDef type_comments
+        yield arg
     elif isinstance(arg, (tuple, list, types.GeneratorType)):
         for x in arg:
             for y in _flatten_ast_nodes(x):
@@ -81,6 +84,11 @@ def _iter_child_nodes_in_order(node):
 
 
 def _iter_child_nodes_in_order_internal_1(node):
+    if isinstance(node, str):
+        # this happen for type comments which are not ast nodes but str
+        # they do not have children. We yield nothing.
+        yield []
+        return
     if not isinstance(node, ast.AST):
         raise TypeError
     if isinstance(node, ast.Dict):
@@ -632,6 +640,7 @@ def _annotate_ast_context(ast_node):
 
     For non-list fields, the index part is ``None``.
     """
+    assert isinstance(ast_node, ast.AST)
     for field_name, field_value in ast.iter_fields(ast_node):
         if isinstance(field_value, ast.AST):
             child_node = field_value

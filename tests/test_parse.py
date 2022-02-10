@@ -16,6 +16,7 @@ from   six                      import PY2, PY3
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._parse           import PythonBlock, PythonStatement
+from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
 
 
 if sys.version_info < (3, 8, 3):
@@ -516,6 +517,43 @@ def test_PythonBlock_flags_type_comment_1():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             assert block.flags == CompilerFlags(0x0000)
+
+
+def test_PythonBlock_flags_type_comment_fail_transform():
+    """
+    See https://github.com/deshaw/pyflyby/issues/171
+
+    
+    $ python3.7 tidy-imports --print test.py
+    def f():
+        # type: () -> None
+        pass
+
+    $ python3.9 tidy-imports --print test.py
+    Traceback (most recent call last):
+    ....
+    SNIP
+    ....
+      File ".../pyflyby/_parse.py", line 65, in _flatten_ast_nodes
+        raise TypeError(
+    TypeError: While processing /tmp/test.py: _flatten_ast_nodes: unexpected str
+
+    /usr/local/bin/tidy-imports: encountered the following problems:
+        /tmp/test.py: TypeError: _flatten_ast_nodes: unexpected str
+
+
+    This is due to the fact that source-to-source does not support ast nodes being strings.
+    """
+    block = PythonBlock(
+    dedent("""
+     def f(x):
+         # type:(str) -> str
+         pass""")
+    )
+
+    s = SourceToSourceFileImportsTransformation(block)
+    assert s.output() == block
+
 
 
 def test_PythonBlock_flags_deduce_eq_1():
