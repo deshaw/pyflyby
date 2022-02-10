@@ -30,6 +30,16 @@ else:
     Bytes = ast.Str
 
 
+if sys.version_info >= (3, 8):
+    from ast import TypeIgnore
+else:
+    # TypeIgnore does not exist on Python 3.7 and before.
+    # thus we define a dummy TypeIgnore just to simplify remaining code.
+
+    class TypeIgnore:
+        pass
+
+
 def _is_comment_or_blank(line):
     """
     Returns whether a line of python code contains only a comment is blank.
@@ -354,6 +364,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     :raise ValueError:
       Could not find the starting line number.
     """
+    assert isinstance(ast_node, (ast.AST, str, TypeIgnore)), ast_node
+
     # joined strings and children do not carry a column offset on pre-3.8
     # this prevent reformatting.
     # set the column offset to the parent value before 3.8
@@ -379,7 +391,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
                                          child_minpos, text, flags)
         if is_first_child and leftstr:
             leftstr_node = child_node
-        if hasattr(child_node, 'lineno'):
+        if hasattr(child_node, 'lineno') and not isinstance(child_node, TypeIgnore):
             if child_node.startpos < child_minpos:
                 raise AssertionError(
                     "Got out-of-order AST node(s):\n"
@@ -404,7 +416,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
     # If the node has no lineno at all, then skip it.  This should only happen
     # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
-    if not hasattr(ast_node, 'lineno'):
+    if not hasattr(ast_node, 'lineno') or isinstance(ast_node, TypeIgnore):
         return False
     # If col_offset is set then the lineno should be correct also.
     if ast_node.col_offset >= 0:

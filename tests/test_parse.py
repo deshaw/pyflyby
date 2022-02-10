@@ -505,6 +505,7 @@ def test_PythonBlock_flags_type_comment_1():
         dedent(
             """
     a = 1 # type: int
+    b = None # type: ignore
     """
         ).lstrip()
     )
@@ -551,6 +552,22 @@ def test_PythonBlock_flags_type_comment_fail_transform():
          pass""")
     )
 
+    s = SourceToSourceFileImportsTransformation(block)
+    assert s.output() == block
+
+
+
+def test_PythonBlock_flags_type_comment_ignore_fails_transform():
+    """
+    See https://github.com/deshaw/pyflyby/issues/174
+
+    Type: ignore are custom ast.AST who have no col_offset.
+    """
+    block = PythonBlock(
+    dedent("""
+        a = None # type: ignore
+        """
+    ))
     s = SourceToSourceFileImportsTransformation(block)
     assert s.output() == block
 
