@@ -851,7 +851,7 @@ def enable_sigterm_handler(on_existing_handler='raise'):
         return
     elif on_existing_handler == "raise":
         raise ValueError(
-            "enable_sigterm_handler(on_existing_handler='raise'): SIGTERM handler already exists")
+            "enable_sigterm_handler(on_existing_handler='raise'): SIGTERM handler already exists" + repr(old_handler))
     else:
         raise ValueError(
             "enable_sigterm_handler(): SIGTERM handler already exists, "
