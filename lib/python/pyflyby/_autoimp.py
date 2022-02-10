@@ -643,7 +643,13 @@ class _MissingImportFinder(object):
     def _visit_typecomment(self, typecomment):
         if typecomment is None:
             return
-        node = ast.parse(typecomment)
+
+        # TODO: This seem incorrect as it was before, and as it is now,
+        # at least I don't think that ast.parse used to, or can parse the type comments
+        # in vaccum like this, they have to be part of a function definition.
+        # think this might need to be mode="func_type" (https://docs.python.org/3/library/ast.html#ast.parse)
+        return
+        node = ast.parse(typecomment, type_comments=True)
         self.visit(node)
 
     def visit_arguments(self, node):
