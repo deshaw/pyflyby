@@ -27,13 +27,13 @@ jobs:
       if: ${{ matrix.python-version == '2.7'}}
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade "pexpect>=3.3" pyflakes pytest epydoc rlipython requests jupyter flaky flake8 wheel 'pytest-cov<3'
+        python -m pip install --upgrade "pexpect>=3.3" pyflakes 'pytest<7' epydoc rlipython requests jupyter flaky flake8 wheel 'pytest-cov<3'
         pip install -e .
     - name: Install and update Python dependencies on Python 3
       if: ${{ matrix.python-version != '2.7'}}
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade "pexpect>=3.3" pyflakes pytest rlipython ipykernel==5.4.3 requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3'
+        python -m pip install --upgrade "pexpect>=3.3" pyflakes 'pytest<7' rlipython ipykernel==5.4.3 requests jupyter flaky flake8 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' 'ipython<8' 'coverage<6.3'
         pip install -e .
     - name: test release build
       run: |
@@ -47,7 +47,7 @@ jobs:
         python -We:invalid -m compileall -f -q lib/ etc/;
     - name: pytest
       run: |
-        python -m pytest --cov=pyflyby --cov-report=xml --doctest-modules lib tests
+        python -m pytest --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
     - uses: codecov/codecov-action@v2
     - name: Build docs
       if: ${{ matrix.python-version == '3.9'}}
