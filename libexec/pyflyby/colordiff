@@ -23,7 +23,9 @@ else
     )
 fi
 
-PATH="$scriptdir:$PATH"
+libexecdir="$scriptdir/../libexec/pyflyby"
+
+PATH="$scriptdir:$libexecdir:$PATH"
 
 if [[ -t 1 ]] && type -p diff-colorize >/dev/null; then
     diff -u "$@" | diff-colorize
