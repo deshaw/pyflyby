@@ -8,3 +8,4 @@ _build
 dist
 pytestdebug.log
 __pycache__
+.hypothesis
