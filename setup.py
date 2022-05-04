@@ -13,6 +13,7 @@ import os
 import re
 from   setuptools               import Command, setup
 from   setuptools.command.test  import test as TestCommand
+from   setuptools.command.sdist  import sdist as SdistCommand
 import subprocess
 import sys
 from   textwrap                 import dedent
@@ -147,6 +148,28 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+DISALLOWED_CONTENT = ['g'+'uas', 'g'+'ql']
+
+def check_for_disallowed_content(archive_filename):
+    archive_filename = os.path.abspath(archive_filename)
+    assert archive_filename.endswith(".tar.gz")
+    archive_members = subprocess.check_output(['tar', 'tzf', archive_filename])
+    archive_file_content = subprocess.check_output(['tar', 'xzOf', archive_filename])
+    data = archive_members + archive_file_content.lower()
+    for disallowed in DISALLOWED_CONTENT:
+        if disallowed.encode("ascii") in data:
+            raise ValueError("Found match for content that shouldn't be source-disted: %s"
+                             % (disallowed,))
+
+
+class SdistAndCheck(SdistCommand):
+
+    def make_distribution(self):
+        super().make_distribution()
+        for filename in self.archive_files:
+            check_for_disallowed_content(filename)
+
+
 setup(
     name = "pyflyby",
     version = version,
@@ -204,6 +227,7 @@ setup(
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,
+        'sdist'          : SdistAndCheck,
         'collect_imports': CollectImports,
         'tidy_imports'   : TidyImports,
     },
