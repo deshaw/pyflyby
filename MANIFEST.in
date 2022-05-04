@@ -14,4 +14,4 @@ global-exclude .gitignore
 global-exclude .TRASH/* .TRASH/*/* .TRASH/*/*/*
 global-exclude *.pyc *.pyo
 global-exclude __pycache__
-global-exclude .pytest_cache
+global-exclude .pytest_cache/* .pytest_cache/*/* .pytest_cache/*/*/*
