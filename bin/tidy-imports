@@ -85,13 +85,12 @@ def main():
         parser.add_option('--py23-fallback', dest='py23_fallback',
                          default=False, action='store_true',
                          help=hfmt('''
-                             (Default) Automatically fallback to
-                             python2/python3 if the source file has a syntax
-                             error.'''))
+                             Automatically fallback to python2/python3 if the
+                             source file has a syntax error.'''))
         parser.add_option('--no-py23-fallback', dest='py23_fallback',
                          action='store_false',
                          help=hfmt('''
-                             Do not automatically fallback to
+                             (Default) Do not automatically fallback to
                              python2/python3 if the source file has a syntax
                              error.'''))
 
