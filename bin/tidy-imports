@@ -83,13 +83,13 @@ def main():
                           help=hfmt('''
                               Don't canonicalize imports.'''))
         parser.add_option('--py23-fallback', dest='py23_fallback',
-                         default=True, action='store_true',
+                         default=False, action='store_true',
                          help=hfmt('''
                              (Default) Automatically fallback to
                              python2/python3 if the source file has a syntax
                              error.'''))
         parser.add_option('--no-py23-fallback', dest='py23_fallback',
-                         default=True, action='store_false',
+                         action='store_false',
                          help=hfmt('''
                              Do not automatically fallback to
                              python2/python3 if the source file has a syntax
