@@ -666,6 +666,37 @@ def test_fix_unused_and_missing_imports_ClassDef_1():
     assert output == expected
 
 
+def test_fix_missing_imports_in_non_method():
+    """
+    unlike test_fix_unused_and_missing_imports_ClassDef_1
+    Free standing functions can refer to themselves.
+
+    Currently this will not work for closure defined in
+    methods, as we'll see a class scope.
+
+    See https://github.com/deshaw/pyflyby/issues/179
+    """
+    input = PythonBlock(
+        dedent(
+            """
+            def selfref():
+                selfref.execute = True
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(
+        dedent(
+            """
+            def selfref():
+                selfref.execute = True
+    """
+        ).lstrip()
+    )
+    assert output == expected
+
+
 def test_fix_unused_and_missing_continutation_1():
     input = PythonBlock(dedent(r'''
         a#\

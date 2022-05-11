@@ -625,6 +625,8 @@ class _MissingImportFinder(object):
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx(unhide_classdef=True):
+                if not self._in_class_def:
+                    self._visit_Store(node.name)
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
         self._visit_Store(node.name)
