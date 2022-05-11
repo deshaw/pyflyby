@@ -1423,6 +1423,11 @@ class _Namespace(object):
         except:
             _handle_user_exception()
 
+    def __repr__(self):
+        return "<{} object at 0x{:0x} \nglobals:{} \nautoimported:{}>".format(
+            type(self).__name__, id(self), self.globals, self.autoimported
+        )
+
 
 class _PyMain(object):
 
@@ -1485,6 +1490,7 @@ class _PyMain(object):
             raise Exception("No such file: %s%s" % (filename, additional_msg))
         with SysArgvCtx(str(filename), *cmd_args):
             sys.path.insert(0, str(filename.dir))
+            self.namespace.globals["__file__"] = str(filename)
             result = self.namespace.auto_eval(filename, debug=self.debug)
             print_result(result, output_mode)
             self.result = result
