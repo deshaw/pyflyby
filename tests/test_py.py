@@ -298,12 +298,14 @@ def test_file_1():
 def test_file_variants_1(arg):
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print(("Longfellow", sys.argv))\n')
+        f.write("print(__file__)\n")
         f.flush()
         result = py(f.name, "a", "b")
     expected = dedent("""
         [PYFLYBY] import sys
         ('Longfellow', [%r, 'a', 'b'])
-    """).strip() % (f.name,)
+        %s
+    """).strip() % (f.name, f.name)
     assert expected == result
 
 
