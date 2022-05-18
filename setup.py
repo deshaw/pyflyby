@@ -162,10 +162,10 @@ def check_for_disallowed_content(archive_filename):
                              % (disallowed,))
 
 
-class SdistAndCheck(SdistCommand):
+class SdistAndCheck(SdistCommand, object):
 
     def make_distribution(self):
-        super().make_distribution()
+        super(SdistAndCheck, self).make_distribution()
         for filename in self.archive_files:
             check_for_disallowed_content(filename)
 
