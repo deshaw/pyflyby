@@ -966,7 +966,7 @@ def test_str_lineno_expression():
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>()
+            <ipython-input> in ...
             NameError: name 'b64decode' is not defined"""
             # Enable the auto importer.
             """
