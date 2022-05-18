@@ -438,7 +438,7 @@ def test_tidy_imports_py2_fallback():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', "--py23-fallback", f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
