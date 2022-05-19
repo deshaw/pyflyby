@@ -479,6 +479,14 @@ def debugger(*args, **kwargs):
         _debug_exception(arg, tty=tty)
         on_continue()
         return
+    import threading
+    # If `arg` is an instance of `tuple` that contains
+    # `threading.ExceptHookArgs`, extract the exc_info from it.
+    if type(arg) is tuple and len(arg) == 1 and type(arg[0]) is threading.ExceptHookArgs:
+        arg = arg[0][:3]
+        _debug_exception(arg, tty=tty)
+        on_continue()
+        return
     if not isinstance(arg, FrameType):
         raise TypeError(
             "debugger(): expected a frame/traceback/str/code; got %s"
