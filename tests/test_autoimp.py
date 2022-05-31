@@ -277,6 +277,22 @@ def test_find_missing_imports_function_defaults_kwargs_1():
     result   = _dilist2strlist(result)
     expected = ['args', 'kwargs', 'y']
     assert expected == result
+    
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only syntax.")
+def test_find_missing_imports_kwarg_annotate():
+    """
+    pfb issue 162
+    """
+    code = dedent("""
+        def func_pfb162(args:Dict, **kwargs:Any):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['Any', 'Dict']
+    assert expected == result
 
 
 def test_find_missing_imports_function_defaults_kwargs_2():

@@ -701,9 +701,15 @@ class _MissingImportFinder(object):
             self.visit(node.kwonlyargs)
         if sys.version_info >= (3, 8):
             self.visit(node.posonlyargs)
-        # Store vararg/kwarg names.
-        self._visit_Store(node.vararg)
-        self._visit_Store(node.kwarg)
+        # may be None.
+        if node.vararg and PY3:
+            self.visit(node.vararg)
+        else:
+            self._visit_Store(node.vararg)
+        if node.kwarg and PY3:
+            self.visit(node.kwarg)
+        else:
+            self._visit_Store(node.kwarg)
 
     def visit_ExceptHandler(self, node):
         assert node._fields == ('type', 'name', 'body')
