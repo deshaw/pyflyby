@@ -31,12 +31,17 @@ else:
 
 
 if sys.version_info >= (3, 8):
-    from ast import TypeIgnore
+    from ast import TypeIgnore, AsyncFunctionDef
 else:
-    # TypeIgnore does not exist on Python 3.7 and before.
-    # thus we define a dummy TypeIgnore just to simplify remaining code.
+
+    # TypeIgnore, AsyncFunctionDef does not exist on Python 3.7 and before. thus
+    # we define a dummy TypeIgnore, AsyncFunctionDef just to simplify remaining
+    # code.
 
     class TypeIgnore:
+        pass
+
+    class AsyncFunctionDef:
         pass
 
 
@@ -104,7 +109,7 @@ def _iter_child_nodes_in_order_internal_1(node):
     if isinstance(node, ast.Dict):
         assert node._fields == ("keys", "values")
         yield list(zip(node.keys, node.values))
-    elif isinstance(node, ast.FunctionDef):
+    elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
         if six.PY2:
             assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
             yield node.decorator_list, node.args, node.body
@@ -423,7 +428,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # In Python 3.8+, FunctionDef.lineno is the line with the def. To
         # account for decorators, we need the lineno of the first decorator
         if (sys.version_info >= (3, 8)
-            and isinstance(ast_node, (ast.FunctionDef, ast.ClassDef))
+            and isinstance(ast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
             and ast_node.decorator_list):
             delta = (ast_node.decorator_list[0].lineno-1,
                      # The col_offset doesn't include the @
@@ -755,7 +760,8 @@ def _ast_node_is_in_docstring_position(ast_node):
     it eligible as a docstring.
 
     The main way a ``Str`` can be a docstring is if it is a standalone string
-    at the beginning of a ``Module``, ``FunctionDef``, or ``ClassDef``.
+    at the beginning of a ``Module``, ``FunctionDef``, ``AsyncFucntionDef``
+    or ``ClassDef``.
 
     We also support variable docstrings per Epydoc:
 
@@ -783,7 +789,7 @@ def _ast_node_is_in_docstring_position(ast_node):
     if expr_ctx.field != 'body':
         return False
     parent_node = expr_ctx.parent
-    if not isinstance(parent_node, (ast.FunctionDef, ast.ClassDef, ast.Module)):
+    if not isinstance(parent_node, (ast.FunctionDef, ast.ClassDef, ast.Module, AsyncFunctionDef)):
         return False
     if expr_ctx.index == 0:
         return True
@@ -1369,7 +1375,7 @@ class PythonBlock(object):
         #    if _ast_node_is_in_docstring_position(n)]
         # However, the method we now use is more straightforward, and doesn't
         # require first annotating each node with context information.
-        docstring_containers = (ast.FunctionDef, ast.ClassDef, ast.Module)
+        docstring_containers = (ast.FunctionDef, ast.ClassDef, ast.Module, AsyncFunctionDef)
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
             if not isinstance(node, docstring_containers):
                 continue

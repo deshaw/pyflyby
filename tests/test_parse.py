@@ -559,14 +559,17 @@ def test_PythonBlock_flags_type_comment_fail_transform():
 
 examples_transform = ["""
     a = None # type: ignore
-    """,
+    """]
+
+if PY3:
+    examples_transform.append(
     """
     class A:
         async def func(self, location: str) -> bytes:
             async with aiofiles.open(location, "rb") as file:
                 return await file.read()
         """
-]
+        )
 
 @pytest.mark.parametrize("source", examples_transform)
 def test_PythonBlock_flags_type_comment_ignore_fails_transform(source):
