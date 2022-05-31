@@ -557,17 +557,26 @@ def test_PythonBlock_flags_type_comment_fail_transform():
 
 
 
-def test_PythonBlock_flags_type_comment_ignore_fails_transform():
+examples_transform = ["""
+    a = None # type: ignore
+    """,
+    """
+    class A:
+        async def func(self, location: str) -> bytes:
+            async with aiofiles.open(location, "rb") as file:
+                return await file.read()
+        """
+]
+
+@pytest.mark.parametrize("source", examples_transform)
+def test_PythonBlock_flags_type_comment_ignore_fails_transform(source):
     """
     See https://github.com/deshaw/pyflyby/issues/174
 
     Type: ignore are custom ast.AST who have no col_offset.
     """
     block = PythonBlock(
-    dedent("""
-        a = None # type: ignore
-        """
-    ))
+    dedent(source))
     s = SourceToSourceFileImportsTransformation(block)
     assert s.output() == block
 
