@@ -131,6 +131,7 @@ def comm_open_handler(comm, message):
     def _recv(msg):
         data = msg["content"]["data"]
         if data["type"] == FORMATTING_IMPORTS:
+            lock_id = data.get('lock_id', None)
             imports = data.get('imports', None)
             fmt_code = _reformat_helper(data["input_code"], imports)
-            comm.send({"formatted_code": str(fmt_code), "type": FORMATTING_IMPORTS})
+            comm.send({"lock_id": lock_id, "formatted_code": str(fmt_code), "type": FORMATTING_IMPORTS})
