@@ -943,7 +943,7 @@ def _escape_for_gdb(string):
         if char in _gdb_safe_chars:
             result.append(char)
         else:
-            result.append("\\%s" % (oct(ord(char)),))
+            result.append(r"\0{0:o}".format(ord(char)))
     return ''.join(result)
 
 
