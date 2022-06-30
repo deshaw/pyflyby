@@ -399,6 +399,25 @@ This style is a maintenance nightmare:
 To fix such code, you can run ``tidy-imports --replace-star-imports`` to
 automatically replace star imports with the specific needed imports.
 
+Per-Project configuration of tidy-imports
+=========================================
+
+You can configure Pyflyby on a per-repository basis by using the
+`[tool.pyflyby]` section of `pyproject.toml` files. Pyflyby will look in current
+working directory and all it's parent until it find a `pyproject.toml` file from
+which it will load the defaults.
+
+
+Most of the long command line flags default values can be configured in this
+section. Simply use the long form option name by replacing dashes `-` by
+underscore `_`. For long option that have the form `--xxx` and `--no-xxx`, you
+can assign a boolean to `xxx`. For example::
+
+    [tool.pyflyby]
+    add_missing=true
+    from_spaces=7
+    remove_unused=false
+
 
 Emacs support
 =============
@@ -429,3 +448,6 @@ License
 
 Pyflyby is released under a very permissive license, the MIT/X11 license; see
 LICENSE.txt.
+
+
+

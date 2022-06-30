@@ -39,10 +39,16 @@ def _sigpipe_handler(*args):
     raise SystemExit(1)
 
 
-def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+def parse_args(
+    addopts=None, import_format_params=False, modify_action_params=False, defaults=None
+):
     """
     Do setup for a top-level script and parse arguments.
     """
+
+    if defaults is None:
+        defaults = {}
+
     ### Setup.
     # Register a SIGPIPE handler.
     signal.signal(signal.SIGPIPE, _sigpipe_handler)
