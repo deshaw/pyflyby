@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+# pyflyby/bin/py
+
+# License for THIS FILE ONLY: CC0 Public Domain Dedication
+# http://creativecommons.org/publicdomain/zero/1.0/
+
+"""
+py -- see pyflyby._py.__doc__
+
+This file is only used when pyflyby is not installed by setup.py.
+When installed by setup.py, we use the pkg_resources entry_point mechanism.
+"""
+
+from __future__ import absolute_import, division, with_statement
+
+# TODO: generate this script and others from a template.
+
+import os
+import sys
+
+def main():
+
+    # Use the lib dir, and remove the bin dir from $PATH.
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    lib_dir = os.path.join(os.path.dirname(script_dir), "lib/python")
+    try:
+        sys.path.remove(script_dir)
+    except ValueError:
+        pass
+    sys.path.insert(0, lib_dir)
+    # Make sure $PYTHONPATH includes our lib dir, for when we exec new python
+    # processes.
+    pythonpath = os.environ.get("PYTHONPATH", None)
+    if pythonpath:
+        pythonpath = "%s:%s" % (lib_dir, pythonpath)
+    else:
+        pythonpath = lib_dir
+    os.environ["PYTHONPATH"] = pythonpath
+
+    from   pyflyby._py              import py_main
+
+    py_main()

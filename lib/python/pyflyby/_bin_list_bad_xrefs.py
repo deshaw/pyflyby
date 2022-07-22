@@ -30,7 +30,3 @@ def main():
         for lineno in linenos or ["?"]:
             print("%s:%s: undefined docstring cross-reference in %s: %s" % (
                 module.filename, lineno, container_name, identifier))
-
-
-if __name__ == '__main__':
-    main()

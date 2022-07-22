@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-prune-broken-imports *.py
-prune-broken-imports < foo.py
+replace-star-imports *.py
+replace-star-imports < foo.py
 
-Removes broken imports.
+Replaces::
+  from foo.bar import *
+with::
+  from foo.bar import (f1, f2, ...)
 
 Note: This actually executes imports.
 
@@ -13,23 +16,20 @@ stdin is not a tty, read from stdin and write to stdout.
 Only top-level import statements are touched.
 
 """
-# pyflyby/prune-broken-imports
+# pyflyby/replace-star-imports
 # Copyright (C) 2012, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._cmdline         import parse_args, process_actions
-from   pyflyby._imports2s       import remove_broken_imports
+from   pyflyby._imports2s       import replace_star_imports
 
 
 def main():
     options, args = parse_args(
         import_format_params=True, modify_action_params=True)
     def modify(x):
-        return remove_broken_imports(x, params=options.params)
+        return replace_star_imports(x, params=options.params)
     process_actions(args, options.actions, modify)
 
-
-if __name__ == '__main__':
-    main()

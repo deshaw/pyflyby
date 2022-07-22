@@ -50,7 +50,9 @@ from   pyflyby._interactive     import (install_in_ipython_config_file,
                                         start_ipython_with_autoimporter)
 
 
-def main(args):
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
     if any(a in ["--help", "-help", "-h"] for a in args):
         print(maindoc())
         print()
@@ -70,7 +72,3 @@ def main(args):
         raise AssertionError("unreachable")
     # *** Start IPython with autoimporter enabled. ***
     start_ipython_with_autoimporter(args)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])

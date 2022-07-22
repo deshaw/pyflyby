@@ -22,7 +22,3 @@ def main():
     def modify(x):
         return reformat_import_statements(x, params=options.params)
     process_actions(args, options.actions, modify)
-
-
-if __name__ == '__main__':
-    main()

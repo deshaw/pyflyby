@@ -189,21 +189,16 @@ setup(
                   '\n'.join([
                       'py=pyflyby._py:py_main',
                       'py{}=pyflyby._py:py_main'.format(str(sys.version_info[0])),
+                      'collect-exports=pyflyby._bin_collect_exports:main',
+                      'collect-imports=pyflyby._bin_collect_imports:main',
+                      'list-bad-xrefs=pyflyby._bin_list_bad_xrefs:main',
+                      'prune-broken-imports=pyflyby._bin_prune_broken_imports:main',
+                      'pyflyby-diff=pyflyby._bin_pyflyby_diff:main',
+                      'reformat-imports=pyflyby._bin_reformat_imports:main',
+                      'replace-star-imports=pyflyby._bin_replace_star_imports:main',
+                      'tidy-imports=pyflyby._bin_tidy_imports:main',
+                      'transform-imports=pyflyby._bin_transform_imports:main',
                   ])},
-    scripts=[
-        # TODO: convert these scripts into entry points (but leave stubs in
-        # bin/ for non-installed usage)
-        'bin/collect-exports',
-        'bin/collect-imports',
-        'bin/find-import',
-        'bin/list-bad-xrefs',
-        'bin/prune-broken-imports',
-        'bin/pyflyby-diff',
-        'bin/reformat-imports',
-        'bin/replace-star-imports',
-        'bin/tidy-imports',
-        'bin/transform-imports',
-    ],
     data_files=[
         ('libexec/pyflyby', [
             'libexec/pyflyby/colordiff', 'libexec/pyflyby/diff-colorize',

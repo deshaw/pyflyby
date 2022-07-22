@@ -200,7 +200,3 @@ def main():
                 sys.exit(1)
     else:
         process_actions(args, options.actions, modify)
-
-
-if __name__ == '__main__':
-    main()
