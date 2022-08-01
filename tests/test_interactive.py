@@ -895,6 +895,7 @@ def IPythonCtx(prog="ipython",
         env["PYTHONSTARTUP"]     = ""
         env["MPLCONFIGDIR"]      = mplconfigdir
         env["PATH"]              = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
+        env["PYTHONBREAKPOINT"]  = "IPython.terminal.debugger.set_trace"
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
                                  frontend=frontend)
         # Spawn IPython.
@@ -4350,7 +4351,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
     reason="old IPython and Python won't work with breakpoint()",
 )
 @retry
-def test_breakpoint_IOStream_broken(frontend):
+def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
     ipython(
         '''
@@ -4358,9 +4359,11 @@ def test_breakpoint_IOStream_broken(frontend):
         --Call--
         > ...
             ...
+            ...
         --> ...     def __call__(self, result=None):
             ...         """Printing with history cache management.
+            ...
         ipdb> c
     ''',
-        frontend=frontend,
+        frontend='prompt_toolkit',
     )
