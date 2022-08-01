@@ -4343,3 +4343,24 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 # TODO: add tests for when IPython is not installed.  either using a tox
 # environment, or using a PYTHONPATH that shadows IPython with something
 # unimportable.
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (7, 0) or (sys.version_info < (3, 7)),
+    reason="old IPython and Python won't work with breakpoint()",
+)
+@retry
+def test_breakpoint_IOStream_broken(frontend):
+    # Verify that step functionality isn't broken.
+    ipython(
+        '''
+        In [1]: breakpoint()
+        --Call--
+        > ...
+            ...
+        --> ...     def __call__(self, result=None):
+            ...         """Printing with history cache management.
+        ipdb> c
+    ''',
+        frontend=frontend,
+    )
