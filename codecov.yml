@@ -1,0 +1,16 @@
+coverage:
+  status:
+    project:
+      default:
+        threshold: 1%
+        target: 70%
+    patch:
+      default:
+        threshold: 1%
+        target: 0%
+codecov:
+  notify:
+    after_n_builds: 6
+comment:
+  require_changes: true  # if true: only post the PR comment if coverage changes
+  after_n_builds: 6
