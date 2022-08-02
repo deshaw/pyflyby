@@ -585,7 +585,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
     if prog == "py":
-        cmd += [str(PYFLYBY_BIN / prog)]
+        cmd += ["-m","pyflyby._py"]
     else:
         # Get the program from the python that is running.
         cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
