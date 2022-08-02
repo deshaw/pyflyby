@@ -4183,7 +4183,6 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
