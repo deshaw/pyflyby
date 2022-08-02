@@ -56,6 +56,9 @@ def pipe(command, stdin="", env=None, retretcode="automatic"):
         env=env
     )
     stdout = proc.communicate(stdin)[0].strip().decode('utf-8')
+    # to be sure we call the right module we use python -m 
+    # though that changes the name of the executable in help texts
+    stdout = stdout.replace('$ _py.py ', '$ py ') 
     retcode = proc.returncode
     assert retcode >= 0
     if retretcode == True:
@@ -117,7 +120,7 @@ def _py_internal_1(args, stdin="",
     env["PYTHONPATH"   ] = _build_pythonpath(PYTHONPATH)
     env["PYTHONSTARTUP"] = ""
     prog = str(BIN_DIR/"py")
-    return pipe((prog,) + args, stdin=stdin, env=env)
+    return pipe([sys.executable, '-m', 'pyflyby._py'] + list(args), stdin=stdin, env=env)
 
 
 def py(*args, **kwargs):
@@ -146,7 +149,9 @@ def test_0prefix_raw_1():
 
 def test_0version_1():
     # Verify that we're testing the version we think we are.
-    result = py('-q', '--print', 'sys.version').strip()
+    result = py('-q', '--print', 'sys.version')
+    assert isinstance(result, str)
+    result = result.strip()
     expected = sys.version
     assert expected == result
 
