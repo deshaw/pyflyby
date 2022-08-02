@@ -347,6 +347,7 @@ import inspect
 import os
 import re
 import six
+import sys
 from   six.moves                import builtins
 import sys
 import types
@@ -379,12 +380,25 @@ FLAGS = CompilerFlags(["absolute_import", "with_statement", "division",
                        "print_function"])
 
 
-def _get_argspec(arg, _recurse=False):
-    from inspect import getargspec, ArgSpec
-    if isinstance(arg, FunctionType):
+if sys.version_info > (3, 0):
+    def compat_argspec(arg):
+        from inspect import getfullargspec, ArgSpec
+        farg = tuple(getfullargspec(arg))[:4]
+        return ArgSpec(*farg)
+else:
+    def compat_argspec(arg):
+        from inspect import getargspec
         return getargspec(arg)
+
+
+
+
+def _get_argspec(arg, _recurse=False):
+    from inspect import ArgSpec
+    if isinstance(arg, FunctionType):
+        return compat_argspec(arg)
     elif isinstance(arg, MethodType):
-        argspec = getargspec(arg)
+        argspec = compat_argspec(arg)
         if arg.__self__ is not None:
             # For bound methods, ignore the "self" argument.
             return ArgSpec(argspec.args[1:], *argspec[1:])
