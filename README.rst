@@ -450,4 +450,31 @@ Pyflyby is released under a very permissive license, the MIT/X11 license; see
 LICENSE.txt.
 
 
+Release
+=======
+
+1. Check version number in `lib/python/pyflyby/_version.py`, maybe increase it.
+2. Commit and tag if necessary, and push tags/commits.
+3. Optional: Set SOURCE_DATE_EPOCH for reproducible build::
+
+    export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+
+4. Build the SDIST::
+
+    python setup.py sdist
+
+5. Optional Repack the Sdist to make sure the ZIP only contain SOURCE_DATE_EPOCH
+   date using IPython tools::
+
+    python ~/dev/ipython/tools/retar.py dist/pyflyby-1.7.8.tar.gz
+    shasum -a 256 dist/*
+
+6. Optional, redo 4 & 5 to verify checksum is unchanged.
+7. Upload using twine::
+
+    twine upload dist/*
+
+8. Check/update https://github.com/conda-forge/pyflyby-feedstock for new pyflyby
+   release on conda-forge
+
 
