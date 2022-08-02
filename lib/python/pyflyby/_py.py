@@ -349,7 +349,6 @@ import re
 import six
 import sys
 from   six.moves                import builtins
-import sys
 import types
 from   types                    import FunctionType, MethodType
 

@@ -119,7 +119,6 @@ def _py_internal_1(args, stdin="",
     env["PYFLYBY_PATH" ] = str(Filename(PYFLYBY_PATH))
     env["PYTHONPATH"   ] = _build_pythonpath(PYTHONPATH)
     env["PYTHONSTARTUP"] = ""
-    prog = str(BIN_DIR/"py")
     return pipe([sys.executable, '-m', 'pyflyby._py'] + list(args), stdin=stdin, env=env)
 
 
