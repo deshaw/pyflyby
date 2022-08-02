@@ -42,12 +42,13 @@ jobs:
     - name: compileall
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
-    - name: pytest Python 2
-      if: ${{ matrix.python-version == '2.7'}}
+    - name: pytest Python 2 or Mac OS
+      if: ${{ matrix.python-version == '2.7' || matrix.os == 'macos-latest'}}
+      # json report can't be installed on Py2, and make macos super slow.
       run: |
         python -m pytest --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
     - name: pytest Python 3
-      if: ${{ matrix.python-version != '2.7'}}
+      if: ${{ matrix.python-version != '2.7' && matrix.os != 'macos-latest'  }}
       run: |
         python -m pytest --cov=pyflyby --cov-report=xml\
                --doctest-modules\

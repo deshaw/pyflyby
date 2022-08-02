@@ -4183,11 +4183,44 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.xfail(
+@pytest.mark.skipif(
+    sys.version_info[0] == 2,
+    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
+)
+def test_debug_namespace_1_py3(frontend):
+    # Verify that autoimporting and tab completion happen in the local
+    # namespace.
+    # In this example, in the local namespace, 'base64' is a variable (which
+    # is a string), and shouldn't refer to the global 'base64'.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def foo(x, base64):
+           ...:     return x / base64
+           ...:
+        In [3]: foo("Lexington", "atlantic")
+        ---------------------------------------------------------------------------
+        TypeError                                 Traceback (most recent call last)
+        ....
+        TypeError: unsupported operand type(s) for /: 'str' and 'str'
+        In [4]: %debug
+        ....
+        ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==").decode('utf-8'))
+        [PYFLYBY] from base64 import b64decode
+        AtlanticPacific
+        ipdb> p b64deco\tde("Q29udGluZW50YWw=")
+        b'Continental'
+        ipdb> q
+        In [5]: base64.b64de\t
+        In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
+        [PYFLYBY] from base64 import b64decode
+        Out[5]: b'HillLake'
+    """, frontend=frontend)
+
+@pytest.mark.skipif(
     sys.version_info[0] == 3,
     reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
 )
-def test_debug_namespace_1(frontend):
+def test_debug_namespace_1_py2(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
     # In this example, in the local namespace, 'base64' is a variable (which
