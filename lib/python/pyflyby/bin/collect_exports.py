@@ -72,3 +72,6 @@ def main():
         print("collect-exports: there were problems with: %s" % (
             ' '.join(bad_module_names)), file=sys.stderr)
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()

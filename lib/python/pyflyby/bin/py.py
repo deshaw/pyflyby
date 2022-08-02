@@ -41,3 +41,6 @@ def main():
     from   pyflyby._py              import py_main
 
     py_main()
+
+if __name__ == "__main__":
+    main()

@@ -34,3 +34,6 @@ def main():
                 print(imp.pretty_print(params=options.params), end=' ')
     if errors:
         raise SystemExit(1)
+
+if __name__ == "__main__":
+    main()

@@ -72,3 +72,6 @@ def main(args=None):
         raise AssertionError("unreachable")
     # *** Start IPython with autoimporter enabled. ***
     start_ipython_with_autoimporter(args)
+
+if __name__ == "__main__":
+    main()

@@ -42,3 +42,6 @@ def main():
     def modify(x):
         return transform_imports(x, transformations, params=options.params)
     process_actions(args, options.actions, modify)
+
+if __name__ == "__main__":
+    main()

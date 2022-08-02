@@ -20,10 +20,6 @@ from   pyflyby._util            import EnvVarCtx
 
 import pytest
 
-PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
-
-
 python = sys.executable
 
 def pipe(command, stdin=""):
@@ -36,7 +32,7 @@ def pipe(command, stdin=""):
 
 
 def test_tidy_imports_stdin_1():
-    result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
+    result = pipe(['-m','pyflyby.bin.tidy_imports'], stdin="os, sys")
     expected = dedent('''
         [PYFLYBY] /dev/stdin: added 'import os'
         [PYFLYBY] /dev/stdin: added 'import sys'
@@ -49,7 +45,7 @@ def test_tidy_imports_stdin_1():
 
 
 def test_tidy_imports_quiet_1():
-    result = pipe([BIN_DIR+"/tidy-imports", "--quiet"], stdin="os, sys")
+    result = pipe(['-m','pyflyby.bin.tidy_imports', "--quiet"], stdin="os, sys")
     expected = dedent('''
         import os
         import sys
@@ -61,7 +57,7 @@ def test_tidy_imports_quiet_1():
 
 def test_tidy_imports_log_level_1():
     with EnvVarCtx(PYFLYBY_LOG_LEVEL="WARNING"):
-        result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
+        result = pipe(['-m','pyflyby.bin.tidy_imports'], stdin="os, sys")
         expected = dedent('''
             import os
             import sys
@@ -79,7 +75,7 @@ def test_tidy_imports_filename_action_print_1():
                 foo() + os + sys
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/tidy-imports", f.name])
+        result = pipe(['-m','pyflyby.bin.tidy_imports', f.name])
         expected = dedent('''
             [PYFLYBY] {f.name}: added 'import os'
             [PYFLYBY] {f.name}: added 'import sys'
@@ -103,7 +99,7 @@ def test_tidy_imports_filename_action_replace_1():
             a, c
         ''').lstrip())
         name = f.name
-    cmd_output = pipe([BIN_DIR+"/tidy-imports", "-r", name])
+    cmd_output = pipe(['-m','pyflyby.bin.tidy_imports', "-r", name])
     expected_cmd_output = dedent('''
         [PYFLYBY] {f.name}: removed unused 'import b'
         [PYFLYBY] {f.name}: added 'import os'
@@ -133,7 +129,7 @@ def test_tidy_imports_no_add_no_remove_1():
         import a, b, c
         a, c, os, sys
     ''').lstrip()
-    result = pipe([BIN_DIR+"/tidy-imports", "--no-add", "--no-remove"],
+    result = pipe(['-m','pyflyby.bin.tidy_imports', "--no-add", "--no-remove"],
                   stdin=input)
     expected = dedent('''
         import a
@@ -159,7 +155,7 @@ def test_reformat_imports_1():
         import zzt.foo as zzt
         code() #x
     ''').strip()
-    result = pipe([BIN_DIR+"/reformat-imports"], stdin=input)
+    result = pipe(["-m", "pyflyby.bin.reformat_imports"], stdin=input)
     expected = dedent('''
         from   ZZT                      import MEGAZEUX
         import megazeux
@@ -190,7 +186,7 @@ def test_collect_imports_1():
             from m7 import *
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name])
+        result = pipe(["-m", "pyflyby.bin.collect_imports", f.name])
         expected = dedent('''
             from   m1.m2                    import f3, f4
             import m1.m3
@@ -214,7 +210,7 @@ def test_collect_imports_include_1():
             import m1, m1y
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name,
+        result = pipe(["-m", "pyflyby.bin.collect_imports", f.name,
                        "--include=m1",
                        "--include=m3.m5"])
         expected = dedent('''
@@ -239,7 +235,7 @@ def test_collect_imports_include_dot_1():
             from m1x import f6
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name, "--include=."])
+        result = pipe(["-m", "pyflyby.bin.collect_imports", f.name, "--include=."])
         expected = dedent('''
             from   .m1                      import f5
         ''').strip()
@@ -247,7 +243,7 @@ def test_collect_imports_include_dot_1():
 
 
 def test_collect_exports_1():
-    result = pipe([BIN_DIR+"/collect-exports", "fractions"])
+    result = pipe(["-m", "pyflyby.bin.collect_exports", "fractions"])
     if sys.version_info < (3,9):
         expected = dedent('''
             from   fractions                import Fraction, gcd
@@ -261,19 +257,19 @@ def test_collect_exports_1():
 
 
 def test_find_import_1():
-    result = pipe([BIN_DIR+"/find-import", "np"])
+    result = pipe(["-m", "pyflyby.bin.find_import", "np"])
     expected = 'import numpy as np'
     assert result == expected
 
 
 def test_find_import_bad_1():
-    result = pipe([BIN_DIR+"/find-import", "omg_unknown_4223496"])
+    result = pipe(["-m", "pyflyby.bin.find_import", "omg_unknown_4223496"])
     expected = "[PYFLYBY] Can't find import for 'omg_unknown_4223496'"
     assert result == expected
 
 
 def test_py_eval_1():
-    result = pipe([BIN_DIR+"/py", "-c", "b64decode('aGVsbG8=')"])
+    result = pipe(["-m", "pyflyby.bin.py", "-c", "b64decode('aGVsbG8=')"])
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('aGVsbG8=')
@@ -285,7 +281,7 @@ def test_py_eval_1():
 
 
 def test_py_exec_1():
-    result = pipe([BIN_DIR+"/py", "-c", "if 1: print(b64decode('aGVsbG8='))"])
+    result = pipe(["-m", "pyflyby.bin.py", "-c", "if 1: print(b64decode('aGVsbG8='))"])
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
@@ -297,7 +293,7 @@ def test_py_exec_1():
 
 
 def test_py_name_1():
-    result = pipe([BIN_DIR+"/py", "-c", "__name__"])
+    result = pipe(["-m", "pyflyby.bin.py", "-c", "__name__"])
     expected = dedent("""
         [PYFLYBY] __name__
         '__main__'
@@ -306,7 +302,7 @@ def test_py_name_1():
 
 
 def test_py_argv_1():
-    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "x", "y"])
+    result = pipe(["-m", "pyflyby.bin.py", "-c", "sys.argv", "x", "y"])
     expected = dedent("""
        [PYFLYBY] import sys
        [PYFLYBY] sys.argv
@@ -316,7 +312,7 @@ def test_py_argv_1():
 
 
 def test_py_argv_2():
-    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "--debug", "-x  x"])
+    result = pipe(["-m", "pyflyby.bin.py", "-c", "sys.argv", "--debug", "-x  x"])
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.argv
@@ -329,7 +325,7 @@ def test_py_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print(sys.argv)\n')
         f.flush()
-        result = pipe([BIN_DIR+"/py", f.name, "a", "b"])
+        result = pipe(["-m", "pyflyby.bin.py", f.name, "a", "b"])
     expected = dedent("""
         [PYFLYBY] import sys
         [%r, 'a', 'b']
@@ -346,7 +342,7 @@ def test_tidy_imports_query_no_change_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         # We expect no "Replace [y/N]" query, since nothing changed.
         child.expect(pexpect.EOF)
@@ -366,7 +362,7 @@ def test_tidy_imports_query_y_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -392,7 +388,7 @@ def test_tidy_imports_query_n_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -413,7 +409,7 @@ def test_tidy_imports_query_junk_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("zxcv\n")
@@ -438,7 +434,7 @@ def test_tidy_imports_py2_fallback():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', "--py23-fallback", f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', "--py23-fallback", f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -466,7 +462,7 @@ def test_tidy_imports_py3_fallback():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -493,7 +489,7 @@ def test_tidy_imports_symlinks_default():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")
@@ -521,7 +517,7 @@ def test_tidy_imports_symlinks_error():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=error', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', '--symlinks=error', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")
@@ -548,7 +544,7 @@ def test_tidy_imports_symlinks_follow():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=follow', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', '--symlinks=follow', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -575,7 +571,7 @@ def test_tidy_imports_symlinks_skip():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=skip',
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', '--symlinks=skip',
                                                         symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
@@ -603,7 +599,7 @@ def test_tidy_imports_symlinks_replace():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlink=replace', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', '--symlink=replace', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -630,7 +626,7 @@ def test_tidy_imports_symlinks_bad_argument():
         head, tail = os.path.split(f.name)
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=bad', symlink_name], timeout=5.0)
+        child = pexpect.spawn(python, ["-m", 'pyflyby.bin.tidy_imports', '--symlinks=bad', symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
         # child.send("n\n")

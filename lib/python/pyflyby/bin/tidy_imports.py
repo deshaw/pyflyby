@@ -154,7 +154,6 @@ def _addopts(parser):
                             Equivalent to --no-add-missing
                             --no-add-mandatory.'''))
 def main():
-
     config_text = _get_pyproj_toml_config()
     if config_text:
         default_config = toml.loads(config_text).get('tool', {}).get('pyflyby',{})
@@ -200,3 +199,7 @@ def main():
                 sys.exit(1)
     else:
         process_actions(args, options.actions, modify)
+
+
+if __name__ == "__main__":
+    main()

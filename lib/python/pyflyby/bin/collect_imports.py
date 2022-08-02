@@ -53,3 +53,6 @@ def main():
         importset = importset.without_imports(db.known_imports)
     sys.stdout.write(importset.pretty_print(
             allow_conflicts=True, params=options.params))
+
+if __name__ == "__main__":
+    main()

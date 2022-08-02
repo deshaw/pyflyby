@@ -33,3 +33,6 @@ def main():
         return replace_star_imports(x, params=options.params)
     process_actions(args, options.actions, modify)
 
+
+if __name__ == "__main__":
+    main()
