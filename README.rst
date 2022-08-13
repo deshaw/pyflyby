@@ -442,6 +442,9 @@ This plugin was contributed back to the community by the `D. E. Shaw group
 
 Pyflyby is written by Karl Chen <quarl@8166.clguba.z.quarl.org>
 
+We love contributions! Before you can contribute, please sign and submit this
+`Contributor License Agreement (CLA) <https://www.deshaw.com/oss/cla>`_.
+This CLA is in place to protect all users of this project.
 
 License
 =======
