@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, with_statement
 import os
 import re
 import sys
+import pytest
 
 from six import PY3
 
@@ -40,8 +41,12 @@ def pytest_report_header(config):
     dir = os.path.dirname(pyflyby.__file__)
     print("pyflyby %s from %s" % (pyflyby.__version__, dir))
 
-def pytest_cmdline_preparse(config, args):
-    args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
+if getattr(pytest, 'version_tuple', (0,0))[:2] >= (7, 0):
+    def pytest_load_initial_conftests(early_config, parser, args):
+        args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
+else:
+    def pytest_cmdline_preparse(config, args):
+        args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
 
 def _setup_logger():
     """

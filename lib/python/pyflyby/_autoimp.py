@@ -103,6 +103,16 @@ class ScopeStack(Sequence):
             _class_delayed = {}
         self._class_delayed = _class_delayed
 
+    def __contains__(self, item):
+        if isinstance(item, DottedIdentifier):
+            item = item.name
+        if isinstance(item, str):
+            for sub in self:
+                if item in sub.keys():
+                    return True
+
+        return False
+
     def __getitem__(self, item):
         if isinstance(item, slice):
             return self.__class__(self._tup[item])
@@ -570,7 +580,7 @@ class _MissingImportFinder(object):
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
-                self._visit_Load(e.s)
+                self._visit_Load_defered_global(e.s)
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
@@ -927,9 +937,32 @@ class _MissingImportFinder(object):
         # Don't call generic_visit(node) here.  Reason: We already visit the
         # parts above, if relevant.
 
+    def _visit_Load_defered_global(self, fullname):
+        """
+        Some things will be resolved in global scope later.
+        """
+        logger.debug("_visit_Load_defered_global(%r)", fullname)
+        if symbol_needs_import(fullname, self.scopestack):
+            data = (fullname, self.scopestack, self._lineno)
+            self._deferred_load_checks.append(data)
+
+
+    def _visit_Load_defered(self, fullname):
+        logger.debug("_visit_Load_defered(%r)", fullname)
+        if symbol_needs_import(fullname, self.scopestack):
+            data = (fullname, self.scopestack.clone_top(), self._lineno)
+            self._deferred_load_checks.append(data)
+
+    def _visit_Load_immediate(self, fullname):
+        logger.debug("_visit_Load_immediate(%r)", fullname)
+        self._check_load(fullname, self.scopestack, self._lineno)
+
+
+
     def _visit_Load(self, fullname):
         logger.debug("_visit_Load(%r)", fullname)
         if self._in_FunctionDef:
+            self._visit_Load_defered(fullname)
             # We're in a FunctionDef.  We need to defer checking whether this
             # references undefined names.  The reason is that globals (or
             # stores in a parent function scope) may be stored later.
@@ -950,24 +983,28 @@ class _MissingImportFinder(object):
             # On the other hand, we intentionally alias the other scopes
             # rather than cloning them, because the point is to allow them to
             # be modified until we do the check at the end.
+            self._visit_Load_defered(fullname)
 
-            if symbol_needs_import(fullname, self.scopestack):
-                data = (fullname, self.scopestack.clone_top(), self._lineno)
-                self._deferred_load_checks.append(data)
         else:
             # We're not in a FunctionDef.  Deferring would give us the same
             # result; we do the check now to avoid the overhead of cloning the
             # stack.
-            self._check_load(fullname, self.scopestack, self._lineno)
+            self._visit_Load_immediate(fullname)
 
     def _check_load(self, fullname, scopestack, lineno):
-        # Check if the symbol needs import.  (As a side effect, if the object
-        # is a _UseChecker, this will mark it as used.  TODO: It would be
-        # better to refactor symbol_needs_import so that it just returns the
-        # object it found, and we mark it as used here.)
+        """
+        Check if the symbol needs import.  (As a side effect, if the object
+        is a _UseChecker, this will mark it as used.
+
+        TODO: It would be
+        better to refactor symbol_needs_import so that it just returns the
+        object it found, and we mark it as used here.)
+        """
+
         fullname = DottedIdentifier(fullname)
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
-            self.missing_imports.append((lineno,fullname))
+            if (lineno, fullname) not in self.missing_imports:
+                self.missing_imports.append((lineno, fullname))
 
     def _finish_deferred_load_checks(self):
         for fullname, scopestack, lineno in self._deferred_load_checks:
