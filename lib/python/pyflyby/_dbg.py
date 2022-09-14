@@ -288,7 +288,7 @@ def _prompt_continue_waiting_for_debugger():
             break
 
         if response.lower() not in ('y', 'yes'):
-            print(f"Invalid response: {repr(response)}")
+            print("Invalid response: {}".format(repr(response)))
         else:
             break
 
