@@ -1056,6 +1056,7 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     else:
         return process.pid
 
+
 import tty
 
 
