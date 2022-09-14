@@ -270,6 +270,29 @@ def _get_caller_frame():
     return f
 
 
+def _prompt_continue_waiting_for_debugger():
+    """
+    Prompt while exiting the debugger to get user opinion on keeping the
+    process waiting for debugger to attach.
+    """
+    count_invalid = 0
+    max_invalid_entries = 3
+    while count_invalid < max_invalid_entries:
+        sys.stdout.flush()
+        response = input("Keep the process running for debugger to be "
+                            "attached later ? (y)es/(n)o\n")
+
+        if response.lower() in ('n', 'no'):
+            global _waiting_for_debugger
+            _waiting_for_debugger = None
+            break
+
+        if response.lower() not in ('y', 'yes'):
+            print(f"Invalid response: {repr(response)}")
+        else:
+            break
+
+
 def _debug_exception(*exc_info, **kwargs):
     """
     Debug an exception -- print a stack trace and enter the debugger.
@@ -278,6 +301,7 @@ def _debug_exception(*exc_info, **kwargs):
     """
     from pyflyby._interactive import print_verbose_tb
     tty = kwargs.pop("tty", "/dev/tty")
+    debugger_attached = kwargs.pop("debugger_attached", False)
     if kwargs:
         raise TypeError("debug_exception(): unexpected kwargs %s"
                         % (', '.join(sorted(kwargs.keys()))))
@@ -293,7 +317,13 @@ def _debug_exception(*exc_info, **kwargs):
         # will cause print_verbose_tb to include a line with just a colon.
         # TODO: avoid that line.
         exc_info = ("", "", exc_info)
+
     with _DebuggerCtx(tty=tty) as pdb:
+        if debugger_attached:
+            # If debugger is attached to the process made waiting by
+            # 'wait_for_debugger_to_attach', check with the user whether to
+            # keep the process waiting for debugger to attach.
+            pdb.postloop = _prompt_continue_waiting_for_debugger
         print_verbose_tb(*exc_info)
         pdb.interaction(None, exc_info[2])
 
@@ -445,7 +475,7 @@ def debugger(*args, **kwargs):
         # (whether it's a frame, traceback, etc).
         global _waiting_for_debugger
         arg = _waiting_for_debugger
-        _waiting_for_debugger = None
+        _debugger_attached = True
     if arg is None:
         # Debug current frame.
         arg = _CURRENT_FRAME
@@ -476,7 +506,7 @@ def debugger(*args, **kwargs):
         return
     if (isinstance(arg, TracebackType) or
         type(arg) is tuple and len(arg) == 3 and type(arg[2]) is TracebackType):
-        _debug_exception(arg, tty=tty)
+        _debug_exception(arg, tty=tty, debugger_attached=_debugger_attached)
         on_continue()
         return
     import threading
@@ -484,7 +514,7 @@ def debugger(*args, **kwargs):
     # `threading.ExceptHookArgs`, extract the exc_info from it.
     if type(arg) is tuple and len(arg) == 1 and type(arg[0]) is threading.ExceptHookArgs:
         arg = arg[0][:3]
-        _debug_exception(arg, tty=tty)
+        _debug_exception(arg, tty=tty, debugger_attached=_debugger_attached)
         on_continue()
         return
     if not isinstance(arg, FrameType):
@@ -1025,7 +1055,6 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
                 % (command, retcode))
     else:
         return process.pid
-
 
 import tty
 
