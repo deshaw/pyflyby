@@ -1709,6 +1709,22 @@ def test_all_exports_1():
     assert unused == [(2, Import('from os import read'))]
 
 
+def test_all_exports_2():
+    code = dedent("""
+        from __future__ import absolute_import, division
+
+        __all__ = ["defaultdict", "rmdir"]
+
+
+        def defaultdict():
+            pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(4, DottedIdentifier('rmdir'))]
+    assert unused == []
+
+
+
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
