@@ -468,6 +468,7 @@ def debugger(*args, **kwargs):
     locals          = kwargs.pop("locals"         , None)
     wait_for_attach = kwargs.pop("wait_for_attach", Ellipsis)
     background      = kwargs.pop("background"     , False)
+    _debugger_attached = False
     if kwargs:
         raise TypeError("debugger(): unexpected kwargs %s"
                         % (', '.join(sorted(kwargs))))
@@ -1057,7 +1058,6 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     else:
         return process.pid
 
-
 import tty
 
 
@@ -1114,8 +1114,16 @@ def process_exists(pid):
     :rtype:
       ``bool``
     """
+    import psutil
+
     try:
         os.kill(pid, 0)
+
+        # Zombie processes should be treated as non-existing.
+        proc = psutil.Process(pid)
+        if proc.status() == psutil.STATUS_ZOMBIE:
+            return False
+
         return True
     except OSError as e:
         if e.errno == errno.ESRCH:
@@ -1203,6 +1211,7 @@ def attach_debugger(pid):
         while True:
             try:
                 if not process_exists(gdb_pid):
+                    print("GDB process has exited.")
                     kill_process(
                         parent_pid,
                         [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
@@ -1235,7 +1244,7 @@ def attach_debugger(pid):
     try:
         terminal.communicate()
     except SigUsr1:
-        print("Debugging complete.")
+        print("\nDebugging complete.")
         pass
 
 
