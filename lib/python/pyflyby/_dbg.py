@@ -292,7 +292,8 @@ def _prompt_continue_waiting_for_debugger():
             count_invalid += 1
         else:
             break
-    print("Exiting after multiple ({}) invalid responses.".format(max_invalid_entries))
+    print("Exiting after {} invalid responses.".format(max_invalid_entries))
+    _waiting_for_debugger = None
     # Sleep for a fraction of second for the print statements to get printed.
     time.sleep(0.01)
 
