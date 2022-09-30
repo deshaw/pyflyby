@@ -4,10 +4,9 @@ import matplotlib.colors
 from   matplotlib.colors        import ColorConverter
 from   matplotlib.font_manager  import FontProperties
 from   matplotlib.patches       import Rectangle
-from   matplotlib.pyplot        import (clf, draw, figure, gca, gcf, grid,
-                                        ioff, legend, plot, savefig, scatter,
-                                        show, subplot, title, xlabel, ylabel,
-                                        ylim)
+from   matplotlib.pyplot        import (clf, draw, figure, gca, gcf, ioff,
+                                        legend, plot, savefig, scatter, show,
+                                        subplot, title, xlabel, ylabel, ylim)
 from   matplotlib.ticker        import (Formatter, Locator, NullFormatter,
                                         NullLocator)
 import numexpr
