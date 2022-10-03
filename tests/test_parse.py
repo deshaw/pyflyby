@@ -556,6 +556,17 @@ def test_PythonBlock_flags_type_comment_fail_transform():
     assert s.output() == block
 
 
+def test_PythonBlock_posonly():
+    block = PythonBlock(
+    dedent("""
+     def f(x, y=None, / , z=None):
+         pass""")
+    )
+
+    s = SourceToSourceFileImportsTransformation(block)
+    assert s.output() == block
+
+
 
 examples_transform = ["""
     a = None # type: ignore
