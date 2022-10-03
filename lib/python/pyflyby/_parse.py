@@ -141,11 +141,12 @@ def _iter_child_nodes_in_order_internal_1(node):
         elif sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
+            args = node.posonlyargs + node.args
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
+            args = node.args
         defaults = node.defaults or ()
-        args = node.posonlyargs + node.args
         num_no_default = len(args) - len(defaults)
         yield args[:num_no_default]
         yield list(zip(args[num_no_default:], defaults))
