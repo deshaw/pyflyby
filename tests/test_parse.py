@@ -569,6 +569,7 @@ if PY3:
                 return await file.read()
         """
         )
+if sys.version_info >= (3, 8):
     examples_transform.append(
     # positional only
     """ 
