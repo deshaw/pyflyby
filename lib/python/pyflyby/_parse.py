@@ -145,9 +145,10 @@ def _iter_child_nodes_in_order_internal_1(node):
             assert node._fields == ('args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
         defaults = node.defaults or ()
-        num_no_default = len(node.args)-len(defaults)
-        yield node.args[:num_no_default]
-        yield list(zip(node.args[num_no_default:], defaults))
+        args = node.posonlyargs + node.args
+        num_no_default = len(args) - len(defaults)
+        yield args[:num_no_default]
+        yield list(zip(args[num_no_default:], defaults))
         # node.varags and node.kwarg are strings, not AST nodes.
     elif isinstance(node, ast.IfExp):
         assert node._fields == ('test', 'body', 'orelse')
