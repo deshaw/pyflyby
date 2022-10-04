@@ -556,7 +556,6 @@ def test_PythonBlock_flags_type_comment_fail_transform():
     assert s.output() == block
 
 
-
 examples_transform = ["""
     a = None # type: ignore
     """]
@@ -569,6 +568,13 @@ if PY3:
             async with aiofiles.open(location, "rb") as file:
                 return await file.read()
         """
+        )
+if sys.version_info >= (3, 8):
+    examples_transform.append(
+    # positional only
+    """ 
+    def f(x, y=None, / , z=None):
+         pass"""
         )
 
 @pytest.mark.parametrize("source", examples_transform)

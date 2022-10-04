@@ -138,16 +138,19 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.arguments):
         if six.PY2:
             assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
+            args = node.args
         elif sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
+            args = node.posonlyargs + node.args
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
+            args = node.args
         defaults = node.defaults or ()
-        num_no_default = len(node.args)-len(defaults)
-        yield node.args[:num_no_default]
-        yield list(zip(node.args[num_no_default:], defaults))
+        num_no_default = len(args) - len(defaults)
+        yield args[:num_no_default]
+        yield list(zip(args[num_no_default:], defaults))
         # node.varags and node.kwarg are strings, not AST nodes.
     elif isinstance(node, ast.IfExp):
         assert node._fields == ('test', 'body', 'orelse')
