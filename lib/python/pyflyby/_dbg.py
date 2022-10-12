@@ -1118,16 +1118,8 @@ def process_exists(pid):
     :rtype:
       ``bool``
     """
-    import psutil
-
     try:
         os.kill(pid, 0)
-
-        # Zombie processes should be treated as non-existing.
-        proc = psutil.Process(pid)
-        if proc.status() == psutil.STATUS_ZOMBIE:
-            return False
-
         return True
     except OSError as e:
         if e.errno == errno.ESRCH:
@@ -1215,7 +1207,6 @@ def attach_debugger(pid):
         while True:
             try:
                 if not process_exists(gdb_pid):
-                    print("GDB process has exited.")
                     kill_process(
                         parent_pid,
                         [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
