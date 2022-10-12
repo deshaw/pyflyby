@@ -1203,7 +1203,6 @@ def attach_debugger(pid):
         while True:
             try:
                 if not process_exists(gdb_pid):
-                    print("GDB process has exited.")
                     kill_process(
                         parent_pid,
                         [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
