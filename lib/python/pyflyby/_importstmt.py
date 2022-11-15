@@ -103,10 +103,8 @@ class Import(object):
 
     @classmethod
     def from_parts(cls, fullname, import_as):
-        if not isinstance(fullname, str):
-            raise TypeError
-        if not isinstance(import_as, str):
-            raise TypeError
+        assert isinstance(fullname, str)
+        assert isinstance(import_as, str)
         self = object.__new__(cls)
         self.fullname = fullname
         self.import_as = import_as
@@ -427,7 +425,7 @@ class ImportStatement(object):
             raise ValueError
         module_names = set(imp.split.module_name for imp in imports)
         if len(module_names) > 1:
-            raise Exception(
+            raise ValueError(
                 "Inconsistent module names %r" % (sorted(module_names),))
         fromname = list(module_names)[0]
         aliases = [ imp.split[1:] for imp in imports ]
