@@ -312,6 +312,18 @@ class Import(object):
             return NotImplemented
         return self._data < other._data
 
+def _interpret_alias(arg):
+    if isinstance(arg, str):
+        return (arg, None)
+    if not isinstance(arg, tuple):
+        raise TypeError('`arg` must be a tuple, got {}'.format(type(arg)))
+    if not len(arg) == 2:
+        raise TypeError('`arg` must be of len 2, got {} elements'.format(len(arg)))
+    if not isinstance(arg[0], str):
+        raise TypeError('`arg[0]` must be a str, got {}'.format(type(arg[0])))
+    if not (arg[1] is None or isinstance(arg[1], str)):
+        raise TypeError('arg[1] is None, or arg[1] is str {} '.format(arg))
+    return arg
 
 @total_ordering
 class ImportStatement(object):
@@ -340,19 +352,7 @@ class ImportStatement(object):
         self.fromname = fromname
         if not len(aliases):
             raise ValueError
-        def interpret_alias(arg):
-            if isinstance(arg, str):
-                return (arg, None)
-            if not isinstance(arg, tuple):
-                raise TypeError
-            if not len(arg) == 2:
-                raise TypeError
-            if not isinstance(arg[0], str):
-                raise TypeError
-            if not (arg[1] is None or isinstance(arg[1], str)):
-                raise TypeError
-            return arg
-        self.aliases = tuple(interpret_alias(a) for a in aliases)
+        self.aliases = tuple(_interpret_alias(a) for a in aliases)
         return self
 
     @classmethod
