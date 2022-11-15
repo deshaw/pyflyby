@@ -2429,12 +2429,12 @@ def test_map_1():
 
 
 def test_map_2():
-    result = py("--map", "str.capitalize", "hello", "there")
+    result = py("--map", "str.capitalize", "hello", "world")
     expected = dedent("""
         [PYFLYBY] str.capitalize('hello')
         'Hello'
-        [PYFLYBY] str.capitalize('there')
-        'There'
+        [PYFLYBY] str.capitalize('world')
+        'World'
     """).strip()
     assert expected == result
 
