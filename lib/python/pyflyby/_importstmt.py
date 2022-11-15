@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
                         with_statement)
 
 import ast
+import sys
 from   collections              import namedtuple
 from   functools                import total_ordering
 
@@ -310,17 +311,15 @@ class Import(object):
             return NotImplemented
         return self._data < other._data
 
-def _interpret_alias(arg):
-    if isinstance(arg, str):
-        return (arg, None)
-    if not isinstance(arg, tuple):
-        raise TypeError('`arg` must be a tuple, got {}'.format(type(arg)))
-    if not len(arg) == 2:
-        raise TypeError('`arg` must be of len 2, got {} elements'.format(len(arg)))
-    if not isinstance(arg[0], str):
-        raise TypeError('`arg[0]` must be a str, got {}'.format(type(arg[0])))
-    if not (arg[1] is None or isinstance(arg[1], str)):
-        raise TypeError('arg[1] is None, or arg[1] is str {} '.format(arg))
+def _validate_alias(arg):
+    """
+    Ensure each alias is a tuple (str, None|str), and return it.
+
+    """
+    assert isinstance(arg, tuple)
+    a0,a1 = arg
+    assert isinstance(a0, str)
+    assert isinstance(a1, (str, type(None)))
     return arg
 
 @total_ordering
@@ -346,11 +345,12 @@ class ImportStatement(object):
 
     @classmethod
     def from_parts(cls, fromname, aliases):
+        assert isinstance(aliases, list)
+        assert len(aliases) > 0
+        
         self = object.__new__(cls)
         self.fromname = fromname
-        if not len(aliases):
-            raise ValueError
-        self.aliases = tuple(_interpret_alias(a) for a in aliases)
+        self.aliases = tuple(_validate_alias(a) for a in aliases)
         return self
 
     @classmethod
@@ -391,20 +391,20 @@ class ImportStatement(object):
           `ImportStatement`
         """
         if isinstance(node, ast.ImportFrom):
-            if isinstance(node.module, str):
-                module = node.module
-            elif node.module is None:
+            if sys.version_info[:2] < (3, 0):
                 # In python2.7, ast.parse("from . import blah") yields
                 # node.module = None.  In python2.6, it's the empty string.
                 module = ''
             else:
-                raise TypeError("unexpected node.module=%s"
-                                % type(node.module).__name__)
+                assert isinstance(node.module, str)
+                module = node.module
             fromname = '.' * node.level + module
         elif isinstance(node, ast.Import):
             fromname = None
         else:
-            raise NonImportStatementError
+            raise NonImportStatementError(
+                    'Expected ImportStatement, got {node}'.format(node=node)
+                    )
         aliases = [ (alias.name, alias.asname) for alias in node.names ]
         return cls.from_parts(fromname, aliases)
 

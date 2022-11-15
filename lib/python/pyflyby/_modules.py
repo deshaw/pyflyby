@@ -358,7 +358,7 @@ class ModuleHandle(object):
                     "Module %r contains non-string entries in __all__"
                     % (str(self.name),))
         # Filter out artificially added "deep" members.
-        members = [n for n in members if "." not in n]
+        members = [(n, None) for n in members if "." not in n]
         if not members:
             return None
         return ImportSet(
