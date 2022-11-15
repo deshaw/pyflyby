@@ -814,6 +814,16 @@ def test_remove_broken_imports_1():
     assert output == expected
 
 
+def test_replace_star_no_imports_found(capsys):
+    m = types.ModuleType("fake_test_module_345490")
+    sys.modules["fake_test_module_345490"] = m
+    input = PythonBlock(dedent('''
+        from fake_test_module_345490 import *
+    ''').lstrip(), filename="/foo/test_replace_star_imports_2.py")
+    _ = replace_star_imports(input)
+    captured = capsys.readouterr()
+    assert 'Traceback' not in captured.err
+
 def test_replace_star_imports_1():
     m = types.ModuleType("fake_test_module_345489")
     m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']

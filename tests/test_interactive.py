@@ -2576,12 +2576,17 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             Canvey
         """, PYTHONPATH=tmp.dir, frontend=frontend)
     else:
+        if IPython.version_info >= (8,6):
+            extra_comp = '\n            in the river'
+        else:
+            extra_comp = ''
+
         # we use "... the island" as there might be prompt inserted by previous tab completino
         ipython(
             """
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
+            [PYFLYBY] import gravesend60063393{}
             In [2]: print(gravesend60063393.river)
             in the river
             in the river
@@ -2591,7 +2596,7 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             on the island
             on the island
             Canvey
-        """,
+        """.format(extra_comp),
             PYTHONPATH=tmp.dir,
             frontend=frontend,
         )

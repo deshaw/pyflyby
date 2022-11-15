@@ -523,7 +523,7 @@ def replace_star_imports(codeblock, params=None):
                     # other modules.  Currently we intentionally exclude those
                     # imports since usually we don't want them.  TODO: do
                     # something better here.
-                    logger.warning("%s: found nothing to import from %s, ",
+                    logger.warning("%s: found nothing to import from %s, "
                                    "leaving unchanged: '%s'",
                                    filename, module, imp)
                     new_imports.append(imp)
