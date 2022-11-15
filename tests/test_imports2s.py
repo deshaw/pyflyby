@@ -820,10 +820,10 @@ def test_replace_star_no_imports_found(capsys):
     input = PythonBlock(dedent('''
         from fake_test_module_345490 import *
     ''').lstrip(), filename="/foo/test_replace_star_imports_2.py")
-    output = replace_star_imports(input)
+    _ = replace_star_imports(input)
     captured = capsys.readouterr()
     assert 'Traceback' not in captured.err
-    
+
 def test_replace_star_imports_1():
     m = types.ModuleType("fake_test_module_345489")
     m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']
