@@ -98,10 +98,12 @@ def parse_args(
                 return action_external_command(v[8:])
             elif V == "IFCHANGED":
                 return action_ifchanged
+            elif V == "EXIT1":
+                return action_exit1
             else:
                 raise Exception(
                     "Bad argument %r to --action; "
-                    "expected PRINT or REPLACE or QUERY or IFCHANGED "
+                    "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
                     "or EXECUTE:..." % (v,))
 
         def set_actions(actions):
@@ -120,7 +122,7 @@ def parse_args(
         group.add_option(
             "--actions", type='string', action='callback',
             callback=action_callback,
-            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXECUTE:mycommand',
+            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1:EXECUTE:mycommand',
             help=hfmt('''
                    Comma-separated list of action(s) to take.  If PRINT, print
                    the changed file to stdout.  If REPLACE, then modify the
@@ -128,7 +130,8 @@ def parse_args(
                    'mycommand oldfile tmpfile'.  If DIFF, then execute
                    'pyflyby-diff'.  If QUERY, then query user to continue.
                    If IFCHANGED, then continue actions only if file was
-                   changed.'''))
+                   changed.  If EXIT1, then exit with exit code 1 after all
+                   files/actions are processed.'''))
         group.add_option(
             "--print", "-p", action='callback',
             callback=action_callbacker([action_print]),
@@ -323,6 +326,10 @@ class AbortActions(Exception):
     pass
 
 
+class Exit1(Exception):
+    pass
+
+
 class Modifier(object):
     def __init__(self, modifier, filename):
         self.modifier = modifier
@@ -383,6 +390,7 @@ def process_actions(filenames, actions, modify_function,
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
     filenames = filename_args(filenames, on_error=on_error_filename_arg)
+    exit_code = 0
     for filename in filenames:
         try:
             m = Modifier(modify_function, filename)
@@ -392,6 +400,8 @@ def process_actions(filenames, actions, modify_function,
             continue
         except reraise_exceptions:
             raise
+        except Exit1:
+            exit_code = 1
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
@@ -417,6 +427,8 @@ def process_actions(filenames, actions, modify_function,
             msg += "    " + lines[0] + '\n'.join(
                 ("            %s"%line for line in lines[1:]))
         raise SystemExit(msg)
+    else:
+        raise SystemExit(exit_code)
 
 
 def action_print(m):
@@ -435,6 +447,11 @@ def action_replace(m):
         raise Exception("Can't replace stdio in-place")
     logger.info("%s: *** modified ***", m.filename)
     atomic_write_file(m.filename, m.output_content)
+
+
+def action_exit1(m):
+    logger.debug("action_exit1")
+    raise Exit1
 
 
 def action_external_command(command):
