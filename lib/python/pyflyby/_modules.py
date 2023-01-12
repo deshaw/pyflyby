@@ -208,7 +208,7 @@ class ModuleHandle(object):
         # pkgutil.find_loader returns None for unimported Python 3
         # namespace packages, so prefer importlib
         try:
-            import importlib
+            import importlib.util
             find = importlib.util.find_spec
         except ImportError:
             import pkgutil
