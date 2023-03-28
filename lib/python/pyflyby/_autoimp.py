@@ -911,7 +911,13 @@ class _MissingImportFinder(object):
             oldvalue = scope.get(fullname)
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
+        self._remove_from_missing_imports(fullname)
         scope[fullname] = value
+
+    def _remove_from_missing_imports(self, fullname):
+        for missing_import in self.missing_imports:
+            if missing_import[1].startswith(fullname):
+                self.missing_imports.remove(missing_import)
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
