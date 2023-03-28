@@ -605,6 +605,7 @@ class _MissingImportFinder(object):
                 self._visit_Store(node.name)
             self.visit(node.body)
             self._in_class_def -= 1
+        self._remove_from_missing_imports(node.name)
         self._visit_Store(node.name)
 
     def visit_AsyncFunctionDef(self, node):
@@ -911,7 +912,6 @@ class _MissingImportFinder(object):
             oldvalue = scope.get(fullname)
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
-        self._remove_from_missing_imports(fullname)
         scope[fullname] = value
 
     def _remove_from_missing_imports(self, fullname):
