@@ -18,7 +18,7 @@ from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute, indent
+from   pyflyby._util            import cached_attribute, indent, IMPORT_FORMAT_DEFAULTS
 
 
 def hfmt(s):
@@ -172,7 +172,7 @@ def parse_args(
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
-        group.add_option('--align-imports', '--align', type='str', default="32",
+        group.add_option('--align-imports', '--align', type='str', default=str(IMPORT_FORMAT_DEFAULTS["align_imports"]),
                          metavar='N',
                          help=hfmt('''
                              Whether and how to align the 'import' keyword in
@@ -183,12 +183,12 @@ def parse_args(
                              necessary.  If a comma-separated list of integers
                              (tab stops), then pick the column that results in
                              the fewest number of lines total per block.'''))
-        group.add_option('--from-spaces', type='int', default=3, metavar='N',
+        group.add_option('--from-spaces', type='int', default=IMPORT_FORMAT_DEFAULTS["from_spaces"], metavar='N',
                          help=hfmt('''
                              The number of spaces after the 'from' keyword.
                              (Must be at least 1; default is 3.)'''))
         group.add_option('--separate-from-imports', action='store_true',
-                         default=False,
+                         default=IMPORT_FORMAT_DEFAULTS["separate_from_imports"],
                          help=hfmt('''
                              Separate 'from ... import ...'
                              statements from 'import ...' statements.'''))
@@ -198,7 +198,7 @@ def parse_args(
                             (Default) Don't separate 'from ... import ...'
                             statements from 'import ...' statements.'''))
         group.add_option('--align-future', action='store_true',
-                         default=False,
+                         default=IMPORT_FORMAT_DEFAULTS["align_future"],
                          help=hfmt('''
                              Align the 'from __future__ import ...' statement
                              like others.'''))
@@ -207,14 +207,14 @@ def parse_args(
                          help=hfmt('''
                              (Default) Don't align the 'from __future__ import
                              ...' statement.'''))
-        group.add_option('--width', type='int', default=79, metavar='N',
-                         help=hfmt('''
+        group.add_option('--width', type='int', default=IMPORT_FORMAT_DEFAULTS["max_line_length"], metavar='N',
+                         help=hfmt(f'''
                              Maximum line length (default: 79).'''))
-        group.add_option('--black', action='store_true', default=False,
+        group.add_option('--black', action='store_true', default=IMPORT_FORMAT_DEFAULTS["use_black"],
                          help=hfmt('''
                              Use black to format imports. If this option is
                              used, all other formatting options are ignored.'''))
-        group.add_option('--hanging-indent', type='choice', default='never',
+        group.add_option('--hanging-indent', type='choice', default=IMPORT_FORMAT_DEFAULTS["hanging_indent"],
                          choices=['never','auto','always'],
                          metavar='never|auto|always',
                          dest='hanging_indent',

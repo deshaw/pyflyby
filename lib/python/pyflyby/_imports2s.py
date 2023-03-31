@@ -12,7 +12,7 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize, IMPORT_FORMAT_DEFAULTS
 import re
 from   six                      import exec_
 
@@ -269,6 +269,8 @@ def reformat_import_statements(codeblock, params=None):
     :rtype:
       `PythonBlock`
     """
+    if params is None:
+        params = ImportFormatParams(**IMPORT_FORMAT_DEFAULTS)
     params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     return transformer.output(params=params)
