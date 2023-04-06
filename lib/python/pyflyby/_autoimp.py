@@ -904,7 +904,7 @@ class _MissingImportFinder(object):
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
                     if symbol_needs_import(ancestor, self.scopestack):
-                        m = (self._lineno, DottedIdentifier(fullname))
+                        m = (self._lineno, DottedIdentifier(fullname, scopestack=self.scopestack))
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -916,7 +916,8 @@ class _MissingImportFinder(object):
 
     def _remove_from_missing_imports(self, fullname):
         for missing_import in self.missing_imports:
-            if missing_import[1].startswith(fullname):
+            inside_class = isinstance(missing_import[1].scopestack[-1], _ClassScope)
+            if missing_import[1].startswith(fullname) and not inside_class:
                 self.missing_imports.remove(missing_import)
 
     def visit_Delete(self, node):
@@ -1007,7 +1008,7 @@ class _MissingImportFinder(object):
         object it found, and we mark it as used here.)
         """
 
-        fullname = DottedIdentifier(fullname)
+        fullname = DottedIdentifier(fullname, scopestack=scopestack)
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
