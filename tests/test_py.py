@@ -456,6 +456,30 @@ def test_apply_kwonlyargs_5():
     assert expected == result
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_unknown_option():
+    result = py("--apply", "lambda a, *, b=10, c: a + b", "2", "--b=15", "-c=1", "-d=6")
+    expected = dedent("""
+        [PYFLYBY] Unknown option name d
+
+        Python signature:
+          >>> (lambda a, *, b=10, c: a + b)(a, *, b=10, c)
+
+        Command-line signature:
+          $ py 'lambda a, *, b=10, c: a + b' a [--b=...] --c=...
+          $ py 'lambda a, *, b=10, c: a + b' --a=... [--b=...] --c=...
+
+        Filename:
+          <unknown>
+
+        Docstring:
+          (No docstring)
+    """).strip(), 1
+    assert expected == result
+
+
 def test_apply_print_function_1():
     result = py("--apply", "print", "50810461")
     expected = dedent("""

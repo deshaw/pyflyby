@@ -776,7 +776,7 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                     if argname in ["source"]:
                         raise _ParseInterruptedWantSource
                 if sys.version_info[0] == 3:
-                    if not argspec.varkw and not argspec.kwonlyargs:
+                    if not argspec.varkw:
                         raise ParseError("Unknown option name %s" %
                                          (argname,))
                 else:
