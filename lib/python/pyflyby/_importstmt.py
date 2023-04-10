@@ -391,8 +391,8 @@ class ImportStatement(object):
           `ImportStatement`
         """
         if isinstance(node, ast.ImportFrom):
-            if sys.version_info[:2] < (3, 0):
-                # In python2.7, ast.parse("from . import blah") yields
+            if node.module is None:
+                # In python2.7 and 3 as well, ast.parse("from . import blah") yields
                 # node.module = None.  In python2.6, it's the empty string.
                 module = ''
             else:
