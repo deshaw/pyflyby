@@ -8,7 +8,6 @@ from __future__ import (absolute_import, division, print_function,
 import ast
 from   collections              import namedtuple
 from   functools                import total_ordering
-import sys
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
