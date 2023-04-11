@@ -372,6 +372,114 @@ def test_apply_kwargs_1():
     assert expected == result
 
 
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_kwonlyargs_1():
+    result = py("--apply", "lambda x, *, y: x + y", "2", "--y=3")
+    expected = dedent("""
+        [PYFLYBY] (lambda x, *, y: x + y)(2, y=3)
+        5
+    """).strip()
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_kwonlyargs_2():
+    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3")
+    expected = dedent("""
+        [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=1)
+        6
+    """).strip()
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_kwonlyargs_3():
+    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3", "--z=4")
+    expected = dedent("""
+        [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=4)
+        9
+    """).strip()
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_kwonlyargs_4():
+    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "3")
+    expected = dedent("""
+        [PYFLYBY] missing required keyword argument y
+
+        Python signature:
+          >>> (lambda x, *, y, z=1: x + y + z)(x, *, y, z=1)
+
+        Command-line signature:
+          $ py 'lambda x, *, y, z=1: x + y + z' x --y=... [--z=...]
+          $ py 'lambda x, *, y, z=1: x + y + z' --x=... --y=... [--z=...]
+
+        Filename:
+          <unknown>
+
+        Docstring:
+          (No docstring)
+    """).strip(), 1
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_kwonlyargs_5():
+    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--z=3")
+    expected = dedent("""
+        [PYFLYBY] missing required keyword argument y
+
+        Python signature:
+          >>> (lambda x, *, y, z=1: x + y + z)(x, *, y, z=1)
+
+        Command-line signature:
+          $ py 'lambda x, *, y, z=1: x + y + z' x --y=... [--z=...]
+          $ py 'lambda x, *, y, z=1: x + y + z' --x=... --y=... [--z=...]
+
+        Filename:
+          <unknown>
+
+        Docstring:
+          (No docstring)
+    """).strip(), 1
+    assert expected == result
+
+
+@pytest.mark.skipif(
+    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
+)
+def test_apply_unknown_option():
+    result = py("--apply", "lambda a, *, b=10, c: a + b", "2", "--b=15", "-c=1", "-d=6")
+    expected = dedent("""
+        [PYFLYBY] Unknown option name d
+
+        Python signature:
+          >>> (lambda a, *, b=10, c: a + b)(a, *, b=10, c)
+
+        Command-line signature:
+          $ py 'lambda a, *, b=10, c: a + b' a [--b=...] --c=...
+          $ py 'lambda a, *, b=10, c: a + b' --a=... [--b=...] --c=...
+
+        Filename:
+          <unknown>
+
+        Docstring:
+          (No docstring)
+    """).strip(), 1
+    assert expected == result
+
+
 def test_apply_print_function_1():
     result = py("--apply", "print", "50810461")
     expected = dedent("""
