@@ -2122,3 +2122,15 @@ def test_post_import_hook_fullname():
     def test_hook(val):
         assert val == expected
     auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)
+
+@pytest.mark.skipif(
+    PY2,
+    reason="Python 3-only namespace package.")
+def test_namespace_package(tpp, capsys):
+    os.mkdir(str(tpp/'namespace_package'))
+    auto_import("namespace_package", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import namespace_package
+    """).lstrip()
+    assert out.startswith(expected)
