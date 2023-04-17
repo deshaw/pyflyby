@@ -1236,7 +1236,10 @@ def new_IPdb_instance():
     pdb_class = _get_IPdb_class()
     logger.debug("new_IPdb_instance(): pdb_class=%s", pdb_class)
     color_scheme = _get_ipython_color_scheme(app)
-    pdb_instance = pdb_class(color_scheme)
+    try:
+        pdb_instance = pdb_class(completekey='tab', color_scheme=color_scheme)
+    except TypeError:
+        pdb_instance = pdb_class(completekey='tab')
     _enable_pdb_hooks(pdb_instance)
     _enable_terminal_pdb_hooks(pdb_instance)
     return pdb_instance
@@ -1850,9 +1853,9 @@ class AutoImporter(object):
                 logger.debug("reset_auto_importer_state(%r)", line)
                 self.reset_state_new_cell()
                 return line
-            # on IPython 7.17 (July 2020) or above, the check_complete 
-            # path of the code will not call  transformer that have this magic attribute 
-            # when trying to check whether the code is complete. 
+            # on IPython 7.17 (July 2020) or above, the check_complete
+            # path of the code will not call  transformer that have this magic attribute
+            # when trying to check whether the code is complete.
             reset_auto_importer_state.has_side_effect = True
             ip.input_transformers_cleanup.append(reset_auto_importer_state)
             return True
