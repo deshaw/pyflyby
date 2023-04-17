@@ -949,7 +949,6 @@ def _handle_user_exception(exc_info=None):
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
-    print(exc_info)
     import traceback
     traceback.print_exception(*exc_info)
     raise SystemExit(1)
