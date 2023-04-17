@@ -1002,10 +1002,8 @@ def _handle_user_exception(exc_info=None):
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
-    print("Traceback (most recent call last):", file=sys.stderr)
     import traceback
-    traceback.print_tb(exc_info[2])
-    print("%s: %s" % (exc_info[0].__name__, exc_info[1]), file=sys.stderr)
+    traceback.print_exception(*exc_info)
     raise SystemExit(1)
 
 
