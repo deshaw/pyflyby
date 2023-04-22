@@ -904,7 +904,12 @@ class _MissingImportFinder(object):
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
                     if symbol_needs_import(ancestor, self.scopestack):
-                        m = (self._lineno, DottedIdentifier(fullname, scopestack=self.scopestack))
+                        scope_info = {
+                            "scopestack": self.scopestack,
+                            "_in_class_def": self._in_class_def,
+                            "_in_FunctionDef": self._in_FunctionDef,
+                        }
+                        m = (self._lineno, DottedIdentifier(fullname, scope_info=scope_info))
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -916,7 +921,7 @@ class _MissingImportFinder(object):
 
     def _remove_from_missing_imports(self, fullname):
         for missing_import in self.missing_imports:
-            inside_class = isinstance(missing_import[1].scopestack[-1], _ClassScope)
+            inside_class = missing_import[1].scope_info.get('_in_class_def')
             if missing_import[1].startswith(fullname) and not inside_class:
                 self.missing_imports.remove(missing_import)
 
@@ -1008,7 +1013,12 @@ class _MissingImportFinder(object):
         object it found, and we mark it as used here.)
         """
 
-        fullname = DottedIdentifier(fullname, scopestack=scopestack)
+        scope_info = {
+            "scopestack": self.scopestack,
+            "_in_class_def": self._in_class_def,
+            "_in_FunctionDef": self._in_FunctionDef,
+        }
+        fullname = DottedIdentifier(fullname, scope_info=scope_info)
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))

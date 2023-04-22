@@ -166,22 +166,22 @@ class BadDottedIdentifierError(ValueError):
 # TODO: Use in various places, esp where e.g. dotted_prefixes is used.
 @total_ordering
 class DottedIdentifier(object):
-    def __new__(cls, arg, scopestack=None):
+    def __new__(cls, arg, scope_info=None):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, six.string_types):
-            return cls._from_name(arg, scopestack)
+            return cls._from_name(arg, scope_info)
         if isinstance(arg, (tuple, list)):
-            return cls._from_name(".".join(arg), scopestack)
+            return cls._from_name(".".join(arg), scope_info)
         raise TypeError("DottedIdentifier: unexpected %s"
                         % (type(arg).__name__,))
 
     @classmethod
-    def _from_name(cls, name, scopestack=None):
+    def _from_name(cls, name, scope_info=None):
         self = object.__new__(cls)
         self.name = str(name)
         # TODO: change magic methods to compare with scopestack included
-        self.scopestack = scopestack
+        self.scope_info = scope_info
         if not is_identifier(self.name, dotted=True):
             if len(self.name) > 20:
                 raise BadDottedIdentifierError("Invalid python symbol name")
