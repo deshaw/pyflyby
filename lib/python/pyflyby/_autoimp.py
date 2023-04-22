@@ -916,6 +916,12 @@ class _MissingImportFinder(object):
 
     def _remove_from_missing_imports(self, fullname):
         for missing_import in self.missing_imports:
+            # If it was defined inside a class method, then it wouldn't have been added to
+            # the missing imports anyways.
+            # See the following tests:
+            # - tests.test_autoimp.test_method_reference_current_class
+            # - tests.test_autoimp.test_find_missing_imports_class_name_1
+            # - tests.test_autoimp.test_scan_for_import_issues_class_defined_after_use
             inside_class = missing_import[1].scope_info.get('_in_class_def')
             if missing_import[1].startswith(fullname) and not inside_class:
                 self.missing_imports.remove(missing_import)
@@ -924,7 +930,6 @@ class _MissingImportFinder(object):
         return {
             "scopestack": self.scopestack,
             "_in_class_def": self._in_class_def,
-            "_in_FunctionDef": self._in_FunctionDef,
         }
 
     def visit_Delete(self, node):
