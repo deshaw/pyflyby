@@ -904,12 +904,7 @@ class _MissingImportFinder(object):
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
                     if symbol_needs_import(ancestor, self.scopestack):
-                        scope_info = {
-                            "scopestack": self.scopestack,
-                            "_in_class_def": self._in_class_def,
-                            "_in_FunctionDef": self._in_FunctionDef,
-                        }
-                        m = (self._lineno, DottedIdentifier(fullname, scope_info=scope_info))
+                        m = (self._lineno, DottedIdentifier(fullname, scope_info=self._get_scope_info()))
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -924,6 +919,13 @@ class _MissingImportFinder(object):
             inside_class = missing_import[1].scope_info.get('_in_class_def')
             if missing_import[1].startswith(fullname) and not inside_class:
                 self.missing_imports.remove(missing_import)
+
+    def _get_scope_info(self):
+        return {
+            "scopestack": self.scopestack,
+            "_in_class_def": self._in_class_def,
+            "_in_FunctionDef": self._in_FunctionDef,
+        }
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
@@ -1012,13 +1014,7 @@ class _MissingImportFinder(object):
         better to refactor symbol_needs_import so that it just returns the
         object it found, and we mark it as used here.)
         """
-
-        scope_info = {
-            "scopestack": self.scopestack,
-            "_in_class_def": self._in_class_def,
-            "_in_FunctionDef": self._in_FunctionDef,
-        }
-        fullname = DottedIdentifier(fullname, scope_info=scope_info)
+        fullname = DottedIdentifier(fullname, scope_info=self._get_scope_info())
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
