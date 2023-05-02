@@ -1685,6 +1685,20 @@ def test_scan_for_import_issues_setattr_in_func_1():
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
 
+
+def test_scan_for_import_issues_class_defined_after_use():
+    code = dedent("""
+    def foo():
+        Bar.counter = 1
+
+    class Bar:
+        counter = 0
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
 def test_setattr_is_not_unused():
     code = dedent("""
         from a import b

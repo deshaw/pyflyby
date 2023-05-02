@@ -605,6 +605,7 @@ class _MissingImportFinder(object):
                 self._visit_Store(node.name)
             self.visit(node.body)
             self._in_class_def -= 1
+        self._remove_from_missing_imports(node.name)
         self._visit_Store(node.name)
 
     def visit_AsyncFunctionDef(self, node):
@@ -903,7 +904,7 @@ class _MissingImportFinder(object):
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
                     if symbol_needs_import(ancestor, self.scopestack):
-                        m = (self._lineno, DottedIdentifier(fullname))
+                        m = (self._lineno, DottedIdentifier(fullname, scope_info=self._get_scope_info()))
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -912,6 +913,24 @@ class _MissingImportFinder(object):
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
+
+    def _remove_from_missing_imports(self, fullname):
+        for missing_import in self.missing_imports:
+            # If it was defined inside a class method, then it wouldn't have been added to
+            # the missing imports anyways.
+            # See the following tests:
+            # - tests.test_autoimp.test_method_reference_current_class
+            # - tests.test_autoimp.test_find_missing_imports_class_name_1
+            # - tests.test_autoimp.test_scan_for_import_issues_class_defined_after_use
+            inside_class = missing_import[1].scope_info.get('_in_class_def')
+            if missing_import[1].startswith(fullname) and not inside_class:
+                self.missing_imports.remove(missing_import)
+
+    def _get_scope_info(self):
+        return {
+            "scopestack": self.scopestack,
+            "_in_class_def": self._in_class_def,
+        }
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
@@ -1000,8 +1019,7 @@ class _MissingImportFinder(object):
         better to refactor symbol_needs_import so that it just returns the
         object it found, and we mark it as used here.)
         """
-
-        fullname = DottedIdentifier(fullname)
+        fullname = DottedIdentifier(fullname, scope_info=self._get_scope_info())
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
