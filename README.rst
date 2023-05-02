@@ -8,7 +8,7 @@
 .. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
    :target: https://travis-ci.org/deshaw/pyflyby
 
-Pyflyby is a set of Python programming productivity tools for Python 2.7 and 3.7+.
+Pyflyby is a set of Python programming productivity tools for Python 3.7+.
 
 For command-line interaction:
   * ``py``: command-line multitool
@@ -236,7 +236,7 @@ Compatibility
 -------------
 
 Tested with:
-  - Python 2.6, 2.7, 3.7, 3.8
+  - Python 3.7, 3.8, 3.9, 3.10
   - IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
     3.1, 3.2, 4.0., 7.11 (latest)
   - IPython (text console), IPython Notebook, Spyder
