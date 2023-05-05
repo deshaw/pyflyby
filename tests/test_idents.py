@@ -89,9 +89,7 @@ def test_brace_identifiers_1():
     expected = ['salutation', 'your_name']
     assert result == expected
 
-@pytest.mark.skipif(
-    six.PY2,
-    reason="Python 3-only syntax.")
+
 def test_is_identifier_unicode():
     assert is_identifier('א')
     assert not is_identifier('א.')

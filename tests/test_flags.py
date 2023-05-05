@@ -118,17 +118,6 @@ def test_CompilerFlags_from_ast_1():
         assert result == CompilerFlags(0x18000)
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_CompilerFlags_compile_1():
-    # Should raise SyntaxError:
-    with pytest.raises(SyntaxError):
-        compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1)
-    # Shouldn't raise SyntaxError:
-    compile("print('x', file=None)", "?", "exec", flags=CompilerFlags("print_function"), dont_inherit=1)
-
-
 def test_CompilerFlags_bad_name_1():
     with pytest.raises(ValueError):
         CompilerFlags("print_statement")

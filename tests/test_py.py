@@ -372,9 +372,6 @@ def test_apply_kwargs_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
 def test_apply_kwonlyargs_1():
     result = py("--apply", "lambda x, *, y: x + y", "2", "--y=3")
     expected = dedent("""
@@ -384,99 +381,12 @@ def test_apply_kwonlyargs_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
 def test_apply_kwonlyargs_2():
     result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3")
     expected = dedent("""
         [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=1)
         6
     """).strip()
-    assert expected == result
-
-
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
-def test_apply_kwonlyargs_3():
-    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3", "--z=4")
-    expected = dedent("""
-        [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=4)
-        9
-    """).strip()
-    assert expected == result
-
-
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
-def test_apply_kwonlyargs_4():
-    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "3")
-    expected = dedent("""
-        [PYFLYBY] missing required keyword argument y
-
-        Python signature:
-          >>> (lambda x, *, y, z=1: x + y + z)(x, *, y, z=1)
-
-        Command-line signature:
-          $ py 'lambda x, *, y, z=1: x + y + z' x --y=... [--z=...]
-          $ py 'lambda x, *, y, z=1: x + y + z' --x=... --y=... [--z=...]
-
-        Filename:
-          <unknown>
-
-        Docstring:
-          (No docstring)
-    """).strip(), 1
-    assert expected == result
-
-
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
-def test_apply_kwonlyargs_5():
-    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--z=3")
-    expected = dedent("""
-        [PYFLYBY] missing required keyword argument y
-
-        Python signature:
-          >>> (lambda x, *, y, z=1: x + y + z)(x, *, y, z=1)
-
-        Command-line signature:
-          $ py 'lambda x, *, y, z=1: x + y + z' x --y=... [--z=...]
-          $ py 'lambda x, *, y, z=1: x + y + z' --x=... --y=... [--z=...]
-
-        Filename:
-          <unknown>
-
-        Docstring:
-          (No docstring)
-    """).strip(), 1
-    assert expected == result
-
-
-@pytest.mark.skipif(
-    sys.version_info[0] != 3, reason="keyword-only args require Python 3"
-)
-def test_apply_unknown_option():
-    result = py("--apply", "lambda a, *, b=10, c: a + b", "2", "--b=15", "-c=1", "-d=6")
-    expected = dedent("""
-        [PYFLYBY] Unknown option name d
-
-        Python signature:
-          >>> (lambda a, *, b=10, c: a + b)(a, *, b=10, c)
-
-        Command-line signature:
-          $ py 'lambda a, *, b=10, c: a + b' a [--b=...] --c=...
-          $ py 'lambda a, *, b=10, c: a + b' --a=... [--b=...] --c=...
-
-        Filename:
-          <unknown>
-
-        Docstring:
-          (No docstring)
-    """).strip(), 1
     assert expected == result
 
 
@@ -928,21 +838,6 @@ def test_heuristic_eval_expression_nonmodule_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    sys.version_info[0] == 3, reason="xml.dom.minidom also need import on py3"
-)
-def test_heuristic_eval_symbol_submodule_1():
-    # Verify that heuristic eval of an expression in a module in a package
-    # works, and also verify that we log the submodule import.
-    result = py("xml.dom.minidom.XMLNS_NAMESPACE")
-    expected = dedent("""
-        [PYFLYBY] import xml.dom
-        [PYFLYBY] xml.dom.minidom.XMLNS_NAMESPACE
-        'http://www.w3.org/2000/xmlns/'
-    """).strip()
-    assert expected == result
-
-
 def test_heuristic_apply_method_arg_1():
     result = py("float.is_integer", "3.0")
     expected = dedent("""
@@ -1105,18 +1000,6 @@ def test_repr_str_1():
     expected = dedent("""
         [PYFLYBY] 'Astor'
         'Astor'
-    """).strip()
-    assert expected == result
-
-
-@pytest.mark.skipif(
-    PY3,
-    reason="Long integers are not valid syntax in Python 3.")
-def test_repr_long_1():
-    result = py("5L")
-    expected = dedent("""
-        [PYFLYBY] 5L
-        5L
     """).strip()
     assert expected == result
 

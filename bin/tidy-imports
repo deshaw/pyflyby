@@ -34,17 +34,8 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._log             import logger
 
-if sys.version_info[0] == 3:
-    # can't install/import it on Python 2
-    try:
-        import toml
-        TOML_AVAIL = True
-    except ModuleNotFoundError:
-        TOML_AVAIL = False
-
-else:
-    TOML_AVAIL = False
-
+import toml
+TOML_AVAIL = True
 
 
 def _get_pyproj_toml_config():

@@ -464,16 +464,6 @@ def test_PythonBlock_doctest_assignments_method_1():
     assert block.get_doctests() == expected
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_PythonBlock_flags_bad_1():
-    # In Python2.x, this should cause a syntax error, since we didn't do
-    # flags='print_function':
-    with pytest.raises(SyntaxError):
-        PythonBlock('print("x",\n file=None)\n').statements
-
-
 def test_PythonBlock_flags_good_1():
     PythonBlock('print("x",\n file=None)\n', flags="print_function").statements
 
@@ -679,14 +669,6 @@ def test_PythonStatement_from_block_1():
 def test_PythonStatement_bad_from_multi_statements_1():
     with pytest.raises(ValueError):
         PythonStatement("a\nb\n")
-
-
-@pytest.mark.skipif(PY3, reason="print function is not invalid syntax in Python 3.")
-def test_PythonStatement_flags_bad_1():
-    # In Python2.x, this should cause a syntax error, since we didn't do
-    # flags='print_function':
-    with pytest.raises(SyntaxError):
-        PythonStatement('print("x",\n file=None)\n')
 
 
 def test_PythonStatement_flags_good_1():
@@ -1072,9 +1054,6 @@ def test_PythonBlock_doctest_ignore_doctest_options_1():
     assert doctest_block.statements == expected
 
 
-@pytest.mark.skipif(
-    sys.version_info < (2,7),
-    reason="Old Python doesn't support multiple context managers")
 def test_PythonBlock_with_multi_1():
     block = PythonBlock(dedent('''
         with   A  as  a, B as b, C as c:
@@ -1097,31 +1076,11 @@ def test_PythonBlock_with_multi_1():
 #   flagpf = flags contains CompilerFlags("print_function")
 #   futpf = code contains 'from __future__ import print_function'
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement not valid syntax in Python 3.")
-def test_PythonBlock_no_auto_flags_ps_flagps_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip())
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
 
 def test_PythonBlock_no_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
     ''').lstrip(), flags="print_function")
-    with pytest.raises(SyntaxError):
-        block.ast_node
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_PythonBlock_no_auto_flags_pf_flagps_1():
-    block = PythonBlock(dedent('''
-        print(42, out=x)
-    ''').lstrip())
     with pytest.raises(SyntaxError):
         block.ast_node
 
@@ -1199,30 +1158,6 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
     assert     (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
-
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement is not valid syntax in Python 3.")
-def test_PythonBlock_auto_flags_ps_flagps_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip(), auto_flags=True)
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
-
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement is not valid syntax in Python 3.")
-def test_PythonBlock_auto_flags_ps_flagpf_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip(), flags="print_function", auto_flags=True)
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
 
 
 def test_PythonBlock_auto_flags_ps_flagpf_futpf_1():
@@ -1411,20 +1346,11 @@ def test_parsable_explicit_flags_1():
     assert block.parsable
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_parsable_missing_flags_no_auto_flags_1():
-    block = PythonBlock("print(3, file=4)")
-    assert not block.parsable
-
-
 def test_parsable_missing_flags_auto_flags_1():
     block = PythonBlock("print(3, file=4)", auto_flags=True)
     assert block.parsable
 
 
-@pytest.mark.skipif(PY2, reason="invalid early python syntax")
 @pytest.mark.parametrize(
     "input",
     [
@@ -1439,7 +1365,6 @@ def test_parsable_Call_Ast_args_kwargs(input):
     assert block.annotated_ast_node
 
 
-@pytest.mark.skipif(PY2, reason="invalid early python syntax")
 @pytest.mark.parametrize(
     "input",
     [
@@ -1454,7 +1379,6 @@ def test_parsable_annotation_order(input):
     assert block.annotated_ast_node
 
 
-@pytest.mark.skipif(PY2, reason="invalid early python syntax")
 @pytest.mark.parametrize(
     "input",
     [
@@ -1491,7 +1415,6 @@ def test_parse_f_string_ast_ann(input):
     assert block.annotated_ast_node
 
 
-@pytest.mark.skipif(PY2, reason="invalid early python syntax")
 @pytest.mark.parametrize(
     "input",
     [

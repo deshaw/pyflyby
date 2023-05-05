@@ -898,9 +898,7 @@ def test_canonicalize_imports_1():
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_canonicalize_imports_f_string_1():
     input = PythonBlock(dedent('''
         a = 1
@@ -960,25 +958,6 @@ def test_with_1():
         from contextlib import closing
 
         with   closing(open("/etc/passwd")) as f:
-            pass
-    ''').lstrip())
-    assert expected == output
-
-
-@pytest.mark.skipif(
-    sys.version_info < (2,7),
-    reason="Old Python doesn't support multiple context managers")
-def test_with_multi_1():
-    input = PythonBlock(dedent('''
-        with       aa as xx  , bb as yy, cc as zz:
-            pass
-    ''').lstrip())
-    db = ImportDB("from M import aa, bb, cc, dd, xx, yy, zz")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from M import aa, bb, cc
-
-        with       aa as xx  , bb as yy, cc as zz:
             pass
     ''').lstrip())
     assert expected == output

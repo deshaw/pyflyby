@@ -278,9 +278,7 @@ def test_find_missing_imports_function_defaults_kwargs_1():
     expected = ['args', 'kwargs', 'y']
     assert expected == result
     
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_kwarg_annotate():
     """
     pfb issue 162
@@ -958,9 +956,7 @@ def test_find_missing_imports_positional_only_args_1():
     expected = []
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_keyword_only_args_1():
     code = dedent("""
         def func(*args, kwonly=b):
@@ -971,9 +967,7 @@ def test_find_missing_imports_keyword_only_args_1():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_keyword_only_args_2():
     code = dedent("""
         def func(*args, kwonly):
@@ -985,9 +979,6 @@ def test_find_missing_imports_keyword_only_args_2():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_keyword_only_args_3():
     code = dedent("""
         def func(*args, kwonly, kwonly2=b):
@@ -998,9 +989,7 @@ def test_find_missing_imports_keyword_only_args_3():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_annotations_1():
     code = dedent("""
         def func(a: b) -> c:
@@ -1011,9 +1000,7 @@ def test_find_missing_imports_annotations_1():
     expected = ['b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_annotations_2():
     code = dedent("""
     a: b = c
@@ -1023,9 +1010,7 @@ def test_find_missing_imports_annotations_2():
     expected = ['b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_assignments_1():
     code = dedent("""
     a, *b = c
@@ -1035,9 +1020,7 @@ def test_find_missing_imports_star_assignments_1():
     expected = ['c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_expression_1():
     code = dedent("""
     [a, *b]
@@ -1048,9 +1031,6 @@ def test_find_missing_imports_star_expression_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_star_expression_2():
     code = dedent("""
     {a: 1, **b, **{c: 1}}
@@ -1060,9 +1040,7 @@ def test_find_missing_imports_star_expression_2():
     expected = ['a', 'b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_expression_function_call_1():
     code = dedent("""
     f(a, *b, **c, d=e, **g)
@@ -1082,9 +1060,7 @@ def test_find_missing_imports_star_expression_function_call_2():
     expected = ['a', 'c', 'd', 'e', 'f']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_python_3_metaclass_1():
     code = dedent("""
     class Test(metaclass=TestMeta):
@@ -1096,9 +1072,6 @@ def test_find_missing_imports_python_3_metaclass_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_f_string_1():
     code = dedent("""
     a = 1
@@ -1109,9 +1082,7 @@ def test_find_missing_imports_f_string_1():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_f_string_2():
     code = dedent("""
     a = 1
@@ -1122,9 +1093,7 @@ def test_find_missing_imports_f_string_2():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_f_string_3():
     # Recursive format spec
     code = dedent("""
@@ -1155,9 +1124,6 @@ def test_find_missing_imports_true_false_none_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_matmul_1():
     code = dedent("""
     a@b
@@ -1167,9 +1133,7 @@ def test_find_missing_imports_matmul_1():
     expected = ['a', 'b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_async_await_1():
     code = dedent("""
     async def f():
@@ -1182,9 +1146,7 @@ def test_find_missing_imports_async_await_1():
     expected = ['a', 'c', 'e', 'h']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_async_comprehension_1():
     code = dedent("""
     async def f():
@@ -1196,9 +1158,6 @@ def test_find_missing_imports_async_comprehension_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_yield_from_1():
     code = dedent("""
     def f():
@@ -1210,7 +1169,6 @@ def test_find_missing_imports_yield_from_1():
     assert expected == result
 
 
-@pytest.mark.skipif(PY2, reason="Python 3-only syntax.")
 def test_find_missing_imports_not_async_def():
     code = dedent(
         """
@@ -1874,14 +1832,6 @@ def test_auto_eval_no_auto_flags_ps_flag_pf1():
         auto_eval("print 3.00", flags="print_function", auto_flags=False)
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_auto_eval_no_auto_flags_pf_flagps_1():
-    with pytest.raises(SyntaxError):
-        auto_eval("print(3.00, file=sys.stdout)", flags=None, auto_flags=False)
-
-
 def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
     auto_eval("print(3.00, file=sys.stdout)",
               flags="print_function", auto_flags=False)
@@ -1897,14 +1847,6 @@ def test_auto_eval_auto_flags_ps_flagps_1(capsys):
     else:
         with pytest.raises(SyntaxError):
             auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print not as a function cannot be valid syntax in Python 3.")
-def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
-    auto_eval("print 3.00", flags=CompilerFlags("print_function"), auto_flags=True)
-    out, _ = capsys.readouterr()
-    assert out == "3.0\n"
 
 
 def test_auto_eval_auto_flags_pf_flagps_1(capsys):
@@ -2137,9 +2079,7 @@ def test_post_import_hook_fullname():
         assert val == expected
     auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only namespace package.")
+
 def test_namespace_package(tpp, capsys):
     os.mkdir(str(tpp/'namespace_package'))
     auto_import("namespace_package", [{}])
