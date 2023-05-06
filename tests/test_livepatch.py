@@ -8,9 +8,6 @@ from   shutil                   import rmtree
 import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
-import types
-
-from   six                      import PY2, PY3
 
 from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError
@@ -1759,57 +1756,31 @@ def test_xreload_ref_other_1(tpp):
 def test_xreload_metaclass_function_1(tpp):
     # Verify that xreload() works correctly when the metaclass is a custom
     # function.
-    if PY2:
-        writetext(tpp/"weird32312765.py", """
-            def my_meta(name, bases, attrs):
-                attrs['bar'] = attrs.pop("foo")
-                return type(name, bases, attrs)
-            class Sport(object):
-                __metaclass__ = my_meta
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
-    else:
-        writetext(tpp/"weird32312765.py", """
-            def my_meta(name, bases, attrs):
-                attrs['bar'] = attrs.pop("foo")
-                return type(name, bases, attrs)
-            class Sport(object, metaclass=my_meta):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
+    writetext(tpp/"weird32312765.py", """
+        def my_meta(name, bases, attrs):
+            attrs['bar'] = attrs.pop("foo")
+            return type(name, bases, attrs)
+        class Sport(object, metaclass=my_meta):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + y
+    """)
 
     from weird32312765 import Sport
     a = Sport(34129000)
     assert a.bar(3) == 34129003
     assert not hasattr(a, 'foo')
-    if PY2:
-        writetext(tpp/"weird32312765.py", """
-            def my_meta(name, bases, attrs):
-                attrs['bar'] = attrs.pop("foo")
-                return type(name, bases, attrs)
-            class Sport(object):
-                __metaclass__ = my_meta
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
-    else:
-        writetext(tpp/"weird32312765.py", """
-            def my_meta(name, bases, attrs):
-                attrs['bar'] = attrs.pop("foo")
-                return type(name, bases, attrs)
-            class Sport(object, metaclass=my_meta):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
+    writetext(tpp/"weird32312765.py", """
+        def my_meta(name, bases, attrs):
+            attrs['bar'] = attrs.pop("foo")
+            return type(name, bases, attrs)
+        class Sport(object, metaclass=my_meta):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + 2*y
+    """)
     xreload("weird32312765")
     assert a.bar(3) == 34129006
     assert not hasattr(a, 'foo')
@@ -1824,50 +1795,28 @@ def test_xreload_metaclass_subclass_type_separate_file_1(tpp):
                 attrs['bar'] = attrs.pop("foo")
                 return type.__new__(cls, name, bases, attrs)
     """)
-    if PY2:
-        writetext(tpp/"research72020159.py", """
-            from metaclass17670900 import MyType
-            class Employment(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
-    else:
-        writetext(tpp/"research72020159.py", """
-            from metaclass17670900 import MyType
-            class Employment(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
+    writetext(tpp/"research72020159.py", """
+        from metaclass17670900 import MyType
+        class Employment(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + y
+    """)
 
 
     from research72020159 import Employment
     a = Employment(97993000)
     assert a.bar(4) == 97993004
     assert not hasattr(a, 'foo')
-    if PY2:
-        writetext(tpp/"research72020159.py", """
-            from metaclass17670900 import MyType
-            class Employment(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
-    else:
-        writetext(tpp/"research72020159.py", """
-            from metaclass17670900 import MyType
-            class Employment(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
+    writetext(tpp/"research72020159.py", """
+        from metaclass17670900 import MyType
+        class Employment(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + 2*y
+    """)
 
     xreload("research72020159")
     assert a.bar(4) == 97993008
@@ -1877,61 +1826,33 @@ def test_xreload_metaclass_subclass_type_separate_file_1(tpp):
 def test_xreload_metaclass_subclass_type_same_file_1(tpp):
     # Verify that xreload() works correctly when the metaclass is a custom
     # class of type, and the metaclass is defined in the same file.
-    if PY2:
-        writetext(tpp/"damage28847789.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['bar'] = attrs.pop("foo")
-                    return type.__new__(cls, name, bases, attrs)
-            class Agriculture(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
-    else:
-        writetext(tpp/"damage28847789.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['bar'] = attrs.pop("foo")
-                    return type.__new__(cls, name, bases, attrs)
-            class Agriculture(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + y
-        """)
+    writetext(tpp/"damage28847789.py", """
+        class MyType(type):
+            def __new__(cls, name, bases, attrs):
+                attrs['bar'] = attrs.pop("foo")
+                return type.__new__(cls, name, bases, attrs)
+        class Agriculture(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + y
+    """)
 
     from damage28847789 import Agriculture
     a = Agriculture(72991000)
     assert a.bar(3) == 72991003
     assert not hasattr(a, 'foo')
-    if PY2:
-        writetext(tpp/"damage28847789.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['bar'] = attrs.pop("foo")
-                    return type.__new__(cls, name, bases, attrs)
-            class Agriculture(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
-    else:
-        writetext(tpp/"damage28847789.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['bar'] = attrs.pop("foo")
-                    return type.__new__(cls, name, bases, attrs)
-            class Agriculture(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def foo(self, y):
-                    return self.x + 2*y
-        """)
+    writetext(tpp/"damage28847789.py", """
+        class MyType(type):
+            def __new__(cls, name, bases, attrs):
+                attrs['bar'] = attrs.pop("foo")
+                return type.__new__(cls, name, bases, attrs)
+        class Agriculture(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def foo(self, y):
+                return self.x + 2*y
+    """)
 
     xreload("damage28847789")
     assert a.bar(3) == 72991006
@@ -1941,61 +1862,33 @@ def test_xreload_metaclass_subclass_type_same_file_1(tpp):
 def test_xreload_metaclass_changed_1(tpp):
     # Verify that xreload() works correctly when the metaclass definition
     # changed.
-    if PY2:
-        writetext(tpp/"commitee91173998.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['technology'] = attrs.pop("procedure")
-                    return type.__new__(cls, name, bases, attrs)
-            class Significance(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def procedure(self, y):
-                    return self.x + y
-        """)
-    else:
-        writetext(tpp/"commitee91173998.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['technology'] = attrs.pop("procedure")
-                    return type.__new__(cls, name, bases, attrs)
-            class Significance(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def procedure(self, y):
-                    return self.x + y
-        """)
+    writetext(tpp/"commitee91173998.py", """
+        class MyType(type):
+            def __new__(cls, name, bases, attrs):
+                attrs['technology'] = attrs.pop("procedure")
+                return type.__new__(cls, name, bases, attrs)
+        class Significance(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def procedure(self, y):
+                return self.x + y
+    """)
 
     from commitee91173998 import Significance
     x = Significance(56638000)
     assert x.technology(3) == 56638003
     assert not hasattr(x, 'procedure')
-    if PY2:
-        writetext(tpp/"commitee91173998.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['cloud'] = attrs.pop("procedure")
-                    return type.__new__(cls, name, bases, attrs)
-            class Significance(object):
-                __metaclass__ = MyType
-                def __init__(self, x):
-                    self.x = x
-                def procedure(self, y):
-                    return self.x + 2*y
-        """)
-    else:
-        writetext(tpp/"commitee91173998.py", """
-            class MyType(type):
-                def __new__(cls, name, bases, attrs):
-                    attrs['cloud'] = attrs.pop("procedure")
-                    return type.__new__(cls, name, bases, attrs)
-            class Significance(object, metaclass=MyType):
-                def __init__(self, x):
-                    self.x = x
-                def procedure(self, y):
-                    return self.x + 2*y
-        """)
+    writetext(tpp/"commitee91173998.py", """
+        class MyType(type):
+            def __new__(cls, name, bases, attrs):
+                attrs['cloud'] = attrs.pop("procedure")
+                return type.__new__(cls, name, bases, attrs)
+        class Significance(object, metaclass=MyType):
+            def __init__(self, x):
+                self.x = x
+            def procedure(self, y):
+                return self.x + 2*y
+    """)
 
     xreload("commitee91173998")
     assert x.cloud(3) == 56638006

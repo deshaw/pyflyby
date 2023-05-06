@@ -11,8 +11,6 @@ import sys
 from   textwrap                 import dedent
 import types
 
-from   six                      import PY2
-
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,

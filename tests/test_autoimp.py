@@ -14,7 +14,7 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
-from   six                      import PY2, PY3
+from   six                      import PY2
 
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
