@@ -280,10 +280,7 @@ def livepatch(old, new, modname=None,
             visit_stack=visit_stack)
         # Find out which optional kwargs the hook wants.
         kwargs = {}
-        if PY2:
-            argspec = inspect.getargspec(hook)
-        else:
-            argspec = inspect.getfullargspec(hook)
+        argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
         if hasattr(hook, "__func__"):
             # Skip 'self' arg.

@@ -775,11 +775,6 @@ def test_str_lineno_strprefix_1():
         0
         r"x"
 '''
-    if PY2:
-        # ur"" is not valid syntax in Python 3
-        code += r'''        Ur"""cc\n
-        dd"""
-    '''
     block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
         PythonStatement('r"aa\\nbb"\n'       , startpos=(101,1)),
@@ -797,8 +792,6 @@ def test_str_lineno_strprefix_1():
         ('x'        , FilePos(103,1)),
     ]
 
-    if PY2:
-        expected_literals += [('cc\\n\ndd', FilePos(104,1))]
     assert literals == expected_literals
 
 
@@ -890,11 +883,7 @@ def test_str_lineno_concatenated_1():
         PythonStatement('''"Q" "q"""\n'''          , startpos=(130,1)),
         PythonStatement('''"R" "r""" + "S""""s""S""""s""""\nS"""\n'''     , startpos=(131,1)),
     )
-    if PY2:
-        expected_statements += (
-            PythonStatement("""Ur'''\nt'''\n""" , startpos=(133,1)),
-            PythonStatement('''r"U" u'u' b"""U"""\n''' , startpos=(135,1)),
-        )
+
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
     expected_literals = [
@@ -1182,14 +1171,9 @@ def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
     ''').lstrip(), auto_flags=True)
-    if PY2:
-        assert     (block.flags                & "print_function")
-        assert     (block.ast_node.input_flags & "print_function")
-        assert not (block.source_flags         & "print_function")
-    else:
-        assert not (block.flags                & "print_function")
-        assert not (block.ast_node.input_flags & "print_function")
-        assert not (block.source_flags         & "print_function")
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
 
 
 def test_PythonBlock_auto_flags_pf_flagpf_1():

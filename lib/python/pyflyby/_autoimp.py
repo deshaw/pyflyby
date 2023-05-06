@@ -619,9 +619,7 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        if PY2:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         else:
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
@@ -684,9 +682,7 @@ class _MissingImportFinder(object):
         self.visit(node)
 
     def visit_arguments(self, node):
-        if PY2:
-            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
@@ -1374,8 +1370,6 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
 
 def _op(c):
     # bytecode is bytes in Python 3, which when indexed gives integers
-    if PY2:
-        return ord(c)
     return c
 
 

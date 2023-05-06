@@ -279,8 +279,6 @@ def test_py_eval_1():
         [PYFLYBY] b64decode('aGVsbG8=')
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "'hello'")
     assert result == expected
 
 
@@ -448,12 +446,8 @@ def test_tidy_imports_py2_fallback():
     proc_output = child.logfile.getvalue()
     assert b"removed unused 'import x'" in proc_output
     assert output == input
-    if PY2:
-        assert b"SyntaxError detected" in proc_output, proc_output
-        assert b"falling back" in proc_output, proc_output
-    else:
-        assert b"SyntaxError detected" not in proc_output, proc_output
-        assert b"falling back" not in proc_output, proc_output
+    assert b"SyntaxError detected" not in proc_output, proc_output
+    assert b"falling back" not in proc_output, proc_output
 
 
 @pytest.mark.skip(reason="seem to fail at importing six even if installed")

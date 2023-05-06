@@ -1979,15 +1979,7 @@ def test_autoimport_pyflyby_path_1(tmp):
 @retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
-            ------> str.upper(b64decode('a2V5Ym9hcmQ='))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'KEYBOARD'
-        """, autocall=True)
-    elif IPython.version_info < (7, 17):
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2561,45 +2553,30 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             __name__ = __name__
         sys.modules[__name__] = M()
     """)
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
-            In [2]: print(gravesend60063393.river)
-            in the river
-            in the river
-            Medway
-            In [3]: print(gravesend600633\t93.is\tland)
-            on the island
-            on the island
-            Canvey
-        """, PYTHONPATH=tmp.dir, frontend=frontend)
+    if IPython.version_info >= (8,6):
+        extra_comp = '\n            in the river'
     else:
-        if IPython.version_info >= (8,6):
-            extra_comp = '\n            in the river'
-        else:
-            extra_comp = ''
+        extra_comp = ''
 
-        # we use "... the island" as there might be prompt inserted by previous tab completino
-        ipython(
-            """
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393{}
-            In [2]: print(gravesend60063393.river)
-            in the river
-            in the river
-            Medway
-            ... the island
-            In [3]: print(gravesend600633\t93.is\tland)
-            on the island
-            on the island
-            Canvey
-        """.format(extra_comp),
-            PYTHONPATH=tmp.dir,
-            frontend=frontend,
-        )
+    # we use "... the island" as there might be prompt inserted by previous tab completino
+    ipython(
+        """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: print(gravesend60063\t393.r\t
+        [PYFLYBY] import gravesend60063393{}
+        In [2]: print(gravesend60063393.river)
+        in the river
+        in the river
+        Medway
+        ... the island
+        In [3]: print(gravesend600633\t93.is\tland)
+        on the island
+        on the island
+        Canvey
+    """.format(extra_comp),
+        PYTHONPATH=tmp.dir,
+        frontend=frontend,
+    )
 
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims

@@ -146,11 +146,7 @@ def test_find_missing_imports_lambda_3():
 
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
-    result   = _dilist2strlist(result)
-    if PY2:
-        expected = ['z']
-    else:
-        expected = ['y', 'z']
+    expected = ['y', 'z']
     assert expected == result
 
 
@@ -866,14 +862,9 @@ def test_find_missing_imports_global_1():
 
 
 def test_find_missing_imports_complex_1():
-    if PY2:
-        code = dedent("""
-            x = 3+4j+5L+k+u'a'
-        """)
-    else:
-        code = dedent("""
-            x = 3+4j+5+k+u'a'
-        """)
+    code = dedent("""
+        x = 3+4j+5+k+u'a'
+    """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
     expected = ['k']
@@ -1840,13 +1831,8 @@ def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
 
 
 def test_auto_eval_auto_flags_ps_flagps_1(capsys):
-    if PY2:
+    with pytest.raises(SyntaxError):
         auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
-    else:
-        with pytest.raises(SyntaxError):
-            auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
 
 
 def test_auto_eval_auto_flags_pf_flagps_1(capsys):
@@ -2018,18 +2004,11 @@ def test_auto_import_indirect_importerror_1(tpp, capsys):
     """)
     auto_import("neutron46291483.asdfasdf", [{}])
     out, _ = capsys.readouterr()
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] import neutron46291483
-            [PYFLYBY] Error attempting to 'import neutron46291483': ImportError: No module named baryon96446873
-            Traceback (most recent call last):
-        """).lstrip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] import neutron46291483
-            [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
-            Traceback (most recent call last):
-        """).lstrip()
+    expected = dedent("""
+        [PYFLYBY] import neutron46291483
+        [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
+        Traceback (most recent call last):
+    """).lstrip()
 
     assert out.startswith(expected)
 
