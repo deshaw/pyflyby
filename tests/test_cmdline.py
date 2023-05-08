@@ -14,8 +14,6 @@ import subprocess
 import tempfile
 from   textwrap                 import dedent
 
-from   six                      import PY3
-
 from   pyflyby._util            import EnvVarCtx
 
 import pytest
@@ -468,12 +466,9 @@ def test_tidy_imports_py3_fallback():
     proc_output = child.logfile.getvalue()
     assert b"removed unused 'import x'" in proc_output
     assert output == input
-    if PY3:
-        assert b"SyntaxError detected" in proc_output, proc_output
-        assert b"falling back" in proc_output, proc_output
-    else:
-        assert b"SyntaxError detected" not in proc_output, proc_output
-        assert b"falling back" not in proc_output, proc_output
+    assert b"SyntaxError detected" in proc_output, proc_output
+    assert b"falling back" in proc_output, proc_output
+
 
 def test_tidy_imports_symlinks_default():
     input = dedent('''

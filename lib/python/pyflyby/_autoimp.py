@@ -9,17 +9,12 @@ import ast
 import contextlib
 import copy
 import six
-from   six                      import PY3, exec_, reraise
+from   six                      import exec_, reraise
 from   six.moves                import builtins
 import sys
 import types
 
-if PY3:
-    from collections.abc import Sequence
-else:
-    # This is deprecated in Python 3
-    from collections import Sequence
-
+from collections.abc import Sequence
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -584,16 +579,12 @@ class _MissingImportFinder(object):
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
-        if PY3:
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
-        else:
-            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
+        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         self.visit(node.bases)
         self.visit(node.decorator_list)
         # The class's name is only visible to others (not to the body to the
         # class), but is accessible in the methods themselves. See https://github.com/deshaw/pyflyby/issues/147
-        if PY3:
-            self.visit(node.keywords)
+        self.visit(node.keywords)
 
         # we only care about the first defined class,
         # we don't detect issues with nested classes.
@@ -626,9 +617,8 @@ class _MissingImportFinder(object):
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             self.visit(node.decorator_list)
-            if PY3:
-                if node.returns:
-                    self.visit(node.returns)
+            if node.returns:
+                self.visit(node.returns)
             if sys.version_info >= (3, 8):
                 self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
@@ -698,22 +688,20 @@ class _MissingImportFinder(object):
         # context
         with self._UpScopeCtx():
             self.visit(node.defaults)
-            if PY3:
-                for i in node.kw_defaults:
-                    if i:
-                        self.visit(i)
+            for i in node.kw_defaults:
+                if i:
+                    self.visit(i)
         # Store arg names.
         self.visit(node.args)
-        if PY3:
-            self.visit(node.kwonlyargs)
+        self.visit(node.kwonlyargs)
         if sys.version_info >= (3, 8):
             self.visit(node.posonlyargs)
         # may be None.
-        if node.vararg and PY3:
+        if node.vararg:
             self.visit(node.vararg)
         else:
             self._visit_Store(node.vararg)
-        if node.kwarg and PY3:
+        if node.kwarg:
             self.visit(node.kwarg)
         else:
             self._visit_Store(node.kwarg)
@@ -723,12 +711,7 @@ class _MissingImportFinder(object):
         if node.type:
             self.visit(node.type)
         if node.name:
-            # ExceptHandler.name is a string in Python 3 and a Name with Store in
-            # Python 2
-            if PY3:
-                self._visit_Store(node.name)
-            else:
-                self.visit(node.name)
+            self._visit_Store(node.name)
         self.visit(node.body)
 
     def visit_Dict(self, node):
@@ -768,11 +751,7 @@ class _MissingImportFinder(object):
         # a list comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
         # For Python3, we do need to enter a new scope here.
-        if PY3:
-            with self._NewScopeCtx(include_class_scopes=True):
-                self.visit(node.generators)
-                self.visit(node.elt)
-        else:
+        with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.generators)
             self.visit(node.elt)
 
@@ -890,7 +869,7 @@ class _MissingImportFinder(object):
         if fullname is None:
             return
         scope = self.scopestack[-1]
-        if PY3 and isinstance(fullname, ast.arg):
+        if isinstance(fullname, ast.arg):
             fullname = fullname.arg
         if self.unused_imports is not None:
             if fullname != '*':
@@ -1160,7 +1139,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
     LOAD_ATTR    = opmap['LOAD_ATTR']
-    LOAD_METHOD = opmap['LOAD_METHOD'] if PY3 else None
+    LOAD_METHOD = opmap['LOAD_METHOD']
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']

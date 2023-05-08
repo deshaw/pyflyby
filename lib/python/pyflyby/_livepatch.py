@@ -140,7 +140,6 @@ import sys
 import time
 import types
 
-from   six                      import PY2
 from   six.moves                import reload_module
 
 import inspect
@@ -291,7 +290,7 @@ def livepatch(old, new, modname=None,
         for n in argnames:
             try:
                 kwargs[n] = avail_kwargs[n]
-                if argspec.keywords if PY2 else argspec.varkw:
+                if argspec.keywords:
                     break
             except KeyError:
                 # For compatibility, allow first argument to be 'old' with any
@@ -304,7 +303,7 @@ def livepatch(old, new, modname=None,
                     # Rely on default being set.  If a default isn't set, the
                     # user will get a TypeError.
                     pass
-        if argspec.keywords if PY2 else argspec.varkw:
+        if argspec.keywords:
             # Use all available kwargs.
             kwargs = avail_kwargs
         # Call hook.
@@ -523,15 +522,14 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
     else:
         return newobj
 
-if six.PY3:
-    _LIVEPATCH_DISPATCH_TABLE = {
-        object            : _livepatch__object,
-        dict              : _livepatch__dict,
-        type              : _livepatch__class,
-        types.FunctionType: _livepatch__function,
-        types.MethodType  : _livepatch__method,
-        types.ModuleType  : _livepatch__module,
-    }
+_LIVEPATCH_DISPATCH_TABLE = {
+    object            : _livepatch__object,
+    dict              : _livepatch__dict,
+    type              : _livepatch__class,
+    types.FunctionType: _livepatch__function,
+    types.MethodType  : _livepatch__method,
+    types.ModuleType  : _livepatch__module,
+}
 
 
 def _get_definition_module(obj):

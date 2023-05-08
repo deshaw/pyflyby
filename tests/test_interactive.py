@@ -22,7 +22,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO, PY3
+from   six                      import BytesIO
 from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
@@ -1483,30 +1483,7 @@ def _normalize_python_2_3(template):
     """
     Change some Python 3 outputs to be compatible with Python 2
     """
-    template0 = template
-    if PY3:
-        # We have to leave NameError: global name ... as in Python 2, because
-        # in Python 3, "global" is never printed, but it is only printed for
-        # some messages in Python 2.
-        template = template.replace(b"NameError: global name", b"NameError: name")
-        # The templates are written with outputs from Python 3
-        return template
-
-    template = template.replace(' <module>', ' <module>()')
-    for module in ['os', 'base64', 'profile']:
-        template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
-    template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
-    template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
-    template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
-    template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
-                      r"\2 loops, best of \1: ... per loop" , template)
-    template = re.sub(r"ModuleNotFoundError: No module named '(.*?)'",
-                      r"ImportError: No module named \1", template)
-    template = re.sub(r"\*\*\* NameError: name '(.*)' is not defined",
-                      r"""*** NameError: NameError("name '\1' is not defined",)""", template)
-
-    if DEBUG:
-        print("_normalize_python_2_3() %r => %r" % (template0, template))
+    template = template.replace(b"NameError: global name", b"NameError: name")
     return template
 
 

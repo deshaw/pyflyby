@@ -16,7 +16,6 @@ from   textwrap                 import dedent
 import types
 
 import six
-from   six                      import PY2, PY3, text_type as unicode
 from   six.moves                import range
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -24,11 +23,7 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
-if PY3:
-    from ast import Bytes
-else:
-    Bytes = ast.Str
-
+from ast import Bytes
 
 if sys.version_info >= (3, 8):
     from ast import TypeIgnore, AsyncFunctionDef
@@ -199,9 +194,6 @@ def _flags_to_try(source, flags, auto_flags, mode):
         yield flags
         return
     if not auto_flags:
-        yield flags
-        return
-    if PY3:
         yield flags
         return
     if mode == "eval":

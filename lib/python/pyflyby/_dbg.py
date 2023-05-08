@@ -18,10 +18,7 @@ from   types                    import CodeType, FrameType, TracebackType
 import six
 from   six.moves                import builtins
 
-if six.PY3:
-    from   collections.abc          import Callable
-else:
-    from   collections              import Callable
+from   collections.abc          import Callable
 
 from   pyflyby._file            import Filename
 

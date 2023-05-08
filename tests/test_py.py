@@ -16,7 +16,7 @@ import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 
-from   six                      import PY2, string_types
+from   six                      import string_types
 
 import pyflyby
 from   pyflyby._file            import Filename

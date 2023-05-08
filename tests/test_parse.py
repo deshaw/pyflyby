@@ -11,8 +11,6 @@ import sys
 from   textwrap                 import dedent
 import warnings
 
-from   six                      import PY2, PY3
-
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._parse           import PythonBlock, PythonStatement
@@ -550,15 +548,15 @@ examples_transform = ["""
     a = None # type: ignore
     """]
 
-if PY3:
-    examples_transform.append(
+examples_transform.append(
+"""
+class A:
+    async def func(self, location: str) -> bytes:
+        async with aiofiles.open(location, "rb") as file:
+            return await file.read()
     """
-    class A:
-        async def func(self, location: str) -> bytes:
-            async with aiofiles.open(location, "rb") as file:
-                return await file.read()
-        """
         )
+
 if sys.version_info >= (3, 8):
     examples_transform.append(
     # positional only
