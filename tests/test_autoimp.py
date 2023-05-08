@@ -144,6 +144,7 @@ def test_find_missing_imports_lambda_3():
 
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
+    result   = _dilist2strlist(result)
     expected = ['y', 'z']
     assert expected == result
 
