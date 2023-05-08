@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 from   textwrap                 import dedent
 
-from   six                      import PY2, PY3
+from   six                      import PY3
 
 from   pyflyby._util            import EnvVarCtx
 

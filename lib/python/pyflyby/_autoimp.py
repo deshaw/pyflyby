@@ -9,7 +9,7 @@ import ast
 import contextlib
 import copy
 import six
-from   six                      import PY2, PY3, exec_, reraise
+from   six                      import PY3, exec_, reraise
 from   six.moves                import builtins
 import sys
 import types
@@ -829,7 +829,6 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_arg(self, node):
-        assert not PY2
         if sys.version_info >= (3, 8):
             assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         else:

@@ -14,8 +14,6 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
-from   six                      import PY2
-
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
 from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
@@ -1806,14 +1804,9 @@ def test_auto_eval_exec_1():
 
 
 def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
-    if PY2:
-        auto_eval("print 3.00", flags=None, auto_flags=False)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
-    else:
-        auto_eval("print(3.00)", flags=CompilerFlags.from_int(0), auto_flags=False)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
+    auto_eval("print(3.00)", flags=CompilerFlags.from_int(0), auto_flags=False)
+    out, _ = capsys.readouterr()
+    assert out == "3.0\n"
 
 def test_auto_eval_no_auto_flags_ps_flag_pf1():
     with pytest.raises(SyntaxError):

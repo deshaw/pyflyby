@@ -16,8 +16,6 @@ from   pyflyby._util            import cached_attribute, cmp
 # Don't consider "print" a keyword, in order to be compatible with user code
 # that uses "from __future__ import print_function".
 _my_kwlist = list(kwlist)
-if six.PY2:
-    _my_kwlist.remove("print")
 _my_iskeyword = frozenset(_my_kwlist).__contains__
 
 

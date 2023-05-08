@@ -110,10 +110,7 @@ def _iter_child_nodes_in_order_internal_1(node):
         assert node._fields == ("keys", "values")
         yield list(zip(node.keys, node.values))
     elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
-        if six.PY2:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
-            yield node.decorator_list, node.args, node.body
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == (
                 "name",
                 "args",
@@ -136,10 +133,7 @@ def _iter_child_nodes_in_order_internal_1(node):
             yield node.decorator_list, node.args, node.returns, node.body
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
-        if six.PY2:
-            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
-            args = node.args
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
             args = node.posonlyargs + node.args
@@ -162,10 +156,7 @@ def _iter_child_nodes_in_order_internal_1(node):
                       [(k.lineno,k.col_offset, k) for k in node.args])
         yield [a[2] for a in args]
     elif isinstance(node, ast.ClassDef):
-        if six.PY2:
-            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
-        else:
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
+        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
     elif sys.version_info >= (3, 7) and isinstance(node, ast.FormattedValue):
@@ -248,8 +239,6 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
-    if PY2 and isinstance(source, unicode):
-        source = source.encode('utf-8')
     if not source.endswith("\n"):
         # Ensure that the last line ends with a newline (``ast`` barfs
         # otherwise).

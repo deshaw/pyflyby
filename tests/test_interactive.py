@@ -22,7 +22,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO, PY2, PY3
+from   six                      import BytesIO, PY3
 from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
@@ -2418,15 +2418,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
-            ------> str.upper(b64decode('Q2hld2JhY2Nh'))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'CHEWBACCA'
-        """, autocall=True)
-    elif IPython.version_info < (7,17):
+    if IPython.version_info < (7,17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""

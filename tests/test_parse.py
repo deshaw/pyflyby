@@ -846,17 +846,6 @@ def test_str_lineno_concatenated_1():
         "R" "r""" + "S""""s""S""""s""""
         S"""
 '''
-    if PY2:
-        # ur"" is not valid syntax in Python 3
-        code += """\
-        Ur'''
-        t'''
-"""
-        # Implicit string concatenation of non-bytes and bytes literals is not
-        # valid syntax in Python 3
-        code += '''\
-        r"U" u'u' b"""U"""
-    '''
 
     block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
@@ -1297,11 +1286,7 @@ def test_PythonStatement_auto_flags_1():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         assert s1.block.source_flags == CompilerFlags(0)
-    if PY2:
-        expected = CompilerFlags("unicode_literals", "division",
-                                 "print_function")
-    else:
-        expected = CompilerFlags("unicode_literals", "division")
+    expected = CompilerFlags("unicode_literals", "division")
     assert s0.block.flags        == expected
     assert s1.block.flags        == expected
 

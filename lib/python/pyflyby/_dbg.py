@@ -1180,19 +1180,12 @@ def attach_debugger(pid):
     #
     # As a concrete example, `typing` module is a package as well a built-in
     # module from Python version >= 3.5
-    if six.PY2:
-        statements = [(
-            "location = __import__('imp').find_module('pyflyby', ['{pyflyby_dir}'])"
-            .format(pyflyby_dir=pyflyby_lib_path)),
-            "pyflyby = __import__('pkgutil').ImpLoader('pyflyby', *location).load_module('pyflyby')"
-            ]
-    else:
-        statements = [
-            "loader = __import__('importlib').machinery.PathFinder.find_module("
-            "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
-                pyflyby_dir=pyflyby_lib_path),
-            "pyflyby = loader.load_module('pyflyby')"
-        ]
+    statements = [
+        "loader = __import__('importlib').machinery.PathFinder.find_module("
+        "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
+            pyflyby_dir=pyflyby_lib_path),
+        "pyflyby = loader.load_module('pyflyby')"
+    ]
     statements.append(
         ("pyflyby.debugger(tty=%r, on_continue=%s)"
          % (terminal.ttyname, on_continue))
