@@ -19,7 +19,6 @@ stdin is not a tty, read from stdin and write to stdout.
 # Copyright (C) 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._cmdline         import hfmt, parse_args, process_actions
 from   pyflyby._imports2s       import transform_imports

@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division, print_function
 
 from   pyflyby._log             import logger
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
