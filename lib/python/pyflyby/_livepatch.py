@@ -290,7 +290,7 @@ def livepatch(old, new, modname=None,
         for n in argnames:
             try:
                 kwargs[n] = avail_kwargs[n]
-                if argspec.keywords:
+                if argspec.varkw:
                     break
             except KeyError:
                 # For compatibility, allow first argument to be 'old' with any
@@ -303,7 +303,7 @@ def livepatch(old, new, modname=None,
                     # Rely on default being set.  If a default isn't set, the
                     # user will get a TypeError.
                     pass
-        if argspec.keywords:
+        if argspec.varkw:
             # Use all available kwargs.
             kwargs = avail_kwargs
         # Call hook.
