@@ -1260,20 +1260,12 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         op = _op(c)
         i += 1
         if op >= HAVE_ARGUMENT:
-            if PY2:
-                oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256 + extended_arg
-                extended_arg = 0
-                i = i+2
-                if op == EXTENDED_ARG:
-                    extended_arg = oparg*65536
-                    continue
-            else:
-                oparg = bytecode[i] | extended_arg
-                extended_arg = 0
-                if op == EXTENDED_ARG:
-                    extended_arg = (oparg << 8)
-                    continue
-                i += 1
+            oparg = bytecode[i] | extended_arg
+            extended_arg = 0
+            if op == EXTENDED_ARG:
+                extended_arg = (oparg << 8)
+                continue
+            i += 1
 
         if pending is not None:
             if op == STORE_ATTR:

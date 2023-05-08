@@ -2002,15 +2002,7 @@ def test_autoimport_autocall_arg_1():
 @retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64decode 'bW91c2U='
-            [PYFLYBY] from base64 import b64decode
-            ------> b64decode('bW91c2U=')
-            Out[2]: 'mouse'
-        """, autocall=True)
-    elif IPython.version_info < (7, 17):
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""

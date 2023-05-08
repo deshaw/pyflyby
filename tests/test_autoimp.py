@@ -717,10 +717,7 @@ def test_find_missing_imports_class_member_generator_expression_1():
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
-    if PY2:
-        expected = ['y1']
-    else:
-        expected = ['y1', 'y2']
+    expected = ['y1', 'y2']
     assert expected == result
 
 
@@ -1968,18 +1965,11 @@ def test_auto_import_unknown_but_in_db1(tpp, capsys):
     db = ImportDB('import photon70447198')
     auto_import("photon70447198.asdfasdf", [{}], db=db)
     out, _ = capsys.readouterr()
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] import photon70447198
-            [PYFLYBY] Error attempting to 'import photon70447198': ImportError: No module named photon70447198
-            Traceback (most recent call last):
-        """).lstrip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] import photon70447198
-            [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
-            Traceback (most recent call last):
-        """).lstrip()
+    expected = dedent("""
+        [PYFLYBY] import photon70447198
+        [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
+        Traceback (most recent call last):
+    """).lstrip()
 
     assert out.startswith(expected)
 

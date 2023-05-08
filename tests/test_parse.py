@@ -781,10 +781,6 @@ def test_str_lineno_strprefix_1():
         PythonStatement('0\n'                , startpos=(102,1)),
         PythonStatement('r"x"\n'             , startpos=(103,1)),
     )
-    if PY2:
-        expected_statements += (
-        PythonStatement('Ur"""cc\\n\ndd"""\n', startpos=(104,1)),
-    )
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
     expected_literals = [
@@ -907,11 +903,6 @@ def test_str_lineno_concatenated_1():
         ("Rr", FilePos(131,1)),
         ('Ss""Ss\nS', FilePos(131,13)),
     ]
-    if PY2:
-        expected_literals += [
-            ('\nt', FilePos(133, 1)),
-            ("UuU", FilePos(135,1)),
-        ]
     assert literals == expected_literals
 
 

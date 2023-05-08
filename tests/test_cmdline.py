@@ -289,8 +289,6 @@ def test_py_exec_1():
         [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "hello")
     assert result == expected
 
 

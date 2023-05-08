@@ -165,8 +165,6 @@ def test_eval_1():
         [PYFLYBY] b64decode('VGhvbXBzb24=')
         b'Thompson'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'Thompson'", "'Thompson'")
     assert expected == result
 
 
@@ -189,8 +187,6 @@ def test_eval_equals_1():
         [PYFLYBY] b64decode('TWVyY2Vy')
         b'Mercer'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'Mercer'", "'Mercer'")
     assert expected == result
 
 
@@ -213,8 +209,6 @@ def test_eval_c_1():
         [PYFLYBY] b64decode('QmxlZWNrZXI=')
         b'Bleecker'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'Bleecker'", "'Bleecker'")
     assert expected == result
 
 
@@ -250,8 +244,6 @@ def test_exec_1():
         [PYFLYBY] if 1: print(b64decode('UHJpbmNl'))
         b'Prince'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'Prince'", "Prince")
     assert expected == result
 
 
@@ -928,10 +920,7 @@ def test_apply_argspec_too_few_args_1():
     result, retcode = py("base64.b64decode")
     assert retcode == 1
     assert "[PYFLYBY] missing required argument s" in result
-    if PY2:
-        assert "$ py base64.b64decode s [altchars]" in result, result
-    else:
-        assert "$ py base64.b64decode s [altchars [validate]]" in result
+    assert "$ py base64.b64decode s [altchars [validate]]" in result
 
 
 def test_apply_argspec_too_few_args_2():
@@ -969,10 +958,7 @@ def test_apply_argspec_bad_kwarg_1():
     result, retcode = py("base64.b64decode", "x", "--christopher=sheridan")
     assert retcode == 1
     assert "[PYFLYBY] Unknown option name christopher" in result
-    if PY2:
-        assert "$ py base64.b64decode s [altchars]" in result
-    else:
-        assert "$ py base64.b64decode s [altchars [validate]]" in result
+    assert "$ py base64.b64decode s [altchars [validate]]" in result
 
 
 def test_apply_dashdash_1():
@@ -1103,10 +1089,7 @@ def test_function_help_1():
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "--version" not in output
     assert "[PYFLYBY] import base64" in output
-    if PY2:
-        assert "\n  Encode a string using Base64." in output
-    else:
-        assert "\n  Encode the bytes-like object s using Base64 and return a bytes object." in output
+    assert "\n  Encode the bytes-like object s using Base64 and return a bytes object." in output
     assert "binascii.b2a_base64" not in output
 
 
@@ -1234,10 +1217,7 @@ def test_function_source_1():
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
-    if PY2:
-        assert output.count("Encode a string using Base64") == 1, output
-    else:
-        assert output.count("Encode the bytes-like object s using Base64 and return a bytes object.") == 1
+    assert output.count("Encode the bytes-like object s using Base64 and return a bytes object.") == 1
     assert "--version" not in output
 
 
@@ -1583,16 +1563,10 @@ def test_joinstr_1():
 
 def test_print_joinstr_1():
     result = py("print", "3", "+", "5")
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] print 3 + 5
-            8
-        """).strip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] print(3, '+', 5)
-            3 + 5
-        """).strip()
+    expected = dedent("""
+        [PYFLYBY] print(3, '+', 5)
+        3 + 5
+    """).strip()
     assert expected == result
 
 def test_print_joinstr_2():
@@ -1612,20 +1586,13 @@ def test_print_joinstr_2():
 
 def test_join_single_arg_1():
     result = py("print", "sys")
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] import sys
-            [PYFLYBY] print sys
-            <module 'sys' (built-in)>
-        """).strip()
-    else:
-        # In autocall mode, the arguments are evaluated and the repr() is
-        # printed for the [PYFLYBY] line
-        expected = dedent("""
-            [PYFLYBY] import sys
-            [PYFLYBY] print(<module 'sys' (built-in)>)
-            <module 'sys' (built-in)>
-        """).strip()
+    # In autocall mode, the arguments are evaluated and the repr() is
+    # printed for the [PYFLYBY] line
+    expected = dedent("""
+        [PYFLYBY] import sys
+        [PYFLYBY] print(<module 'sys' (built-in)>)
+        <module 'sys' (built-in)>
+    """).strip()
 
     assert expected == result
 
@@ -2189,16 +2156,10 @@ def test_builtin_no_run_module_1(tmp):
         print('bad morrison56321353')
     """)
     result = py("round", "17534159.5", PYTHONPATH=tmp.dir)
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] round(17534159.5)
-            17534160.0
-        """).strip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] round(17534159.5)
-            17534160
-        """).strip()
+    expected = dedent("""
+        [PYFLYBY] round(17534159.5)
+        17534160
+    """).strip()
     assert expected == result
 
 
@@ -2293,16 +2254,10 @@ def test_unsafe_args_1():
 
 def test_safe_args_1():
     result = py("--safe", "type", "sys")
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] type('sys')
-            <type 'str'>
-        """).strip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] type('sys')
-            <class 'str'>
-        """).strip()
+    expected = dedent("""
+        [PYFLYBY] type('sys')
+        <class 'str'>
+    """).strip()
     assert expected == result
 
 
@@ -2631,16 +2586,10 @@ def test_name_heuristic_apply_eval_1():
 
 def test_name_heuristic_join_eval_1():
     result = py("print", "'Castle'", ",", "__name__")
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] print 'Castle' , __name__
-            Castle __main__
-        """).strip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] print('Castle', ',', '__main__')
-            Castle , __main__
-        """).strip()
+    expected = dedent("""
+        [PYFLYBY] print('Castle', ',', '__main__')
+        Castle , __main__
+    """).strip()
     assert expected == result
 
 
