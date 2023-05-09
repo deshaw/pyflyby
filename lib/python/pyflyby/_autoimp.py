@@ -1338,7 +1338,6 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
 
 
 def _op(c):
-    # bytecode is bytes in Python 3, which when indexed gives integers
     return c
 
 

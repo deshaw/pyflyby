@@ -15,9 +15,6 @@ import types
 # Python 2/3 compatibility
 DictProxyType = type(object.__dict__)
 
-class Object(object):
-    pass
-
 
 def memoize(function):
     cache = {}
@@ -357,8 +354,6 @@ class Aspect(object):
                                      joinpoint.__qualname__)
             self._name      = joinpoint.__name__
             if getattr(joinpoint, '__self__', None) is None:
-                # Unbound method in Python 2 only. In Python 3, there are no unbound methods
-                # (they are just functions).
                 container_obj   = getattr(inspect.getmodule(joinpoint),
                    joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
 
@@ -480,8 +475,7 @@ def cmp(a, b):
     return (a > b) - (a < b)
 
 
-# Create a context manager with an arbitrary number of contexts. This is
-# the same as Py2 contextlib.nested, but that one is removed in Py3.
+# Create a context manager with an arbitrary number of contexts.
 from contextlib import ExitStack
 @contextmanager
 def nested(*mgrs):
