@@ -419,32 +419,6 @@ def test_tidy_imports_query_junk_1():
     assert output == input
 
 
-# Note, these tests will fail if the system does not have
-# python3 in the PATH
-def test_tidy_imports_py2_fallback():
-    input = dedent('''
-        import x
-
-        def f(*args, x=1):
-            pass
-    ''')
-    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
-        f.write(input)
-        f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', "--py23-fallback", f.name], timeout=5.0)
-        child.logfile = BytesIO()
-        child.expect_exact(" [y/N]")
-        child.send("n\n")
-        child.expect(pexpect.EOF)
-        with open(f.name) as f2:
-            output = f2.read()
-    proc_output = child.logfile.getvalue()
-    assert b"removed unused 'import x'" in proc_output
-    assert output == input
-    assert b"SyntaxError detected" not in proc_output, proc_output
-    assert b"falling back" not in proc_output, proc_output
-
-
 @pytest.mark.skip(reason="seem to fail at importing six even if installed")
 def test_tidy_imports_py3_fallback():
     input = dedent('''

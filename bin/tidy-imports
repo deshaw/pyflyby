@@ -112,17 +112,6 @@ def _addopts(parser):
                         default=True, action='store_false',
                         help=hfmt('''
                             Don't canonicalize imports.'''))
-    parser.add_option('--py23-fallback', dest='py23_fallback',
-                        default=False, action='store_true',
-                        help=hfmt('''
-                            Automatically fallback to python2/python3 if the
-                            source file has a syntax error.'''))
-    parser.add_option('--no-py23-fallback', dest='py23_fallback',
-                        action='store_false',
-                        help=hfmt('''
-                            (Default) Do not automatically fallback to
-                            python2/python3 if the source file has a syntax
-                            error.'''))
 
 
     def transform_callback(option, opt_str, value, group):
@@ -170,26 +159,7 @@ def main():
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             )
-
-    if options.py23_fallback:
-        try:
-            process_actions(args, options.actions, modify,
-                            reraise_exceptions=SyntaxError)
-        except SyntaxError as e:
-            python = 'python2' if sys.version_info[0] == 3 else 'python3'
-            python_full = find_executable(python)
-            if not python_full:
-                logger.error("Fallback failed: could not find %s", python)
-                raise
-            logger.info("SyntaxError detected ({}), falling back to {}".format(
-                e, python))
-            args = [python_full] + sys.argv + ['--no-py23-fallback']
-            try:
-                raise SystemExit(subprocess.call(args))
-            except KeyboardInterrupt:
-                sys.exit(1)
-    else:
-        process_actions(args, options.actions, modify)
+    process_actions(args, options.actions, modify)
 
 
 if __name__ == '__main__':
