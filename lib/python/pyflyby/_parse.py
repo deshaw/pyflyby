@@ -421,10 +421,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # Special case for 'with' statements.  Consider the code:
         #    with X: pass
         #    ^0   ^5
-        # In python2.6, col_offset is 0.
-        # In python2.7, col_offset is 5.
-        # This is because python2.7 allows for multiple clauses:
-        #    with X, Y: pass
         # Since 'Y's col_offset isn't the beginning of the line, the authors
         # of Python presumably changed 'X's col_offset to also not be the
         # beginning of the line.  If they had made the With ast node support

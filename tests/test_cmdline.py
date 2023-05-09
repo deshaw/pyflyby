@@ -419,7 +419,7 @@ def test_tidy_imports_query_junk_1():
     assert output == input
 
 
-# Note, these tests will fail if the system does not have both python2 and
+# Note, these tests will fail if the system does not have
 # python3 in the PATH
 def test_tidy_imports_py2_fallback():
     input = dedent('''

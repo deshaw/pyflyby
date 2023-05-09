@@ -759,7 +759,7 @@ class _MissingImportFinder(object):
         # This is similar to the generic visit, except:
         #  - We visit the comprehension node(s) before the elt node.
         #  - We create a new scope for the variables.
-        # We do enter a new scope (for both py2 and py3).  A dict comprehension
+        # We do enter a new scope.  A dict comprehension
         # does _not_ leak variables out of its scope (unlike py2 list
         # comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
@@ -769,7 +769,7 @@ class _MissingImportFinder(object):
 
     def visit_SetComp(self, node):
         # Visit a set comprehension node.
-        # We do enter a new scope (for both py2 and py3).  A set comprehension
+        # We do enter a new scope.  A set comprehension
         # does _not_ leak variables out of its scope (unlike py2 list
         # comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
@@ -778,7 +778,7 @@ class _MissingImportFinder(object):
 
     def visit_GeneratorExp(self, node):
         # Visit a generator expression node.
-        # We do enter a new scope (for both py2 and py3).  A generator
+        # We do enter a new scope.  A generator
         # expression does _not_ leak variables out of its scope (unlike py2
         # list comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
