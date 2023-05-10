@@ -1358,44 +1358,6 @@ def _find_earliest_backjump_label(bytecode):
       ...     while foo5():  # L7
       ...         foo6()
 
-    In python 2.6, the disassembled bytecode is::
-
-      >>> import dis
-      >>> dis.dis(f) # doctest: +SKIP
-        2           0 LOAD_GLOBAL              0 (foo1)
-                    3 CALL_FUNCTION            0
-                    6 JUMP_IF_FALSE           11 (to 20)
-                    9 POP_TOP
-      <BLANKLINE>
-        3          10 LOAD_GLOBAL              1 (foo2)
-                   13 CALL_FUNCTION            0
-                   16 POP_TOP
-                   17 JUMP_FORWARD             8 (to 28)
-              >>   20 POP_TOP
-      <BLANKLINE>
-        5          21 LOAD_GLOBAL              2 (foo3)
-                   24 CALL_FUNCTION            0
-                   27 POP_TOP
-      <BLANKLINE>
-        6     >>   28 LOAD_GLOBAL              3 (foo4)
-                   31 CALL_FUNCTION            0
-                   34 POP_TOP
-      <BLANKLINE>
-        7          35 SETUP_LOOP              22 (to 60)
-              >>   38 LOAD_GLOBAL              4 (foo5)
-                   41 CALL_FUNCTION            0
-                   44 JUMP_IF_FALSE           11 (to 58)
-                   47 POP_TOP
-      <BLANKLINE>
-        8          48 LOAD_GLOBAL              5 (foo6)
-                   51 CALL_FUNCTION            0
-                   54 POP_TOP
-                   55 JUMP_ABSOLUTE           38
-              >>   58 POP_TOP
-                   59 POP_BLOCK
-              >>   60 LOAD_CONST               0 (None)
-                   63 RETURN_VALUE
-
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
 
@@ -1516,10 +1478,6 @@ def find_missing_imports(arg, namespaces):
       >>> # Python 3
       >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['y', 'z']
-
-      >>> # Python 2
-      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
-      ['z']
 
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
       ['y', 'z']

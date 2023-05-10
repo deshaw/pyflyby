@@ -44,15 +44,6 @@ class CompilerFlags(int):
       >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__()) # doctest: +SKIP
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-    This can be used as an argument to the built-in compile() function. For
-    instance, in Python 2::
-
-      >>> compile("print('x', file=None)", "?", "exec", flags=0, dont_inherit=1) #doctest:+SKIP
-      Traceback (most recent call last):
-
-        ...
-      SyntaxError: invalid syntax
-
       >>> compile("print('x', file=None)", "?", "exec", flags=CompilerFlags("print_function"), dont_inherit=1) #doctest:+ELLIPSIS
       <code object ...>
 

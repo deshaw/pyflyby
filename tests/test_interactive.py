@@ -253,7 +253,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
-    template = _normalize_python_2_3(template)
     input = []
     expected = b""
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
@@ -1476,13 +1475,6 @@ def _clean_ipython_output(result):
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
-
-def _normalize_python_2_3(template):
-    """
-    Change some Python 3 outputs to be compatible with Python 2
-    """
-    template = template.replace(b"NameError: global name", b"NameError: name")
-    return template
 
 
 @retry
