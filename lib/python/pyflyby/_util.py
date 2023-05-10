@@ -358,9 +358,7 @@ class Aspect(object):
                    joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
 
                 self._container = _WritableDictProxy(container_obj)
-                # __func__ gives the function for the Python 2 unbound method.
-                # In Python 3, spec is already a function.
-                self._original  = getattr(spec, '__func__', spec)
+                self._original  = spec
             else:
                 # Instance method.
                 container_obj   = joinpoint.__self__

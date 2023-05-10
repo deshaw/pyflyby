@@ -2267,7 +2267,6 @@ def test_argmode_auto_no_concat_1():
 
 
 def test_exec_stdin_print_statement_1():
-    # This is still a print statement in Python 2 (with redundant parentheses)
     result = py(stdin=b"print('Carnegie')")
     expected = "Carnegie"
     assert expected == result

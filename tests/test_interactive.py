@@ -1143,30 +1143,6 @@ def IPythonNotebookCtx(**kwargs):
     if not notebook_dir:
         notebook_dir = mkdtemp(prefix="pyflyby_test_notebooks_", suffix=".tmp")
         cleanups.append(lambda: rmtree(notebook_dir))
-    if (kwargs.get("prog", "ipython") == "ipython" and
-        (1, 0) <= _IPYTHON_VERSION < (1, 2) and
-        sys.version_info < (2, 7)):
-        # Work around a bug in IPython 1.0 + Python 2.6.
-        # The bug is that in IPython 1.0, LevelFormatter uses super(), which
-        # assumes that logging.Formatter is a subclass of object.  However,
-        # this is only true in Python 2.7+, not in Python 2.6.
-        # pyflyby.enable_auto_importer() fixes that issue too, so 'py
-        # notebook' is not affected, only 'ipython notebook'.
-        assert "PYTHONPATH" not in kwargs
-        extra_pythonpath = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
-        cleanups.append(lambda: rmtree(extra_pythonpath))
-        kwargs["PYTHONPATH"] = extra_pythonpath
-        writetext(Filename(extra_pythonpath)/"sitecustomize.py", """
-            from logging import Formatter
-            from IPython.config.application import LevelFormatter
-            def _format_patched(self, record):
-                if record.levelno >= self.highlevel_limit:
-                    record.highlevel = self.highlevel_format % record.__dict__
-                else:
-                    record.highlevel = ""
-                return Formatter.format(self, record)
-            LevelFormatter.format = _format_patched
-        """)
     try:
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:

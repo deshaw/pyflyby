@@ -1037,7 +1037,6 @@ def test_find_missing_imports_star_expression_function_call_1():
     assert expected == result
 
 def test_find_missing_imports_star_expression_function_call_2():
-    # Python 2-valid syntax
     code = dedent("""
     f(a, b=c, *d, **e)
     """)
@@ -1169,7 +1168,6 @@ def test_find_missing_imports_not_async_def():
 
 
 def test_find_missing_imports_nested_with_1():
-    # Handled differently in the ast in Python 2 and 3
     code = dedent("""
     with a as b, c as d:
         pass
