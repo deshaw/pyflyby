@@ -3079,7 +3079,7 @@ def test_noninteractive_timeit_unaffected_1():
         NameError                                 Traceback (most recent call last)
         ... in ...
         ....
-        NameError: global name 'base64' is not defined
+        NameError: name 'base64' is not defined
     """
     )
 
