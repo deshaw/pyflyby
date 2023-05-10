@@ -1472,9 +1472,6 @@ def find_missing_imports(arg, namespaces):
       >>> [str(m) for m in find_missing_imports("(lambda x: x*x)(7) + x", [{}])]
       ['x']
 
-    The (unintuitive) rules for generator expressions and list comprehensions
-    in Python 2 are handled correctly::
-
       >>> # Python 3
       >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['y', 'z']
