@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   collections              import namedtuple
@@ -16,7 +15,6 @@ from   textwrap                 import dedent
 import types
 
 import six
-from   six                      import PY2, PY3, text_type as unicode
 from   six.moves                import range
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -24,11 +22,7 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
-if PY3:
-    from ast import Bytes
-else:
-    Bytes = ast.Str
-
+from ast import Bytes
 
 if sys.version_info >= (3, 8):
     from ast import TypeIgnore, AsyncFunctionDef
@@ -110,10 +104,7 @@ def _iter_child_nodes_in_order_internal_1(node):
         assert node._fields == ("keys", "values")
         yield list(zip(node.keys, node.values))
     elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
-        if six.PY2:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
-            yield node.decorator_list, node.args, node.body
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == (
                 "name",
                 "args",
@@ -136,10 +127,7 @@ def _iter_child_nodes_in_order_internal_1(node):
             yield node.decorator_list, node.args, node.returns, node.body
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
-        if six.PY2:
-            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
-            args = node.args
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
                                     'kw_defaults', 'kwarg', 'defaults'), node._fields
             args = node.posonlyargs + node.args
@@ -162,10 +150,7 @@ def _iter_child_nodes_in_order_internal_1(node):
                       [(k.lineno,k.col_offset, k) for k in node.args])
         yield [a[2] for a in args]
     elif isinstance(node, ast.ClassDef):
-        if six.PY2:
-            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
-        else:
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
+        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
     elif sys.version_info >= (3, 7) and isinstance(node, ast.FormattedValue):
@@ -210,9 +195,6 @@ def _flags_to_try(source, flags, auto_flags, mode):
     if not auto_flags:
         yield flags
         return
-    if PY3:
-        yield flags
-        return
     if mode == "eval":
         if re.search(r"\bprint\b", source):
             flags = flags | CompilerFlags("print_function")
@@ -248,8 +230,6 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
-    if PY2 and isinstance(source, unicode):
-        source = source.encode('utf-8')
     if not source.endswith("\n"):
         # Ensure that the last line ends with a newline (``ast`` barfs
         # otherwise).
@@ -283,12 +263,6 @@ def _test_parse_string_literal(text, flags):
 
     """
     text = FileText(text)
-    if PY2:
-        try:
-            text.joined.encode('ascii')
-        except UnicodeError:
-            text = FileText(u'# encoding: utf-8\n' + unicode(text), filename=text.filename)
-
     try:
         module_node = _parse_ast_nodes(text, flags, False, "eval")
     except SyntaxError:
@@ -447,10 +421,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # Special case for 'with' statements.  Consider the code:
         #    with X: pass
         #    ^0   ^5
-        # In python2.6, col_offset is 0.
-        # In python2.7, col_offset is 5.
-        # This is because python2.7 allows for multiple clauses:
-        #    with X, Y: pass
         # Since 'Y's col_offset isn't the beginning of the line, the authors
         # of Python presumably changed 'X's col_offset to also not be the
         # beginning of the line.  If they had made the With ast node support

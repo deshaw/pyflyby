@@ -3,8 +3,7 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   io                       import BytesIO
 import os
@@ -13,8 +12,6 @@ import pexpect
 import subprocess
 import tempfile
 from   textwrap                 import dedent
-
-from   six                      import PY2, PY3
 
 from   pyflyby._util            import EnvVarCtx
 
@@ -279,8 +276,6 @@ def test_py_eval_1():
         [PYFLYBY] b64decode('aGVsbG8=')
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "'hello'")
     assert result == expected
 
 
@@ -291,8 +286,6 @@ def test_py_exec_1():
         [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "hello")
     assert result == expected
 
 
@@ -426,36 +419,6 @@ def test_tidy_imports_query_junk_1():
     assert output == input
 
 
-# Note, these tests will fail if the system does not have both python2 and
-# python3 in the PATH
-def test_tidy_imports_py2_fallback():
-    input = dedent('''
-        import x
-
-        def f(*args, x=1):
-            pass
-    ''')
-    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
-        f.write(input)
-        f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', "--py23-fallback", f.name], timeout=5.0)
-        child.logfile = BytesIO()
-        child.expect_exact(" [y/N]")
-        child.send("n\n")
-        child.expect(pexpect.EOF)
-        with open(f.name) as f2:
-            output = f2.read()
-    proc_output = child.logfile.getvalue()
-    assert b"removed unused 'import x'" in proc_output
-    assert output == input
-    if PY2:
-        assert b"SyntaxError detected" in proc_output, proc_output
-        assert b"falling back" in proc_output, proc_output
-    else:
-        assert b"SyntaxError detected" not in proc_output, proc_output
-        assert b"falling back" not in proc_output, proc_output
-
-
 @pytest.mark.skip(reason="seem to fail at importing six even if installed")
 def test_tidy_imports_py3_fallback():
     input = dedent('''
@@ -476,12 +439,9 @@ def test_tidy_imports_py3_fallback():
     proc_output = child.logfile.getvalue()
     assert b"removed unused 'import x'" in proc_output
     assert output == input
-    if PY3:
-        assert b"SyntaxError detected" in proc_output, proc_output
-        assert b"falling back" in proc_output, proc_output
-    else:
-        assert b"SyntaxError detected" not in proc_output, proc_output
-        assert b"falling back" not in proc_output, proc_output
+    assert b"SyntaxError detected" in proc_output, proc_output
+    assert b"falling back" in proc_output, proc_output
+
 
 def test_tidy_imports_symlinks_default():
     input = dedent('''

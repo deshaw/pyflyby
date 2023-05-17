@@ -2,8 +2,7 @@
 # Copyright (C) 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   contextlib               import contextmanager
 import errno
@@ -18,10 +17,7 @@ from   types                    import CodeType, FrameType, TracebackType
 import six
 from   six.moves                import builtins
 
-if six.PY3:
-    from   collections.abc          import Callable
-else:
-    from   collections              import Callable
+from   collections.abc          import Callable
 
 from   pyflyby._file            import Filename
 
@@ -1180,19 +1176,12 @@ def attach_debugger(pid):
     #
     # As a concrete example, `typing` module is a package as well a built-in
     # module from Python version >= 3.5
-    if six.PY2:
-        statements = [(
-            "location = __import__('imp').find_module('pyflyby', ['{pyflyby_dir}'])"
-            .format(pyflyby_dir=pyflyby_lib_path)),
-            "pyflyby = __import__('pkgutil').ImpLoader('pyflyby', *location).load_module('pyflyby')"
-            ]
-    else:
-        statements = [
-            "loader = __import__('importlib').machinery.PathFinder.find_module("
-            "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
-                pyflyby_dir=pyflyby_lib_path),
-            "pyflyby = loader.load_module('pyflyby')"
-        ]
+    statements = [
+        "loader = __import__('importlib').machinery.PathFinder.find_module("
+        "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
+            pyflyby_dir=pyflyby_lib_path),
+        "pyflyby = loader.load_module('pyflyby')"
+    ]
     statements.append(
         ("pyflyby.debugger(tty=%r, on_continue=%s)"
          % (terminal.ttyname, on_continue))

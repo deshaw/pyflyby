@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   collections              import namedtuple
@@ -391,8 +390,6 @@ class ImportStatement(object):
         """
         if isinstance(node, ast.ImportFrom):
             if node.module is None:
-                # In python2.7 and 3 as well, ast.parse("from . import blah") yields
-                # node.module = None.  In python2.6, it's the empty string.
                 module = ''
             else:
                 assert isinstance(node.module, str)

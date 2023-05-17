@@ -272,8 +272,7 @@ Examples
 
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   functools                import total_ordering
 
@@ -399,11 +398,6 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    # Old style class. Should only run in Python 2. types.ClassType doesn't
-    # exist in Python 3.
-    elif isinstance(arg, getattr(types, 'ClassType', type)):
-        argspec = _get_argspec(arg.__init__)
-        return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):
         return _get_argspec(arg.__call__, _recurse=False)
     elif callable(arg):

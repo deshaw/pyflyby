@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   contextlib               import contextmanager
@@ -15,7 +14,6 @@ import subprocess
 import sys
 
 import six
-from   six                      import PY2, text_type as unicode
 from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
@@ -1072,8 +1070,6 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results = ["%s.%s" % (pname, r) for r in results]
     else:
         raise AssertionError
-    if six.PY2:
-        results = [unicode(s) for s in results]
     logger.debug("complete_symbol(%r) => %r", fullname, results)
     return results
 
@@ -2316,25 +2312,6 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        if (PY2 and
-            hasattr(ip, "new_main_mod")):
-            try:
-                args = inspect.getargspec(ip.new_main_mod).args
-            except Exception:
-                # getargspec fails if we already advised.
-                # For now just skip under the assumption that we already
-                # advised (or the code changed in some way that doesn't
-                # require advising?)
-                # Minor todo: Ideally we would be relying on _advise to check
-                # that we haven't already advised.
-                args = None
-            if args == ["self","filename","modname"]:
-                @self._advise(ip.new_main_mod)
-                def new_main_mod_fix_str(filename, modname):
-                    if six.PY2:
-                        if type(modname) is unicode:
-                            modname = str(modname)
-                    return __original__(filename, modname)
         return True
 
     def _enable_ipython_bugfixes(self):

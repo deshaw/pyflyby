@@ -4,11 +4,8 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
 
-import pytest
-import six
+
 
 from   pyflyby._idents          import (brace_identifiers, dotted_prefixes,
                                         is_identifier)
@@ -89,9 +86,7 @@ def test_brace_identifiers_1():
     expected = ['salutation', 'your_name']
     assert result == expected
 
-@pytest.mark.skipif(
-    six.PY2,
-    reason="Python 3-only syntax.")
+
 def test_is_identifier_unicode():
     assert is_identifier('א')
     assert not is_identifier('א.')

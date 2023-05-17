@@ -2,13 +2,11 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import optparse
 import os
 import signal
-import six
 from   six                      import reraise
 from   six.moves                import input
 import sys
@@ -356,10 +354,7 @@ class Modifier(object):
     @cached_attribute
     def output_content_filename(self):
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.output_content.joined, "utf-8"))
-        else:
-            f.write(self.output_content.joined.encode('utf-8'))
+        f.write(bytes(self.output_content.joined, "utf-8"))
         f.flush()
         return fname
 
@@ -370,10 +365,7 @@ class Modifier(object):
         # If the input was stdin, and the user wants a diff, then we need to
         # write it to a temp file.
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.input_content, "utf-8"))
-        else:
-            f.write(self.input_content)
+        f.write(bytes(self.input_content, "utf-8"))
         f.flush()
         return fname
 
