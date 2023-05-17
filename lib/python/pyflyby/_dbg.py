@@ -1029,10 +1029,14 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     # TODO: add error checking
     # TODO: consider using lldb, especially on Darwin.
     gdb_commands = (
-        [ 'PyGILState_Ensure()' ]
-        + [ 'PyRun_SimpleString("%s")' % (_escape_for_gdb(statement),)
-            for statement in statements ]
-        + [ 'PyGILState_Release($1)' ])
+        # State is technically its own subtype, but here we just want to avoid warnings.
+        ["set $state = (int)PyGILState_Ensure()"]
+        + [
+            '(void)PyRun_SimpleString("%s")' % (_escape_for_gdb(statement),)
+            for statement in statements
+        ]
+        + ["(int)PyGILState_Release($state)"]
+    )
     python_path = get_executable(pid)
     if "python" not in python_path.base:
         raise ValueError(
