@@ -2048,3 +2048,14 @@ def test_namespace_package(tpp, capsys):
         [PYFLYBY] import namespace_package
     """).lstrip()
     assert out.startswith(expected)
+
+
+def test_unsafe_filename_warning(tpp, capsys):
+    filepath = str(tpp/'foo#bar')
+    os.mkdir(filepath)
+    auto_import("pyflyby", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent(f"""
+        [PYFLYBY] Warning: Unsafe filename: {filepath}
+    """).lstrip()
+    assert out.startswith(expected)

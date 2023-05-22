@@ -14,6 +14,8 @@ import sys
 from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
+from   pyflyby._log             import logger
+
 
 class UnsafeFilenameError(ValueError):
     pass
@@ -45,9 +47,9 @@ class Filename(object):
         if not filename:
             raise UnsafeFilenameError("(empty string)")
         if re.search("[^a-zA-Z0-9_=+{}/.,~@-]", filename):
-            raise UnsafeFilenameError(filename)
+            logger.warning(f"Warning: Unsafe filename: {filename}")
         if re.search("(^|/)~", filename):
-            raise UnsafeFilenameError(filename)
+            logger.warning(f"Warning: Unsafe filename: {filename}")
         self = object.__new__(cls)
         self._filename = os.path.abspath(filename)
         return self
