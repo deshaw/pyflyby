@@ -47,9 +47,9 @@ class Filename(object):
         if not filename:
             raise UnsafeFilenameError("(empty string)")
         if re.search("[^a-zA-Z0-9_=+{}/.,~@-]", filename):
-            logger.warning(f"Warning: Unsafe filename: {filename}")
+            raise UnsafeFilenameError(filename)
         if re.search("(^|/)~", filename):
-            logger.warning(f"Warning: Unsafe filename: {filename}")
+            raise UnsafeFilenameError(filename)
         self = object.__new__(cls)
         self._filename = os.path.abspath(filename)
         return self
