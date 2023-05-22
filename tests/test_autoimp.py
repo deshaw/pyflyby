@@ -2057,7 +2057,7 @@ def test_unsafe_filename_warning(tpp, capsys):
     with CwdCtx(filepath):
         auto_import("pyflyby", [{}])
     out, _ = capsys.readouterr()
-    expected = dedent(f"""
+    expected = dedent("""
         [PYFLYBY] import pyflyby
     """).lstrip()
     assert out.startswith(expected)

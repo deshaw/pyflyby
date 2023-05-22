@@ -14,7 +14,6 @@ import sys
 from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
-from   pyflyby._log             import logger
 
 
 class UnsafeFilenameError(ValueError):
