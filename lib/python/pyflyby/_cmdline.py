@@ -184,9 +184,9 @@ def parse_args(
                              (tab stops), then pick the column that results in
                              the fewest number of lines total per block.'''))
         group.add_option('--from-spaces', type='int', default=IMPORT_FORMAT_DEFAULTS["from_spaces"], metavar='N',
-                         help=hfmt('''
+                         help=hfmt(f'''
                              The number of spaces after the 'from' keyword.
-                             (Must be at least 1; default is 3.)'''))
+                             (Must be at least 1; default is {IMPORT_FORMAT_DEFAULTS["from_spaces"]}.)'''))
         group.add_option('--separate-from-imports', action='store_true',
                          default=IMPORT_FORMAT_DEFAULTS["separate_from_imports"],
                          help=hfmt('''
@@ -209,7 +209,7 @@ def parse_args(
                              ...' statement.'''))
         group.add_option('--width', type='int', default=IMPORT_FORMAT_DEFAULTS["max_line_length"], metavar='N',
                          help=hfmt(f'''
-                             Maximum line length (default: 79).'''))
+                             Maximum line length (default: {IMPORT_FORMAT_DEFAULTS["max_line_length"]}).'''))
         group.add_option('--black', action='store_true', default=IMPORT_FORMAT_DEFAULTS["use_black"],
                          help=hfmt('''
                              Use black to format imports. If this option is
@@ -218,7 +218,7 @@ def parse_args(
                          choices=['never','auto','always'],
                          metavar='never|auto|always',
                          dest='hanging_indent',
-                         help=hfmt('''
+                         help=hfmt(f'''
                              How to wrap import statements that don't fit on
                              one line.
                              If --hanging-indent=always, then always indent
@@ -226,20 +226,20 @@ def parse_args(
                              If --hanging-indent=never (default), then align
                              import tokens after "import (" (by default column
                              40); do so even if some symbols are so long that
-                             this would exceed the width (by default 79)).
+                             this would exceed the width (by default {IMPORT_FORMAT_DEFAULTS["max_line_length"]})).
                              If --hanging-indent=auto, then use hanging indent
                              only if it is necessary to prevent exceeding the
-                             width (by default 79).
+                             width (by default {IMPORT_FORMAT_DEFAULTS["max_line_length"]}).
                          '''))
         def uniform_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = False
-            parser.values.from_spaces           = 3
-            parser.values.align_imports         = '32'
+            parser.values.from_spaces           = IMPORT_FORMAT_DEFAULTS["from_spaces"]
+            parser.values.align_imports         = str(IMPORT_FORMAT_DEFAULTS["align_imports"])
         group.add_option('--uniform', '-u', action="callback",
                          callback=uniform_callback,
-                         help=hfmt('''
+                         help=hfmt(f'''
                              (Default) Shortcut for --no-separate-from-imports
-                             --from-spaces=3 --align-imports=32.'''))
+                             --from-spaces={IMPORT_FORMAT_DEFAULTS["from_spaces"]} --align-imports={IMPORT_FORMAT_DEFAULTS["align_imports"]}.'''))
         def unaligned_callback(option, opt_str, value, parser):
             parser.values.separate_from_imports = True
             parser.values.from_spaces           = 1
