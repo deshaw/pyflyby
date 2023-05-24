@@ -1394,6 +1394,10 @@ def foo():
     return f"""
         {name}
     """
+''',
+'''
+func(arg=f"""
+""")
 '''
     ],
 )
