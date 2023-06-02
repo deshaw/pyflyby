@@ -352,8 +352,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     # this prevent reformatting.
     # set the column offset to the parent value before 3.8
     if (3, 7) < sys.version_info < (3, 8):
-        instances = (getattr(ast, "JoinedStr", None), ast.FormattedValue, ast.keyword)
-        if isinstance(ast_node, instances) or isinstance(parent_ast_node, instances):
+        instances = (getattr(ast, "JoinedStr", None), ast.FormattedValue)
+        if ((isinstance(ast_node, instances) or isinstance(parent_ast_node, instances)) and ast_node.col_offset == -1) or isinstance(ast_node, ast.keyword):
             ast_node.col_offset = parent_ast_node.col_offset
 
     # First, traverse child nodes.  If the first child node (recursively) is a
