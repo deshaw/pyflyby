@@ -15,6 +15,7 @@ from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
 
+
 class UnsafeFilenameError(ValueError):
     pass
 

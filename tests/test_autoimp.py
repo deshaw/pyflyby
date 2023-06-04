@@ -20,6 +20,7 @@ from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
 from   pyflyby._flags           import CompilerFlags
+from pyflyby._util import CwdCtx
 
 
 @pytest.fixture
@@ -2046,5 +2047,17 @@ def test_namespace_package(tpp, capsys):
     out, _ = capsys.readouterr()
     expected = dedent("""
         [PYFLYBY] import namespace_package
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_unsafe_filename_warning(tpp, capsys):
+    filepath = os.path.join(tpp._filename, 'foo#bar')
+    os.mkdir(filepath)
+    with CwdCtx(filepath):
+        auto_import("pyflyby", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import pyflyby
     """).lstrip()
     assert out.startswith(expected)
