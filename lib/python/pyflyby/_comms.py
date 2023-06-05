@@ -144,7 +144,6 @@ def comm_open_handler(comm, message):
             )
         elif data["type"] == TIDY_IMPORTS:
             cell_array = data.get("cellArray", [])
-            operations = data.get("operations", [])
             import_statements, processed_cell_array = [], []
             for cell in cell_array:
                 code = cell.get("code")
