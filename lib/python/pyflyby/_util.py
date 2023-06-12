@@ -11,8 +11,6 @@ import six
 from   six                      import reraise
 import sys
 import types
-import ast
-import astunparse
 
 # Python 2/3 compatibility
 DictProxyType = type(object.__dict__)
@@ -482,27 +480,3 @@ def nested(*mgrs):
     with ExitStack() as stack:
         ctxes = [stack.enter_context(mgr) for mgr in mgrs]
         yield ctxes
-
-def extract_import_statements(code):
-    """This is a util for notebook interactions and extracts import statements
-    from some python code.
-
-    Args:
-        code (str): The code from which import statements have to be extracted
-
-    Returns:
-        list[str], str: The first returned value is a list of all import
-        statements. The second returned value is the remaining code after
-        extracting the import statements.
-    """
-    imports = []
-    remaining_code = ""
-    tree = ast.parse(code)
-
-    for node in ast.iter_child_nodes(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            imports.append(astunparse.unparse(node))
-        else:
-            remaining_code += astunparse.unparse(node)
-
-    return imports, remaining_code

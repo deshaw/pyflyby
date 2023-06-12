@@ -1,9 +1,8 @@
 
 from   pyflyby._log             import logger
-from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation, fix_unused_and_missing_imports, replace_star_imports
+from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation, fix_unused_and_missing_imports, replace_star_imports, SourceToSourceImportBlockTransformation
 from   pyflyby._importstmt      import Import
 import six
-from pyflyby._util import extract_import_statements
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
@@ -115,6 +114,23 @@ def _reformat_helper(input_code, imports):
 
     return reformat_import_statements(before + bmarker + middle + emarker + after)
 
+def extract_import_statements(text):
+    """This is a util for notebook interactions and extracts import statements
+    from some python code.
+
+    Args:
+        code (str): The code from which import statements have to be extracted
+
+    Returns:
+        list[str], str: The first returned value is a list of all import
+        statements. The second returned value is the remaining code after
+        extracting the import statements.
+    """
+    transformer = SourceToSourceFileImportsTransformation(text)
+    imports = [str(im.pretty_print()) for im in transformer.import_blocks]
+    remaining_code = "\n".join([str(st.pretty_print()) if not isinstance(st, SourceToSourceImportBlockTransformation) else "" for st in transformer.blocks])
+    return imports, remaining_code
+
 def comm_open_handler(comm, message):
     """
     Handles comm_open message for pyflyby custom comm messages.
@@ -146,18 +162,18 @@ def comm_open_handler(comm, message):
             cell_array = data.get("cellArray", [])
             import_statements, processed_cell_array = [], []
             for cell in cell_array:
-                code = cell.get("code")
+                text = cell.get("text")
                 cell_type = cell.get("type")
                 if cell_type == "code":
-                    imports, code = extract_import_statements(code)
+                    imports, text = extract_import_statements(text)
                     import_statements += imports
-                processed_cell_array.append({"code": code, "type": cell_type})
+                processed_cell_array.append({"text": text, "type": cell_type})
             code_with_collected_imports = (
                 "\n".join(import_statements)
                 + "\n"
                 + "".join(
                     [
-                        cell["code"] if cell["type"] == "code" else ""
+                        cell["text"] if cell["type"] == "code" else ""
                         for cell in processed_cell_array
                     ]
                 )
