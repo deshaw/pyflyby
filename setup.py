@@ -5,14 +5,14 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import glob
 import os
 import re
 from   setuptools               import Command, setup
 from   setuptools.command.test  import test as TestCommand
+from   setuptools.command.sdist  import sdist as SdistCommand
 import subprocess
 import sys
 from   textwrap                 import dedent
@@ -147,6 +147,28 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+DISALLOWED_CONTENT = ['g'+'uas', 'g'+'ql']
+
+def check_for_disallowed_content(archive_filename):
+    archive_filename = os.path.abspath(archive_filename)
+    assert archive_filename.endswith(".tar.gz")
+    archive_members = subprocess.check_output(['tar', 'tzf', archive_filename])
+    archive_file_content = subprocess.check_output(['tar', 'xzOf', archive_filename])
+    data = archive_members + archive_file_content.lower()
+    for disallowed in DISALLOWED_CONTENT:
+        if disallowed.encode("ascii") in data:
+            raise ValueError("Found match for content that shouldn't be source-disted: %s"
+                             % (disallowed,))
+
+
+class SdistAndCheck(SdistCommand, object):
+
+    def make_distribution(self):
+        super(SdistAndCheck, self).make_distribution()
+        for filename in self.archive_files:
+            check_for_disallowed_content(filename)
+
+
 setup(
     name = "pyflyby",
     version = version,
@@ -199,10 +221,12 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
     ],
-    install_requires=['pyflakes', 'six'],
+    install_requires=["six", "toml", "pathlib ; python_version<'3'"],
+    python_requires=">3.0, !=3.0.*, !=3.1.*, !=3.2.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,
+        'sdist'          : SdistAndCheck,
         'collect_imports': CollectImports,
         'tidy_imports'   : TidyImports,
     },

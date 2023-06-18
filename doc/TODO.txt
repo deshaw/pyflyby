@@ -76,8 +76,6 @@
   things imported from submodules (default on) and whether to include things
   imported from other packages (default off).
 
-- Add ability to dynamically enable a file based on py3 or py2
-
 - Add tidy-imports, etc to py
 
 - Merge contents of all scripts into modules, and use setup.py entry_points.

@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   functools                import total_ordering
 import io
@@ -15,6 +14,7 @@ import sys
 from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
+
 
 class UnsafeFilenameError(ValueError):
     pass
@@ -212,8 +212,6 @@ def which(program):
     :return:
       Program on $PATH, or ``None`` if not found.
     """
-    if "/" in program:
-        raise ValueError("which(): input should be a basename")
     # See if it exists in the current directory.
     candidate = Filename(program)
     if candidate.isreadable:

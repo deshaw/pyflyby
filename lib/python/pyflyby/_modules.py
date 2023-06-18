@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 
 import ast
@@ -207,15 +206,24 @@ class ModuleHandle(object):
             return True
         if self.parent and not self.parent.exists:
             return False
-        import pkgutil
+
+        # pkgutil.find_loader returns None for unimported Python 3
+        # namespace packages, so prefer importlib
         try:
-            loader = pkgutil.find_loader(name)
+            import importlib.util
+            find = importlib.util.find_spec
+        except ImportError:
+            import pkgutil
+            find = pkgutil.find_loader
+
+        try:
+            pkg = find(name)
         except Exception:
             # Catch all exceptions, not just ImportError.  If the __init__.py
             # for the parent package of the module raises an exception, it'll
             # propagate to here.
-            loader = None
-        return loader is not None
+            pkg = None
+        return pkg is not None
 
     @cached_attribute
     def filename(self):
@@ -413,7 +421,7 @@ class ModuleHandle(object):
         members = [n for n in members if not n.startswith("_")]
 
         # Filter out artificially added "deep" members.
-        members = [n for n in members if "." not in n]
+        members = [(n, None) for n in members if "." not in n]
         if not members:
             return None
         return ImportSet(

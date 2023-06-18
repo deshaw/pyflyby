@@ -3,15 +3,12 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import pytest
 import sys
 from   textwrap                 import dedent
 import types
-
-from   six                      import PY2
 
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
@@ -604,6 +601,16 @@ def test_fix_missing_imports_nonlocal_post_store_1():
 
 
 def test_fix_missing_imports_nonlocal_post_del_1():
+    """
+    Calling F2 after the deletion of x2 in the enclosing scope make no sens, it
+    would trigger a:
+
+    NameError: free variable 'x2' referenced before assignment in enclosing scope
+
+    Regardless as to whether x2 is defines at module scope or not.
+
+    Therefore we do not expect x2 to be imported
+    """
     input = PythonBlock(dedent('''
         def F1():
             x1 = x2 = None
@@ -614,7 +621,7 @@ def test_fix_missing_imports_nonlocal_post_del_1():
     db = ImportDB("from m2 import x1, x2, x3, x4")
     output = fix_unused_and_missing_imports(input, db=db)
     expected = PythonBlock(dedent('''
-        from m2 import x2, x3
+        from m2 import x3
 
     ''').lstrip() + str(input))
     assert output == expected
@@ -653,6 +660,37 @@ def test_fix_unused_and_missing_imports_ClassDef_1():
             def x7(x8=x9): x10, x8
             def x11(): x11
     ''').lstrip())
+    assert output == expected
+
+
+def test_fix_missing_imports_in_non_method():
+    """
+    unlike test_fix_unused_and_missing_imports_ClassDef_1
+    Free standing functions can refer to themselves.
+
+    Currently this will not work for closure defined in
+    methods, as we'll see a class scope.
+
+    See https://github.com/deshaw/pyflyby/issues/179
+    """
+    input = PythonBlock(
+        dedent(
+            """
+            def selfref():
+                selfref.execute = True
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(
+        dedent(
+            """
+            def selfref():
+                selfref.execute = True
+    """
+        ).lstrip()
+    )
     assert output == expected
 
 
@@ -773,6 +811,16 @@ def test_remove_broken_imports_1():
     assert output == expected
 
 
+def test_replace_star_no_imports_found(capsys):
+    m = types.ModuleType("fake_test_module_345490")
+    sys.modules["fake_test_module_345490"] = m
+    input = PythonBlock(dedent('''
+        from fake_test_module_345490 import *
+    ''').lstrip(), filename="/foo/test_replace_star_imports_2.py")
+    _ = replace_star_imports(input)
+    captured = capsys.readouterr()
+    assert 'Traceback' not in captured.err
+
 def test_replace_star_imports_1():
     m = types.ModuleType("fake_test_module_345489")
     m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']
@@ -847,9 +895,7 @@ def test_canonicalize_imports_1():
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_canonicalize_imports_f_string_1():
     input = PythonBlock(dedent('''
         a = 1
@@ -914,25 +960,6 @@ def test_with_1():
     assert expected == output
 
 
-@pytest.mark.skipif(
-    sys.version_info < (2,7),
-    reason="Old Python doesn't support multiple context managers")
-def test_with_multi_1():
-    input = PythonBlock(dedent('''
-        with       aa as xx  , bb as yy, cc as zz:
-            pass
-    ''').lstrip())
-    db = ImportDB("from M import aa, bb, cc, dd, xx, yy, zz")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from M import aa, bb, cc
-
-        with       aa as xx  , bb as yy, cc as zz:
-            pass
-    ''').lstrip())
-    assert expected == output
-
-
 def test_fix_unused_imports_repeated_1():
     input = PythonBlock(dedent('''
         import foo1, foo2, foo1, foo1
@@ -962,6 +989,25 @@ def test_fix_unused_imports_dunder_file_1(capsys):
     out, err = capsys.readouterr()
     assert "undefined name '__asdf__'"     in out
     assert "undefined name '__file__'" not in out
+    assert not err
+
+
+def test_x_shadow_comprehension(capsys):
+    input = PythonBlock(
+        dedent(
+            """
+    def f():
+        x = 1
+        y = [x for _ in range(5)]
+        del x
+    """
+        )
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    out, err = capsys.readouterr()
+    assert output == input
+    assert "undefined name 'x'" not in out
     assert not err
 
 def test_fix_unused_imports_submodule_1():

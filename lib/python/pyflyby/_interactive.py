@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   contextlib               import contextmanager
@@ -15,7 +14,6 @@ import subprocess
 import sys
 
 import six
-from   six                      import PY2, text_type as unicode
 from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
@@ -23,7 +21,7 @@ from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         clear_failed_imports_cache,
                                         load_symbol)
 from   pyflyby._comms           import (initialize_comms, remove_comms,
-                                        send_comm_message)
+                                        send_comm_message, MISSING_IMPORTS)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -294,7 +292,10 @@ def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
         # be the same dict.  We should create a true ModuleType anyway even if
         # not using IPython.  We might need to resort to advising
         # init_create_namespaces etc. depending on IPython version.
-        app.user_ns = _user_ns
+        if getattr(app, 'shell', None) is not None:
+            app.shell.user_ns.update(_user_ns)
+        else:
+            app.user_ns = _user_ns
     return _initialize_and_start_app_with_autoimporter(app, argv)
 
 
@@ -894,6 +895,7 @@ def _get_pdb_if_is_in_pdb():
     # Found a pdb frame.
     pdb_frame = pdb_frames[0]
     import pdb
+
     pdb_instance = pdb_frame.f_locals.get("self", None)
     if (type(pdb_instance).__name__ == "Pdb" or
         isinstance(pdb_instance, pdb.Pdb)):
@@ -934,7 +936,7 @@ def get_global_namespaces(ip):
     # logger.debug("get_global_namespaces(): pdb_instance=%r", pdb_instance)
     if pdb_instance:
         frame = pdb_instance.curframe
-        return [frame.f_globals, frame.f_locals]
+        return [frame.f_globals, pdb_instance.curframe_locals]
     elif ip:
         return [ns for nsname, ns in _ipython_namespaces(ip)][::-1]
     else:
@@ -1068,8 +1070,6 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results = ["%s.%s" % (pname, r) for r in results]
     else:
         raise AssertionError
-    if six.PY2:
-        results = [unicode(s) for s in results]
     logger.debug("complete_symbol(%r) => %r", fullname, results)
     return results
 
@@ -1111,7 +1111,7 @@ def _list_members_for_completion(obj, ip):
 
 def _auto_import_in_pdb_frame(pdb_instance, arg):
     frame = pdb_instance.curframe
-    namespaces = [ frame.f_globals, frame.f_locals ]
+    namespaces = [ frame.f_globals, pdb_instance.curframe_locals ]
     filename = frame.f_code.co_filename
     if not filename or filename.startswith("<"):
         filename = "."
@@ -1232,7 +1232,10 @@ def new_IPdb_instance():
     pdb_class = _get_IPdb_class()
     logger.debug("new_IPdb_instance(): pdb_class=%s", pdb_class)
     color_scheme = _get_ipython_color_scheme(app)
-    pdb_instance = pdb_class(color_scheme)
+    try:
+        pdb_instance = pdb_class(completekey='tab', color_scheme=color_scheme)
+    except TypeError:
+        pdb_instance = pdb_class(completekey='tab')
     _enable_pdb_hooks(pdb_instance)
     _enable_terminal_pdb_hooks(pdb_instance)
     return pdb_instance
@@ -1325,6 +1328,13 @@ def UpdateIPythonStdioCtx():
     if "IPython" not in sys.modules:
         yield
         return
+
+    import IPython
+
+    if IPython.version_info[:1] >= (8,):
+        yield
+        return
+
     if "IPython.utils.io" in sys.modules:
         # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
         # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
@@ -1839,9 +1849,9 @@ class AutoImporter(object):
                 logger.debug("reset_auto_importer_state(%r)", line)
                 self.reset_state_new_cell()
                 return line
-            # on IPython 7.17 (July 2020) or above, the check_complete 
-            # path of the code will not call  transformer that have this magic attribute 
-            # when trying to check whether the code is complete. 
+            # on IPython 7.17 (July 2020) or above, the check_complete
+            # path of the code will not call  transformer that have this magic attribute
+            # when trying to check whether the code is complete.
             reset_auto_importer_state.has_side_effect = True
             ip.input_transformers_cleanup.append(reset_auto_importer_state)
             return True
@@ -2170,7 +2180,7 @@ class AutoImporter(object):
                 if completer.python_matches not in completer.matchers:
                     @self._advise(type(completer).matchers)
                     def matchers_with_python_matches(completer):
-                        return [completer.python_matches] + __original__.fget(completer)
+                        return __original__.fget(completer)+[completer.python_matches]
 
             @self._advise(completer.global_matches)
             def global_matches_with_autoimport(fullname):
@@ -2302,25 +2312,6 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        if (PY2 and
-            hasattr(ip, "new_main_mod")):
-            try:
-                args = inspect.getargspec(ip.new_main_mod).args
-            except Exception:
-                # getargspec fails if we already advised.
-                # For now just skip under the assumption that we already
-                # advised (or the code changed in some way that doesn't
-                # require advising?)
-                # Minor todo: Ideally we would be relying on _advise to check
-                # that we haven't already advised.
-                args = None
-            if args == ["self","filename","modname"]:
-                @self._advise(ip.new_main_mod)
-                def new_main_mod_fix_str(filename, modname):
-                    if six.PY2:
-                        if type(modname) is unicode:
-                            modname = str(modname)
-                    return __original__(filename, modname)
         return True
 
     def _enable_ipython_bugfixes(self):
@@ -2449,7 +2440,7 @@ class AutoImporter(object):
             namespaces = get_global_namespaces(self._ip)
 
         def post_import_hook(imp):
-            send_comm_message("pyflyby.missing_imports", {"missing_imports": str(imp)})
+            send_comm_message(MISSING_IMPORTS, {"missing_imports": str(imp)})
 
         return self._safe_call(
             auto_import, arg, namespaces,

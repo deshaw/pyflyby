@@ -5,10 +5,10 @@
 .. image:: https://badge.fury.io/py/pyflyby.svg
    :target: https://pypi.org/project/pyflyby/
 
-.. image:: https://travis-ci.com/deshaw/pyflyby.png?branch=master
-   :target: https://travis-ci.com/deshaw/pyflyby
+.. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
+   :target: https://travis-ci.org/deshaw/pyflyby
 
-Pyflyby is a set of Python programming productivity tools.
+Pyflyby is a set of Python programming productivity tools for Python 3.7+.
 
 For command-line interaction:
   * ``py``: command-line multitool
@@ -19,12 +19,27 @@ For IPython interaction:
 For editing python source code:
   * ``tidy-imports``: adds missing 'import's, removes unused 'import's,
     and also reformats import blocks.
-  * ``find-imports``: prints to stdout how to import a particular symbol.
+  * ``find-import``: prints to stdout how to import a particular symbol.
   * ``reformat-imports``: reformats ``import`` blocks
   * ``collect-imports``: prints out all the imports in a given set of files.
   * ``collect-exports``: prints out definitions in a given set of modules,
     in the form of import statements.
   * ``transform-imports``: renames imported modules/functions.
+
+Installation
+============
+
+.. code:: bash
+
+    $ pip install pyflyby
+
+This creates an alias for your `ipython` named `py` which runs the `pyflyby` plug internally.
+ `pyflyby` has a dependency on `ipython`, if it isn't already installed do install it with:
+
+.. code:: bash
+
+    $ pip install ipython
+
 
 Quick start: Autoimporter + IPython
 ===================================
@@ -221,7 +236,7 @@ Compatibility
 -------------
 
 Tested with:
-  - Python 2.6, 2.7, 3.7, 3.8
+  - Python 3.7, 3.8, 3.9, 3.10
   - IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
     3.1, 3.2, 4.0., 7.11 (latest)
   - IPython (text console), IPython Notebook, Spyder
@@ -384,6 +399,25 @@ This style is a maintenance nightmare:
 To fix such code, you can run ``tidy-imports --replace-star-imports`` to
 automatically replace star imports with the specific needed imports.
 
+Per-Project configuration of tidy-imports
+=========================================
+
+You can configure Pyflyby on a per-repository basis by using the
+`[tool.pyflyby]` section of `pyproject.toml` files. Pyflyby will look in current
+working directory and all it's parent until it find a `pyproject.toml` file from
+which it will load the defaults.
+
+
+Most of the long command line flags default values can be configured in this
+section. Simply use the long form option name by replacing dashes `-` by
+underscore `_`. For long option that have the form `--xxx` and `--no-xxx`, you
+can assign a boolean to `xxx`. For example::
+
+    [tool.pyflyby]
+    add_missing=true
+    from_spaces=7
+    remove_unused=false
+
 
 Emacs support
 =============
@@ -402,15 +436,48 @@ Authorship
 This plugin was contributed back to the community by the `D. E. Shaw group
 <https://www.deshaw.com/>`_.
 
-.. image:: https://www.deshaw.com/assets/logos/black_logo_417x125.png
+.. image:: https://www.deshaw.com/assets/logos/blue_logo_417x125.png
    :target: https://www.deshaw.com
    :height: 75 px
 
 Pyflyby is written by Karl Chen <quarl@8166.clguba.z.quarl.org>
 
+We love contributions! Before you can contribute, please sign and submit this
+`Contributor License Agreement (CLA) <https://www.deshaw.com/oss/cla>`_.
+This CLA is in place to protect all users of this project.
 
 License
 =======
 
 Pyflyby is released under a very permissive license, the MIT/X11 license; see
 LICENSE.txt.
+
+
+Release
+=======
+
+1. Check version number in `lib/python/pyflyby/_version.py`, maybe increase it.
+2. Commit and tag if necessary, and push tags/commits.
+3. Optional: Set SOURCE_DATE_EPOCH for reproducible build::
+
+    export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+
+4. Build the SDIST::
+
+    python setup.py sdist
+
+5. Optional Repack the Sdist to make sure the ZIP only contain SOURCE_DATE_EPOCH
+   date using IPython tools::
+
+    python ~/dev/ipython/tools/retar.py dist/pyflyby-1.7.8.tar.gz
+    shasum -a 256 dist/*
+
+6. Optional, redo 4 & 5 to verify checksum is unchanged.
+7. Upload using twine::
+
+    twine upload dist/*
+
+8. Check/update https://github.com/conda-forge/pyflyby-feedstock for new pyflyby
+   release on conda-forge
+
+

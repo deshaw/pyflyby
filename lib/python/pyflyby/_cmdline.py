@@ -2,13 +2,11 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import optparse
 import os
 import signal
-import six
 from   six                      import reraise
 from   six.moves                import input
 import sys
@@ -39,10 +37,16 @@ def _sigpipe_handler(*args):
     raise SystemExit(1)
 
 
-def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+def parse_args(
+    addopts=None, import_format_params=False, modify_action_params=False, defaults=None
+):
     """
     Do setup for a top-level script and parse arguments.
     """
+
+    if defaults is None:
+        defaults = {}
+
     ### Setup.
     # Register a SIGPIPE handler.
     signal.signal(signal.SIGPIPE, _sigpipe_handler)
@@ -92,10 +96,12 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 return action_external_command(v[8:])
             elif V == "IFCHANGED":
                 return action_ifchanged
+            elif V == "EXIT1":
+                return action_exit1
             else:
                 raise Exception(
                     "Bad argument %r to --action; "
-                    "expected PRINT or REPLACE or QUERY or IFCHANGED "
+                    "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
                     "or EXECUTE:..." % (v,))
 
         def set_actions(actions):
@@ -114,7 +120,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option(
             "--actions", type='string', action='callback',
             callback=action_callback,
-            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXECUTE:mycommand',
+            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1:EXECUTE:mycommand',
             help=hfmt('''
                    Comma-separated list of action(s) to take.  If PRINT, print
                    the changed file to stdout.  If REPLACE, then modify the
@@ -122,7 +128,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                    'mycommand oldfile tmpfile'.  If DIFF, then execute
                    'pyflyby-diff'.  If QUERY, then query user to continue.
                    If IFCHANGED, then continue actions only if file was
-                   changed.'''))
+                   changed.  If EXIT1, then exit with exit code 1 after all
+                   files/actions are processed.'''))
         group.add_option(
             "--print", "-p", action='callback',
             callback=action_callbacker([action_print]),
@@ -317,6 +324,10 @@ class AbortActions(Exception):
     pass
 
 
+class Exit1(Exception):
+    pass
+
+
 class Modifier(object):
     def __init__(self, modifier, filename):
         self.modifier = modifier
@@ -343,10 +354,7 @@ class Modifier(object):
     @cached_attribute
     def output_content_filename(self):
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.output_content.joined, "utf-8"))
-        else:
-            f.write(self.output_content.joined.encode('utf-8'))
+        f.write(bytes(self.output_content.joined, "utf-8"))
         f.flush()
         return fname
 
@@ -357,10 +365,7 @@ class Modifier(object):
         # If the input was stdin, and the user wants a diff, then we need to
         # write it to a temp file.
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.input_content, "utf-8"))
-        else:
-            f.write(self.input_content)
+        f.write(bytes(self.input_content, "utf-8"))
         f.flush()
         return fname
 
@@ -377,6 +382,7 @@ def process_actions(filenames, actions, modify_function,
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
     filenames = filename_args(filenames, on_error=on_error_filename_arg)
+    exit_code = 0
     for filename in filenames:
         try:
             m = Modifier(modify_function, filename)
@@ -386,6 +392,8 @@ def process_actions(filenames, actions, modify_function,
             continue
         except reraise_exceptions:
             raise
+        except Exit1:
+            exit_code = 1
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
@@ -411,6 +419,8 @@ def process_actions(filenames, actions, modify_function,
             msg += "    " + lines[0] + '\n'.join(
                 ("            %s"%line for line in lines[1:]))
         raise SystemExit(msg)
+    else:
+        raise SystemExit(exit_code)
 
 
 def action_print(m):
@@ -429,6 +439,11 @@ def action_replace(m):
         raise Exception("Can't replace stdio in-place")
     logger.info("%s: *** modified ***", m.filename)
     atomic_write_file(m.filename, m.output_content)
+
+
+def action_exit1(m):
+    logger.debug("action_exit1")
+    raise Exit1
 
 
 def action_external_command(command):

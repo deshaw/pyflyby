@@ -2,9 +2,10 @@
 *.pyc
 .cache
 .eggs
+.hypothesis
 .tox
-build
+__pycache__
 _build
+build
 dist
 pytestdebug.log
-__pycache__

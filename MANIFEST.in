@@ -6,10 +6,12 @@
 recursive-include lib *
 recursive-include libexec *
 recursive-include bin *
-recursive-include etc *
+include etc/pyflyby/*.py
 recursive-include doc *
 recursive-include tests *
 include .pyflyby tox.ini MANIFEST.in
 global-exclude .gitignore
 global-exclude .TRASH/* .TRASH/*/* .TRASH/*/*/*
-global-exclude *.pyc
+global-exclude *.pyc *.pyo
+global-exclude __pycache__
+global-exclude .pytest_cache/* .pytest_cache/*/* .pytest_cache/*/*/*

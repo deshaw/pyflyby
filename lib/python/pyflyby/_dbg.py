@@ -2,10 +2,8 @@
 # Copyright (C) 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
 
-from   collections              import Callable
+
 from   contextlib               import contextmanager
 import errno
 from   functools                import wraps
@@ -19,6 +17,8 @@ from   types                    import CodeType, FrameType, TracebackType
 import six
 from   six.moves                import builtins
 
+from   collections.abc          import Callable
+
 from   pyflyby._file            import Filename
 
 
@@ -27,6 +27,27 @@ Used by wait_for_debugger_to_attach to record whether we're waiting to attach,
 and if so what.
 """
 _waiting_for_debugger = None
+
+
+_ORIG_SYS_EXCEPTHOOK = sys.excepthook
+
+def _reset_excepthook():
+    if _ORIG_SYS_EXCEPTHOOK:
+        sys.excepthook = _ORIG_SYS_EXCEPTHOOK
+        return True
+    return False
+
+
+def _override_excepthook(hook):
+    """
+    Override sys.excepthook with `hook` but also support resetting.
+
+    Users should call this function instead of directly overiding
+    sys.excepthook. This is helpful in resetting sys.excepthook in certain cases.
+    """
+    global _ORIG_SYS_EXCEPTHOOK
+    _ORIG_SYS_EXCEPTHOOK = hook
+    sys.excepthook = hook
 
 
 class _NoTtyError(Exception):
@@ -245,6 +266,34 @@ def _get_caller_frame():
     return f
 
 
+def _prompt_continue_waiting_for_debugger():
+    """
+    Prompt while exiting the debugger to get user opinion on keeping the
+    process waiting for debugger to attach.
+    """
+    count_invalid = 0
+    max_invalid_entries = 3
+    while count_invalid < max_invalid_entries:
+        sys.stdout.flush()
+        response = input("Keep the process running for debugger to be "
+                            "attached later ? (y)es/(n)o\n")
+
+        if response.lower() in ('n', 'no'):
+            global _waiting_for_debugger
+            _waiting_for_debugger = None
+            break
+
+        if response.lower() not in ('y', 'yes'):
+            print("Invalid response: {}".format(repr(response)))
+            count_invalid += 1
+        else:
+            break
+    print("Exiting after {} invalid responses.".format(max_invalid_entries))
+    _waiting_for_debugger = None
+    # Sleep for a fraction of second for the print statements to get printed.
+    time.sleep(0.01)
+
+
 def _debug_exception(*exc_info, **kwargs):
     """
     Debug an exception -- print a stack trace and enter the debugger.
@@ -253,6 +302,7 @@ def _debug_exception(*exc_info, **kwargs):
     """
     from pyflyby._interactive import print_verbose_tb
     tty = kwargs.pop("tty", "/dev/tty")
+    debugger_attached = kwargs.pop("debugger_attached", False)
     if kwargs:
         raise TypeError("debug_exception(): unexpected kwargs %s"
                         % (', '.join(sorted(kwargs.keys()))))
@@ -268,7 +318,13 @@ def _debug_exception(*exc_info, **kwargs):
         # will cause print_verbose_tb to include a line with just a colon.
         # TODO: avoid that line.
         exc_info = ("", "", exc_info)
+
     with _DebuggerCtx(tty=tty) as pdb:
+        if debugger_attached:
+            # If debugger is attached to the process made waiting by
+            # 'wait_for_debugger_to_attach', check with the user whether to
+            # keep the process waiting for debugger to attach.
+            pdb.postloop = _prompt_continue_waiting_for_debugger
         print_verbose_tb(*exc_info)
         pdb.interaction(None, exc_info[2])
 
@@ -412,6 +468,7 @@ def debugger(*args, **kwargs):
     locals          = kwargs.pop("locals"         , None)
     wait_for_attach = kwargs.pop("wait_for_attach", Ellipsis)
     background      = kwargs.pop("background"     , False)
+    _debugger_attached = False
     if kwargs:
         raise TypeError("debugger(): unexpected kwargs %s"
                         % (', '.join(sorted(kwargs))))
@@ -420,7 +477,7 @@ def debugger(*args, **kwargs):
         # (whether it's a frame, traceback, etc).
         global _waiting_for_debugger
         arg = _waiting_for_debugger
-        _waiting_for_debugger = None
+        _debugger_attached = True
     if arg is None:
         # Debug current frame.
         arg = _CURRENT_FRAME
@@ -451,7 +508,15 @@ def debugger(*args, **kwargs):
         return
     if (isinstance(arg, TracebackType) or
         type(arg) is tuple and len(arg) == 3 and type(arg[2]) is TracebackType):
-        _debug_exception(arg, tty=tty)
+        _debug_exception(arg, tty=tty, debugger_attached=_debugger_attached)
+        on_continue()
+        return
+    import threading
+    # If `arg` is an instance of `tuple` that contains
+    # `threading.ExceptHookArgs`, extract the exc_info from it.
+    if type(arg) is tuple and len(arg) == 1 and type(arg[0]) is threading.ExceptHookArgs:
+        arg = arg[0][:3]
+        _debug_exception(arg, tty=tty, debugger_attached=_debugger_attached)
         on_continue()
         return
     if not isinstance(arg, FrameType):
@@ -570,6 +635,17 @@ def wait_for_debugger_to_attach(arg, mailto=None, background=False, timeout=8640
     else:
         originalpid = None
     try:
+        # Reset the exception hook after the first exception.
+        #
+        # In case the code injected by the remote client causes some error in
+        # the debugged process, another email is sent for the new exception. This can
+        # lead to an infinite loop of sending mail for each successive exceptions
+        # everytime a remote client tries to connect. Our process might never get
+        # a chance to exit and the remote client might just hang.
+        #
+        if not _reset_excepthook():
+            raise ValueError("Couldn't reset sys.excepthook. Aborting remote "
+                             "debugging.")
         # Send email.
         _send_email_with_attach_instructions(arg, mailto, originalpid=originalpid)
         # Sleep until the debugger to attaches.
@@ -775,7 +851,7 @@ def enable_exception_handler_debugger():
     Enable ``sys.excepthook = debugger`` so that we automatically enter
     the debugger upon uncaught exceptions.
     '''
-    sys.excepthook = debugger
+    _override_excepthook(debugger)
 
 
 # Handle SIGTERM with traceback+exit.
@@ -815,7 +891,7 @@ def enable_sigterm_handler(on_existing_handler='raise'):
         return
     elif on_existing_handler == "raise":
         raise ValueError(
-            "enable_sigterm_handler(on_existing_handler='raise'): SIGTERM handler already exists")
+            "enable_sigterm_handler(on_existing_handler='raise'): SIGTERM handler already exists" + repr(old_handler))
     else:
         raise ValueError(
             "enable_sigterm_handler(): SIGTERM handler already exists, "
@@ -899,23 +975,23 @@ def _escape_for_gdb(string):
         if char in _gdb_safe_chars:
             result.append(char)
         else:
-            result.append("\\%s" % (oct(ord(char)),))
+            result.append(r"\0{0:o}".format(ord(char)))
     return ''.join(result)
 
 
-_memoized_dev_null_w = None
-def _dev_null_w():
+_memoized_dev_null = None
+def _dev_null():
     """
-    Return a file object opened for writing to /dev/null.
+    Return a file object opened for reading/writing to /dev/null.
     Memoized.
 
     :rtype:
       ``file``
     """
-    global _memoized_dev_null_w
-    if _memoized_dev_null_w is None:
-        _memoized_dev_null_w = open("/dev/null", 'w')
-    return _memoized_dev_null_w
+    global _memoized_dev_null
+    if _memoized_dev_null is None:
+        _memoized_dev_null = open("/dev/null", 'w+')
+    return _memoized_dev_null
 
 
 def inject(pid, statements, wait=True, show_gdb_output=False):
@@ -959,11 +1035,20 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
             "pid %s uses executable %s, which does not appear to be python"
             % (pid, python_path))
     # TODO: check that gdb is found and that the version is new enough (7.x)
+    #
+    # A note about --interpreter=mi: mi stands for Machine Interface and it's
+    # the blessed way to control gdb from a pipe, since the output is much
+    # easier to parse than the normal human-oriented output (it is also worth
+    # noting that at the moment we are never parsig the output, but it's still
+    # a good practice to use --interpreter=mi).
     command = (
-        ['gdb', str(python_path), '-p', str(pid), '-batch']
+        ['gdb', str(python_path), '-p', str(pid), '-batch', '--interpreter=mi']
         + [ '-eval-command=call %s' % (c,) for c in gdb_commands ])
-    output = None if show_gdb_output else _dev_null_w()
-    process = subprocess.Popen(command, stdout=output, stderr=output)
+    output = None if show_gdb_output else _dev_null()
+    process = subprocess.Popen(command,
+                               stdin=_dev_null(),
+                               stdout=output,
+                               stderr=output)
     if wait:
         retcode = process.wait()
         if retcode:
@@ -972,6 +1057,27 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
                 % (command, retcode))
     else:
         return process.pid
+
+import tty
+
+
+# Copy of tty.setraw that does not set ISIG,
+# in order to keep CTRL-C sending Keybord Interrupt.
+def setraw_but_sigint(fd, when=tty.TCSAFLUSH):
+    """Put terminal into a raw mode."""
+    mode = tty.tcgetattr(fd)
+    mode[tty.IFLAG] = mode[tty.IFLAG] & ~(
+        tty.BRKINT | tty.ICRNL | tty.INPCK | tty.ISTRIP | tty.IXON
+    )
+    mode[tty.OFLAG] = mode[tty.OFLAG] & ~(tty.OPOST)
+    mode[tty.CFLAG] = mode[tty.CFLAG] & ~(tty.CSIZE | tty.PARENB)
+    mode[tty.CFLAG] = mode[tty.CFLAG] | tty.CS8
+    mode[tty.LFLAG] = mode[tty.LFLAG] & ~(
+        tty.ECHO | tty.ICANON | tty.IEXTEN
+    )  # NOT ISIG HERE.
+    mode[tty.CC][tty.VMIN] = 1
+    mode[tty.CC][tty.VTIME] = 0
+    tty.tcsetattr(fd, when, mode)
 
 
 class Pty(object):
@@ -985,12 +1091,14 @@ class Pty(object):
         import pty
         try:
             mode = tty.tcgetattr(pty.STDIN_FILENO)
-            tty.setraw(pty.STDIN_FILENO)
+            setraw_but_sigint(pty.STDIN_FILENO)
             restore = True
         except tty.error:
             restore = False
         try:
             pty._copy(self.master_fd)
+        except KeyboardInterrupt:
+            print('^C\r') # we need the \r because we are still in raw mode
         finally:
             if restore:
                 tty.tcsetattr(pty.STDIN_FILENO, tty.TCSAFLUSH, mode)
@@ -1057,46 +1165,70 @@ def attach_debugger(pid):
     # Inject a call to 'debugger()' into target process.
     # Set on_continue to signal ourselves that we're done.
     on_continue = "lambda: __import__('os').kill(%d, %d)" % (os.getpid(), signal.SIGUSR1)
-    gdb_pid = inject(pid, [
-            "__import__('sys').path.insert(0, %r)" % (pyflyby_lib_path,),
-            ("__import__('pyflyby').debugger(tty=%r, on_continue=%s)"
-             % (terminal.ttyname, on_continue)),
-            ], wait=False)
+
+    # Use Python import machinery to import pyflyby from its directory.
+    #
+    # Adding the path to sys.path might have side effects. For e.g., a package
+    # with the same name as a built-in module could exist in `pyflyby_dir`.
+    # Adding `pyflyby_dir` to sys.path will make the package get imported from
+    # `pyflyby_dir` instead of deferring this decision to the user Python
+    # environment.
+    #
+    # As a concrete example, `typing` module is a package as well a built-in
+    # module from Python version >= 3.5
+    statements = [
+        "loader = __import__('importlib').machinery.PathFinder.find_module("
+        "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
+            pyflyby_dir=pyflyby_lib_path),
+        "pyflyby = loader.load_module('pyflyby')"
+    ]
+    statements.append(
+        ("pyflyby.debugger(tty=%r, on_continue=%s)"
+         % (terminal.ttyname, on_continue))
+        )
+
+    gdb_pid = inject(pid, statements=";".join(statements), wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
     # gdb process exits, and make sure the gdb process exits if we exit.
     parent_pid = os.getpid()
     watchdog_pid = os.fork()
     if watchdog_pid == 0:
         while True:
-            if not process_exists(gdb_pid):
-                kill_process(
-                    parent_pid,
-                    [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
-                     (signal.SIGKILL, 60)])
-                break
-            if not process_exists(pid):
-                start_time = time.time()
-                os.kill(parent_pid, signal.SIGUSR1)
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                kill_process(
-                    parent_pid,
-                    [(0, (5 + time.time() - start_time)),
-                     (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            if not process_exists(parent_pid):
-                kill_process(
-                    gdb_pid,
-                    [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
-                break
-            time.sleep(0.1)
+            try:
+                if not process_exists(gdb_pid):
+                    kill_process(
+                        parent_pid,
+                        [(signal.SIGUSR1, 5), (signal.SIGTERM, 15),
+                         (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(pid):
+                    start_time = time.time()
+                    os.kill(parent_pid, signal.SIGUSR1)
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    kill_process(
+                        parent_pid,
+                        [(0, (5 + time.time() - start_time)),
+                         (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                if not process_exists(parent_pid):
+                    kill_process(
+                        gdb_pid,
+                        [(0, 5), (signal.SIGTERM, 15), (signal.SIGKILL, 60)])
+                    break
+                time.sleep(0.1)
+            except KeyboardInterrupt:
+                # if the user pressed CTRL-C the parent process is about to
+                # die, so we will detect the death in the next iteration of
+                # the loop and exit cleanly after killing also gdb
+                pass
         os._exit(0)
     # Communicate with pseudo tty.
     try:
         terminal.communicate()
     except SigUsr1:
-        print("Debugging complete.")
+        print("\nDebugging complete.")
         pass
 
 

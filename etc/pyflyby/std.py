@@ -17,6 +17,8 @@ import cProfile
 import cgi
 import collections
 from   collections              import defaultdict, deque, namedtuple
+import collections.abc
+from   collections.abc          import Collection, Iterable, Iterator, Sequence
 import commands
 import contextlib
 from   contextlib               import closing, contextmanager, nested
@@ -67,7 +69,8 @@ import filecmp
 import fileinput
 import functional
 import functools
-from   functools                import partial, reduce, update_wrapper, wraps
+from   functools                import (partial, reduce, total_ordering,
+                                        update_wrapper, wraps)
 import gc
 import getpass
 from   getpass                  import getuser
@@ -316,6 +319,8 @@ from   types                    import (BooleanType, BufferType,
                                         TracebackType, TupleType, TypeType,
                                         UnboundMethodType, UnicodeType,
                                         XRangeType)
+import typing
+from   typing                   import NamedTuple, Optional, Protocol
 import unittest
 import urllib
 import urllib2
