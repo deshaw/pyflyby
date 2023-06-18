@@ -11,7 +11,7 @@ import re
 import six
 import sys
 
-from   six                      import string_types, PY3
+from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
 
