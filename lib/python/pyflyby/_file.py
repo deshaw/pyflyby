@@ -644,17 +644,23 @@ class FileText(object):
 def read_file(filename):
     filename = Filename(filename)
     try:
-        with io.open(str(filename), 'br') as f:
-            encoding, _ = detect_encoding(f.readline)
+        if filename == Filename.STDIN:
+            raw_data = sys.stdin.buffer.read()
+            stream = io.BytesIO(raw_data)
+            encoding = detect_encoding(stream.readline)[0]
+        else:
+            with io.open(str(filename), 'br') as f:
+                encoding, _ = detect_encoding(f.readline)
     except SyntaxError:
         encoding = None
 
     if filename == Filename.STDIN:
-        data = sys.stdin.read()
+        data = raw_data.decode(encoding) if encoding else ""
     else:
         with io.open(str(filename), 'r', encoding=encoding) as f:
             data = f.read()
     return FileText(data, filename=filename)
+
 
 def write_file(filename, data):
     filename = Filename(filename)
