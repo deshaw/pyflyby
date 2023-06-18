@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 collect-imports *.py
 collect-imports < foo.py
@@ -11,7 +11,6 @@ block of import statements.  Print the result to stdout.
 # Copyright (C) 2011, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
 
 import re
 import sys

@@ -3,8 +3,7 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importstmt      import Import, ImportSplit, ImportStatement
@@ -181,12 +180,12 @@ def test_ImportStatement_relative_local_1():
 
 def test_ImportStatement_flags_1():
     stmt = ImportStatement("from __future__ import division, print_function")
-    assert stmt.flags == CompilerFlags(0x12000)
+    assert stmt.flags == CompilerFlags('division', 'print_function')
 
 
 def test_ImportStatement_flags_2():
     stmt = ImportStatement("from _future__ import division, print_function")
-    assert stmt.flags == CompilerFlags(0)
+    assert stmt.flags == CompilerFlags.from_int(0)
 
 
 def test_ImportStatement_eqne_1():

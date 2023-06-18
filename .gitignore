@@ -1,8 +1,11 @@
+**/.idea
 *.pyc
 .cache
 .eggs
+.hypothesis
 .tox
+__pycache__
+_build
 build
 dist
 pytestdebug.log
-__pycache__

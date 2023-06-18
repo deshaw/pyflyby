@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 prune-broken-imports *.py
 prune-broken-imports < foo.py
@@ -17,7 +17,6 @@ Only top-level import statements are touched.
 # Copyright (C) 2012, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import absolute_import, division, with_statement
 
 from   pyflyby._cmdline         import parse_args, process_actions
 from   pyflyby._imports2s       import remove_broken_imports

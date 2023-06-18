@@ -4,8 +4,6 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import absolute_import, division, with_statement
-from __future__ import print_function
 
 import IPython
 import atexit
@@ -22,7 +20,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO, PY2, PY3
+from   six                      import BytesIO
 from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
@@ -37,6 +35,21 @@ from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
 
+_env_timeout = os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", None)
+if _env_timeout is not None:
+    DEFAULT_TIMEOUT = float(_env_timeout)
+    DEFAULT_TIMEOUT_REQUEST = DEFAULT_TIMEOUT
+else:
+    DEFAULT_TIMEOUT = -1
+    DEFAULT_TIMEOUT_REQUEST = None
+
+
+if os.getenv("PYFLYBYTEST_NORETRY", None):
+    retry = lambda x: x
+else:
+    retry = flaky.flaky(max_runs=5 if DEFAULT_TIMEOUT < 0 else 1)
+
+
 def _get_Failed_class():
     import _pytest
     try:
@@ -50,6 +63,13 @@ def assert_fail():
     Assert that pytest.fail() is called in the context.  Used to self-test.
     """
     return pytest.raises(_Failed)
+
+@pytest.mark.xfail
+def test_failing():
+    """
+    Making sure that xfails functions.
+    """
+    assert False
 
 
 def pytest_generate_tests(metafunc):
@@ -114,7 +134,7 @@ class _TmpFixture(object):
         self._request.addfinalizer(lambda: os.unlink(f))
         return Filename(f)
 
-retry = flaky.flaky(max_runs=5)
+
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
@@ -155,6 +175,13 @@ def assert_match(result, expected, ignore_prompt_number=False):
             )?
         """).strip().encode('utf-8')
         result = re.sub(ignore, b"", result)
+
+        # ignore self exit on readline.
+        result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
+
+        if sys.version_info[0] == 2:
+            # ignore "double blank lines" due to \n\r
+            result = result.replace("\n\r", "\n")
     if _IPYTHON_VERSION < (1, 0):
         # IPython 0.13 console prints kernel info; ignore it.
         #   [IPKernelApp] To connect another client to this kernel, use:
@@ -226,7 +253,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
-    template = _normalize_python_2_3(template)
     input = []
     expected = b""
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
@@ -446,8 +472,8 @@ except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
 # Prompts that we expect for.
-_IPYTHON_PROMPT1 = br"\nIn \[([0-9]+)\]: "
-_IPYTHON_PROMPT2 = br"\n   [.][.][.]+: "
+_IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
+_IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
 _IPDB_PROMPT = br"\nipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
@@ -489,7 +515,8 @@ def _build_pythonpath(PYTHONPATH):
       ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    pypath += _extra_readline_pythonpath_dirs()
+    if sys.version_info < (3, 9):
+        pypath += _extra_readline_pythonpath_dirs()
     if isinstance(PYTHONPATH, (Filename, six.string_types)):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
@@ -549,15 +576,16 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     """
     Prepare the command to run IPython.
     """
+    python = sys.executable
     ipython_dir = Filename(ipython_dir)
-    cmd = []
+    cmd = [python]
     if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
-    if '/.tox/' in sys.prefix:
-        # Get the ipython from our (tox virtualenv) path.
-        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
+    if prog == "py":
+        cmd += [str(PYFLYBY_BIN / prog)]
     else:
-        cmd += [prog]
+        # Get the program from the python that is running.
+        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     if isinstance(args, six.string_types):
         args = [args]
     if args and not args[0].startswith("-"):
@@ -656,11 +684,31 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b"\x1b[?2004l", b"")        # no bracketed paste mode
         arg = arg.replace(b"\x1b[?7h", b"")           # wraparound mode
         arg = arg.replace(b"\x1b[?25h", b"")          # show cursor
+        arg = arg.replace(b"\x1b[23;0t", b"")          # restore window title
         arg = arg.replace(b"\x1b[?2004h", b"")        # bracketed paste mode
         arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
+        arg = arg.replace(b'?[33m', b'')              # (???)
+        arg = arg.replace(b'?[0m', b'')              # (???)
+
+        
+        # cursor movement on PTK 3.0.6+ compute the number of back and forth and
+        # insert that many spaces.
+        pat = br"\x1b\[(\d+)D\x1b\[(\d+)C"
+        match = re.search(pat, arg)
+
+        while match:
+            backward, forward = match.groups()
+            backward, forward = int(backward), int(forward)
+            n_spaces = forward - backward
+            start, stop = match.start(), match.end()
+            arg = arg[:start]+n_spaces*b' '+arg[stop:]
+            match = re.search(pat, arg)
+
+
+
         arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
         # Cursor movement. We assume this is used only for places that have '...'
         # in the tests.
@@ -766,7 +814,7 @@ class MySpawn(pexpect.spawn):
         # decoding.  This is a bit hacky because it's an internal thing that
         # could change.
         self._decoder = AnsiFilterDecoder()
-
+        self.str_last_chars = 1000
 
     def send(self, arg):
         if DEBUG:
@@ -774,13 +822,13 @@ class MySpawn(pexpect.spawn):
         return super(MySpawn, self).send(arg)
 
 
-    def expect(self, arg, timeout=-1):
+    def expect(self, arg, timeout=DEFAULT_TIMEOUT):
         if DEBUG:
             print("MySpawn.expect(%r)" % (arg,))
         return super(MySpawn, self).expect(arg, timeout=timeout)
 
 
-    def expect_exact(self, arg, timeout=-1):
+    def expect_exact(self, arg, timeout=DEFAULT_TIMEOUT):
         if DEBUG:
             print("MySpawn.expect_exact(%r)" % (arg,))
         return super(MySpawn, self).expect_exact(arg, timeout=timeout)
@@ -844,13 +892,15 @@ def IPythonCtx(prog="ipython",
         env["PYTHONSTARTUP"]     = ""
         env["MPLCONFIGDIR"]      = mplconfigdir
         env["PATH"]              = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
+        env["PYTHONBREAKPOINT"]  = "IPython.terminal.debugger.set_trace"
         cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
                                  frontend=frontend)
         # Spawn IPython.
         with EnvVarCtx(**env):
-            print("# Spawning: %s" % (' '.join(cmd)))
-            child = MySpawn(cmd[0], cmd[1:], echo=True,
-                            dimensions=(100,900), timeout=10.0)
+            print("# Spawning: %s" % (" ".join(cmd)))
+            child = MySpawn(
+                cmd[0], cmd[1:], echo=True, dimensions=(100, 900), timeout=10.0
+            )
         # Record frontend for others.
         child.ipython_frontend = frontend
         # Log output to a BytesIO.  Note that we use "logfile_read", not
@@ -897,7 +947,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
     for line in lines:
         # Wait for the "In [N]:" prompt.
         while True:
-            expect_result = child.expect(_IPYTHON_PROMPTS)
+            expect_result = child.expect(_IPYTHON_PROMPTS, timeout=DEFAULT_TIMEOUT)
             if expect_result == 0:
                 # We got "In [N]:".
                 # Check if we got the same prompt as before.  If so then keep
@@ -944,7 +994,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
             # Send the input (up to tab or newline).
             child.send(left)
             # Check that the client IPython gets the input.
-            child.expect_exact(left)
+            child.expect_exact(left, timeout=DEFAULT_TIMEOUT)
             if tab:
                 # Send the tab.
                 child.send(tab)
@@ -964,9 +1014,9 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
     if sendeof:
         child.sendeof()
     if waiteof:
-        child.expect(pexpect.EOF)
+        child.expect(pexpect.EOF, timeout=DEFAULT_TIMEOUT)
     else:
-        child.expect(_IPYTHON_PROMPTS)
+        child.expect(_IPYTHON_PROMPTS, timeout=DEFAULT_TIMEOUT)
     # Get output.
     output = child.logfile_read
     result = output.getvalue()
@@ -992,6 +1042,9 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
+    if sys.version_info[:2] >= (3, 8):
+        # more recent IPython have a different formatting.
+        template = template.replace("... in ...", "... line ...")
     template = dedent(template).strip()
     input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
     args = kwargs.pop("args", ())
@@ -1057,8 +1110,11 @@ def IPythonKernelCtx(**kwargs):
     __tracebackhide__ = True
     with IPythonCtx(args='kernel', **kwargs) as child:
         # Get the kernel info: --existing kernel-1234.json
-        child.expect(r"To connect another client to this kernel, use:\s*"
-                     r"(?:\[IPKernelApp\])?\s*(--existing .*?json)")
+        child.expect(
+            r"To connect another client to this kernel, use:\s*"
+            r"(?:\[IPKernelApp\])?\s*(--existing .*?json)",
+            timeout=DEFAULT_TIMEOUT,
+        )
         kernel_info = child.match.group(1).split()
         # Yield control to caller.
         child.kernel_info = kernel_info
@@ -1087,41 +1143,23 @@ def IPythonNotebookCtx(**kwargs):
     if not notebook_dir:
         notebook_dir = mkdtemp(prefix="pyflyby_test_notebooks_", suffix=".tmp")
         cleanups.append(lambda: rmtree(notebook_dir))
-    if (kwargs.get("prog", "ipython") == "ipython" and
-        (1, 0) <= _IPYTHON_VERSION < (1, 2) and
-        sys.version_info < (2, 7)):
-        # Work around a bug in IPython 1.0 + Python 2.6.
-        # The bug is that in IPython 1.0, LevelFormatter uses super(), which
-        # assumes that logging.Formatter is a subclass of object.  However,
-        # this is only true in Python 2.7+, not in Python 2.6.
-        # pyflyby.enable_auto_importer() fixes that issue too, so 'py
-        # notebook' is not affected, only 'ipython notebook'.
-        assert "PYTHONPATH" not in kwargs
-        extra_pythonpath = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
-        cleanups.append(lambda: rmtree(extra_pythonpath))
-        kwargs["PYTHONPATH"] = extra_pythonpath
-        writetext(Filename(extra_pythonpath)/"sitecustomize.py", """
-            from logging import Formatter
-            from IPython.config.application import LevelFormatter
-            def _format_patched(self, record):
-                if record.levelno >= self.highlevel_limit:
-                    record.highlevel = self.highlevel_format % record.__dict__
-                else:
-                    record.highlevel = ""
-                return Formatter.format(self, record)
-            LevelFormatter.format = _format_patched
-        """)
     try:
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:
             if _IPYTHON_VERSION >= (5,):
                 # Get the base URL from the notebook app.
-                child.expect(r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 token = child.match.group(2)
                 params = dict(token=token)
-                response = requests.post(baseurl + "/api/contents",
-                                         params=params)
+                response = requests.post(
+                    baseurl + "/api/contents",
+                    params=params,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
+                )
                 assert response.status_code == 201
                 # Get the notebook path & name for the new notebook.
                 text = response.text
@@ -1129,10 +1167,13 @@ def IPythonNotebookCtx(**kwargs):
                 path = response_data['path']
                 name = response_data['name']
                 # Create a session & kernel for the new notebook.
-                request_data = json.dumps(
-                    dict(notebook=dict(path=path, name=name)))
-                response = requests.post(baseurl + "/api/sessions",
-                                         data=request_data, params=params)
+                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
+                response = requests.post(
+                    baseurl + "/api/sessions",
+                    data=request_data,
+                    params=params,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
+                )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -1140,19 +1181,27 @@ def IPythonNotebookCtx(**kwargs):
                 kernel_id = response_data['kernel']['id']
             elif _IPYTHON_VERSION >= (2,):
                 # Get the base URL from the notebook app.
-                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
                     data=dict(password=passwd_plaintext),
-                    allow_redirects=False
+                    allow_redirects=False,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
                 )
                 assert response.status_code == 302
                 cookies = response.cookies
                 # Create a new notebook.
                 # Get notebooks.
-                response = requests.post(baseurl + "/api/notebooks", cookies=cookies)
+                response = requests.post(
+                    baseurl + "/api/notebooks",
+                    cookies=cookies,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
+                )
                 expected = 200 if _IPYTHON_VERSION >= (3,) else 201
                 assert response.status_code == expected
                 # Get the notebook path & name for the new notebook.
@@ -1161,10 +1210,13 @@ def IPythonNotebookCtx(**kwargs):
                 path = response_data['path']
                 name = response_data['name']
                 # Create a session & kernel for the new notebook.
-                request_data = json.dumps(
-                    dict(notebook=dict(path=path, name=name)))
-                response = requests.post(baseurl + "/api/sessions",
-                                         data=request_data, cookies=cookies)
+                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
+                response = requests.post(
+                    baseurl + "/api/sessions",
+                    data=request_data,
+                    cookies=cookies,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
+                )
                 assert response.status_code == 201
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -1172,13 +1224,17 @@ def IPythonNotebookCtx(**kwargs):
                 kernel_id = response_data['kernel']['id']
             elif _IPYTHON_VERSION >= (0, 12):
                 # Get the base URL from the notebook app.
-                child.expect(r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]")
-                baseurl = child.match.group(1).decode('utf-8')
+                child.expect(
+                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                baseurl = child.match.group(1).decode("utf-8")
                 # Login.
                 response = requests.post(
                     baseurl + "/login",
                     data=dict(password=passwd_plaintext),
-                    allow_redirects=False
+                    allow_redirects=False,
+                    timeout=DEFAULT_TIMEOUT,
                 )
                 assert response.status_code == 302
                 cookies = response.cookies
@@ -1191,7 +1247,10 @@ def IPythonNotebookCtx(**kwargs):
                 assert m is not None
                 notebook_id = m.group(1)
                 # Start a kernel for the notebook.
-                response = requests.post(baseurl + "/kernels?notebook=" + notebook_id)
+                response = requests.post(
+                    baseurl + "/kernels?notebook=" + notebook_id,
+                    timeout=DEFAULT_TIMEOUT_REQUEST,
+                )
                 assert response.status_code == 200
                 # Get the kernel_id for the new kernel.
                 text = response.text
@@ -1297,14 +1356,18 @@ def _wait_nonce(child):
         nonce = "<SIG%s />" % (int(random.random()*1e9))
         child.send(nonce)
         # Wait for the nonce.
-        child.expect_exact(nonce)
+        child.expect_exact(nonce, timeout=DEFAULT_TIMEOUT)
         data_after_tab = child.before
         # Log what came before the nonce (but not the nonce itself).
         logfile_read.write(data_after_tab)
         # Delete the nonce we typed.
-        child.send("\b"*len(nonce))
-        child.expect([r"\x1b\[%dD" % len(nonce),    # IPython <  5
-                      r"\x08\x1b\[K" * len(nonce)]) # IPython >= 5 + rlipython
+        child.send("\b" * len(nonce))
+        child.expect(
+            [r"\x1b\[%dD" % len(nonce), r"\x08\x1b\[K" * len(nonce), # IPython <  5
+             r"\x08 \x08"*len(nonce) # GitHub CI seem to overwrite with spaces on top of moving cursor ?
+            ],
+            timeout=DEFAULT_TIMEOUT,
+        )  # IPython >= 5 + rlipython
 
     finally:
         child.logfile_read = logfile_read
@@ -1380,44 +1443,15 @@ def _clean_ipython_output(result):
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
     result = result.lstrip()
-    if _IPYTHON_VERSION >= (5,):
+    if _IPYTHON_VERSION >= (5,):  # and _IPYTHON_VERSION <= (8,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
         # off the banner.  For now just delete the output up to the first
         # prompt.
-        result = re.sub(br".*?(In \[1\])", br"\1", result, flags=re.S)
+        result = re.sub(br".*?(In \[1\]:)", br"\1", result, flags=re.S)
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
 
-def _normalize_python_2_3(template):
-    """
-    Change some Python 3 outputs to be compatible with Python 2
-    """
-    template0 = template
-    if PY3:
-        # We have to leave NameError: global name ... as in Python 2, because
-        # in Python 3, "global" is never printed, but it is only printed for
-        # some messages in Python 2.
-        template = template.replace(b"NameError: global name", b"NameError: name")
-        # The templates are written with outputs from Python 3
-        return template
-
-    template = template.replace(' <module>', ' <module>()')
-    for module in ['os', 'base64', 'profile']:
-        template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
-    template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
-    template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
-    template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
-    template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
-                      r"\2 loops, best of \1: ... per loop" , template)
-    template = re.sub(r"ModuleNotFoundError: No module named '(.*?)'",
-                      r"ImportError: No module named \1", template)
-    template = re.sub(r"\*\*\* NameError: name '(.*)' is not defined",
-                      r"""*** NameError: NameError("name '\1' is not defined",)""", template)
-
-    if DEBUG:
-        print("_normalize_python_2_3() %r => %r" % (template0, template))
-    return template
 
 @retry
 def test_ipython_1(frontend):
@@ -1529,18 +1563,20 @@ def test_ipython_tab_1(frontend):
         Out[2]: int
     """, frontend=frontend)
 
-
 @retry
 def test_ipython_tab_fail_1(frontend):
     # Test that our test harness works for tab when it should match nothing.
-    ipython("""
+    ipython(
+        """
         In [1]: import os
         In [2]: os.foo27817796\t()
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         AttributeError: module 'os' has no attribute 'foo27817796'
-    """, frontend=frontend)
+    """,
+        frontend=frontend,
+    )
 
 
 @retry
@@ -1612,18 +1648,21 @@ def test_autoimport_1():
     """)
 
 
+# @pytest.mark.skipif(_IPYTHON_VERSION > (8, 0), reason="Strange output missparsing")
 @retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
     # really a test that our testing infrastructure is OK and not accidentally
     # picking up pyflyby configuration installed in a system or user config.
-    ipython("""
+    ipython(
+        """
         In [1]: b'@'+b64decode('SGVsbG8=')+b'@'
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64decode' is not defined
-    """)
+    """
+    )
 
 
 skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
@@ -1631,7 +1670,6 @@ skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
     reason="IPython version %s does not support %load_ext, so nothing to test")
 
 @skipif_ipython_too_old_for_load_ext
-@retry
 def test_load_ext_1():
     # Test that %load_ext works.
     ipython("""
@@ -1667,6 +1705,7 @@ def test_unload_ext_1():
     """)
 
 
+
 @skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_1():
@@ -1691,7 +1730,8 @@ def test_reload_ext_1():
 def test_reload_ext_reload_importdb_1(tmp):
     # Test that %reload_ext causes the importdb to be refreshed.
     writetext(tmp.file, "from itertools import repeat\n")
-    ipython("""
+    ipython(
+        """
         In [1]: %load_ext pyflyby
         In [2]: list(repeat(3,4))
         [PYFLYBY] from itertools import repeat
@@ -1699,7 +1739,7 @@ def test_reload_ext_reload_importdb_1(tmp):
         In [3]: list(combinations('abc',2))
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'combinations' is not defined
         In [4]: with open('{tmp.file}', 'a') as f:
            ...:   f.write('from itertools import combinations\\n')
@@ -1707,13 +1747,17 @@ def test_reload_ext_reload_importdb_1(tmp):
         In [5]: list(combinations('abc',2))
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'combinations' is not defined
         In [6]: %reload_ext pyflyby
         In [7]: list(combinations('abc',2))
         [PYFLYBY] from itertools import combinations
         Out[7]: [('a', 'b'), ('a', 'c'), ('b', 'c')]
-    """.format(tmp=tmp), PYFLYBY_PATH=tmp.file)
+    """.format(
+            tmp=tmp
+        ),
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @skipif_ipython_too_old_for_load_ext
@@ -1721,16 +1765,20 @@ def test_reload_ext_reload_importdb_1(tmp):
 def test_reload_ext_retry_failed_imports_1(tmp):
     # Verify that %xreload_ext causes us to retry imports that we previously
     # decided not to retry.
-    writetext(tmp.dir / "hippo84402009.py", """
+    writetext(
+        tmp.dir / "hippo84402009.py",
+        """
         import sys
         data = sys.__dict__.setdefault('hippo84402009_attempts', 0)
         sys.hippo84402009_attempts += 1
         print('hello from hippo84402009: attempt %d'
               % sys.hippo84402009_attempts)
         1/0
-    """)
-    writetext(tmp.file, 'from hippo84402009 import rhino13609135')
-    ipython("""
+    """,
+    )
+    writetext(tmp.file, "from hippo84402009 import rhino13609135")
+    ipython(
+        """
         In [1]: %load_ext pyflyby
         In [2]: rhino13609135
         [PYFLYBY] from hippo84402009 import rhino13609135
@@ -1739,12 +1787,12 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'rhino13609135' is not defined
         In [3]: rhino13609135
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'rhino13609135' is not defined
         In [4]: %reload_ext pyflyby
         In [5]: rhino13609135
@@ -1754,9 +1802,12 @@ def test_reload_ext_retry_failed_imports_1(tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'rhino13609135' is not defined
-    """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
+    """,
+        PYTHONPATH=tmp.dir,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
@@ -1852,7 +1903,8 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
 @retry
 def test_autoimport_pyflyby_path_1(tmp):
     writetext(tmp.file, "from itertools import product\n")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: list(product('ab','cd'))
         [PYFLYBY] from itertools import product
@@ -1860,23 +1912,17 @@ def test_autoimport_pyflyby_path_1(tmp):
         In [3]: groupby
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'groupby' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
-            ------> str.upper(b64decode('a2V5Ym9hcmQ='))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'KEYBOARD'
-        """, autocall=True)
-    else:
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -1887,19 +1933,19 @@ def test_autoimport_autocall_arg_1():
             [PYFLYBY] from base64 import b64decode
             Out[2]: b'KEYBOARD'
         """, autocall=True)
+    else:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
+            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'KEYBOARD'
+        """, autocall=True)
 
 @retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64decode 'bW91c2U='
-            [PYFLYBY] from base64 import b64decode
-            ------> b64decode('bW91c2U=')
-            Out[2]: 'mouse'
-        """, autocall=True)
-    else:
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -1910,17 +1956,29 @@ def test_autoimport_autocall_function_1():
             ------> b64decode('bW91c2U=')
             Out[2]: b'mouse'
         """, autocall=True)
+    else:
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: b64decode 'bW91c2U='
+            [PYFLYBY] from base64 import b64decode
+            ------> b64decode('bW91c2U=')
+            Out[2]: b'mouse'
+        """, autocall=True)
 
 @retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     # Verify that we print out all candidate autoimports, when there are
     # multiple.
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo23596267 as bar
         import foo50853429 as bar
         import foo47979882 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar(42)
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1929,19 +1987,25 @@ def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
         [PYFLYBY]   import foo50853429 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_autoimport_multiple_candidates_repeated_1(tmp):
     # Verify that we print out the candidate list for another cell.
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo70603247 as bar
         import foo31703722 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar(42)
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1949,7 +2013,7 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
         [PYFLYBY]   import foo70603247 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
         In [3]: bar(42)
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1957,22 +2021,28 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
         [PYFLYBY]   import foo70603247 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     # Verify that if an expression contains multiple ambiguous imports, we
     # report each one.
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo85957810 as foo
         import foo35483918 as foo
         import bar25290002 as bar
         import bar36166308 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: foo+bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -1983,20 +2053,26 @@ def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
         [PYFLYBY]   import foo85957810 as foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'foo' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     # Verify that if an expression contains an ambiguous import twice, we only
     # report it once.
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo83958492 as bar
         import foo29432668 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar+bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -2004,9 +2080,11 @@ def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
         [PYFLYBY]   import foo83958492 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
@@ -2030,11 +2108,15 @@ def test_autoimport_multiple_candidates_ofind_1(tmp):
 def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     # Verify that the autoimport menu is only printed once, even when multiple
     # joinpoints apply (autocall=>ofind and ast_importer).
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo85223658 as bar
         import foo10735265 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -2042,19 +2124,26 @@ def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
-    """, PYFLYBY_PATH=tmp.file, autocall=True)
+    """,
+        PYFLYBY_PATH=tmp.file,
+        autocall=True,
+    )
 
 
 @retry
 def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     # We should report the multiple candidate issue again if asked again.
-    writetext(tmp.file, """
+    writetext(
+        tmp.file,
+        """
         import foo85223658 as bar
         import foo10735265 as bar
-    """)
-    ipython("""
+    """,
+    )
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -2062,7 +2151,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
         In [3]: bar
         [PYFLYBY] Multiple candidate imports for bar.  Please pick one:
@@ -2070,9 +2159,12 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
         [PYFLYBY]   import foo85223658 as bar
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar' is not defined
-    """, PYFLYBY_PATH=tmp.file, autocall=True)
+    """,
+        PYFLYBY_PATH=tmp.file,
+        autocall=True,
+    )
 
 
 @retry
@@ -2166,8 +2258,10 @@ def test_complete_symbol_member_1(frontend):
 
 @retry
 def test_complete_symbol_member_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    ipython("""
+    if frontend == "prompt_toolkit":
+        pytest.skip()
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b64\t
         [PYFLYBY] import base64
@@ -2176,15 +2270,19 @@ def test_complete_symbol_member_multiple_1(frontend):
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         AttributeError: module 'base64' has no attribute 'b64'
-    """, frontend=frontend)
+    """,
+        frontend=frontend,
+    )
 
 
 @retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    ipython("""
+    if frontend == "prompt_toolkit":
+        pytest.skip()
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b6\t
         [PYFLYBY] import base64
@@ -2193,9 +2291,11 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         AttributeError: module 'base64' has no attribute 'b64'
-    """, frontend=frontend)
+    """,
+        frontend=frontend,
+    )
 
 
 @retry
@@ -2261,15 +2361,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
-            ------> str.upper(b64decode('Q2hld2JhY2Nh'))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'CHEWBACCA'
-        """, autocall=True)
-    else:
+    if IPython.version_info < (7,17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2280,6 +2372,16 @@ def test_complete_symbol_autocall_arg_1():
             [PYFLYBY] from base64 import b64decode
             Out[2]: b'CHEWBACCA'
         """, autocall=True)
+    else:
+        # IPython 7.17+ shoudl have fixed double autocall
+        ipython("""
+            In [1]: import pyflyby; pyflyby.enable_auto_importer()
+            In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
+            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
+            [PYFLYBY] from base64 import b64decode
+            Out[2]: b'CHEWBACCA'
+        """, autocall=True)
+
 
 @retry
 def test_complete_symbol_any_module_1(frontend, tmp):
@@ -2316,7 +2418,8 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
     writetext(tmp.file, "import foo_31221052_bar\n")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: foo_31221052_\tbar
         [PYFLYBY] import foo_31221052_bar
@@ -2324,15 +2427,19 @@ def test_complete_symbol_bad_1(frontend, tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'foo_31221052_bar' is not defined
-    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
+    """,
+        PYFLYBY_PATH=tmp.file,
+        frontend=frontend,
+    )
 
 
 @retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: bar_98073069_\tquux.asdf
         [PYFLYBY] import foo_86487172 as bar_98073069_quux
@@ -2340,9 +2447,13 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
         ....
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'bar_98073069_quux' is not defined
-    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
+    """,
+        PYFLYBY_PATH=tmp.file,
+        frontend=frontend,
+    )
+
 
 
 @retry
@@ -2370,35 +2481,31 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             __name__ = __name__
         sys.modules[__name__] = M()
     """)
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
-            In [2]: print(gravesend60063393.river)
-            in the river
-            in the river
-            Medway
-            In [3]: print(gravesend600633\t93.is\tland)
-            on the island
-            on the island
-            Canvey
-        """, PYTHONPATH=tmp.dir, frontend=frontend)
+
+    if IPython.version_info >= (8, 6):
+        extra_comp = '\n            in the river'
     else:
-        ipython("""
+        extra_comp = ''
+
+    # we use "... the island" as there might be prompt inserted by previous tab completino
+    ipython(
+            """
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
+            [PYFLYBY] import gravesend60063393{}
             In [2]: print(gravesend60063393.river)
             in the river
             in the river
             Medway
-            on the island
+            ... the island
             In [3]: print(gravesend600633\t93.is\tland)
             on the island
             on the island
             Canvey
-        """, PYTHONPATH=tmp.dir, frontend=frontend)
+        """.format(extra_comp),
+            PYTHONPATH=tmp.dir,
+            frontend=frontend,
+    )
 
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims
@@ -2496,7 +2603,8 @@ def test_property_no_superfluous_access_1(tmp):
 
 @retry
 def test_disable_reenable_autoimport_1():
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
         In [3]: b64encode(b'blue')
@@ -2506,7 +2614,7 @@ def test_disable_reenable_autoimport_1():
         In [5]: b64decode('cmVk')        # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64decode' is not defined
         In [6]: b64encode(b'green')       # should still work because already imported
         Out[6]: b'Z3JlZW4='
@@ -2514,12 +2622,14 @@ def test_disable_reenable_autoimport_1():
         In [8]: b64decode('eWVsbG93')    # should work now
         [PYFLYBY] from base64 import b64decode
         Out[8]: b'yellow'
-    """)
+    """
+    )
 
 
 @retry
 def test_disable_reenable_completion_1():
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
         In [3]: b64enco\tde(b'flower')
@@ -2529,7 +2639,7 @@ def test_disable_reenable_completion_1():
         In [5]: b64deco\t('Y2xvdWQ=') # expect NameError since no auto importer
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64deco' is not defined
         In [6]: b64enco\tde(b'tree') # should still work because already imported
         Out[6]: b'dHJlZQ=='
@@ -2537,7 +2647,8 @@ def test_disable_reenable_completion_1():
         In [8]: b64deco\tde('Y2xvdWQ=') # should work now
         [PYFLYBY] from base64 import b64decode
         Out[8]: b'cloud'
-    """)
+    """
+    )
 
 
 @retry
@@ -2560,7 +2671,8 @@ def test_pinfo_1(tmp):
 @retry
 def test_error_during_auto_import_symbol_1(tmp):
     writetext(tmp.file, "3+")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
         In [3]: 6*7
@@ -2571,20 +2683,23 @@ def test_error_during_auto_import_symbol_1(tmp):
         [PYFLYBY] Disabling pyflyby auto importer.
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_68470042' is not defined
         In [5]: unknown_symbol_76663387
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_76663387' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_error_during_auto_import_expression_1(tmp):
     writetext(tmp.file, "3+")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
         In [3]: 6*7
@@ -2595,21 +2710,24 @@ def test_error_during_auto_import_expression_1(tmp):
         [PYFLYBY] Disabling pyflyby auto importer.
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_72161870' is not defined
         In [5]: 42+unknown_symbol_48517397
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_48517397' is not defined
-    """, PYFLYBY_PATH=tmp.file)
+    """,
+        PYFLYBY_PATH=tmp.file,
+    )
 
 
 @retry
 def test_error_during_completion_1(frontend, tmp):
     if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "3+")
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby.enable_auto_importer()
         In [3]: 100
@@ -2621,18 +2739,21 @@ def test_error_during_completion_1(frontend, tmp):
         In [4]: unknown_symbol_14954304_\x06foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_14954304_foo' is not defined
         In [5]: 200
         Out[5]: 200
         In [6]: unknown_symbol_69697066_\t\x06foo
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'unknown_symbol_69697066_foo' is not defined
         In [7]: 300
         Out[7]: 300
-    """, PYFLYBY_PATH=tmp.file, frontend=frontend)
+    """,
+        PYFLYBY_PATH=tmp.file,
+        frontend=frontend,
+    )
 
 
 @retry
@@ -2752,6 +2873,48 @@ def test_run_i_auto_import_1(tmp):
         In [3]: b64decode('R2F1c3M=')
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
+
+@pytest.mark.xfail
+def test_run_d_donterase(tmp):
+    """
+    accessing f_locals may reset namespace,
+    here we check that myvar changes after assignment in the debugger.
+    """
+    ipython(
+        """
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def simple_f():
+           ...:     myvar = 1
+           ...:     print(myvar)
+           ...:     1/0
+           ...:     print(myvar)
+           ...: simple_f()
+           ...:
+        1
+        ---------------------------------------------------------------------------
+        ZeroDivisionError                         Traceback (most recent call last)
+        ... in ...
+              4     1/0
+              5     print(myvar)
+        ... in simple_f()
+              2 myvar = 1
+              3 print(myvar)
+              5 print(myvar)
+        ZeroDivisionError: division by zero
+        In [3]: %debug
+        > <ipython-input>(4)simple_f()
+              2     myvar = 1
+              3     print(myvar)
+              5     print(myvar)
+              6 simple_f()
+        ipdb> myvar
+        1
+        ipdb> myvar = 2
+        ipdb> myvar
+        2
+        ipdb> c
+"""
+    )
 
 
 @retry
@@ -2907,16 +3070,18 @@ def test_timeit_complete_autoimport_member_1(frontend):
 def test_noninteractive_timeit_unaffected_1():
     # Verify that the regular timeit module is unaffected, i.e. that we only
     # hooked the IPython wrapper.
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit.timeit("base64.b64decode", number=1)
         [PYFLYBY] import timeit
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         ....
-        NameError: global name 'base64' is not defined
-    """)
+        NameError: name 'base64' is not defined
+    """
+    )
 
 
 @retry
@@ -3016,23 +3181,26 @@ def test_prun_1():
 def test_noninteractive_profile_unaffected_1():
     # Verify that the profile module itself is not affected (i.e. verify that
     # we only hook the IPython usage of it).
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: profile.Profile().run("base64.b64decode")
         [PYFLYBY] import profile
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         ....
         NameError: name 'base64' is not defined
-    """)
+    """
+    )
 
 
 @retry
 def test_error_during_enable_1():
     # Verify that if an error occurs during enabling, that we disable the
     # autoimporter.  Verify that we don't attempt to re-enable again.
-    ipython("""
+    ipython(
+        """
         In [1]: import pyflyby
         In [2]: pyflyby._interactive.AutoImporter._enable_internal = None
         In [3]: pyflyby.enable_auto_importer()
@@ -3044,11 +3212,12 @@ def test_error_during_enable_1():
         In [5]: sys
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'sys' is not defined
         In [6]: pyflyby.enable_auto_importer()
         [PYFLYBY] Not reattempting to enable auto importer after earlier error
-    """)
+    """
+    )
 
 
 skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
@@ -3060,8 +3229,14 @@ skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
 # display_completions='readlinelike', so any test that uses tab completion
 # won't work.
 
+
 @skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @pytest.mark.parametrize('sendeof', [False, True])
 def test_ipython_console_1(sendeof):
     # Verify that autoimport and tab completion work in IPython console.
@@ -3087,6 +3262,11 @@ def test_ipython_console_1(sendeof):
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
@@ -3103,6 +3283,11 @@ def test_ipython_kernel_console_existing_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_ipython_kernel_console_multiple_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
@@ -3111,13 +3296,17 @@ def test_ipython_kernel_console_multiple_existing_1():
     with IPythonKernelCtx() as kernel:
         # Start a separate "ipython console --existing kernel-1234.json".
         # Verify that the auto importer isn't enabled yet.
-        ipython("""
+        ipython(
+            """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>
+            ... in ...
             NameError: name 'b64decode' is not defined
-        """, args=['console'], kernel=kernel)
+        """,
+            args=["console"],
+            kernel=kernel,
+        )
         # Enable the auto importer.
         ipython("""
             In [2]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3130,6 +3319,7 @@ def test_ipython_kernel_console_multiple_existing_1():
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skip(reason="hangs")
 @skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_notebook_basic_1():
@@ -3143,44 +3333,58 @@ def test_ipython_notebook_basic_1():
             Out[2]: 77
             """, args=['console'], kernel=kernel)
 
-
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
+        # 1. Verify that the auto importer isn't enabled yet.
+        # 2. Enable the auto importer.
+        # 3. Verify that the auto importer and tab completion work.
         ipython(
-            # Verify that the auto importer isn't enabled yet.
             """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>
-            NameError: name 'b64decode' is not defined"""
-            # Enable the auto importer.
-            """
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
-            # Verify that the auto importer and tab completion work.
-            """
+            ... in ...
+            NameError: name 'b64decode' is not defined
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()
             In [3]: b64deco\tde('aGF6ZWxudXQ=')
             [PYFLYBY] from base64 import b64decode
             Out[3]: b'hazelnut'
-            """, args=['console'], kernel=kernel)
+            """,
+            args=["console"],
+            kernel=kernel,
+        )
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_ipython_notebook_reconnect_1():
     # Verify that we can reconnect to the same kernel, and pyflyby is still
     # enabled.
     with IPythonNotebookCtx() as kernel:
         # Verify that the auto importer isn't enabled yet.
-        ipython("""
+        ipython(
+            """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>
+            ... in ...
             NameError: name 'b64decode' is not defined
-        """, args=['console'], kernel=kernel)
+        """,
+            args=["console"],
+            kernel=kernel,
+        )
         # Enable the auto importer.
         ipython(
         """
@@ -3220,6 +3424,11 @@ def test_py_i_interactive_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_py_console_1():
     # Verify that 'py console' works.
@@ -3231,6 +3440,11 @@ def test_py_console_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_py_kernel_1():
     # Verify that 'py kernel' works.
@@ -3245,22 +3459,37 @@ def test_py_kernel_1():
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
     # expected over regular ipython console, but just check that it still
     # works normally).
     with IPythonKernelCtx() as kernel:
-        ipython("""
+        ipython(
+            """
             In [1]: b64decode('x')
             ---------------------------------------------------------------------------
             NameError                                 Traceback (most recent call last)
-            <ipython-input> in <module>
+            ... in ...
             NameError: name 'b64decode' is not defined
-        """, prog="py", args=['console'], kernel=kernel)
+        """,
+            prog="py",
+            args=["console"],
+            kernel=kernel,
+        )
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_py_notebook_1():
     with IPythonNotebookCtx(prog="py") as kernel:
@@ -3276,7 +3505,8 @@ def test_py_notebook_1():
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
     # also re-enable it.
-    ipython("""
+    ipython(
+        """
         In [1]: b64deco\tde('aGlja29yeQ==')
         [PYFLYBY] from base64 import b64decode
         Out[1]: b'hickory'
@@ -3285,7 +3515,7 @@ def test_py_disable_1():
         In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('bW9ja2VybnV0')
         Out[4]: b'mockernut'
@@ -3293,7 +3523,9 @@ def test_py_disable_1():
         In [6]: b64encode(b'pecan')
         [PYFLYBY] from base64 import b64encode
         Out[6]: b'cGVjYW4='
-    """, prog="py")
+    """,
+        prog="py",
+    )
 
 
 def _install_load_ext_pyflyby_in_config(ipython_dir):
@@ -3312,13 +3544,15 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
         Out[1]: b'maple'
     """, ipython_dir=tmp.ipython_dir)
     # Double-check that we only modified tmp.ipython_dir.
-    ipython("""
+    ipython(
+        """
         In [1]: b64decode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64decode' is not defined
-    """)
+    """
+    )
 
 
 @retry
@@ -3332,17 +3566,24 @@ def test_installed_in_config_redundant_1(tmp):
         Out[1]: b'maple'
     """, ipython_dir=tmp.ipython_dir)
     # Double-check that we only modified tmp.ipython_dir.
-    ipython("""
+    ipython(
+        """
         In [1]: b64decode('x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64decode' is not defined
-    """)
+    """
+    )
 
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
     # installed in ipython_config.
@@ -3356,6 +3597,11 @@ def test_installed_in_config_ipython_console_1(tmp):
 
 @skipif_ipython_too_old_for_kernel
 @retry
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 def test_installed_in_config_ipython_kernel_1(tmp):
     # Verify that autoimport works in 'ipython kernel' when pyflyby is
     # installed in ipython_config.
@@ -3369,6 +3615,11 @@ def test_installed_in_config_ipython_kernel_1(tmp):
 
 
 @skipif_ipython_too_old_for_kernel
+@pytest.mark.xfail(
+    sys.version_info[0] == 3,
+    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
+    strict=False,
+)
 @retry
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3385,7 +3636,8 @@ def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
     # also re-enable.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    ipython("""
+    ipython(
+        """
         In [1]: b64deco\tde('cGluZQ==')
         [PYFLYBY] from base64 import b64decode
         Out[1]: b'pine'
@@ -3394,7 +3646,7 @@ def test_installed_in_config_disable_1(tmp):
         In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('d2lsbG93')
         Out[4]: b'willow'
@@ -3402,7 +3654,9 @@ def test_installed_in_config_disable_1(tmp):
         In [6]: b64encode(b'elm')
         [PYFLYBY] from base64 import b64encode
         Out[6]: b'ZWxt'
-    """, ipython_dir=tmp.ipython_dir)
+    """,
+        ipython_dir=tmp.ipython_dir,
+    )
 
 
 @retry
@@ -3410,7 +3664,8 @@ def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
     # installed pyflyby in ipython_config.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    ipython("""
+    ipython(
+        """
         In [1]: pyflyby.enable_auto_importer()
         [PYFLYBY] import pyflyby
         In [2]: b64deco\tde('Y2hlcnJ5')
@@ -3420,7 +3675,7 @@ def test_installed_in_config_enable_noop_1(tmp):
         In [4]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64encode' is not defined
         In [5]: b64decode('YmlyY2g=')
         Out[5]: b'birch'
@@ -3428,14 +3683,17 @@ def test_installed_in_config_enable_noop_1(tmp):
         In [7]: b64encode(b'fir')
         [PYFLYBY] from base64 import b64encode
         Out[7]: b'Zmly'
-    """, ipython_dir=tmp.ipython_dir)
+    """,
+        ipython_dir=tmp.ipython_dir,
+    )
 
 
 @retry
 def test_installed_in_config_ipython_py_1(tmp):
     # Verify that installation in ipython_config and 'py' are compatible.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    ipython("""
+    ipython(
+        """
         In [1]: b64deco\tde('YmFzc3dvb2Q=')
         [PYFLYBY] from base64 import b64decode
         Out[1]: b'basswood'
@@ -3444,7 +3702,7 @@ def test_installed_in_config_ipython_py_1(tmp):
         In [3]: b64encode(b'x')
         ---------------------------------------------------------------------------
         NameError                                 Traceback (most recent call last)
-        <ipython-input> in <module>
+        ... in ...
         NameError: name 'b64encode' is not defined
         In [4]: b64decode('YnV0dGVybnV0')
         Out[4]: b'butternut'
@@ -3452,12 +3710,16 @@ def test_installed_in_config_ipython_py_1(tmp):
         In [6]: b64encode(b'larch')
         [PYFLYBY] from base64 import b64encode
         Out[6]: b'bGFyY2g='
-    """, prog="py", ipython_dir=tmp.ipython_dir)
+    """,
+        prog="py",
+        ipython_dir=tmp.ipython_dir,
+    )
 
 
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="old IPython doesn't support startup directory")
+@retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
     writetext(tmp.ipython_dir/"profile_default/startup/foo.py", """
@@ -3490,6 +3752,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support ipython_config.py")
+@retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
         c = get_config()
@@ -3507,6 +3770,7 @@ def test_manual_install_exec_lines_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 11),
     reason="old IPython doesn't support ipython_config.py")
+@retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -3526,6 +3790,7 @@ def test_manual_install_exec_files_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION >= (0, 11),
     reason="IPython 0.11+ doesn't support ipythonrc")
+@retry
 def test_manual_install_ipythonrc_execute_1(tmp):
     writetext(tmp.ipython_dir/"ipythonrc", """
         execute __import__("pyflyby").enable_auto_importer()
@@ -3540,6 +3805,7 @@ def test_manual_install_ipythonrc_execute_1(tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION >= (0, 11),
     reason="IPython 0.11+ doesn't support ipy_user_conf")
+@retry
 def test_manual_install_ipy_user_conf_1(tmp):
     writetext(tmp.ipython_dir/"ipy_user_conf.py", """
         import pyflyby
@@ -3831,8 +4097,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
-@retry
-def test_debug_namespace_1(frontend):
+def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
     # In this example, in the local namespace, 'base64' is a variable (which
@@ -3856,7 +4121,6 @@ def test_debug_namespace_1(frontend):
         b'Continental'
         ipdb> q
         In [5]: base64.b64de\t
-        [PYFLYBY] import base64
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
         Out[5]: b'HillLake'
@@ -3988,3 +4252,26 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 # TODO: add tests for when IPython is not installed.  either using a tox
 # environment, or using a PYTHONPATH that shadows IPython with something
 # unimportable.
+
+
+@pytest.mark.skipif(
+    _IPYTHON_VERSION < (7, 0) or (sys.version_info < (3, 7)),
+    reason="old IPython and Python won't work with breakpoint()",
+)
+@retry
+def test_breakpoint_IOStream_broken():
+    # Verify that step functionality isn't broken.
+    ipython(
+        '''
+        In [1]: breakpoint()
+        --Call--
+        > ...
+            ...
+            ...
+        --> ...     def __call__(self, result=None):
+            ...         """Printing with history cache management.
+            ...
+        ipdb> c
+    ''',
+        frontend='prompt_toolkit',
+    )

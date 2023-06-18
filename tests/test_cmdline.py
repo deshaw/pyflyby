@@ -3,27 +3,29 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   io                       import BytesIO
 import os
+import sys
 import pexpect
 import subprocess
 import tempfile
 from   textwrap                 import dedent
 
-from   six                      import PY2
-
 from   pyflyby._util            import EnvVarCtx
+
+import pytest
 
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
 
 
+python = sys.executable
+
 def pipe(command, stdin=""):
     return subprocess.Popen(
-        command,
+        [python] + command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
@@ -35,10 +37,6 @@ def test_tidy_imports_stdin_1():
     expected = dedent('''
         [PYFLYBY] /dev/stdin: added 'import os'
         [PYFLYBY] /dev/stdin: added 'import sys'
-        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import absolute_import'
-        [PYFLYBY] /dev/stdin: added mandatory 'from __future__ import division'
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
@@ -50,8 +48,6 @@ def test_tidy_imports_stdin_1():
 def test_tidy_imports_quiet_1():
     result = pipe([BIN_DIR+"/tidy-imports", "--quiet"], stdin="os, sys")
     expected = dedent('''
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
@@ -64,8 +60,6 @@ def test_tidy_imports_log_level_1():
     with EnvVarCtx(PYFLYBY_LOG_LEVEL="WARNING"):
         result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
         expected = dedent('''
-            from __future__ import absolute_import, division
-
             import os
             import sys
 
@@ -86,11 +80,7 @@ def test_tidy_imports_filename_action_print_1():
         expected = dedent('''
             [PYFLYBY] {f.name}: added 'import os'
             [PYFLYBY] {f.name}: added 'import sys'
-            [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
-            [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
             # hello
-            from __future__ import absolute_import, division
-
             import os
             import sys
 
@@ -115,8 +105,6 @@ def test_tidy_imports_filename_action_replace_1():
         [PYFLYBY] {f.name}: removed unused 'import b'
         [PYFLYBY] {f.name}: added 'import os'
         [PYFLYBY] {f.name}: added 'import sys'
-        [PYFLYBY] {f.name}: added mandatory 'from __future__ import absolute_import'
-        [PYFLYBY] {f.name}: added mandatory 'from __future__ import division'
         [PYFLYBY] {f.name}: *** modified ***
     ''').strip().format(f=f)
     assert cmd_output == expected_cmd_output
@@ -124,8 +112,6 @@ def test_tidy_imports_filename_action_replace_1():
         result = f.read()
     expected_result = dedent('''
         "hello"
-        from __future__ import absolute_import, division
-
         import os
         import sys
 
@@ -259,9 +245,15 @@ def test_collect_imports_include_dot_1():
 
 def test_collect_exports_1():
     result = pipe([BIN_DIR+"/collect-exports", "fractions"])
-    expected = dedent('''
-        from   fractions                import Fraction, gcd
-    ''').strip()
+    if sys.version_info < (3,9):
+        expected = dedent('''
+            from   fractions                import Fraction, gcd
+        ''').strip()
+    else:
+        expected = dedent('''
+            from   fractions                import Fraction
+        ''').strip()
+
     assert result == expected
 
 
@@ -284,8 +276,6 @@ def test_py_eval_1():
         [PYFLYBY] b64decode('aGVsbG8=')
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "'hello'")
     assert result == expected
 
 
@@ -296,8 +286,6 @@ def test_py_exec_1():
         [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
         b'hello'
     """).strip()
-    if PY2:
-        expected = expected.replace("b'hello'", "hello")
     assert result == expected
 
 
@@ -351,7 +339,7 @@ def test_tidy_imports_query_no_change_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         # We expect no "Replace [y/N]" query, since nothing changed.
         child.expect(pexpect.EOF)
@@ -371,7 +359,7 @@ def test_tidy_imports_query_y_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("y\n")
@@ -397,7 +385,7 @@ def test_tidy_imports_query_n_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("n\n")
@@ -418,7 +406,7 @@ def test_tidy_imports_query_junk_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(input)
         f.flush()
-        child = pexpect.spawn(BIN_DIR+'/tidy-imports', [f.name], timeout=5.0)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
         child.logfile = BytesIO()
         child.expect_exact(" [y/N]")
         child.send("zxcv\n")
@@ -429,3 +417,192 @@ def test_tidy_imports_query_junk_1():
     assert b"[y/N] zxcv" in proc_output
     assert b"Aborted" in proc_output
     assert output == input
+
+
+@pytest.mark.skip(reason="seem to fail at importing six even if installed")
+def test_tidy_imports_py3_fallback():
+    input = dedent('''
+        import x
+
+        print 1
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("n\n")
+        child.expect(pexpect.EOF)
+        with open(f.name) as f2:
+            output = f2.read()
+    proc_output = child.logfile.getvalue()
+    assert b"removed unused 'import x'" in proc_output
+    assert output == input
+    assert b"SyntaxError detected" in proc_output, proc_output
+    assert b"falling back" in proc_output, proc_output
+
+
+def test_tidy_imports_symlinks_default():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Error: %s appears to be a symlink" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+
+def test_tidy_imports_symlinks_error():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=error', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Error: %s appears to be a symlink" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+def test_tidy_imports_symlinks_follow():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=follow', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("y\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Following symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert 'import x' not in output
+    assert 'import x' not in symlink_output
+
+def test_tidy_imports_symlinks_skip():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=skip',
+                                                        symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Skipping symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+def test_tidy_imports_symlinks_replace():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlink=replace', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        child.expect_exact(" [y/N]")
+        child.send("y\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert not os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Replacing symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert 'import x' not in symlink_output
+
+def test_tidy_imports_symlinks_bad_argument():
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=bad', symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"error: --symlinks must be one of" in proc_output
+    assert output == input
+    assert symlink_output == input

@@ -2,24 +2,23 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import optparse
 import os
 import signal
-import six
 from   six                      import reraise
 from   six.moves                import input
 import sys
 from   textwrap                 import dedent
 import traceback
 
+
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
                                         expand_py_files_from_args, read_file)
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute
+from   pyflyby._util            import cached_attribute, indent
 
 
 def hfmt(s):
@@ -38,10 +37,16 @@ def _sigpipe_handler(*args):
     raise SystemExit(1)
 
 
-def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+def parse_args(
+    addopts=None, import_format_params=False, modify_action_params=False, defaults=None
+):
     """
     Do setup for a top-level script and parse arguments.
     """
+
+    if defaults is None:
+        defaults = {}
+
     ### Setup.
     # Register a SIGPIPE handler.
     signal.signal(signal.SIGPIPE, _sigpipe_handler)
@@ -91,10 +96,12 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 return action_external_command(v[8:])
             elif V == "IFCHANGED":
                 return action_ifchanged
+            elif V == "EXIT1":
+                return action_exit1
             else:
                 raise Exception(
                     "Bad argument %r to --action; "
-                    "expected PRINT or REPLACE or QUERY or IFCHANGED "
+                    "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
                     "or EXECUTE:..." % (v,))
 
         def set_actions(actions):
@@ -104,6 +111,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
             set_actions([parse_action(v) for v in action_args])
+
         def action_callbacker(actions):
             def callback(option, opt_str, value, parser):
                 set_actions(actions)
@@ -112,7 +120,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option(
             "--actions", type='string', action='callback',
             callback=action_callback,
-            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXECUTE:mycommand',
+            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1:EXECUTE:mycommand',
             help=hfmt('''
                    Comma-separated list of action(s) to take.  If PRINT, print
                    the changed file to stdout.  If REPLACE, then modify the
@@ -120,7 +128,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                    'mycommand oldfile tmpfile'.  If DIFF, then execute
                    'pyflyby-diff'.  If QUERY, then query user to continue.
                    If IFCHANGED, then continue actions only if file was
-                   changed.'''))
+                   changed.  If EXIT1, then exit with exit code 1 after all
+                   files/actions are processed.'''))
         group.add_option(
             "--print", "-p", action='callback',
             callback=action_callbacker([action_print]),
@@ -154,6 +163,12 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             default_actions = [action_print]
         parser.set_default('actions', tuple(default_actions))
         parser.add_option_group(group)
+
+        parser.add_option(
+            '--symlinks', action='callback', nargs=1, type=str,
+            dest='symlinks', callback=symlink_callback, help="--symlinks should be one of: " + symlinks_help,
+        )
+        parser.set_defaults(symlinks='error')
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
@@ -195,6 +210,10 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option('--width', type='int', default=79, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
+        group.add_option('--black', action='store_true', default=False,
+                         help=hfmt('''
+                             Use black to format imports. If this option is
+                             used, all other formatting options are ignored.'''))
         group.add_option('--hanging-indent', type='choice', default='never',
                          choices=['never','auto','always'],
                          metavar='never|auto|always',
@@ -234,7 +253,13 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         parser.add_option_group(group)
     if addopts is not None:
         addopts(parser)
-    options, args = parser.parse_args()
+    # This is the only way to provide a default value for an option with a
+    # callback.
+    if modify_action_params:
+        args = ["--symlinks=error"] + sys.argv[1:]
+    else:
+        args = None
+    options, args = parser.parse_args(args=args)
     if import_format_params:
         align_imports_args = [int(x.strip())
                               for x in options.align_imports.split(",")]
@@ -249,6 +274,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             from_spaces           =options.from_spaces,
             separate_from_imports =options.separate_from_imports,
             max_line_length       =options.width,
+            use_black             =options.black,
             align_future          =options.align_future,
             hanging_indent        =options.hanging_indent,
             )
@@ -298,6 +324,10 @@ class AbortActions(Exception):
     pass
 
 
+class Exit1(Exception):
+    pass
+
+
 class Modifier(object):
     def __init__(self, modifier, filename):
         self.modifier = modifier
@@ -324,10 +354,7 @@ class Modifier(object):
     @cached_attribute
     def output_content_filename(self):
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.output_content.joined, "utf-8"))
-        else:
-            f.write(self.output_content.joined)
+        f.write(bytes(self.output_content.joined, "utf-8"))
         f.flush()
         return fname
 
@@ -338,10 +365,7 @@ class Modifier(object):
         # If the input was stdin, and the user wants a diff, then we need to
         # write it to a temp file.
         f, fname = self._tempfile()
-        if six.PY3:
-            f.write(bytes(self.input_content, "utf-8"))
-        else:
-            f.write(self.input_content)
+        f.write(bytes(self.input_content, "utf-8"))
         f.flush()
         return fname
 
@@ -351,12 +375,14 @@ class Modifier(object):
             f.close()
 
 
-def process_actions(filenames, actions, modify_function):
+def process_actions(filenames, actions, modify_function,
+                    reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
     filenames = filename_args(filenames, on_error=on_error_filename_arg)
+    exit_code = 0
     for filename in filenames:
         try:
             m = Modifier(modify_function, filename)
@@ -364,6 +390,10 @@ def process_actions(filenames, actions, modify_function):
                 action(m)
         except AbortActions:
             continue
+        except reraise_exceptions:
+            raise
+        except Exit1:
+            exit_code = 1
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
             type_e = type(e)
@@ -389,6 +419,8 @@ def process_actions(filenames, actions, modify_function):
             msg += "    " + lines[0] + '\n'.join(
                 ("            %s"%line for line in lines[1:]))
         raise SystemExit(msg)
+    else:
+        raise SystemExit(exit_code)
 
 
 def action_print(m):
@@ -407,6 +439,11 @@ def action_replace(m):
         raise Exception("Can't replace stdio in-place")
     logger.info("%s: *** modified ***", m.filename)
     atomic_write_file(m.filename, m.output_content)
+
+
+def action_exit1(m):
+    logger.debug("action_exit1")
+    raise Exit1
 
 
 def action_external_command(command):
@@ -437,3 +474,57 @@ def action_query(prompt="Proceed?"):
         print("Aborted")
         raise AbortActions
     return action
+
+def symlink_callback(option, opt_str, value, parser):
+    parser.values.actions = tuple(i for i in parser.values.actions if i not in
+    symlink_callbacks.values())
+    if value in symlink_callbacks:
+        parser.values.actions = (symlink_callbacks[value],) + parser.values.actions
+    else:
+        raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', or 'replace'. Got %r" % value)
+
+symlinks_help = """\
+--symlinks=error (default; gives an error on symlinks),
+--symlinks=follow (follows symlinks),
+--symlinks=skip (skips symlinks),
+--symlinks=replace (replaces symlinks with the target file\
+"""
+
+# Warning, the symlink actions will only work if they are run first.
+# Otherwise, output_content may already be cached
+def symlink_error(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        raise SystemExit("""\
+Error: %s appears to be a symlink. Use one of the following options to allow symlinks:
+%s
+""" % (m.filename, indent(symlinks_help, '    ')))
+
+def symlink_follow(m):
+    if m.filename == Filename.STDIN:
+        return
+    if m.filename.islink:
+        logger.info("Following symlink %s" % m.filename)
+        m.filename = m.filename.realpath
+
+def symlink_skip(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        logger.info("Skipping symlink %s" % m.filename)
+        raise AbortActions
+
+def symlink_replace(m):
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        logger.info("Replacing symlink %s" % m.filename)
+        # The current behavior automatically replaces symlinks, so do nothing
+
+symlink_callbacks = {
+    'error': symlink_error,
+    'follow': symlink_follow,
+    'skip': symlink_skip,
+    'replace': symlink_replace,
+}

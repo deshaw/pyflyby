@@ -3,25 +3,36 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import pytest
 import sys
 from   textwrap                 import dedent
-
-from   six                      import PY2, PY3
+import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._parse           import PythonBlock, PythonStatement
+from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
+
+
+if sys.version_info < (3, 8, 3):
+    print_function_flag = CompilerFlags.from_int(0x10000)
+else:
+    print_function_flag = CompilerFlags.from_int(0x100000)
 
 
 def test_PythonBlock_FileText_1():
-    text = FileText(dedent('''
+    text = FileText(
+        dedent(
+            """
         foo()
         bar()
-    ''').lstrip(), filename="/foo/test_PythonBlock_1.py", startpos=(101,55))
+    """
+        ).lstrip(),
+        filename="/foo/test_PythonBlock_1.py",
+        startpos=(101, 55),
+    )
     block = PythonBlock(text)
     assert text is block.text
     assert text is FileText(block)
@@ -450,92 +461,204 @@ def test_PythonBlock_doctest_assignments_method_1():
     assert block.get_doctests() == expected
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_PythonBlock_flags_bad_1():
-    # In Python2.x, this should cause a syntax error, since we didn't do
-    # flags='print_function':
-    with pytest.raises(SyntaxError):
-        PythonBlock('print("x",\n file=None)\n').statements
-
-
 def test_PythonBlock_flags_good_1():
     PythonBlock('print("x",\n file=None)\n', flags="print_function").statements
 
 
 def test_PythonBlock_flags_1():
     block = PythonBlock('print("x",\n file=None)\n', flags="print_function")
-    assert block.flags == CompilerFlags(0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert block.flags == print_function_flag
 
 
 def test_PythonBlock_flags_deduce_1():
-    block = PythonBlock(dedent('''
+    block = PythonBlock(
+        dedent(
+            """
         from __future__ import print_function
         print("x",
               file=None)
-    ''').lstrip())
-    assert block.flags == CompilerFlags(0x10000)
+    """
+        ).lstrip()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert block.flags == print_function_flag
+
+
+def test_PythonBlock_flags_type_comment_1():
+    block = PythonBlock(
+        dedent(
+            """
+    a = 1 # type: int
+    b = None # type: ignore
+    """
+        ).lstrip()
+    )
+    if sys.version_info >= (3, 8):
+        # Includes the type_comments flag
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert block.flags == CompilerFlags(0x01000)
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert block.flags == CompilerFlags(0x0000)
+
+
+def test_PythonBlock_flags_type_comment_fail_transform():
+    """
+    See https://github.com/deshaw/pyflyby/issues/171
+
+    
+    $ python3.7 tidy-imports --print test.py
+    def f():
+        # type: () -> None
+        pass
+
+    $ python3.9 tidy-imports --print test.py
+    Traceback (most recent call last):
+    ....
+    SNIP
+    ....
+      File ".../pyflyby/_parse.py", line 65, in _flatten_ast_nodes
+        raise TypeError(
+    TypeError: While processing /tmp/test.py: _flatten_ast_nodes: unexpected str
+
+    /usr/local/bin/tidy-imports: encountered the following problems:
+        /tmp/test.py: TypeError: _flatten_ast_nodes: unexpected str
+
+
+    This is due to the fact that source-to-source does not support ast nodes being strings.
+    """
+    block = PythonBlock(
+    dedent("""
+     def f(x):
+         # type:(str) -> str
+         pass""")
+    )
+
+    s = SourceToSourceFileImportsTransformation(block)
+    assert s.output() == block
+
+
+examples_transform = ["""
+    a = None # type: ignore
+    """]
+
+examples_transform.append(
+"""
+class A:
+    async def func(self, location: str) -> bytes:
+        async with aiofiles.open(location, "rb") as file:
+            return await file.read()
+    """
+        )
+
+if sys.version_info >= (3, 8):
+    examples_transform.append(
+    # positional only
+    """ 
+    def f(x, y=None, / , z=None):
+         pass"""
+        )
+
+@pytest.mark.parametrize("source", examples_transform)
+def test_PythonBlock_flags_type_comment_ignore_fails_transform(source):
+    """
+    See https://github.com/deshaw/pyflyby/issues/174
+
+    Type: ignore are custom ast.AST who have no col_offset.
+    """
+    block = PythonBlock(
+    dedent(source))
+    s = SourceToSourceFileImportsTransformation(block)
+    assert s.output() == block
+
 
 
 def test_PythonBlock_flags_deduce_eq_1():
-    block1 = PythonBlock(dedent('''
+    block1 = PythonBlock(
+        dedent(
+            """
         from __future__ import print_function
         print("x",
               file=None)
-    ''').lstrip())
-    block2 = PythonBlock(dedent('''
-        from __future__ import print_function
-        print("x",
-              file=None)
-    ''').lstrip(), flags=0x10000)
+    """
+        ).lstrip()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        block2 = PythonBlock(
+            dedent(
+                """
+            from __future__ import print_function
+            print("x",
+                  file=None)
+        """
+            ).lstrip(),
+            flags=CompilerFlags.print_function,
+        )
     assert block1 == block2
 
 
 def test_PythonBlock_eqne_1():
     b1a = PythonBlock("foo()\nbar()\n")
     b1b = PythonBlock("foo()\nbar()\n")
-    b2  = PythonBlock("foo()\nBAR()\n")
-    assert     (b1a == b1b)
+    b2 = PythonBlock("foo()\nBAR()\n")
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonBlock_eqne_startpos_1():
     b1a = PythonBlock("foo()\nbar()\n")
-    b1b = PythonBlock("foo()\nbar()\n", startpos=(1,1))
-    b2  = PythonBlock("foo()\nbar()\n", startpos=(1,2))
-    assert     (b1a == b1b)
+    b1b = PythonBlock("foo()\nbar()\n", startpos=(1, 1))
+    b2 = PythonBlock("foo()\nbar()\n", startpos=(1, 2))
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonBlock_eqne_flags_1():
     b1a = PythonBlock("foo", flags="print_function")
-    b1b = PythonBlock("foo", flags=0x10000)
-    b2  = PythonBlock("foo")
-    assert     (b1a == b1b)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        b1b = PythonBlock("foo", flags=CompilerFlags.print_function)
+    b2 = PythonBlock("foo")
+    assert b1a == b1b
     assert not (b1a != b1b)
-    assert     (b1a != b2 )
-    assert not (b1a == b2 )
+    assert b1a != b2
+    assert not (b1a == b2)
 
 
 def test_PythonStatement_from_source_1():
-    stmt = PythonStatement('print("x",\n file=None)\n', flags=0x10000)
-    assert stmt.block == PythonBlock('print("x",\n file=None)\n', flags=0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        stmt = PythonStatement(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
+        assert stmt.block == PythonBlock(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
 
 
 def test_PythonStatement_startpos_1():
-    stmt = PythonStatement('foo()', startpos=(20,30))
-    assert stmt.startpos            == FilePos(20,30)
-    assert stmt.block.startpos      == FilePos(20,30)
-    assert stmt.block.text.startpos == FilePos(20,30)
+    stmt = PythonStatement("foo()", startpos=(20, 30))
+    assert stmt.startpos == FilePos(20, 30)
+    assert stmt.block.startpos == FilePos(20, 30)
+    assert stmt.block.text.startpos == FilePos(20, 30)
 
 
 def test_PythonStatement_from_block_1():
-    block = PythonBlock('print("x",\n file=None)\n', flags=0x10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        block = PythonBlock(
+            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+        )
     stmt = PythonStatement(block)
     assert stmt.block is block
 
@@ -543,15 +666,6 @@ def test_PythonStatement_from_block_1():
 def test_PythonStatement_bad_from_multi_statements_1():
     with pytest.raises(ValueError):
         PythonStatement("a\nb\n")
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_PythonStatement_flags_bad_1():
-    # In Python2.x, this should cause a syntax error, since we didn't do
-    # flags='print_function':
-    with pytest.raises(SyntaxError):
-        PythonStatement('print("x",\n file=None)\n')
 
 
 def test_PythonStatement_flags_good_1():
@@ -658,20 +772,11 @@ def test_str_lineno_strprefix_1():
         0
         r"x"
 '''
-    if PY2:
-        # ur"" is not valid syntax in Python 3
-        code += r'''        Ur"""cc\n
-        dd"""
-    '''
     block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
         PythonStatement('r"aa\\nbb"\n'       , startpos=(101,1)),
         PythonStatement('0\n'                , startpos=(102,1)),
         PythonStatement('r"x"\n'             , startpos=(103,1)),
-    )
-    if PY2:
-        expected_statements += (
-        PythonStatement('Ur"""cc\\n\ndd"""\n', startpos=(104,1)),
     )
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
@@ -680,8 +785,6 @@ def test_str_lineno_strprefix_1():
         ('x'        , FilePos(103,1)),
     ]
 
-    if PY2:
-        expected_literals += [('cc\\n\ndd', FilePos(104,1))]
     assert literals == expected_literals
 
 
@@ -740,17 +843,6 @@ def test_str_lineno_concatenated_1():
         "R" "r""" + "S""""s""S""""s""""
         S"""
 '''
-    if PY2:
-        # ur"" is not valid syntax in Python 3
-        code += """\
-        Ur'''
-        t'''
-"""
-        # Implicit string concatenation of non-bytes and bytes literals is not
-        # valid syntax in Python 3
-        code += '''\
-        r"U" u'u' b"""U"""
-    '''
 
     block = PythonBlock(dedent(code).lstrip(), startpos=(101,1))
     expected_statements = (
@@ -773,11 +865,7 @@ def test_str_lineno_concatenated_1():
         PythonStatement('''"Q" "q"""\n'''          , startpos=(130,1)),
         PythonStatement('''"R" "r""" + "S""""s""S""""s""""\nS"""\n'''     , startpos=(131,1)),
     )
-    if PY2:
-        expected_statements += (
-            PythonStatement("""Ur'''\nt'''\n""" , startpos=(133,1)),
-            PythonStatement('''r"U" u'u' b"""U"""\n''' , startpos=(135,1)),
-        )
+
     assert block.statements == expected_statements
     literals = [(f.s, f.startpos) for f in block.string_literals()]
     expected_literals = [
@@ -801,11 +889,6 @@ def test_str_lineno_concatenated_1():
         ("Rr", FilePos(131,1)),
         ('Ss""Ss\nS', FilePos(131,13)),
     ]
-    if PY2:
-        expected_literals += [
-            ('\nt', FilePos(133, 1)),
-            ("UuU", FilePos(135,1)),
-        ]
     assert literals == expected_literals
 
 
@@ -832,6 +915,39 @@ def test_PythonBlock_compound_statements_1():
         PythonStatement('"""x\ny"""\n'             , startpos=(109,6)),
     )
     assert block.statements == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Does not work pre-3.8")
+def test_str_lineno_expression():
+    # Code that used to be in test_interactive. _annotate_ast_startpos does
+    # not work on it because it cannot handle multiline strings that contained
+    # in a larger expression (they are joined implicitly because of the
+    # parenthesis, even though the delimiters aren't on the same line). This
+    # should start to work correctly in Python 3.8 because it marks the lineno
+    # for multiline strings as the first line rather than the last. See issue #12.
+    code = r'''
+        ipython(
+            # Verify that the auto importer isn't enabled yet.
+            """
+            In [1]: b64decode('x')
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            <ipython-input> in ...
+            NameError: name 'b64decode' is not defined"""
+            # Enable the auto importer.
+            """
+            In [2]: import pyflyby; pyflyby.enable_auto_importer()"""
+            # Verify that the auto importer and tab completion work.
+            """
+            In [3]: b64deco\tde('aGF6ZWxudXQ=')
+            [PYFLYBY] from base64 import b64decode
+            Out[3]: 'hazelnut'
+            """, args=['console'], kernel=kernel)
+'''
+
+    block = PythonBlock(dedent(code).lstrip())
+    assert len(block.statements) == 1
+    assert isinstance(block.statements[0], PythonStatement)
 
 
 def test_PythonBlock_decorator_1():
@@ -891,10 +1007,19 @@ def test_PythonBlock_doctest_with_1():
     expected = (PythonStatement("with 11:\n  22\n", startpos=(5, 11)),)
     assert doctest_block.statements == expected
 
+def test_PythonBlock_doctest_ignore_doctest_options_1():
+    block = PythonBlock(dedent('''
+        def foo():
+            """
+            >>> 123 # doctest:+FOOBAR
+            """
+    '''))
+    doctest_blocks = block.get_doctests()
+    doctest_block, = doctest_blocks
+    expected = (PythonStatement("123 # doctest:+FOOBAR\n", startpos=(4, 9)),)
+    assert doctest_block.statements == expected
 
-@pytest.mark.skipif(
-    sys.version_info < (2,7),
-    reason="Old Python doesn't support multiple context managers")
+
 def test_PythonBlock_with_multi_1():
     block = PythonBlock(dedent('''
         with   A  as  a, B as b, C as c:
@@ -917,31 +1042,11 @@ def test_PythonBlock_with_multi_1():
 #   flagpf = flags contains CompilerFlags("print_function")
 #   futpf = code contains 'from __future__ import print_function'
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement not valid syntax in Python 3.")
-def test_PythonBlock_no_auto_flags_ps_flagps_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip())
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
 
 def test_PythonBlock_no_auto_flags_ps_flagpf_1():
     block = PythonBlock(dedent('''
         print 42
     ''').lstrip(), flags="print_function")
-    with pytest.raises(SyntaxError):
-        block.ast_node
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_PythonBlock_no_auto_flags_pf_flagps_1():
-    block = PythonBlock(dedent('''
-        print(42, out=x)
-    ''').lstrip())
     with pytest.raises(SyntaxError):
         block.ast_node
 
@@ -1021,30 +1126,6 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
     assert     (block.source_flags         & "print_function")
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement is not valid syntax in Python 3.")
-def test_PythonBlock_auto_flags_ps_flagps_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip(), auto_flags=True)
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
-
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print statement is not valid syntax in Python 3.")
-def test_PythonBlock_auto_flags_ps_flagpf_1():
-    block = PythonBlock(dedent('''
-        print 42
-    ''').lstrip(), flags="print_function", auto_flags=True)
-    assert not (block.flags                & "print_function")
-    assert not (block.ast_node.input_flags & "print_function")
-    assert not (block.source_flags         & "print_function")
-
-
 def test_PythonBlock_auto_flags_ps_flagpf_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
@@ -1067,14 +1148,9 @@ def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
     ''').lstrip(), auto_flags=True)
-    if PY2:
-        assert     (block.flags                & "print_function")
-        assert     (block.ast_node.input_flags & "print_function")
-        assert not (block.source_flags         & "print_function")
-    else:
-        assert not (block.flags                & "print_function")
-        assert not (block.ast_node.input_flags & "print_function")
-        assert not (block.source_flags         & "print_function")
+    assert not (block.flags                & "print_function")
+    assert not (block.ast_node.input_flags & "print_function")
+    assert not (block.source_flags         & "print_function")
 
 
 def test_PythonBlock_auto_flags_pf_flagpf_1():
@@ -1187,9 +1263,15 @@ def test_PythonStatement_flags_1():
                         flags="division")
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
-    assert s1.block.source_flags == CompilerFlags(0)
-    assert s0.block.flags        == CompilerFlags("unicode_literals", "division")
-    assert s1.block.flags        == CompilerFlags("unicode_literals", "division")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert s1.block.source_flags == CompilerFlags(0)
+    if sys.version_info >= (3, 8):
+        assert s0.block.flags == CompilerFlags("unicode_literals", "division",)
+        assert s1.block.flags == CompilerFlags("unicode_literals", "division",)
+    else:
+        assert s0.block.flags == CompilerFlags("unicode_literals", "division")
+        assert s1.block.flags == CompilerFlags("unicode_literals", "division")
 
 
 def test_PythonStatement_auto_flags_1():
@@ -1198,11 +1280,10 @@ def test_PythonStatement_auto_flags_1():
         flags="division", auto_flags=True)
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
-    assert s1.block.source_flags == CompilerFlags(0)
-    if PY2:
-        expected = CompilerFlags("unicode_literals", "division", "print_function")
-    else:
-        expected = CompilerFlags("unicode_literals", "division")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert s1.block.source_flags == CompilerFlags(0)
+    expected = CompilerFlags("unicode_literals", "division")
     assert s0.block.flags        == expected
     assert s1.block.flags        == expected
 
@@ -1222,14 +1303,126 @@ def test_parsable_explicit_flags_1():
     assert block.parsable
 
 
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_parsable_missing_flags_no_auto_flags_1():
-    block = PythonBlock("print(3, file=4)")
-    assert not block.parsable
-
-
 def test_parsable_missing_flags_auto_flags_1():
     block = PythonBlock("print(3, file=4)", auto_flags=True)
     assert block.parsable
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        "print(abc=123, *args, **kwargs)",
+        "print(*args, ijk=123, **kwargs)",
+        "print(7, *args, **kwargs)",
+        "print(*args, 12, **kwargs)",
+    ],
+)
+def test_parsable_Call_Ast_args_kwargs(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+def func(x: List[int], y: List[int]) -> List[int]:
+    return x + y
+"""
+    ],
+)
+def test_parsable_annotation_order(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        '''x='abc'
+f"""\
+This is a
+multi-line
+f-string
+with input {x}.\
+"""
+''',
+        '''x=123
+f"""\
+{x}
+is the value x
+"""
+''',
+        '''x=456
+f"""{x}
+is the value x
+"""
+''',
+        '''x=123
+f"""\
+In the middle
+{x}
+is the value.
+"""
+''',
+    ],
+)
+def test_parse_f_string_ast_ann(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+x = 123
+fail_here = f"{x.stem} is no-op. \\
+(Do we need to delete this still?)"
+""",'''
+BLAH = "blah"
+
+def f(t):
+    pass
+
+f(f"""
+{BLAH}
+""")
+''',
+'''
+def foo():
+    return f"""
+        {name}
+    """
+''',
+'''
+func(arg=f"""
+""")
+'''
+    ],
+)
+def test_join_formatted_string_columns(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        '''b"""
+two
+""" b"""
+four
+five
+six
+"""
+''',
+        '''
+print(b"""
+""", sep="")
+''',
+    ],
+)
+def test_bytes_concat(input):
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node

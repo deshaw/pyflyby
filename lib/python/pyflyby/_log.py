@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   contextlib               import contextmanager
 import logging
@@ -158,45 +157,6 @@ def _PromptToolkitStdoutProxyRawCtx(proxy):
             proxy.__dict__ = prev
 
 
-@contextmanager
-def _NoRegisterLoggerHandlerInHandlerListCtx():
-    """
-    Work around a bug in the ``logging`` module for Python 2.x-3.2.
-
-    The Python stdlib ``logging`` module has a bug where you sometimes get the
-    following warning at exit::
-
-      Exception TypeError: "'NoneType' object is not callable" in <function
-      _removeHandlerRef at 0x10a1b3f50> ignored
-
-    This is caused by shutdown ordering affecting which globals in the logging
-    module are available to the _removeHandlerRef function.
-
-    Python 3.3 fixes this.
-
-    For earlier versions of Python, this context manager works around the
-    issue by avoiding registering a handler in the _handlerList.  This means
-    that we no longer call "flush()" from the atexit callback.  However, that
-    was a no-op anyway, and even if we needed it, we could call it ourselves
-    atexit.
-
-    :see:
-      http://bugs.python.org/issue9501
-    """
-    if not hasattr(logging, "_handlerList"):
-        yield
-        return
-    if sys.version_info >= (3, 3):
-        yield
-        return
-    try:
-        orig_handlerList = logging._handlerList[:]
-        yield
-    finally:
-        logging._handlerList[:] = orig_handlerList
-
-
-
 class PyflybyLogger(Logger):
 
     _LEVELS = dict( (k, getattr(logging, k))
@@ -204,8 +164,7 @@ class PyflybyLogger(Logger):
 
     def __init__(self, name, level):
         Logger.__init__(self, name)
-        with _NoRegisterLoggerHandlerInHandlerListCtx():
-            handler = _PyflybyHandler()
+        handler = _PyflybyHandler()
         self.addHandler(handler)
         self.set_level(level)
 

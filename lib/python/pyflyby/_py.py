@@ -2,13 +2,16 @@
 # Copyright (C) 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-"""
-The `py' program (part of the pyflyby project) is a command-line multitool for
+r"""
+The `py` program (part of the pyflyby project) is a command-line multitool for
 running python code, with heuristic intention guessing, automatic importing,
 and debugging support.
 
 Invocation summary
 ==================
+
+.. code::
+
   py [--file]   filename.py arg1 arg2   Execute a file
   py [--eval]  'function(arg1, arg2)'   Evaluate an expression/statement
   py [--apply]  function arg1 arg2      Call function(arg1, arg2)
@@ -33,6 +36,7 @@ Features
   * Heuristic action mode guessing: If none of --file, --eval, --apply,
     --module, or --map is specified, then guess what to do, choosing one of
     these actions:
+
       * Execute (run) a file
       * Evaluate concatenated arguments
       * Run a module
@@ -42,8 +46,8 @@ Features
   * Automatic importing: All action modes (except run_module) automatically
     import as needed.
 
-  * Heuristic argument evaluation: By default, `py --eval', `py --apply', and
-    `py --map' guess whether the arguments should be interpreted as
+  * Heuristic argument evaluation: By default, `py --eval`, `py --apply`, and
+    `py --map` guess whether the arguments should be interpreted as
     expressions or literal strings. A "--" by itself will designate subsequent
     args as strings.  A "-" by itself will be replaced by the contents of
     stdin as a string.
@@ -70,47 +74,50 @@ Features
 
 Warning
 =======
-`py' is intended as an interactive tool.  When writing shell aliases for
-interactive use, the `--safe' option can be useful.  When writing scripts,
-it's better to avoid all heuristic guessing; use regular `python -c ...', or
+`py` is intended as an interactive tool.  When writing shell aliases for
+interactive use, the `--safe` option can be useful.  When writing scripts,
+it's better to avoid all heuristic guessing; use regular `python -c ...`, or
 better yet, a full-fledged python program (and run tidy-imports).
 
 
 Options
 =======
 
-Global options valid before code argument:
+.. code::
 
-  --args=string    Interpret all arguments as literal strings.
-                   (The "--" argument also specifies remaining arguments to be
-                   literal strings.)
-  --args=eval      Evaluate all arguments as expressions.
-  --args=auto      (Default) Heuristically guess whether to evaluate arguments
-                   as literal strings or expressions.
-  --output=silent  Don't print the result of evaluation.
-  --output=str     Print str(result).
-  --output=repr    Print repr(result).
-  --output=pprint  Print pprint.pformat(result).
-  --output=repr-if-not-none
-                   Print repr(result), but only if result is not None.
-  --output=pprint-if-not-none
-                   Print pprint.pformat(result), but only if result is not None.
-  --output=interactive
-                   (Default) Print result.__interactive_display__() if defined,
-                   else pprint if result is not None.
-  --output=exit    Raise SystemExit(result).
-  --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
-  --quiet/-q       Log only error messages to stderr; omit info and warnings.
-  --interactive/-i Run an IPython shell after completion
-  --debug/-d       Run the target code/file/etc under the debugger.  If a PID is
-                   given, then instead attach a debugger to the target PID.
-  --verbose        Turn on verbose messages from pyflyby.
+    Global options valid before code argument:
 
-Pseudo-actions valid before, after, or without code argument:
+      --args=string    Interpret all arguments as literal strings.
+                       (The "--" argument also specifies remaining arguments to be
+                       literal strings.)
+      --args=eval      Evaluate all arguments as expressions.
+      --args=auto      (Default) Heuristically guess whether to evaluate arguments
+                       as literal strings or expressions.
+      --output=silent  Don't print the result of evaluation.
+      --output=str     Print str(result).
+      --output=repr    Print repr(result).
+      --output=pprint  Print pprint.pformat(result).
+      --output=repr-if-not-none
+                       Print repr(result), but only if result is not None.
+      --output=pprint-if-not-none
+                       Print pprint.pformat(result), but only if result is not None.
+      --output=interactive
+                       (Default) Print result.__interactive_display__() if defined,
+                       else pprint if result is not None.
+      --output=exit    Raise SystemExit(result).
+      --safe           Equivalent to --args=strings and PYFLYBY_PATH=EMPTY.
+      --quiet, --q     Log only error messages to stderr; omit info and warnings.
+      --interactive, --i
+                       Run an IPython shell after completion
+      --debug, --d     Run the target code file etc under the debugger.  If a PID is
+                       given, then instead attach a debugger to the target PID.
+      --verbose        Turn on verbose messages from pyflyby.
 
-  --version        Print pyflyby version or version of a module.
-  --help/-h/?      Print this help or help for a function or module.
-  --source/??      Print source code for a function or module.
+    Pseudo-actions valid before, after, or without code argument:
+
+      --version        Print pyflyby version or version of a module.
+      --help, --h, --? Print this help or help for a function or module.
+      --source, --??   Print source code for a function or module.
 
 
 Examples
@@ -183,33 +190,37 @@ Examples
 
   Command-line calculator (single arguments)::
 
-    $ py '(5+7j) ** 12'
+    $ py '(5+7j) \** 12'
     (65602966976-150532462080j)
 
-  Rationalize a decimal (apply bound method)
+  Rationalize a decimal (apply bound method)::
+
     $ py 2.5.as_integer_ratio
     [PYFLYBY] 2.5.as_integer_ratio()
     (5, 2)
 
-  Rationalize a decimal (apply unbound method)
+  Rationalize a decimal (apply unbound method)::
+
     $ py float.as_integer_ratio 2.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
 
-  Rationalize decimals (map/apply)
+  Rationalize decimals (map/apply)::
+
     $ py --map float.as_integer_ratio 2.5 3.5
     [PYFLYBY] float.as_integer_ratio(2.5)
     (5, 2)
     [PYFLYBY] float.as_integer_ratio(3.5)
     (7, 2)
 
-  Square numbers (map lambda)
-    $ py --map 'lambda x: x**2' 3 4 5
-    [PYFLYBY] (lambda x: x**2)(3)
+  Square numbers (map lambda)::
+
+    $ py --map 'lambda x: x \**2' 3 4 5
+    [PYFLYBY] (lambda x: x \**2)(3)
     9
-    [PYFLYBY] (lambda x: x**2)(4)
+    [PYFLYBY] (lambda x: x \**2)(4)
     16
-    [PYFLYBY] (lambda x: x**2)(5)
+    [PYFLYBY] (lambda x: x \**2)(5)
     25
 
   Find length of string (using "-" for stdin)::
@@ -261,8 +272,7 @@ Examples
 
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   functools                import total_ordering
 
@@ -369,7 +379,10 @@ FLAGS = CompilerFlags(["absolute_import", "with_statement", "division",
 
 
 def _get_argspec(arg, _recurse=False):
-    from inspect import getargspec, ArgSpec
+    if sys.version_info[0] == 3:
+        from inspect import getfullargspec as getargspec, FullArgSpec as ArgSpec
+    else:
+        from inspect import getargspec, ArgSpec
     if isinstance(arg, FunctionType):
         return getargspec(arg)
     elif isinstance(arg, MethodType):
@@ -385,16 +398,14 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    # Old style class. Should only run in Python 2. types.ClassType doesn't
-    # exist in Python 3.
-    elif isinstance(arg, getattr(types, 'ClassType', type)):
-        argspec = _get_argspec(arg.__init__)
-        return ArgSpec(argspec.args[1:], *argspec[1:])
     elif _recurse and hasattr(arg, '__call__'):
         return _get_argspec(arg.__call__, _recurse=False)
     elif callable(arg):
         # Unknown, probably a built-in method.
-        return ArgSpec((), "args", "kwargs", None)
+        if sys.version_info[0] == 3:
+            return ArgSpec((), "args", "kwargs", None, [], None, {})
+        else:
+            return ArgSpec((), "args", "kwargs", None)
     raise TypeError(
         "_get_argspec: unexpected %s" % (type(arg).__name__,))
 
@@ -419,14 +430,14 @@ def _requires_parens_as_function(function_name):
       >>> _requires_parens_as_function("(foo)+(bar)")
       True
 
-    TODO: this might be obsolete if we use unparse instead of keeping original
-    user formatting (or alternatively, unparse should use something like this).
-
     :type function_name:
       ``str``
     :rtype:
       ``bool``
     """
+    # TODO: this might be obsolete if we use unparse instead of keeping original
+    #     user formatting (or alternatively, unparse should use something like this).
+
     function_name = PythonBlock(function_name, flags=FLAGS)
     node = function_name.expression_ast_node
     if not node:
@@ -486,7 +497,8 @@ def _build_function_usage_string(function_name, argspec, prefix):
     usage.append("  >"+">> " + _format_call_spec(function_name, argspec))
     usage.append("")
     usage.append("Command-line signature:")
-    if not argspec.args and argspec.varargs and argspec.keywords:
+    keywords = argspec.keywords if sys.version_info[0] == 2 else argspec.varkw
+    if not argspec.args and argspec.varargs and keywords:
         # We have no information about the arguments.  It's probably a
         # built-in where getargspec failed.
         usage.append("  $ %s%s ...\n" % (prefix, function_name))
@@ -503,7 +515,13 @@ def _build_function_usage_string(function_name, argspec, prefix):
     if argspec.varargs:
         syntax1 += " %s..." % argspec.varargs
     syntax1 += "]" * len(defaults)
-    if argspec.keywords:
+    if sys.version_info[0] == 3:
+        for arg in argspec.kwonlyargs:
+            if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
+                syntax1 += " [--%s=...]" % (arg,)
+            else:
+                syntax1 += " --%s=..." % (arg,)
+    if keywords:
         syntax1 += " [--...]"
     usage.append(syntax1)
     # usage.append("or:")
@@ -513,9 +531,15 @@ def _build_function_usage_string(function_name, argspec, prefix):
             syntax2 += " [--%s=...]" % (arg,)
         else:
             syntax2 += " --%s=..." % (arg,)
+    if sys.version_info[0] == 3:
+        for arg in argspec.kwonlyargs:
+            if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
+                syntax2 += " [--%s=...]" % (arg,)
+            else:
+                syntax2 += " --%s=..." % (arg,)
     if argspec.varargs:
         syntax2 += " %s..." % argspec.varargs
-    if argspec.keywords:
+    if keywords:
         syntax2 += " [--...]"
     usage.append(syntax2)
     usage.append("")
@@ -693,12 +717,20 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
     for argname, default in zip(argspec.args[len(argspec.args)-len(defaults):],
                                 defaults):
         argname2default[argname] = make_expr(default, "raw_value")
+    if sys.version_info[0] == 3:
+        if argspec.kwonlydefaults:
+            for argname, default in argspec.kwonlydefaults.items():
+                argname2default[argname] = make_expr(default, "raw_value")
     # Create a map from prefix to arguments with that prefix.  E.g. {"foo":
     # ["foobar", "foobaz"]}
     prefix2argname = {}
     for argname in argspec.args:
         for prefix in prefixes(argname):
             prefix2argname.setdefault(prefix, []).append(argname)
+    if sys.version_info[0] == 3:
+        for argname in argspec.kwonlyargs:
+            for prefix in prefixes(argname):
+                prefix2argname.setdefault(prefix, []).append(argname)
     # Enumerate over input arguments.
     got_pos_args = []
     got_keyword_args = {}
@@ -737,8 +769,15 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                         raise _ParseInterruptedWantHelp
                     if argname in ["source"]:
                         raise _ParseInterruptedWantSource
-                if not argspec.keywords:
-                    raise ParseError("Unknown option name %s" % (argname,))
+                if sys.version_info[0] == 3:
+                    if not argspec.varkw:
+                        raise ParseError("Unknown option name %s" %
+                                         (argname,))
+                else:
+                    if not argspec.keywords:
+                        raise ParseError("Unknown option name %s" %
+                                         (argname,))
+
             elif len(matched_argnames) > 1:
                 raise ParseError(
                     "Ambiguous %s: could mean one of: %s"
@@ -787,6 +826,25 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                 "Error parsing value for --%s=%s: %s: %s"
                 % (argname, expr, type(e).__name__, e))
         parsed_args.append(value)
+
+    if sys.version_info[0] == 3:
+        for argname in argspec.kwonlyargs:
+            try:
+                expr = got_keyword_args.pop(argname)
+            except KeyError:
+                try:
+                    expr = argname2default[argname]
+                except KeyError:
+                    raise ParseError(
+                        "missing required keyword argument %s" % (argname,))
+
+            try:
+                value = expr.value
+            except Exception as e:
+                raise ParseError(
+                    "Error parsing value for --%s=%s: %s: %s"
+                    % (argname, expr, type(e).__name__, e))
+            parsed_kwargs[argname] = value
 
     if len(got_pos_args) > len(argspec.args):
         if argspec.varargs:
@@ -938,10 +996,8 @@ def _handle_user_exception(exc_info=None):
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
-    print("Traceback (most recent call last):", file=sys.stderr)
     import traceback
-    traceback.print_tb(exc_info[2])
-    print("%s: %s" % (exc_info[0].__name__, exc_info[1]), file=sys.stderr)
+    traceback.print_exception(*exc_info)
     raise SystemExit(1)
 
 
@@ -1412,6 +1468,11 @@ class _Namespace(object):
         except:
             _handle_user_exception()
 
+    def __repr__(self):
+        return "<{} object at 0x{:0x} \nglobals:{} \nautoimported:{}>".format(
+            type(self).__name__, id(self), self.globals, self.autoimported
+        )
+
 
 class _PyMain(object):
 
@@ -1474,6 +1535,7 @@ class _PyMain(object):
             raise Exception("No such file: %s%s" % (filename, additional_msg))
         with SysArgvCtx(str(filename), *cmd_args):
             sys.path.insert(0, str(filename.dir))
+            self.namespace.globals["__file__"] = str(filename)
             result = self.namespace.auto_eval(filename, debug=self.debug)
             print_result(result, output_mode)
             self.result = result

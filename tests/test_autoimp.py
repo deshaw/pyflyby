@@ -3,8 +3,7 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 import os
@@ -14,14 +13,14 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 
-from   six                      import PY2, PY3
-
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
 from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
                                         scan_for_import_issues)
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
+from   pyflyby._flags           import CompilerFlags
+from pyflyby._util import CwdCtx
 
 
 @pytest.fixture
@@ -146,10 +145,7 @@ def test_find_missing_imports_lambda_3():
 def test_find_missing_imports_list_comprehension_1():
     result   = find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])
     result   = _dilist2strlist(result)
-    if PY2:
-        expected = ['z']
-    else:
-        expected = ['y', 'z']
+    expected = ['y', 'z']
     assert expected == result
 
 
@@ -242,6 +238,19 @@ def test_find_missing_imports_function_paramlist_1():
     assert expected == result
 
 
+def test_find_missing_imports_function_paramlist_2():
+    code = dedent("""
+        from somewhere import given, data
+
+        @given(data())
+        def blargh(data):
+            pass
+    """)
+    result  = find_missing_imports(code, [{}])
+    result  = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
 def test_find_missing_imports_function_defaults_1():
     code = dedent("""
         e = 1
@@ -262,6 +271,20 @@ def test_find_missing_imports_function_defaults_kwargs_1():
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
     expected = ['args', 'kwargs', 'y']
+    assert expected == result
+    
+
+def test_find_missing_imports_kwarg_annotate():
+    """
+    pfb issue 162
+    """
+    code = dedent("""
+        def func_pfb162(args:Dict, **kwargs:Any):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['Any', 'Dict']
     assert expected == result
 
 
@@ -441,19 +464,79 @@ def test_find_missing_imports_class_base_1():
     assert expected == result
 
 
+def test_find_missing_imports_class_name_2():
+    code = dedent(
+        """
+        class Decimal:
+            def foo(self):
+
+                Decimal.x = 1
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+@pytest.mark.xfail
+def test_find_missing_import_xfail_after_pr_152():
+    code = dedent(
+        """
+        class MyClass(object):
+            Outer = MyClass
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ["MyClass"]
+    assert result == expected
+
+
+def test_method_reference_current_class():
+    """
+    A method can reference the current class
+
+    But only if this is a toplevel class, nesting won't work in Python.
+    """
+    code = dedent(
+        """
+       class Decimal:
+           def foo(self):
+               Decimal.x = 1
+               Float.y=1
+
+           class Real:
+
+               def foo():
+                   Real.r = 1
+   """
+    )
+    missing, unused = scan_for_import_issues(code, [{}])
+    # result = _dilist2strlist(result)
+    assert missing == [
+        (5, DottedIdentifier("Float.y")),
+        (10, DottedIdentifier("Real.r")),
+    ]
+    assert unused == []
+
+
+
 def test_find_missing_imports_class_name_1():
-    code = dedent("""
+    code = dedent(
+        """
         class Corinne(object):
             pass
         class Bobtail(object):
             class Chippewa(object):
-                pass
-            Rockton = Passall, Corinne, Bobtail, Chippewa
+                Bobtail
+            Rockton = Passall, Corinne, Chippewa
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
     expected = ['Bobtail', 'Passall']
     assert expected == result
+
 
 
 def test_find_missing_imports_class_members_1():
@@ -633,10 +716,7 @@ def test_find_missing_imports_class_member_generator_expression_1():
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
-    if PY2:
-        expected = ['y1']
-    else:
-        expected = ['y1', 'y2']
+    expected = ['y1', 'y2']
     assert expected == result
 
 
@@ -778,14 +858,9 @@ def test_find_missing_imports_global_1():
 
 
 def test_find_missing_imports_complex_1():
-    if PY2:
-        code = dedent("""
-            x = 3+4j+5L+k+u'a'
-        """)
-    else:
-        code = dedent("""
-            x = 3+4j+5+k+u'a'
-        """)
+    code = dedent("""
+        x = 3+4j+5+k+u'a'
+    """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)
     expected = ['k']
@@ -856,8 +931,19 @@ def test_find_missing_imports_code_loop_1():
     assert expected == result
 
 @pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only syntax.")
+def test_find_missing_imports_positional_only_args_1():
+    code = dedent("""
+        def func(x, /, y):
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
 def test_find_missing_imports_keyword_only_args_1():
     code = dedent("""
         def func(*args, kwonly=b):
@@ -868,9 +954,29 @@ def test_find_missing_imports_keyword_only_args_1():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
+def test_find_missing_imports_keyword_only_args_2():
+    code = dedent("""
+        def func(*args, kwonly):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+def test_find_missing_imports_keyword_only_args_3():
+    code = dedent("""
+        def func(*args, kwonly, kwonly2=b):
+            a = kwonly
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['b']
+    assert expected == result
+
+
 def test_find_missing_imports_annotations_1():
     code = dedent("""
         def func(a: b) -> c:
@@ -881,9 +987,7 @@ def test_find_missing_imports_annotations_1():
     expected = ['b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_annotations_2():
     code = dedent("""
     a: b = c
@@ -893,9 +997,7 @@ def test_find_missing_imports_annotations_2():
     expected = ['b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_assignments_1():
     code = dedent("""
     a, *b = c
@@ -905,9 +1007,7 @@ def test_find_missing_imports_star_assignments_1():
     expected = ['c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_expression_1():
     code = dedent("""
     [a, *b]
@@ -918,9 +1018,6 @@ def test_find_missing_imports_star_expression_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_star_expression_2():
     code = dedent("""
     {a: 1, **b, **{c: 1}}
@@ -930,9 +1027,7 @@ def test_find_missing_imports_star_expression_2():
     expected = ['a', 'b', 'c']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_star_expression_function_call_1():
     code = dedent("""
     f(a, *b, **c, d=e, **g)
@@ -943,7 +1038,6 @@ def test_find_missing_imports_star_expression_function_call_1():
     assert expected == result
 
 def test_find_missing_imports_star_expression_function_call_2():
-    # Python 2-valid syntax
     code = dedent("""
     f(a, b=c, *d, **e)
     """)
@@ -952,9 +1046,7 @@ def test_find_missing_imports_star_expression_function_call_2():
     expected = ['a', 'c', 'd', 'e', 'f']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_python_3_metaclass_1():
     code = dedent("""
     class Test(metaclass=TestMeta):
@@ -966,9 +1058,6 @@ def test_find_missing_imports_python_3_metaclass_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_f_string_1():
     code = dedent("""
     a = 1
@@ -979,9 +1068,7 @@ def test_find_missing_imports_f_string_1():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_f_string_2():
     code = dedent("""
     a = 1
@@ -992,9 +1079,7 @@ def test_find_missing_imports_f_string_2():
     expected = ['b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_f_string_3():
     # Recursive format spec
     code = dedent("""
@@ -1025,9 +1110,6 @@ def test_find_missing_imports_true_false_none_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_matmul_1():
     code = dedent("""
     a@b
@@ -1037,9 +1119,7 @@ def test_find_missing_imports_matmul_1():
     expected = ['a', 'b']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_async_await_1():
     code = dedent("""
     async def f():
@@ -1052,9 +1132,7 @@ def test_find_missing_imports_async_await_1():
     expected = ['a', 'c', 'e', 'h']
     assert expected == result
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_find_missing_imports_async_comprehension_1():
     code = dedent("""
     async def f():
@@ -1066,9 +1144,6 @@ def test_find_missing_imports_async_comprehension_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
 def test_find_missing_imports_yield_from_1():
     code = dedent("""
     def f():
@@ -1079,8 +1154,21 @@ def test_find_missing_imports_yield_from_1():
     expected = ['g']
     assert expected == result
 
+
+def test_find_missing_imports_not_async_def():
+    code = dedent(
+        """
+    async def f():
+        pass
+    f()
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    expected = []
+    assert expected == result
+
+
 def test_find_missing_imports_nested_with_1():
-    # Handled differently in the ast in Python 2 and 3
     code = dedent("""
     with a as b, c as d:
         pass
@@ -1125,6 +1213,99 @@ def test_find_missing_imports_exception_3():
     result = _dilist2strlist(result)
     expected = ['SomeException']
     assert expected == result
+
+
+def test_find_missing_imports_tuple_ellipsis_type_1():
+    code = dedent("""
+    tuple[Foo, ..., Bar]
+    """)
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ['Bar', 'Foo']
+    assert expected == result
+
+
+# Only Python 3.8 includes type comments in the ast, so we only support this
+# there (see issue #31).
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_1():
+    code = dedent("""
+    from typing import Sequence
+    def foo(strings  # type: Sequence[str]
+            ):
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
+
+# Only Python 3.8 includes type comments in the ast, so we only support this
+# there (see issue #31, 171, 174).
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_2():
+    code = dedent("""
+    from typing import Sequence
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_3():
+    code = dedent("""
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == [(1, DottedIdentifier('Sequence'))]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_type_comment_4():
+    code = dedent("""
+    from typing import Sequence, Tuple
+    def foo(strings):
+        # type: (Sequence[str]) -> None
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == [(2, Import('from typing import Tuple'))]
+    assert missing == []
+
+# Python 3.8 uses the correct line number for multiline strings (the first
+# line), making _annotate_ast_startpos irrelevant. Otherwise, the logic for
+# getting this right is too hard. See issue #12.
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Python 3.8+-only support.")
+def test_scan_for_import_issues_multiline_string_1():
+    code = dedent('''
+    x = (
+        """
+        a
+        """
+        # blah
+        "z"
+    )
+    ''')
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
 
 def test_scan_for_import_issues_dictcomp_missing_1():
     code = dedent("""
@@ -1176,10 +1357,11 @@ def test_scan_for_import_issues_class_subclass_imported_class_1():
     assert unused == []
 
 
-# This is currently buggy.
-# The problem is that we postpone the check for C1.base = m1.C1, and by the
-# time we check it, we've already replaced the thing in the scope.
-@pytest.mark.xfail
+# This is now an XPASS, let's remove the xfail to see if it fails only on some CI version.
+# # This is currently buggy.
+# # The problem is that we postpone the check for C1.base = m1.C1, and by the
+# # time we check it, we've already replaced the thing in the scope.
+# @pytest.mark.xfail
 def test_scan_for_import_issues_class_subclass_imported_class_in_func_1():
     code = dedent("""
         def f1():
@@ -1339,8 +1521,8 @@ def test_scan_for_import_issues_comprehension_attribute_missing_1():
     assert missing == [(3, DottedIdentifier('xx'))]
     assert unused == []
 
-
-@pytest.mark.xfail
+# this is now an XPASS, check that it's passing everywhere in CI
+# @pytest.mark.xfail
 def test_scan_for_import_issues_comprehension_attribute_complex_1():
     code = dedent("""
         dd = []
@@ -1427,9 +1609,7 @@ def test_scan_for_import_issues_setattr_1():
         bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(4, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
@@ -1443,12 +1623,63 @@ def test_scan_for_import_issues_setattr_in_func_1():
             bb.xx.yy = 1
     """)
     missing, unused = scan_for_import_issues(code)
-    # For now we intentionally don't auto-import 'bb' because that's more
-    # likely to be a mistake.
-    assert missing == []
+    assert missing == [(5, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
     assert unused == [(2, Import('import cc'))]
+
+
+def test_scan_for_import_issues_class_defined_after_use():
+    code = dedent("""
+    def foo():
+        Bar.counter = 1
+
+    class Bar:
+        counter = 0
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
+def test_setattr_is_not_unused():
+    code = dedent("""
+        from a import b
+        def f():
+            b.xx.yy = 1
+
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # b should be considered used
+    assert missing == []
+    assert unused == []
+
+
+def test_all_exports_1():
+    code = dedent("""
+        from os import path, walk, read
+        __all__ = ['path', 'rmdir', 'walk']
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # path and walk should not be unused
+    assert missing == [(3, DottedIdentifier('rmdir'))]
+    assert unused == [(2, Import('from os import read'))]
+
+
+def test_all_exports_2():
+    code = dedent("""
+        from __future__ import absolute_import, division
+
+        __all__ = ["defaultdict", "rmdir"]
+
+
+        def defaultdict():
+            pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(4, DottedIdentifier('rmdir'))]
+    assert unused == []
+
 
 
 def test_load_symbol_1():
@@ -1572,26 +1803,13 @@ def test_auto_eval_exec_1():
 
 
 def test_auto_eval_no_auto_flags_ps_flagps_1(capsys):
-    if PY2:
-        auto_eval("print 3.00", flags=0, auto_flags=False)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
-    else:
-        auto_eval("print(3.00)", flags=0, auto_flags=False)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
+    auto_eval("print(3.00)", flags=CompilerFlags.from_int(0), auto_flags=False)
+    out, _ = capsys.readouterr()
+    assert out == "3.0\n"
 
 def test_auto_eval_no_auto_flags_ps_flag_pf1():
     with pytest.raises(SyntaxError):
         auto_eval("print 3.00", flags="print_function", auto_flags=False)
-
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print function is not invalid syntax in Python 3.")
-def test_auto_eval_no_auto_flags_pf_flagps_1():
-    with pytest.raises(SyntaxError):
-        auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=False)
 
 
 def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
@@ -1602,32 +1820,19 @@ def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
 
 
 def test_auto_eval_auto_flags_ps_flagps_1(capsys):
-    if PY2:
-        auto_eval("print 3.00", flags=0, auto_flags=True)
-        out, _ = capsys.readouterr()
-        assert out == "3.0\n"
-    else:
-        with pytest.raises(SyntaxError):
-            auto_eval("print 3.00", flags=0, auto_flags=True)
-
-@pytest.mark.skipif(
-    PY3,
-    reason="print not as a function cannot be valid syntax in Python 3.")
-def test_auto_eval_auto_flags_ps_flag_pf1(capsys):
-    auto_eval("print 3.00", flags="print_function", auto_flags=True)
-    out, _ = capsys.readouterr()
-    assert out == "3.0\n"
+    with pytest.raises(SyntaxError):
+        auto_eval("print 3.00", flags=CompilerFlags.from_int(0), auto_flags=True)
 
 
 def test_auto_eval_auto_flags_pf_flagps_1(capsys):
-    auto_eval("print(3.00, file=sys.stdout)", flags=0, auto_flags=True)
+    auto_eval("print(3.00, file=sys.stdout)", flags=CompilerFlags.from_int(0), auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import sys\n3.0\n"
 
 
 def test_auto_eval_auto_flags_pf_flag_pf1(capsys):
     auto_eval("print(3.00, file=sys.stdout)",
-              flags="print_function", auto_flags=True)
+              flags=CompilerFlags("print_function"), auto_flags=True)
     out, _ = capsys.readouterr()
     assert out == "[PYFLYBY] import sys\n3.0\n"
 
@@ -1752,18 +1957,11 @@ def test_auto_import_unknown_but_in_db1(tpp, capsys):
     db = ImportDB('import photon70447198')
     auto_import("photon70447198.asdfasdf", [{}], db=db)
     out, _ = capsys.readouterr()
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] import photon70447198
-            [PYFLYBY] Error attempting to 'import photon70447198': ImportError: No module named photon70447198
-            Traceback (most recent call last):
-        """).lstrip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] import photon70447198
-            [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
-            Traceback (most recent call last):
-        """).lstrip()
+    expected = dedent("""
+        [PYFLYBY] import photon70447198
+        [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
+        Traceback (most recent call last):
+    """).lstrip()
 
     assert out.startswith(expected)
 
@@ -1788,18 +1986,11 @@ def test_auto_import_indirect_importerror_1(tpp, capsys):
     """)
     auto_import("neutron46291483.asdfasdf", [{}])
     out, _ = capsys.readouterr()
-    if PY2:
-        expected = dedent("""
-            [PYFLYBY] import neutron46291483
-            [PYFLYBY] Error attempting to 'import neutron46291483': ImportError: No module named baryon96446873
-            Traceback (most recent call last):
-        """).lstrip()
-    else:
-        expected = dedent("""
-            [PYFLYBY] import neutron46291483
-            [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
-            Traceback (most recent call last):
-        """).lstrip()
+    expected = dedent("""
+        [PYFLYBY] import neutron46291483
+        [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
+        Traceback (most recent call last):
+    """).lstrip()
 
     assert out.startswith(expected)
 
@@ -1814,5 +2005,59 @@ def test_auto_import_nameerror_1(tpp, capsys):
         [PYFLYBY] import lepton69688541
         [PYFLYBY] Error attempting to 'import lepton69688541': NameError: name 'foo' is not defined
         Traceback (most recent call last):
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_post_import_hook_incomplete_import():
+    db = ImportDB('import glob')
+    expected = Import('import glob')
+    def test_hook(val):
+        assert val == expected
+    auto_import("glob.glob('*')", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_alias_import():
+    db = ImportDB('import numpy as np')
+    expected = Import('import numpy as np')
+    def test_hook(val):
+        assert val == expected
+    auto_import("np", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_from_statement():
+    db = ImportDB('from numpy import compat')
+    expected = Import('from numpy import compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("compat", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_post_import_hook_fullname():
+    db = ImportDB('import numpy.compat')
+    expected = Import('import numpy.compat')
+    def test_hook(val):
+        assert val == expected
+    auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)
+
+
+def test_namespace_package(tpp, capsys):
+    os.mkdir(str(tpp/'namespace_package'))
+    auto_import("namespace_package", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import namespace_package
+    """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_unsafe_filename_warning(tpp, capsys):
+    filepath = os.path.join(tpp._filename, 'foo#bar')
+    os.mkdir(filepath)
+    with CwdCtx(filepath):
+        auto_import("pyflyby", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent("""
+        [PYFLYBY] import pyflyby
     """).lstrip()
     assert out.startswith(expected)

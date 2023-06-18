@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   functools                import total_ordering
 import io
@@ -16,10 +15,8 @@ from   six                      import string_types, PY3
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
 
-if PY3:
-    from tokenize import detect_encoding
-else:
-    from lib2to3.pgen2.tokenize import detect_encoding
+from tokenize import detect_encoding
+
 
 class UnsafeFilenameError(ValueError):
     pass
@@ -120,8 +117,16 @@ class Filename(object):
         return type(self)(os.path.realpath(self._filename))
 
     @property
+    def realpath(self):
+        return type(self)(os.path.realpath(self._filename))
+
+    @property
     def exists(self):
         return os.path.exists(self._filename)
+
+    @property
+    def islink(self):
+        return os.path.islink(self._filename)
 
     @property
     def isdir(self):
@@ -209,8 +214,6 @@ def which(program):
     :return:
       Program on $PATH, or ``None`` if not found.
     """
-    if "/" in program:
-        raise ValueError("which(): input should be a basename")
     # See if it exists in the current directory.
     candidate = Filename(program)
     if candidate.isreadable:
@@ -674,10 +677,10 @@ def atomic_write_file(filename, data):
 
 def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
     """
-    Enumerate *.py files, recursively.
+    Enumerate ``*.py`` files, recursively.
 
     Arguments that are files are always included.
-    Arguments that are directories are recursively searched for *.py files.
+    Arguments that are directories are recursively searched for ``*.py`` files.
 
     :type pathnames:
       ``list`` of `Filename` s

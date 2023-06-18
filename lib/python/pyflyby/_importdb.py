@@ -2,15 +2,14 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   collections              import defaultdict
 import os
 import re
 import six
 
-from   pyflyby._file            import Filename, expand_py_files_from_args
+from pyflyby._file import Filename, expand_py_files_from_args, UnsafeFilenameError
 from   pyflyby._idents          import dotted_prefixes
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importstmt      import Import, ImportStatement
@@ -20,18 +19,18 @@ from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
 
 @memoize
-def _find_etc_dir():
-    dir = Filename(__file__).real.dir
-    while True:
+def _find_etc_dirs():
+    result = []
+    dirs = Filename(__file__).real.dir.ancestors[:-1]
+    for dir in dirs:
         candidate = dir / "etc/pyflyby"
         if candidate.isdir:
-            return candidate
-        parent = dir.dir
-        if parent == dir:
+            result.append(candidate)
             break
-        dir = parent
-    return None
-
+    global_dir = Filename("/etc/pyflyby")
+    if global_dir.exists:
+        result.append(global_dir)
+    return result
 
 
 def _get_env_var(env_var_name, default):
@@ -113,7 +112,7 @@ def _ancestors_on_same_partition(filename):
     partition.  Suppose /u/homer/aa exists but /u/homer/aa/bb does not exist.
     Then::
 
-      >> _ancestors_on_same_partition("/u/homer/aa/bb/cc")
+      >>> _ancestors_on_same_partition(Filename("/u/homer/aa/bb/cc")) # doctest: +SKIP
       [Filename("/u/homer", Filename("/u/homer/aa")]
 
     :rtype:
@@ -142,7 +141,7 @@ def _expand_tripledots(pathnames, target_dirname):
     For example, suppose a partition is mounted on /u/homer; /u is a different
     partition.  Then::
 
-      >> _expand_tripledots(["/foo", ".../tt"], "/u/homer/aa")
+      >>> _expand_tripledots(["/foo", ".../tt"], "/u/homer/aa") # doctest: +SKIP
       [Filename("/foo"), Filename("/u/homer/tt"), Filename("/u/homer/aa/tt")]
 
     :type pathnames:
@@ -161,8 +160,12 @@ def _expand_tripledots(pathnames, target_dirname):
             result.append(Filename(pathname))
             continue
         suffix = pathname[4:]
-        expanded = [
-            p / suffix for p in _ancestors_on_same_partition(target_dirname) ]
+        expanded = []
+        for p in _ancestors_on_same_partition(target_dirname):
+            try:
+                expanded.append(p / suffix)
+            except UnsafeFilenameError:
+                continue
         result.extend(expanded[::-1])
     return result
 
@@ -265,7 +268,10 @@ class ImportDB(object):
             if target_dirname.isdir:
                 break
             target_dirname = target_dirname.dir
-        target_dirname = target_dirname.real
+        try:
+            target_dirname = target_dirname.real
+        except UnsafeFilenameError:
+            pass
         if target_dirname != cache_keys[-1][0]:
             cache_keys.append((1,
                                target_dirname,
@@ -277,9 +283,7 @@ class ImportDB(object):
             except KeyError:
                 pass
         DEFAULT_PYFLYBY_PATH = []
-        etc_dir = _find_etc_dir()
-        if etc_dir:
-            DEFAULT_PYFLYBY_PATH.append(str(etc_dir))
+        DEFAULT_PYFLYBY_PATH += [str(p) for p in _find_etc_dirs()]
         DEFAULT_PYFLYBY_PATH += [
             ".../.pyflyby",
             "~/.pyflyby",

@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import six
 
@@ -13,6 +12,7 @@ class FormatParams(object):
     wrap_paren = True
     indent = 4
     hanging_indent = 'never'
+    use_black = False
 
     def __new__(cls, *args, **kwargs):
         if not kwargs and len(args) == 1 and isinstance(args[0], cls):
