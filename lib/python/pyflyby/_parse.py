@@ -800,7 +800,7 @@ class PythonStatement(object):
     Representation of a top-level Python statement or consecutive
     comments/blank lines.
 
-      >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')  #doctest: +SKIP
+      >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')
       PythonStatement('print("x",\n file=None)\n', flags=0x10000)
 
     Implemented as a wrapper around a `PythonBlock` containing at most one

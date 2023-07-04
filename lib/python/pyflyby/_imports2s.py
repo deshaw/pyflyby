@@ -462,7 +462,7 @@ def replace_star_imports(codeblock, params=None):
 
         >>> codeblock = PythonBlock('from keyword import *', filename="/tmp/x.py")
 
-        >>> print(replace_star_imports(codeblock)) # doctest: +SKIP
+        >>> print(replace_star_imports(codeblock))
         [PYFLYBY] /tmp/x.py: replaced 'from keyword import *' with 2 imports
         from keyword import iskeyword, kwlist
         <BLANKLINE>
