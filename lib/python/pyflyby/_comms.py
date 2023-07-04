@@ -1,7 +1,12 @@
 
-from   pyflyby._log             import logger
-from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation, fix_unused_and_missing_imports, replace_star_imports, SourceToSourceImportBlockTransformation
+from __future__ import print_function
+
+from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
+                                        SourceToSourceImportBlockTransformation,
+                                        fix_unused_and_missing_imports,
+                                        replace_star_imports)
 from   pyflyby._importstmt      import Import
+from   pyflyby._log             import logger
 import six
 
 # These are comm targets that the frontend (lab/notebook) is expected to
