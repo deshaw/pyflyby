@@ -3,7 +3,6 @@ from   pyflyby._log             import logger
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation, fix_unused_and_missing_imports, replace_star_imports, SourceToSourceImportBlockTransformation
 from   pyflyby._importstmt      import Import
 import six
-import traceback
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
