@@ -35,13 +35,15 @@ class CompilerFlags(int):
     """
     Representation of Python "compiler flags", i.e. features from __future__.
 
-      >>> print(CompilerFlags(0x18000).__interactive_display__()) # doctest: +SKIP
+      >>> import warnings
+      >>> warnings.filterwarnings("ignore", category=DeprecationWarning)
+      >>> print(CompilerFlags(0x18000).__interactive_display__())
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print(CompilerFlags(0x10000, 0x8000).__interactive_display__()) # doctest: +SKIP
+      >>> print(CompilerFlags(0x10000, 0x8000).__interactive_display__())
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
-      >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__()) # doctest: +SKIP
+      >>> print(CompilerFlags('with_statement', 'print_function').__interactive_display__()) #doctest:+ELLIPSIS
       CompilerFlags(0x18000) # from __future__ import with_statement, print_function
 
       >>> compile("print('x', file=None)", "?", "exec", flags=CompilerFlags("print_function"), dont_inherit=1) #doctest:+ELLIPSIS
