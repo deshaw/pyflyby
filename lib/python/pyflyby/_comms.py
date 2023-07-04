@@ -3,6 +3,7 @@ from   pyflyby._log             import logger
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation, fix_unused_and_missing_imports, replace_star_imports, SourceToSourceImportBlockTransformation
 from   pyflyby._importstmt      import Import
 import six
+import traceback
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
@@ -159,6 +160,7 @@ def comm_open_handler(comm, message):
                 }
             )
         elif data["type"] == TIDY_IMPORTS:
+            checksum = data.get("checksum", '')
             cell_array = data.get("cellArray", [])
             import_statements, processed_cell_array = [], []
             for cell in cell_array:
@@ -171,7 +173,7 @@ def comm_open_handler(comm, message):
             code_with_collected_imports = (
                 "\n".join(import_statements)
                 + "\n"
-                + "".join(
+                + "\n".join(
                     [
                         cell["text"] if cell["type"] == "code" else ""
                         for cell in processed_cell_array
@@ -186,6 +188,7 @@ def comm_open_handler(comm, message):
             import_statements, _ = extract_import_statements(code_post_tidy_imports)
             comm.send(
                 {
+                    "checksum": checksum,
                     "type": TIDY_IMPORTS,
                     "cells": processed_cell_array,
                     "imports": [im.strip() for im in import_statements],
