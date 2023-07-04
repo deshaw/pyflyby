@@ -916,10 +916,7 @@ def test_xreload_class_doc_1(tpp):
             '''
     """)
     xreload("experience90592183")
-    if sys.version_info[:2] >= (3,3):
-        assert Beautiful.__doc__ == "\n       ab\n        CD\n    "
-    else:
-        assert Beautiful.__doc__ == "\n       ab\n        cd\n    "
+    assert Beautiful.__doc__ == "\n       ab\n        cd\n    "
 
 
 def test_xreload_function_attribute_1(tpp):

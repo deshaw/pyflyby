@@ -4252,7 +4252,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 
 
 @pytest.mark.skipif(
-    _IPYTHON_VERSION < (7, 0) or (sys.version_info < (3, 7)),
+    _IPYTHON_VERSION < (7, 0),
     reason="old IPython and Python won't work with breakpoint()",
 )
 @retry

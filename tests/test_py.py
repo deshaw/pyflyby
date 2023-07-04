@@ -2474,28 +2474,6 @@ def test_info_function_lambda_1():
     assert expected == result
 
 
-@pytest.mark.skipif(
-    (os.uname()[0] not in ["Linux", "Darwin"]) or (sys.version_info[0] == 3),
-    reason="unsupported OS",
-)
-def test_ctypes_1():
-    uname = os.uname()[0]
-    if uname == 'Linux':
-        libname = "libc.so.6"
-    elif uname == 'Darwin':
-        libname = "libc.dylib"
-    else:
-        raise AssertionError
-    result = py('--output=silent', 'ctypes.CDLL("%s").printf'%libname, "b'%03d'", "7")
-    expected = dedent("""
-        [PYFLYBY] import ctypes
-        [PYFLYBY] ctypes.CDLL("{libname}").printf
-        [PYFLYBY] ctypes.CDLL("{libname}").printf(b'%03d', 7)
-        007
-    """).strip().format(libname=libname)
-    assert expected == result, repr(result)
-
-
 def test_name_eval_1():
     result = py("-c", "__name__")
     expected = dedent("""
