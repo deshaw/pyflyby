@@ -497,7 +497,7 @@ def _build_function_usage_string(function_name, argspec, prefix):
     usage.append("  >"+">> " + _format_call_spec(function_name, argspec))
     usage.append("")
     usage.append("Command-line signature:")
-    keywords = argspec.keywords if sys.version_info[0] == 2 else argspec.varkw
+    keywords = argspec.varkw
     if not argspec.args and argspec.varargs and keywords:
         # We have no information about the arguments.  It's probably a
         # built-in where getargspec failed.
