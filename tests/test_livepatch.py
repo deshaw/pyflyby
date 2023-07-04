@@ -916,7 +916,7 @@ def test_xreload_class_doc_1(tpp):
             '''
     """)
     xreload("experience90592183")
-    assert Beautiful.__doc__ == "\n       ab\n        cd\n    "
+    assert Beautiful.__doc__ == "\n       ab\n        CD\n    "
 
 
 def test_xreload_function_attribute_1(tpp):
