@@ -426,20 +426,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # Since we use startpos for breaking lines, we need to set startpos to
         # the beginning of the line.
         # In Python 3, the col_offset for the with is 0 again.
-        if (isinstance(ast_node, ast.With) and
-            not isinstance(parent_ast_node, ast.With) and
-            sys.version_info[:2] == (2,7)):
-            assert ast_node.col_offset >= 5
-            if startpos.lineno == text.startpos.lineno:
-                linestart = text.startpos.colno
-            else:
-                linestart = 1
-            line = text[(startpos.lineno,linestart):startpos]
-            m = re.search(r"\bwith\s+$", str(line))
-            assert m
-            lk = len(m.group()) # length of 'with   ' including spaces
-            startpos = FilePos(startpos.lineno, startpos.colno - lk)
-            assert str(text[startpos:(startpos+(0,4))]) == "with"
         ast_node.startpos = startpos
         if sys.version_info <= (3, 8):
             ast_node.startpos = max(startpos, minpos)
