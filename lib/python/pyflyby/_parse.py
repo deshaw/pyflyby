@@ -787,7 +787,7 @@ class PythonStatement(object):
     comments/blank lines.
 
       >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')
-      PythonStatement('print("x",\n file=None)\n', flags=0x10000)
+      PythonStatement('print("x",\n file=None)\n', flags=0x100000)
 
     Implemented as a wrapper around a `PythonBlock` containing at most one
     top-level AST node.
