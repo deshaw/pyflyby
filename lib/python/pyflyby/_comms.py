@@ -127,7 +127,7 @@ def extract_import_statements(text):
         code (str): The code from which import statements have to be extracted
 
     Returns:
-        list[str], str: The first returned value is a list of all import
+        (list[str], str): The first returned value is a list of all import
         statements. The second returned value is the remaining code after
         extracting the import statements.
     """
