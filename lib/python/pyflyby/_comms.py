@@ -136,6 +136,25 @@ def extract_import_statements(text):
     remaining_code = "\n".join([str(st.pretty_print()) if not isinstance(st, SourceToSourceImportBlockTransformation) else "" for st in transformer.blocks])
     return imports, remaining_code
 
+def collect_code_with_imports_on_top(imports: list[str], cell_array: list[dict]):
+   return (
+        "\n".join(imports)
+        + "\n"
+        + "\n".join(
+            [
+                cell["text"] if cell["type"] == "code" else ""
+                for cell in cell_array
+            ]
+        )
+    )
+
+def run_tidy_imports(code: str) -> str:
+   return str(
+        fix_unused_and_missing_imports(
+            replace_star_imports(code)
+        )
+    )
+
 def comm_open_handler(comm, message):
     """
     Handles comm_open message for pyflyby custom comm messages.
@@ -174,21 +193,8 @@ def comm_open_handler(comm, message):
                     imports, text = extract_import_statements(text)
                     import_statements += imports
                 processed_cell_array.append({"text": text, "type": cell_type})
-            code_with_collected_imports = (
-                "\n".join(import_statements)
-                + "\n"
-                + "\n".join(
-                    [
-                        cell["text"] if cell["type"] == "code" else ""
-                        for cell in processed_cell_array
-                    ]
-                )
-            )
-            code_post_tidy_imports = str(
-                fix_unused_and_missing_imports(
-                    replace_star_imports(code_with_collected_imports)
-                )
-            )
+            code_with_collected_imports = collect_code_with_imports_on_top(import_statements, processed_cell_array)
+            code_post_tidy_imports = run_tidy_imports(code_with_collected_imports)
             import_statements, _ = extract_import_statements(code_post_tidy_imports)
             comm.send(
                 {
