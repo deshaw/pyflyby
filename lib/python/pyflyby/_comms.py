@@ -136,7 +136,7 @@ def extract_import_statements(text):
     remaining_code = "\n".join([str(st.pretty_print()) if not isinstance(st, SourceToSourceImportBlockTransformation) else "" for st in transformer.blocks])
     return imports, remaining_code
 
-def collect_code_with_imports_on_top(imports: list[str], cell_array: list[dict]):
+def collect_code_with_imports_on_top(imports, cell_array):
    return (
         "\n".join(imports)
         + "\n"
@@ -148,7 +148,7 @@ def collect_code_with_imports_on_top(imports: list[str], cell_array: list[dict])
         )
     )
 
-def run_tidy_imports(code: str) -> str:
+def run_tidy_imports(code):
    return str(
         fix_unused_and_missing_imports(
             replace_star_imports(code)
