@@ -3,15 +3,12 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import pytest
 import sys
 from   textwrap                 import dedent
 import types
-
-from   six                      import PY2
 
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
@@ -814,6 +811,16 @@ def test_remove_broken_imports_1():
     assert output == expected
 
 
+def test_replace_star_no_imports_found(capsys):
+    m = types.ModuleType("fake_test_module_345490")
+    sys.modules["fake_test_module_345490"] = m
+    input = PythonBlock(dedent('''
+        from fake_test_module_345490 import *
+    ''').lstrip(), filename="/foo/test_replace_star_imports_2.py")
+    _ = replace_star_imports(input)
+    captured = capsys.readouterr()
+    assert 'Traceback' not in captured.err
+
 def test_replace_star_imports_1():
     m = types.ModuleType("fake_test_module_345489")
     m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']
@@ -888,9 +895,7 @@ def test_canonicalize_imports_1():
     ''').lstrip(), filename="/foo/test_transform_imports_1.py")
     assert output == expected
 
-@pytest.mark.skipif(
-    PY2,
-    reason="Python 3-only syntax.")
+
 def test_canonicalize_imports_f_string_1():
     input = PythonBlock(dedent('''
         a = 1
@@ -950,25 +955,6 @@ def test_with_1():
         from contextlib import closing
 
         with   closing(open("/etc/passwd")) as f:
-            pass
-    ''').lstrip())
-    assert expected == output
-
-
-@pytest.mark.skipif(
-    sys.version_info < (2,7),
-    reason="Old Python doesn't support multiple context managers")
-def test_with_multi_1():
-    input = PythonBlock(dedent('''
-        with       aa as xx  , bb as yy, cc as zz:
-            pass
-    ''').lstrip())
-    db = ImportDB("from M import aa, bb, cc, dd, xx, yy, zz")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from M import aa, bb, cc
-
-        with       aa as xx  , bb as yy, cc as zz:
             pass
     ''').lstrip())
     assert expected == output

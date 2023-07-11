@@ -2,8 +2,7 @@
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
@@ -523,7 +522,7 @@ def replace_star_imports(codeblock, params=None):
                     # other modules.  Currently we intentionally exclude those
                     # imports since usually we don't want them.  TODO: do
                     # something better here.
-                    logger.warning("%s: found nothing to import from %s, ",
+                    logger.warning("%s: found nothing to import from %s, "
                                    "leaving unchanged: '%s'",
                                    filename, module, imp)
                     new_imports.append(imp)

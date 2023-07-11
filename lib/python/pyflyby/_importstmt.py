@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   collections              import namedtuple
@@ -103,10 +102,8 @@ class Import(object):
 
     @classmethod
     def from_parts(cls, fullname, import_as):
-        if not isinstance(fullname, str):
-            raise TypeError
-        if not isinstance(import_as, str):
-            raise TypeError
+        assert isinstance(fullname, str)
+        assert isinstance(import_as, str)
         self = object.__new__(cls)
         self.fullname = fullname
         self.import_as = import_as
@@ -312,6 +309,16 @@ class Import(object):
             return NotImplemented
         return self._data < other._data
 
+def _validate_alias(arg):
+    """
+    Ensure each alias is a tuple (str, None|str), and return it.
+
+    """
+    assert isinstance(arg, tuple)
+    a0,a1 = arg
+    assert isinstance(a0, str)
+    assert isinstance(a1, (str, type(None)))
+    return arg
 
 @total_ordering
 class ImportStatement(object):
@@ -336,23 +343,12 @@ class ImportStatement(object):
 
     @classmethod
     def from_parts(cls, fromname, aliases):
+        assert isinstance(aliases, list)
+        assert len(aliases) > 0
+        
         self = object.__new__(cls)
         self.fromname = fromname
-        if not len(aliases):
-            raise ValueError
-        def interpret_alias(arg):
-            if isinstance(arg, str):
-                return (arg, None)
-            if not isinstance(arg, tuple):
-                raise TypeError
-            if not len(arg) == 2:
-                raise TypeError
-            if not isinstance(arg[0], str):
-                raise TypeError
-            if not (arg[1] is None or isinstance(arg[1], str)):
-                raise TypeError
-            return arg
-        self.aliases = tuple(interpret_alias(a) for a in aliases)
+        self.aliases = tuple(_validate_alias(a) for a in aliases)
         return self
 
     @classmethod
@@ -393,20 +389,18 @@ class ImportStatement(object):
           `ImportStatement`
         """
         if isinstance(node, ast.ImportFrom):
-            if isinstance(node.module, str):
-                module = node.module
-            elif node.module is None:
-                # In python2.7, ast.parse("from . import blah") yields
-                # node.module = None.  In python2.6, it's the empty string.
+            if node.module is None:
                 module = ''
             else:
-                raise TypeError("unexpected node.module=%s"
-                                % type(node.module).__name__)
+                assert isinstance(node.module, str)
+                module = node.module
             fromname = '.' * node.level + module
         elif isinstance(node, ast.Import):
             fromname = None
         else:
-            raise NonImportStatementError
+            raise NonImportStatementError(
+                    'Expected ImportStatement, got {node}'.format(node=node)
+                    )
         aliases = [ (alias.name, alias.asname) for alias in node.names ]
         return cls.from_parts(fromname, aliases)
 
@@ -427,7 +421,7 @@ class ImportStatement(object):
             raise ValueError
         module_names = set(imp.split.module_name for imp in imports)
         if len(module_names) > 1:
-            raise Exception(
+            raise ValueError(
                 "Inconsistent module names %r" % (sorted(module_names),))
         fromname = list(module_names)[0]
         aliases = [ imp.split[1:] for imp in imports ]

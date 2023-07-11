@@ -129,8 +129,7 @@ XXX test
 
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 import os
@@ -140,7 +139,6 @@ import sys
 import time
 import types
 
-from   six                      import PY2
 from   six.moves                import reload_module
 
 import inspect
@@ -280,10 +278,7 @@ def livepatch(old, new, modname=None,
             visit_stack=visit_stack)
         # Find out which optional kwargs the hook wants.
         kwargs = {}
-        if PY2:
-            argspec = inspect.getargspec(hook)
-        else:
-            argspec = inspect.getfullargspec(hook)
+        argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
         if hasattr(hook, "__func__"):
             # Skip 'self' arg.
@@ -294,7 +289,7 @@ def livepatch(old, new, modname=None,
         for n in argnames:
             try:
                 kwargs[n] = avail_kwargs[n]
-                if argspec.keywords if PY2 else argspec.varkw:
+                if argspec.varkw:
                     break
             except KeyError:
                 # For compatibility, allow first argument to be 'old' with any
@@ -307,7 +302,7 @@ def livepatch(old, new, modname=None,
                     # Rely on default being set.  If a default isn't set, the
                     # user will get a TypeError.
                     pass
-        if argspec.keywords if PY2 else argspec.varkw:
+        if argspec.varkw:
             # Use all available kwargs.
             kwargs = avail_kwargs
         # Call hook.
@@ -526,26 +521,14 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
     else:
         return newobj
 
-
-if six.PY2:
-    _LIVEPATCH_DISPATCH_TABLE = {
-        object            : _livepatch__object,
-        dict              : _livepatch__dict,
-        type              : _livepatch__class,
-        types.ClassType   : _livepatch__class,
-        types.FunctionType: _livepatch__function,
-        types.MethodType  : _livepatch__method,
-        types.ModuleType  : _livepatch__module,
-    }
-elif six.PY3:
-    _LIVEPATCH_DISPATCH_TABLE = {
-        object            : _livepatch__object,
-        dict              : _livepatch__dict,
-        type              : _livepatch__class,
-        types.FunctionType: _livepatch__function,
-        types.MethodType  : _livepatch__method,
-        types.ModuleType  : _livepatch__module,
-    }
+_LIVEPATCH_DISPATCH_TABLE = {
+    object            : _livepatch__object,
+    dict              : _livepatch__dict,
+    type              : _livepatch__class,
+    types.FunctionType: _livepatch__function,
+    types.MethodType  : _livepatch__method,
+    types.ModuleType  : _livepatch__module,
+}
 
 
 def _get_definition_module(obj):

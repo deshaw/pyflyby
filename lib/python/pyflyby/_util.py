@@ -2,22 +2,18 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   contextlib               import contextmanager
 import inspect
 import os
 import six
-from   six                      import PY3, reraise
+from   six                      import reraise
 import sys
 import types
 
 # Python 2/3 compatibility
 DictProxyType = type(object.__dict__)
-
-class Object(object):
-    pass
 
 
 def memoize(function):
@@ -256,12 +252,9 @@ class FunctionWithGlobals(object):
 
 
     def __get__(self, inst, cls=None):
-        if PY3:
-            if inst is None:
-                return self
-            return types.MethodType(self, inst)
-        else:
-            return types.MethodType(self, inst, cls)
+        if inst is None:
+            return self
+        return types.MethodType(self, inst)
 
 
 
@@ -343,7 +336,7 @@ class Aspect(object):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
         if (isinstance(joinpoint, (types.FunctionType, six.class_types, type))
-            and not (PY3 and joinpoint.__name__ != joinpoint.__qualname__)):
+            and not (joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
                 joinpoint.__name__)
@@ -351,34 +344,21 @@ class Aspect(object):
             self._name      = joinpoint.__name__
             self._original  = spec
             assert spec == self._container[self._name], joinpoint
-        elif isinstance(joinpoint, types.MethodType) or (PY3 and isinstance(joinpoint,
+        elif isinstance(joinpoint, types.MethodType) or (isinstance(joinpoint,
             types.FunctionType) and joinpoint.__name__ !=
             joinpoint.__qualname__) or isinstance(joinpoint, property):
             if isinstance(joinpoint, property):
                 joinpoint = joinpoint.fget
                 self._wrapper = property
-            if PY3:
-                self._qname = '%s.%s' % (joinpoint.__module__,
-                                         joinpoint.__qualname__)
-                self._name      = joinpoint.__name__
-            else:
-                self._qname = "%s.%s.%s" % (
-                    joinpoint.__self__.__class__.__module__,
-                    joinpoint.__self__.__class__.__name__,
-                    joinpoint.__func__.__name__)
-                self._name      = joinpoint.__func__.__name__
+            self._qname = '%s.%s' % (joinpoint.__module__,
+                                     joinpoint.__qualname__)
+            self._name      = joinpoint.__name__
             if getattr(joinpoint, '__self__', None) is None:
-                # Unbound method in Python 2 only. In Python 3, there are no unbound methods
-                # (they are just functions).
-                if PY3:
-                    container_obj   = getattr(inspect.getmodule(joinpoint),
-                       joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
-                else:
-                    container_obj   = joinpoint.im_class
+                container_obj   = getattr(inspect.getmodule(joinpoint),
+                   joinpoint.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
+
                 self._container = _WritableDictProxy(container_obj)
-                # __func__ gives the function for the Python 2 unbound method.
-                # In Python 3, spec is already a function.
-                self._original  = getattr(spec, '__func__', spec)
+                self._original  = spec
             else:
                 # Instance method.
                 container_obj   = joinpoint.__self__
@@ -493,14 +473,10 @@ def cmp(a, b):
     return (a > b) - (a < b)
 
 
-# Create a context manager with an arbitrary number of contexts. This is
-# the same as Py2 contextlib.nested, but that one is removed in Py3.
-if six.PY2:
-    from contextlib import nested
-else:
-    from contextlib import ExitStack
-    @contextmanager
-    def nested(*mgrs):
-        with ExitStack() as stack:
-            ctxes = [stack.enter_context(mgr) for mgr in mgrs]
-            yield ctxes
+# Create a context manager with an arbitrary number of contexts.
+from contextlib import ExitStack
+@contextmanager
+def nested(*mgrs):
+    with ExitStack() as stack:
+        ctxes = [stack.enter_context(mgr) for mgr in mgrs]
+        yield ctxes

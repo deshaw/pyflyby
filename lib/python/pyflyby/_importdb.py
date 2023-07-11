@@ -2,15 +2,14 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   collections              import defaultdict
 import os
 import re
 import six
 
-from   pyflyby._file            import Filename, expand_py_files_from_args
+from pyflyby._file import Filename, expand_py_files_from_args, UnsafeFilenameError
 from   pyflyby._idents          import dotted_prefixes
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importstmt      import Import, ImportStatement
@@ -161,8 +160,12 @@ def _expand_tripledots(pathnames, target_dirname):
             result.append(Filename(pathname))
             continue
         suffix = pathname[4:]
-        expanded = [
-            p / suffix for p in _ancestors_on_same_partition(target_dirname) ]
+        expanded = []
+        for p in _ancestors_on_same_partition(target_dirname):
+            try:
+                expanded.append(p / suffix)
+            except UnsafeFilenameError:
+                continue
         result.extend(expanded[::-1])
     return result
 
@@ -265,7 +268,10 @@ class ImportDB(object):
             if target_dirname.isdir:
                 break
             target_dirname = target_dirname.dir
-        target_dirname = target_dirname.real
+        try:
+            target_dirname = target_dirname.real
+        except UnsafeFilenameError:
+            pass
         if target_dirname != cache_keys[-1][0]:
             cache_keys.append((1,
                                target_dirname,

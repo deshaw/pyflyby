@@ -2,24 +2,18 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018, 2019 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 import contextlib
 import copy
 import six
-from   six                      import PY2, PY3, exec_, reraise
+from   six                      import exec_, reraise
 from   six.moves                import builtins
 import sys
 import types
 
-if PY3:
-    from collections.abc import Sequence
-else:
-    # This is deprecated in Python 3
-    from collections import Sequence
-
+from collections.abc import Sequence
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -584,16 +578,12 @@ class _MissingImportFinder(object):
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
-        if PY3:
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
-        else:
-            assert node._fields == ('name', 'bases', 'body', 'decorator_list')
+        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         self.visit(node.bases)
         self.visit(node.decorator_list)
         # The class's name is only visible to others (not to the body to the
         # class), but is accessible in the methods themselves. See https://github.com/deshaw/pyflyby/issues/147
-        if PY3:
-            self.visit(node.keywords)
+        self.visit(node.keywords)
 
         # we only care about the first defined class,
         # we don't detect issues with nested classes.
@@ -605,6 +595,7 @@ class _MissingImportFinder(object):
                 self._visit_Store(node.name)
             self.visit(node.body)
             self._in_class_def -= 1
+        self._remove_from_missing_imports(node.name)
         self._visit_Store(node.name)
 
     def visit_AsyncFunctionDef(self, node):
@@ -618,18 +609,15 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        if PY2:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list'), node._fields
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         else:
             assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             self.visit(node.decorator_list)
-            if PY3:
-                if node.returns:
-                    self.visit(node.returns)
+            if node.returns:
+                self.visit(node.returns)
             if sys.version_info >= (3, 8):
                 self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
@@ -683,9 +671,7 @@ class _MissingImportFinder(object):
         self.visit(node)
 
     def visit_arguments(self, node):
-        if PY2:
-            assert node._fields == ('args', 'vararg', 'kwarg', 'defaults'), node._fields
-        elif sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8):
             assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         else:
             assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
@@ -701,22 +687,20 @@ class _MissingImportFinder(object):
         # context
         with self._UpScopeCtx():
             self.visit(node.defaults)
-            if PY3:
-                for i in node.kw_defaults:
-                    if i:
-                        self.visit(i)
+            for i in node.kw_defaults:
+                if i:
+                    self.visit(i)
         # Store arg names.
         self.visit(node.args)
-        if PY3:
-            self.visit(node.kwonlyargs)
+        self.visit(node.kwonlyargs)
         if sys.version_info >= (3, 8):
             self.visit(node.posonlyargs)
         # may be None.
-        if node.vararg and PY3:
+        if node.vararg:
             self.visit(node.vararg)
         else:
             self._visit_Store(node.vararg)
-        if node.kwarg and PY3:
+        if node.kwarg:
             self.visit(node.kwarg)
         else:
             self._visit_Store(node.kwarg)
@@ -726,12 +710,7 @@ class _MissingImportFinder(object):
         if node.type:
             self.visit(node.type)
         if node.name:
-            # ExceptHandler.name is a string in Python 3 and a Name with Store in
-            # Python 2
-            if PY3:
-                self._visit_Store(node.name)
-            else:
-                self.visit(node.name)
+            self._visit_Store(node.name)
         self.visit(node.body)
 
     def visit_Dict(self, node):
@@ -771,11 +750,7 @@ class _MissingImportFinder(object):
         # a list comprehensive _does_ leak variables out of its scope (unlike
         # generator expressions).
         # For Python3, we do need to enter a new scope here.
-        if PY3:
-            with self._NewScopeCtx(include_class_scopes=True):
-                self.visit(node.generators)
-                self.visit(node.elt)
-        else:
+        with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.generators)
             self.visit(node.elt)
 
@@ -784,7 +759,7 @@ class _MissingImportFinder(object):
         # This is similar to the generic visit, except:
         #  - We visit the comprehension node(s) before the elt node.
         #  - We create a new scope for the variables.
-        # We do enter a new scope (for both py2 and py3).  A dict comprehension
+        # We do enter a new scope.  A dict comprehension
         # does _not_ leak variables out of its scope (unlike py2 list
         # comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
@@ -794,7 +769,7 @@ class _MissingImportFinder(object):
 
     def visit_SetComp(self, node):
         # Visit a set comprehension node.
-        # We do enter a new scope (for both py2 and py3).  A set comprehension
+        # We do enter a new scope.  A set comprehension
         # does _not_ leak variables out of its scope (unlike py2 list
         # comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
@@ -803,7 +778,7 @@ class _MissingImportFinder(object):
 
     def visit_GeneratorExp(self, node):
         # Visit a generator expression node.
-        # We do enter a new scope (for both py2 and py3).  A generator
+        # We do enter a new scope.  A generator
         # expression does _not_ leak variables out of its scope (unlike py2
         # list comprehensions).
         with self._NewScopeCtx(include_class_scopes=True):
@@ -832,7 +807,6 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_arg(self, node):
-        assert not PY2
         if sys.version_info >= (3, 8):
             assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         else:
@@ -894,7 +868,7 @@ class _MissingImportFinder(object):
         if fullname is None:
             return
         scope = self.scopestack[-1]
-        if PY3 and isinstance(fullname, ast.arg):
+        if isinstance(fullname, ast.arg):
             fullname = fullname.arg
         if self.unused_imports is not None:
             if fullname != '*':
@@ -903,7 +877,7 @@ class _MissingImportFinder(object):
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
                     if symbol_needs_import(ancestor, self.scopestack):
-                        m = (self._lineno, DottedIdentifier(fullname))
+                        m = (self._lineno, DottedIdentifier(fullname, scope_info=self._get_scope_info()))
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -912,6 +886,24 @@ class _MissingImportFinder(object):
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
+
+    def _remove_from_missing_imports(self, fullname):
+        for missing_import in self.missing_imports:
+            # If it was defined inside a class method, then it wouldn't have been added to
+            # the missing imports anyways.
+            # See the following tests:
+            # - tests.test_autoimp.test_method_reference_current_class
+            # - tests.test_autoimp.test_find_missing_imports_class_name_1
+            # - tests.test_autoimp.test_scan_for_import_issues_class_defined_after_use
+            inside_class = missing_import[1].scope_info.get('_in_class_def')
+            if missing_import[1].startswith(fullname) and not inside_class:
+                self.missing_imports.remove(missing_import)
+
+    def _get_scope_info(self):
+        return {
+            "scopestack": self.scopestack,
+            "_in_class_def": self._in_class_def,
+        }
 
     def visit_Delete(self, node):
         scope = self.scopestack[-1]
@@ -1000,8 +992,7 @@ class _MissingImportFinder(object):
         better to refactor symbol_needs_import so that it just returns the
         object it found, and we mark it as used here.)
         """
-
-        fullname = DottedIdentifier(fullname)
+        fullname = DottedIdentifier(fullname, scope_info=self._get_scope_info())
         if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
@@ -1147,7 +1138,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
     LOAD_ATTR    = opmap['LOAD_ATTR']
-    LOAD_METHOD = opmap['LOAD_METHOD'] if PY3 else None
+    LOAD_METHOD = opmap['LOAD_METHOD']
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']
@@ -1246,20 +1237,12 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         op = _op(c)
         i += 1
         if op >= HAVE_ARGUMENT:
-            if PY2:
-                oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256 + extended_arg
-                extended_arg = 0
-                i = i+2
-                if op == EXTENDED_ARG:
-                    extended_arg = oparg*65536
-                    continue
-            else:
-                oparg = bytecode[i] | extended_arg
-                extended_arg = 0
-                if op == EXTENDED_ARG:
-                    extended_arg = (oparg << 8)
-                    continue
-                i += 1
+            oparg = bytecode[i] | extended_arg
+            extended_arg = 0
+            if op == EXTENDED_ARG:
+                extended_arg = (oparg << 8)
+                continue
+            i += 1
 
         if pending is not None:
             if op == STORE_ATTR:
@@ -1355,9 +1338,6 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
 
 
 def _op(c):
-    # bytecode is bytes in Python 3, which when indexed gives integers
-    if PY2:
-        return ord(c)
     return c
 
 
@@ -1377,44 +1357,6 @@ def _find_earliest_backjump_label(bytecode):
       ...     foo4()
       ...     while foo5():  # L7
       ...         foo6()
-
-    In python 2.6, the disassembled bytecode is::
-
-      >>> import dis
-      >>> dis.dis(f) # doctest: +SKIP
-        2           0 LOAD_GLOBAL              0 (foo1)
-                    3 CALL_FUNCTION            0
-                    6 JUMP_IF_FALSE           11 (to 20)
-                    9 POP_TOP
-      <BLANKLINE>
-        3          10 LOAD_GLOBAL              1 (foo2)
-                   13 CALL_FUNCTION            0
-                   16 POP_TOP
-                   17 JUMP_FORWARD             8 (to 28)
-              >>   20 POP_TOP
-      <BLANKLINE>
-        5          21 LOAD_GLOBAL              2 (foo3)
-                   24 CALL_FUNCTION            0
-                   27 POP_TOP
-      <BLANKLINE>
-        6     >>   28 LOAD_GLOBAL              3 (foo4)
-                   31 CALL_FUNCTION            0
-                   34 POP_TOP
-      <BLANKLINE>
-        7          35 SETUP_LOOP              22 (to 60)
-              >>   38 LOAD_GLOBAL              4 (foo5)
-                   41 CALL_FUNCTION            0
-                   44 JUMP_IF_FALSE           11 (to 58)
-                   47 POP_TOP
-      <BLANKLINE>
-        8          48 LOAD_GLOBAL              5 (foo6)
-                   51 CALL_FUNCTION            0
-                   54 POP_TOP
-                   55 JUMP_ABSOLUTE           38
-              >>   58 POP_TOP
-                   59 POP_BLOCK
-              >>   60 LOAD_CONST               0 (None)
-                   63 RETURN_VALUE
 
     The earliest target of a backward jump would be the 'while' loop at L7, at
     bytecode offset 38::
@@ -1530,16 +1472,9 @@ def find_missing_imports(arg, namespaces):
       >>> [str(m) for m in find_missing_imports("(lambda x: x*x)(7) + x", [{}])]
       ['x']
 
-    The (unintuitive) rules for generator expressions and list comprehensions
-    in Python 2 are handled correctly::
-
       >>> # Python 3
       >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
       ['y', 'z']
-
-      >>> # Python 2
-      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
-      ['z']
 
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]
       ['y', 'z']

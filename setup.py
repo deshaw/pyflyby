@@ -5,8 +5,7 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import glob
 import os
@@ -223,7 +222,7 @@ setup(
         "Programming Language :: Python",
     ],
     install_requires=["six", "toml", "pathlib ; python_version<'3'"],
-    python_requires=">=2.5, !=3.0.*, !=3.1.*, !=3.2.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, <4",
+    python_requires=">3.0, !=3.0.*, !=3.1.*, !=3.2.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,

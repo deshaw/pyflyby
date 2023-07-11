@@ -24,8 +24,6 @@
 #   from, out of or in connection with the software or the use or other
 #   dealings in the software.
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
 
 import re
 import six

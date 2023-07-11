@@ -1,13 +1,11 @@
 
 
-from __future__ import absolute_import, division, with_statement
 
 import os
 import re
 import sys
 import pytest
 
-from six import PY3
 
 _already_ran_setup = False
 
@@ -31,7 +29,7 @@ def pytest_ignore_collect(path, config):
     This hook is consulted for all files and directories prior to calling
     more specific hooks.
     """
-    if str(path).endswith('_docxref.py') and PY3:
+    if str(path).endswith('_docxref.py'):
         return True
 
 def pytest_report_header(config):

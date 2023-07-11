@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 import ast
 from   contextlib               import contextmanager
@@ -15,7 +14,6 @@ import subprocess
 import sys
 
 import six
-from   six                      import PY2, text_type as unicode
 from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
@@ -1072,8 +1070,6 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results = ["%s.%s" % (pname, r) for r in results]
     else:
         raise AssertionError
-    if six.PY2:
-        results = [unicode(s) for s in results]
     logger.debug("complete_symbol(%r) => %r", fullname, results)
     return results
 
@@ -1236,7 +1232,10 @@ def new_IPdb_instance():
     pdb_class = _get_IPdb_class()
     logger.debug("new_IPdb_instance(): pdb_class=%s", pdb_class)
     color_scheme = _get_ipython_color_scheme(app)
-    pdb_instance = pdb_class(color_scheme)
+    try:
+        pdb_instance = pdb_class(completekey='tab', color_scheme=color_scheme)
+    except TypeError:
+        pdb_instance = pdb_class(completekey='tab')
     _enable_pdb_hooks(pdb_instance)
     _enable_terminal_pdb_hooks(pdb_instance)
     return pdb_instance
@@ -1850,9 +1849,9 @@ class AutoImporter(object):
                 logger.debug("reset_auto_importer_state(%r)", line)
                 self.reset_state_new_cell()
                 return line
-            # on IPython 7.17 (July 2020) or above, the check_complete 
-            # path of the code will not call  transformer that have this magic attribute 
-            # when trying to check whether the code is complete. 
+            # on IPython 7.17 (July 2020) or above, the check_complete
+            # path of the code will not call  transformer that have this magic attribute
+            # when trying to check whether the code is complete.
             reset_auto_importer_state.has_side_effect = True
             ip.input_transformers_cleanup.append(reset_auto_importer_state)
             return True
@@ -2313,25 +2312,6 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        if (PY2 and
-            hasattr(ip, "new_main_mod")):
-            try:
-                args = inspect.getargspec(ip.new_main_mod).args
-            except Exception:
-                # getargspec fails if we already advised.
-                # For now just skip under the assumption that we already
-                # advised (or the code changed in some way that doesn't
-                # require advising?)
-                # Minor todo: Ideally we would be relying on _advise to check
-                # that we haven't already advised.
-                args = None
-            if args == ["self","filename","modname"]:
-                @self._advise(ip.new_main_mod)
-                def new_main_mod_fix_str(filename, modname):
-                    if six.PY2:
-                        if type(modname) is unicode:
-                            modname = str(modname)
-                    return __original__(filename, modname)
         return True
 
     def _enable_ipython_bugfixes(self):

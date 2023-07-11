@@ -5,11 +5,12 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["2.7", "3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
         include:
           - os: macos-latest
             python-version: "3.10"
@@ -24,14 +25,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install and update Python dependencies on Python 2
-      if: ${{ matrix.python-version == '2.7'}}
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade "pexpect>=3.3" 'pytest<7' epydoc rlipython requests jupyter flaky wheel 'pytest-cov<3'
-        pip install -e .
     - name: Install and update Python dependencies on Python 3
-      if: ${{ matrix.python-version != '2.7'}}
       run: |
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install --upgrade "pexpect>=3.3" 'pytest<7' rlipython ipykernel==5.4.3 requests jupyter flaky 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' ipython 'coverage<6.3' pytest-json-report
@@ -42,15 +36,15 @@ jobs:
     - name: compileall
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
-    - name: pytest Python 2 or Mac OS
-      if: ${{ matrix.python-version == '2.7' || matrix.os == 'macos-latest'}}
+    - name: pytest Mac OS
+      if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
       run: |
-        python -m pytest --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
-    - name: pytest Python 3
-      if: ${{ matrix.python-version != '2.7' && matrix.os != 'macos-latest'  }}
+        python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
+    - name: pytest (not MacOS)
+      if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        python -m pytest --cov=pyflyby --cov-report=xml\
+        python -m pytest -v --cov=pyflyby --cov-report=xml\
                --doctest-modules\
                --maxfail=3\
                --json-report\

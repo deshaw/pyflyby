@@ -2,8 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
+
 
 from   functools                import total_ordering
 from   keyword                  import kwlist
@@ -16,8 +15,6 @@ from   pyflyby._util            import cached_attribute, cmp
 # Don't consider "print" a keyword, in order to be compatible with user code
 # that uses "from __future__ import print_function".
 _my_kwlist = list(kwlist)
-if six.PY2:
-    _my_kwlist.remove("print")
 _my_iskeyword = frozenset(_my_kwlist).__contains__
 
 
@@ -117,33 +114,11 @@ def is_identifier(s, dotted=False, prefix=False):
     if not isinstance(s, six.string_types):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))
-    if six.PY3:
-        if prefix:
-            return is_identifier(s + '_', dotted=dotted, prefix=False)
-        if dotted:
-            return all(is_identifier(w, dotted=False) for w in s.split('.'))
-        return s.isidentifier() and not _my_iskeyword(s)
-
     if prefix:
-        if not s:
-            return True
-        if dotted:
-            return bool(
-                _dotted_name_prefix_re.match(s) and
-                not any(_my_iskeyword(w) for w in s.split(".")[:-1]))
-        else:
-            return bool(_name_re.match(s))
-    else:
-        if dotted:
-            # Use a regular expression that works for dotted names.  (As an
-            # alternate implementation, one could imagine calling
-            # all(is_identifier(w) for w in s.split(".")).  We don't do that
-            # because s could be a long text string.)
-            return bool(
-                _dotted_name_re.match(s) and
-                not any(_my_iskeyword(w) for w in s.split(".")))
-        else:
-            return bool(_name_re.match(s) and not _my_iskeyword(s))
+        return is_identifier(s + '_', dotted=dotted, prefix=False)
+    if dotted:
+        return all(is_identifier(w, dotted=False) for w in s.split('.'))
+    return s.isidentifier() and not _my_iskeyword(s)
 
 
 def brace_identifiers(text):
@@ -166,20 +141,22 @@ class BadDottedIdentifierError(ValueError):
 # TODO: Use in various places, esp where e.g. dotted_prefixes is used.
 @total_ordering
 class DottedIdentifier(object):
-    def __new__(cls, arg):
+    def __new__(cls, arg, scope_info=None):
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, six.string_types):
-            return cls._from_name(arg)
+            return cls._from_name(arg, scope_info)
         if isinstance(arg, (tuple, list)):
-            return cls._from_name(".".join(arg))
+            return cls._from_name(".".join(arg), scope_info)
         raise TypeError("DottedIdentifier: unexpected %s"
                         % (type(arg).__name__,))
 
     @classmethod
-    def _from_name(cls, name):
+    def _from_name(cls, name, scope_info=None):
         self = object.__new__(cls)
         self.name = str(name)
+        # TODO: change magic methods to compare with scopestack included
+        self.scope_info = scope_info
         if not is_identifier(self.name, dotted=True):
             if len(self.name) > 20:
                 raise BadDottedIdentifierError("Invalid python symbol name")

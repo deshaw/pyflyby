@@ -4,8 +4,6 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-from __future__ import (absolute_import, division, print_function,
-                        with_statement)
 
 import IPython
 import atexit
@@ -22,7 +20,7 @@ import readline
 import requests
 from   shutil                   import rmtree
 import six
-from   six                      import BytesIO, PY2, PY3
+from   six                      import BytesIO
 from   subprocess               import check_call
 import sys
 from   tempfile                 import mkdtemp, mkstemp
@@ -255,7 +253,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
 def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
-    template = _normalize_python_2_3(template)
     input = []
     expected = b""
     pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
@@ -1146,30 +1143,6 @@ def IPythonNotebookCtx(**kwargs):
     if not notebook_dir:
         notebook_dir = mkdtemp(prefix="pyflyby_test_notebooks_", suffix=".tmp")
         cleanups.append(lambda: rmtree(notebook_dir))
-    if (kwargs.get("prog", "ipython") == "ipython" and
-        (1, 0) <= _IPYTHON_VERSION < (1, 2) and
-        sys.version_info < (2, 7)):
-        # Work around a bug in IPython 1.0 + Python 2.6.
-        # The bug is that in IPython 1.0, LevelFormatter uses super(), which
-        # assumes that logging.Formatter is a subclass of object.  However,
-        # this is only true in Python 2.7+, not in Python 2.6.
-        # pyflyby.enable_auto_importer() fixes that issue too, so 'py
-        # notebook' is not affected, only 'ipython notebook'.
-        assert "PYTHONPATH" not in kwargs
-        extra_pythonpath = mkdtemp(prefix="pyflyby_test_", suffix=".tmp")
-        cleanups.append(lambda: rmtree(extra_pythonpath))
-        kwargs["PYTHONPATH"] = extra_pythonpath
-        writetext(Filename(extra_pythonpath)/"sitecustomize.py", """
-            from logging import Formatter
-            from IPython.config.application import LevelFormatter
-            def _format_patched(self, record):
-                if record.levelno >= self.highlevel_limit:
-                    record.highlevel = self.highlevel_format % record.__dict__
-                else:
-                    record.highlevel = ""
-                return Formatter.format(self, record)
-            LevelFormatter.format = _format_patched
-        """)
     try:
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:
@@ -1478,36 +1451,6 @@ def _clean_ipython_output(result):
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
-
-def _normalize_python_2_3(template):
-    """
-    Change some Python 3 outputs to be compatible with Python 2
-    """
-    template0 = template
-    if PY3:
-        # We have to leave NameError: global name ... as in Python 2, because
-        # in Python 3, "global" is never printed, but it is only printed for
-        # some messages in Python 2.
-        template = template.replace(b"NameError: global name", b"NameError: name")
-        # The templates are written with outputs from Python 3
-        return template
-
-    template = template.replace(' <module>', ' <module>()')
-    for module in ['os', 'base64', 'profile']:
-        template = template.replace("module '{module}' has no attribute".format(module=module), "'module' object has no attribute")
-    template = template.replace('sturbridge9088333 has no attribute', "'module' object has no attribute")
-    template = re.sub(r"([ \(\n])b'(.*?)'", r"\1'\2'", template)
-    template = template.replace("ZeroDivisionError: division by zero", "ZeroDivisionError: integer division or modulo by zero")
-    template = re.sub(r"\.\.\. per loop \(mean ± std. dev\. of (.*) run, (.*) loops each\)",
-                      r"\2 loops, best of \1: ... per loop" , template)
-    template = re.sub(r"ModuleNotFoundError: No module named '(.*?)'",
-                      r"ImportError: No module named \1", template)
-    template = re.sub(r"\*\*\* NameError: name '(.*)' is not defined",
-                      r"""*** NameError: NameError("name '\1' is not defined",)""", template)
-
-    if DEBUG:
-        print("_normalize_python_2_3() %r => %r" % (template0, template))
-    return template
 
 
 @retry
@@ -1979,15 +1922,7 @@ def test_autoimport_pyflyby_path_1(tmp):
 @retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64decode('a2V5Ym9hcmQ=')
-            ------> str.upper(b64decode('a2V5Ym9hcmQ='))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'KEYBOARD'
-        """, autocall=True)
-    elif IPython.version_info < (7, 17):
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2010,15 +1945,7 @@ def test_autoimport_autocall_arg_1():
 @retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64decode 'bW91c2U='
-            [PYFLYBY] from base64 import b64decode
-            ------> b64decode('bW91c2U=')
-            Out[2]: 'mouse'
-        """, autocall=True)
-    elif IPython.version_info < (7, 17):
+    if IPython.version_info < (7, 17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2434,15 +2361,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: str.upper b64deco\tde('Q2hld2JhY2Nh')
-            ------> str.upper(b64decode('Q2hld2JhY2Nh'))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: 'CHEWBACCA'
-        """, autocall=True)
-    elif IPython.version_info < (7,17):
+    if IPython.version_info < (7,17):
         # The autocall arrows are printed twice in newer versions of IPython
         # (https://github.com/ipython/ipython/issues/11714).
         ipython("""
@@ -2536,6 +2455,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     )
 
 
+
 @retry
 def test_complete_symbol_nonmodule_1(frontend, tmp):
     # Verify that completion works even if a module replaced itself in
@@ -2561,27 +2481,18 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             __name__ = __name__
         sys.modules[__name__] = M()
     """)
-    if PY2:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
-            In [2]: print(gravesend60063393.river)
-            in the river
-            in the river
-            Medway
-            In [3]: print(gravesend600633\t93.is\tland)
-            on the island
-            on the island
-            Canvey
-        """, PYTHONPATH=tmp.dir, frontend=frontend)
+
+    if IPython.version_info >= (8, 6):
+        extra_comp = '\n            in the river'
     else:
-        # we use "... the island" as there might be prompt inserted by previous tab completino
-        ipython(
+        extra_comp = ''
+
+    # we use "... the island" as there might be prompt inserted by previous tab completino
+    ipython(
             """
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393
+            [PYFLYBY] import gravesend60063393{}
             In [2]: print(gravesend60063393.river)
             in the river
             in the river
@@ -2591,10 +2502,10 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
             on the island
             on the island
             Canvey
-        """,
+        """.format(extra_comp),
             PYTHONPATH=tmp.dir,
             frontend=frontend,
-        )
+    )
 
 
 # TODO: figure out IPython5 equivalent for readline_remove_delims
@@ -3168,7 +3079,7 @@ def test_noninteractive_timeit_unaffected_1():
         NameError                                 Traceback (most recent call last)
         ... in ...
         ....
-        NameError: global name 'base64' is not defined
+        NameError: name 'base64' is not defined
     """
     )
 
@@ -4186,10 +4097,6 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skipif(
-    sys.version_info[0] == 2,
-    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
-)
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -4214,40 +4121,6 @@ def test_debug_namespace_1_py3(frontend):
         b'Continental'
         ipdb> q
         In [5]: base64.b64de\t
-        In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
-        [PYFLYBY] from base64 import b64decode
-        Out[5]: b'HillLake'
-    """, frontend=frontend)
-
-@pytest.mark.skipif(
-    sys.version_info[0] == 3,
-    reason="[PYFLYBY] import base64 is not triggered at the same time depending on python versions",
-)
-def test_debug_namespace_1_py2(frontend):
-    # Verify that autoimporting and tab completion happen in the local
-    # namespace.
-    # In this example, in the local namespace, 'base64' is a variable (which
-    # is a string), and shouldn't refer to the global 'base64'.
-    ipython("""
-        In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: def foo(x, base64):
-           ...:     return x / base64
-           ...:
-        In [3]: foo("Lexington", "atlantic")
-        ---------------------------------------------------------------------------
-        TypeError                                 Traceback (most recent call last)
-        ....
-        TypeError: unsupported operand type(s) for /: 'str' and 'str'
-        In [4]: %debug
-        ....
-        ipdb> print(base64.cap\titalize() + b64deco\tde("UGFjaWZpYw==").decode('utf-8'))
-        [PYFLYBY] from base64 import b64decode
-        AtlanticPacific
-        ipdb> p b64deco\tde("Q29udGluZW50YWw=")
-        b'Continental'
-        ipdb> q
-        In [5]: base64.b64de\t
-        [PYFLYBY] import base64
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
         Out[5]: b'HillLake'
