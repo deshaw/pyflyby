@@ -153,7 +153,7 @@ def _iter_child_nodes_in_order_internal_1(node):
         assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
         yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
-    elif sys.version_info >= (3, 7) and isinstance(node, ast.FormattedValue):
+    elif isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
         yield node.value,
     else:
@@ -426,20 +426,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # Since we use startpos for breaking lines, we need to set startpos to
         # the beginning of the line.
         # In Python 3, the col_offset for the with is 0 again.
-        if (isinstance(ast_node, ast.With) and
-            not isinstance(parent_ast_node, ast.With) and
-            sys.version_info[:2] == (2,7)):
-            assert ast_node.col_offset >= 5
-            if startpos.lineno == text.startpos.lineno:
-                linestart = text.startpos.colno
-            else:
-                linestart = 1
-            line = text[(startpos.lineno,linestart):startpos]
-            m = re.search(r"\bwith\s+$", str(line))
-            assert m
-            lk = len(m.group()) # length of 'with   ' including spaces
-            startpos = FilePos(startpos.lineno, startpos.colno - lk)
-            assert str(text[startpos:(startpos+(0,4))]) == "with"
         ast_node.startpos = startpos
         if sys.version_info <= (3, 8):
             ast_node.startpos = max(startpos, minpos)
@@ -472,7 +458,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
     # It should now be the case that we are looking at a multi-line string
     # literal.
-    if sys.version_info >= (3, 7) and isinstance(ast_node, ast.FormattedValue):
+    if isinstance(ast_node, ast.FormattedValue):
         ast_node.startpos = ast_node.value.startpos
         ast_node.endpos = ast_node.value.startpos
 
@@ -801,7 +787,7 @@ class PythonStatement(object):
     comments/blank lines.
 
       >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')  #doctest: +SKIP
-      PythonStatement('print("x",\n file=None)\n', flags=0x10000)
+      PythonStatement('print("x",\n file=None)\n', flags=0x100000)
 
     Implemented as a wrapper around a `PythonBlock` containing at most one
     top-level AST node.

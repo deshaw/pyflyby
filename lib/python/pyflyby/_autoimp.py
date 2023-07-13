@@ -1473,7 +1473,7 @@ def find_missing_imports(arg, namespaces):
       ['x']
 
       >>> # Python 3
-      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])] # doctest: +SKIP
+      >>> [str(m) for m in find_missing_imports("[x+y+z for x,y in [(1,2)]], y", [{}])]
       ['y', 'z']
 
       >>> [str(m) for m in find_missing_imports("(x+y+z for x,y in [(1,2)]), y", [{}])]

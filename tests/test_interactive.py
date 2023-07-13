@@ -179,9 +179,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
         # ignore self exit on readline.
         result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
 
-        if sys.version_info[0] == 2:
-            # ignore "double blank lines" due to \n\r
-            result = result.replace("\n\r", "\n")
     if _IPYTHON_VERSION < (1, 0):
         # IPython 0.13 console prints kernel info; ignore it.
         #   [IPKernelApp] To connect another client to this kernel, use:
@@ -4255,7 +4252,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 
 
 @pytest.mark.skipif(
-    _IPYTHON_VERSION < (7, 0) or (sys.version_info < (3, 7)),
+    _IPYTHON_VERSION < (7, 0),
     reason="old IPython and Python won't work with breakpoint()",
 )
 @retry
