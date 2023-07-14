@@ -480,3 +480,14 @@ def nested(*mgrs):
     with ExitStack() as stack:
         ctxes = [stack.enter_context(mgr) for mgr in mgrs]
         yield ctxes
+
+
+IMPORT_FORMAT_DEFAULTS = {
+    "align_imports": 32,
+    "from_spaces": 3,
+    "separate_from_imports": False,
+    "max_line_length": 79,
+    "use_black": False,
+    "align_future": False,
+    "hanging_indent": "never"
+}

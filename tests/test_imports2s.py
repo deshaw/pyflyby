@@ -30,10 +30,10 @@ def test_reformat_import_statements_1():
     ''').lstrip(), filename="/foo/test_reformat_import_statements_1.py")
     output = reformat_import_statements(input)
     expected = PythonBlock(dedent('''
-        import foo.bar4
-        from foo import bar1, bar2 as bar2x, bar3 as bar3x
+    from   foo                      import bar1, bar2 as bar2x, bar3 as bar3x
+    import foo.bar4
 
-        from foo import bar0
+    from   foo                      import bar0
     ''').lstrip(), filename="/foo/test_reformat_import_statements_1.py")
     assert output == expected
 
@@ -50,10 +50,10 @@ def test_reformat_import_statements_star_1():
     ''').lstrip(), filename="/foo/test_reformat_import_statements_star_1.py")
     output = reformat_import_statements(input)
     expected = PythonBlock(dedent('''
-        from mod1 import f1a, f1b
-        from mod2 import *
-        from mod2 import f2a as F2A, f2b as F2B
-        from mod3 import f3a, f3b
+        from   mod1                     import f1a, f1b
+        from   mod2                     import *
+        from   mod2                     import f2a as F2A, f2b as F2B
+        from   mod3                     import f3a, f3b
     ''').lstrip(), filename="/foo/test_reformat_import_statements_star_1.py")
     assert output == expected
 
@@ -65,8 +65,8 @@ def test_reformat_import_statements_multi_star_1():
     ''').lstrip())
     output = reformat_import_statements(input)
     expected = PythonBlock(dedent('''
-        from mod1 import *
-        from mod2 import *
+        from   mod1                     import *
+        from   mod2                     import *
     ''').lstrip())
     assert output == expected
 
@@ -82,7 +82,7 @@ def test_reformat_import_statements_shadowed_1():
         import a2 as a
         import b
         import c
-        from d import d
+        from   d                        import d
     ''').lstrip())
     assert output == expected
 

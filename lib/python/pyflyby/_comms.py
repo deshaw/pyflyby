@@ -1,7 +1,7 @@
 
 from   pyflyby._log             import logger
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
-from   pyflyby._importstmt      import Import
+from   pyflyby._importstmt      import Import, ImportFormatParams
 import six
 
 # These are comm targets that the frontend (lab/notebook) is expected to
@@ -85,7 +85,7 @@ def comm_close_handler(comm, message):
             comms.pop(target)
 
 
-def _reformat_helper(input_code, imports):
+def _reformat_helper(input_code, imports, use_black):
     from pyflyby._imports2s import reformat_import_statements
 
     if PYFLYBY_START_MSG in input_code:
@@ -111,7 +111,9 @@ def _reformat_helper(input_code, imports):
             transform.add_import(Import(imp))
         middle = str(transform.output())
 
-    return reformat_import_statements(before + bmarker + middle + emarker + after)
+    params = ImportFormatParams(**{"use_black": True}) if use_black else None
+
+    return reformat_import_statements(before + bmarker + middle + emarker + after, params)
 
 def comm_open_handler(comm, message):
     """
@@ -132,5 +134,6 @@ def comm_open_handler(comm, message):
         if data["type"] == FORMATTING_IMPORTS:
             msg_id = data.get('msg_id', None)
             imports = data.get('imports', None)
-            fmt_code = _reformat_helper(data["input_code"], imports)
+            use_black = data.get('use_black', False)
+            fmt_code = _reformat_helper(data["input_code"], imports, use_black)
             comm.send({"msg_id": msg_id, "formatted_code": str(fmt_code), "type": FORMATTING_IMPORTS})
