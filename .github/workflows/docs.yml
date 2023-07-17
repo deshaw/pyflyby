@@ -1,0 +1,30 @@
+name: Docs
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+    contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install dependencies
+        run: |
+          pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade rlipython ipykernel==5.4.3 requests jupyter flaky 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' ipython 'coverage<6.3' pytest-json-report
+          pip install -e .
+      - name: Build docs
+        run: |
+          make html
+        working-directory: doc
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: doc/_build/html
+          force_orphan: true
