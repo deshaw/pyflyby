@@ -24,19 +24,7 @@ from   pyflyby._util            import cached_attribute, cmp
 
 from ast import Bytes
 
-if sys.version_info >= (3, 8):
-    from ast import TypeIgnore, AsyncFunctionDef
-else:
-
-    # TypeIgnore, AsyncFunctionDef does not exist on Python 3.7 and before. thus
-    # we define a dummy TypeIgnore, AsyncFunctionDef just to simplify remaining
-    # code.
-
-    class TypeIgnore:
-        pass
-
-    class AsyncFunctionDef:
-        pass
+from ast import TypeIgnore, AsyncFunctionDef
 
 
 def _is_comment_or_blank(line):
