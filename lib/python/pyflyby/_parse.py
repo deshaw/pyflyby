@@ -348,14 +348,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     """
     assert isinstance(ast_node, (ast.AST, str, TypeIgnore)), ast_node
 
-    # joined strings and children do not carry a column offset on pre-3.8
-    # this prevent reformatting.
-    # set the column offset to the parent value before 3.8
-    if (3, 7) < sys.version_info < (3, 8):
-        instances = (getattr(ast, "JoinedStr", None), ast.FormattedValue)
-        if ((isinstance(ast_node, instances) or isinstance(parent_ast_node, instances)) and ast_node.col_offset == -1) or isinstance(ast_node, ast.keyword):
-            ast_node.col_offset = parent_ast_node.col_offset
-
     # First, traverse child nodes.  If the first child node (recursively) is a
     # multiline string, then we need to transfer its information to this node.
     # Walk all nodes/fields of the AST.  We implement this as a custom
@@ -486,9 +478,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
     target_str = ast_node.s
 
-    if isinstance(target_str, bytes) and sys.version_info[:2] == (3, 7):
-        target_str = target_str.decode()
-
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
     # file.  This could be because of a dastardly concatenated string like
@@ -553,18 +542,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             candidate_str = _test_parse_string_literal(subtext, flags)
             if candidate_str is None:
                 continue
-            if isinstance(candidate_str, bytes) and sys.version_info[:2] == (3, 7):
-                candidate_str = candidate_str.decode()
 
             maybe_fstring = False
-            try:
-                if (3, 7) <= sys.version_info <= (3, 8):
-                    potential_start = text.lines[startpos.lineno - 1]
-                    maybe_fstring = ("f'" in potential_start) or (
-                        'f"' in potential_start
-                    )
-            except IndexError:
-                pass
 
             if target_str == candidate_str and target_str:
                 # Success!
@@ -589,17 +568,6 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
             for (sq, sp) in startpos_candidates
             if sp in matched_prefix
         ]
-    if (3, 7) <= sys.version_info <= (3, 8):
-        if len(f_string_candidate_prefixes) == 1:
-            # we did not find the string but there is one fstring candidate starting it
-
-            ast_node.startpos, ast_node.endpos = f_string_candidate_prefixes[0]
-            return True
-        elif isinstance(parent_ast_node, ast.JoinedStr):
-            self_pos = parent_ast_node.values.index(ast_node)
-            ast_node.startpos = parent_ast_node.values[self_pos - 1].startpos
-            ast_node.endpos = parent_ast_node.values[self_pos - 1].endpos
-            return True
     raise ValueError("Couldn't find exact position of %s" % (ast.dump(ast_node)))
 
 
