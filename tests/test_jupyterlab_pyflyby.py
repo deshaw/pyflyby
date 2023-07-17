@@ -4,7 +4,7 @@ Jupyterlab-pyflyby extension related test
 Some of these test do not need the full extension installed so we put them here.
 """
 
-from pyflyby._comms import _reformat_helper
+from pyflyby._comms import _reformat_helper, run_tidy_imports
 import pytest
 
 
@@ -74,3 +74,28 @@ def test_reformat_with_markers(origin, imports, expected):
     that before/after markers are properly reformatted.
     """
     assert str(_reformat_helper(origin, ["import numpy as np"])) == expected
+
+code_block = """
+from os import *
+print(getcwd())
+
+from deshaw.djs import Chart, TidyReport
+from deshaw.djs import Chart
+Chart(range(10)).show()
+"""
+
+expected_output = """
+from os import getcwd
+print(getcwd())
+
+from deshaw.djs import Chart
+Chart(range(10)).show()
+"""
+
+@pytest.mark.parametrize(
+    "code_block",
+    [code_block]
+)
+def test_tidy_imports(code_block):
+    code_post_tidy_imports = run_tidy_imports(code_block)
+    assert code_post_tidy_imports == expected_output
