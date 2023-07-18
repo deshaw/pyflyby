@@ -323,6 +323,19 @@ class ModuleHandle(object):
         return tuple(ModuleHandle("%s.%s" % (self.name,m))
                      for m in sorted(set(submodule_names)))
 
+    @staticmethod
+    def _member_from_node(node):
+        extractors = {
+            # Top-level assignments (as opposed to member assignments
+            # whose targets are of type ast.Attribute).
+            ast.Assign: lambda x: [t.id for t in x.targets if isinstance(t, ast.Name)],
+            ast.ClassDef: lambda x: [x.name],
+            ast.FunctionDef: lambda x: [x.name],
+        }
+        if isinstance(node, tuple(extractors.keys())):
+            return extractors[type(node)](node)
+        return []
+
     @cached_attribute
     def exports(self):
         """
@@ -347,20 +360,7 @@ class ModuleHandle(object):
         ast_mod = ast.parse(str(text), str(filename)).body
 
         # First, add members that are explicitly defined in the module
-        def member_from_node(node):
-            extractors = {
-                # Top-level assignments (as opposed to member assignments
-                # whose targets are of type ast.Attribute).
-                ast.Assign:      lambda x: [t.id for t in x.targets
-                                            if isinstance(t, ast.Name)],
-                ast.ClassDef:    lambda x: [x.name],
-                ast.FunctionDef: lambda x: [x.name],
-            }
-            if isinstance(node, tuple(extractors.keys())):
-                return extractors[type(node)](node)
-            else:
-                return []
-        members = list(itertools.chain(*[member_from_node(n) \
+        members = list(itertools.chain(*[self._member_from_node(n) \
                                          for n in ast_mod]))
 
         # If __all__ is defined, try to use it
@@ -370,7 +370,7 @@ class ModuleHandle(object):
             # value of __all__
             for n in ast_mod:
                 if isinstance(n, ast.Assign):
-                    if "__all__" in member_from_node(n):
+                    if "__all__" in self._member_from_node(n):
                         try:
                             all_members = list(ast.literal_eval(n.value))
                             all_is_good = True
