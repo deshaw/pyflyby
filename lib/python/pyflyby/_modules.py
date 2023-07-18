@@ -338,11 +338,7 @@ class ModuleHandle(object):
         """
         from pyflyby._importclns import ImportStatement, ImportSet
 
-        filename = None
-        try:
-            filename = self.filename
-        except:
-            pass
+        filename = getattr(self, 'filename', None)
         if not filename or not filename.exists:
             # Try to load the module to get the filename
             filename = Filename(self.module.__file__)
