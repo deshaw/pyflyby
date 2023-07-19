@@ -1,4 +1,5 @@
 # pyflyby/test_imports2s.py
+import tempfile
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
@@ -822,15 +823,21 @@ def test_replace_star_no_imports_found(capsys):
     assert 'Traceback' not in captured.err
 
 def test_replace_star_imports_1():
-    m = types.ModuleType("fake_test_module_345489")
-    m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']
-    sys.modules["fake_test_module_345489"] = m
     input = PythonBlock(dedent('''
         from mod1                    import f1
         from fake_test_module_345489 import *
         from mod2                    import f5
     ''').lstrip(), filename="/foo/test_replace_star_imports_1.py")
-    output = replace_star_imports(input)
+    m = types.ModuleType("fake_test_module_345489")
+    m.__all__ = ['f1', 'f2', 'f3', 'f4', 'f5']
+    sys.modules["fake_test_module_345489"] = m
+
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(f"__all__ = {m.__all__}")
+        m.__file__ = f.name
+        f.flush()
+        output = replace_star_imports(input)
+
     expected = PythonBlock(dedent('''
         from fake_test_module_345489 import f1, f2, f3, f4
         from mod2                    import f5
