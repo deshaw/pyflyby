@@ -6,7 +6,6 @@
 
 
 import pytest
-import sys
 from   textwrap                 import dedent
 import warnings
 
