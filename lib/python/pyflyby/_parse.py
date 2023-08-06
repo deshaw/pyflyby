@@ -92,37 +92,27 @@ def _iter_child_nodes_in_order_internal_1(node):
         assert node._fields == ("keys", "values")
         yield list(zip(node.keys, node.values))
     elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
-        if sys.version_info >= (3, 8):
-            assert node._fields == (
-                "name",
-                "args",
-                "body",
-                "decorator_list",
-                "returns",
-                "type_comment",
-            ), node._fields
-            res = (
-                node.type_comment,
-                node.decorator_list,
-                node.args,
-                node.returns,
-                node.body,
-            )
-            yield res
-        else:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list',
-                                    'returns'), node._fields
-            yield node.decorator_list, node.args, node.returns, node.body
+        assert node._fields == (
+            "name",
+            "args",
+            "body",
+            "decorator_list",
+            "returns",
+            "type_comment",
+        ), node._fields
+        res = (
+            node.type_comment,
+            node.decorator_list,
+            node.args,
+            node.returns,
+            node.body,
+        )
+        yield res
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
-        if sys.version_info >= (3, 8):
-            assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
-                                    'kw_defaults', 'kwarg', 'defaults'), node._fields
-            args = node.posonlyargs + node.args
-        else:
-            assert node._fields == ('args', 'vararg', 'kwonlyargs',
-                                    'kw_defaults', 'kwarg', 'defaults'), node._fields
-            args = node.args
+        assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
+                                'kw_defaults', 'kwarg', 'defaults'), node._fields
+        args = node.posonlyargs + node.args
         defaults = node.defaults or ()
         num_no_default = len(args) - len(defaults)
         yield args[:num_no_default]

@@ -16,10 +16,7 @@ from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
 
 
-if sys.version_info < (3, 8, 3):
-    print_function_flag = CompilerFlags.from_int(0x10000)
-else:
-    print_function_flag = CompilerFlags.from_int(0x100000)
+print_function_flag = CompilerFlags.from_int(0x100000)
 
 
 def test_PythonBlock_FileText_1():
@@ -496,15 +493,9 @@ def test_PythonBlock_flags_type_comment_1():
     """
         ).lstrip()
     )
-    if sys.version_info >= (3, 8):
-        # Includes the type_comments flag
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            assert block.flags == CompilerFlags(0x01000)
-    else:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            assert block.flags == CompilerFlags(0x0000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        assert block.flags == CompilerFlags(0x01000)
 
 
 def test_PythonBlock_flags_type_comment_fail_transform():
@@ -556,13 +547,13 @@ class A:
     """
         )
 
-if sys.version_info >= (3, 8):
-    examples_transform.append(
-    # positional only
-    """ 
-    def f(x, y=None, / , z=None):
-         pass"""
-        )
+examples_transform.append(
+# positional only
+"""
+def f(x, y=None, / , z=None):
+     pass"""
+    )
+
 
 @pytest.mark.parametrize("source", examples_transform)
 def test_PythonBlock_flags_type_comment_ignore_fails_transform(source):
@@ -917,7 +908,6 @@ def test_PythonBlock_compound_statements_1():
     assert block.statements == expected
 
 
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="Does not work pre-3.8")
 def test_str_lineno_expression():
     # Code that used to be in test_interactive. _annotate_ast_startpos does
     # not work on it because it cannot handle multiline strings that contained
@@ -1266,12 +1256,8 @@ def test_PythonStatement_flags_1():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         assert s1.block.source_flags == CompilerFlags(0)
-    if sys.version_info >= (3, 8):
-        assert s0.block.flags == CompilerFlags("unicode_literals", "division",)
-        assert s1.block.flags == CompilerFlags("unicode_literals", "division",)
-    else:
-        assert s0.block.flags == CompilerFlags("unicode_literals", "division")
-        assert s1.block.flags == CompilerFlags("unicode_literals", "division")
+    assert s0.block.flags == CompilerFlags("unicode_literals", "division",)
+    assert s1.block.flags == CompilerFlags("unicode_literals", "division",)
 
 
 def test_PythonStatement_auto_flags_1():

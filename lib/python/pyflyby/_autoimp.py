@@ -609,17 +609,13 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        if sys.version_info >= (3, 8):
-            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
-        else:
-            assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns'), node._fields
+        assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             self.visit(node.decorator_list)
             if node.returns:
                 self.visit(node.returns)
-            if sys.version_info >= (3, 8):
-                self._visit_typecomment(node.type_comment)
+            self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
             with self._NewScopeCtx(unhide_classdef=True):
@@ -671,10 +667,7 @@ class _MissingImportFinder(object):
         self.visit(node)
 
     def visit_arguments(self, node):
-        if sys.version_info >= (3, 8):
-            assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
-        else:
-            assert node._fields == ('args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
+        assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Note that the defaults should be
         # considered "Load"s from the upper scope, and the argument names are
         # "Store"s in the function scope.
@@ -693,8 +686,7 @@ class _MissingImportFinder(object):
         # Store arg names.
         self.visit(node.args)
         self.visit(node.kwonlyargs)
-        if sys.version_info >= (3, 8):
-            self.visit(node.posonlyargs)
+        self.visit(node.posonlyargs)
         # may be None.
         if node.vararg:
             self.visit(node.vararg)
@@ -807,16 +799,12 @@ class _MissingImportFinder(object):
         self._visit_fullname(node.id, node.ctx)
 
     def visit_arg(self, node):
-        if sys.version_info >= (3, 8):
-            assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
-        else:
-            assert node._fields == ('arg', 'annotation'), node._fields
+        assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         if node.annotation:
             self.visit(node.annotation)
         # Treat it like a Name node would from Python 2
         self._visit_fullname(node.arg, ast.Param())
-        if sys.version_info >= (3, 8):
-            self._visit_typecomment(node.type_comment)
+        self._visit_typecomment(node.type_comment)
 
     def visit_Attribute(self, node):
         name_revparts = []
@@ -1512,7 +1500,7 @@ def find_missing_imports(arg, namespaces):
             else:
                 return []
         # Parse the string into an AST.
-        kw = {} if sys.version_info < (3, 8) else {'type_comments': True}
+        kw = {'type_comments': True}
         node = ast.parse(arg, **kw) # may raise SyntaxError
         # Get missing imports from AST.
         return _find_missing_imports_in_ast(node, namespaces)
