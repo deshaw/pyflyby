@@ -2486,20 +2486,18 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
 
     # we use "... the island" as there might be prompt inserted by previous tab completino
     ipython(
-            """
+            f"""
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393{}
-            In [2]: print(gravesend60063393.river)
-            in the river
-            in the river
+            [PYFLYBY] import gravesend60063393{extra_comp}
+            In [2]: print(gravesend60063393.river){extra_comp}{extra_comp}
             Medway
-            ... the island
+            In on the island
             In [3]: print(gravesend600633\t93.is\tland)
             on the island
             on the island
             Canvey
-        """.format(extra_comp),
+        """,
             PYTHONPATH=tmp.dir,
             frontend=frontend,
     )
