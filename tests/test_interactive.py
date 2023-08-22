@@ -2453,7 +2453,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
 
 
 @pytest.mark.skipif(
-    sys.version_info == (3, 7),
+    sys.version_info < (3, 8),
     reason="We're dropping support for 3, 7 anyways",
 )
 @retry
