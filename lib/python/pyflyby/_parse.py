@@ -165,22 +165,10 @@ def _flags_to_try(source, flags, auto_flags, mode):
     If ``auto_flags`` is True, then yield ``flags`` and ``flags ^ print_function``.
     """
     flags = CompilerFlags(flags)
-    if sys.version_info >= (3, 8):
-        if re.search(r"# *type:", source):
-            flags = flags | CompilerFlags('type_comments')
-        yield flags
-        return
-    if not auto_flags:
-        yield flags
-        return
-    if mode == "eval":
-        if re.search(r"\bprint\b", source):
-            flags = flags | CompilerFlags("print_function")
-        yield flags
-        return
+    if re.search(r"# *type:", source):
+        flags = flags | CompilerFlags('type_comments')
     yield flags
-    if re.search(r"\bprint\b", source):
-        yield flags ^ CompilerFlags("print_function")
+    return
 
 
 def _parse_ast_nodes(text, flags, auto_flags, mode):
