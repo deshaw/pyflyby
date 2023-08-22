@@ -370,9 +370,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     if ast_node.col_offset >= 0:
         # In Python 3.8+, FunctionDef.lineno is the line with the def. To
         # account for decorators, we need the lineno of the first decorator
-        if (sys.version_info >= (3, 8)
-            and isinstance(ast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
-            and ast_node.decorator_list):
+        if (isinstance(ast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
+                and ast_node.decorator_list):
             delta = (ast_node.decorator_list[0].lineno-1,
                      # The col_offset doesn't include the @
                      ast_node.decorator_list[0].col_offset - 1)
