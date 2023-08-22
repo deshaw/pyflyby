@@ -39,8 +39,6 @@ jobs:
     - name: compileall
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
-    - name: Debugging with tmate
-      uses: mxschmitt/action-tmate@v3.16
 
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
