@@ -2488,14 +2488,11 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
     ipython(
             """
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: print(gravesend60063\t393.r\t
-            [PYFLYBY] import gravesend60063393{}
-            In [2]: print(gravesend60063393.river)
-            in the river
+            [PYFLYBY] import gravesend60063393
+            In [2]: print(gravesend60063\t393.r\tiver){}
             in the river
             Medway
-            ... the island
-            In [3]: print(gravesend600633\t93.is\tland)
+            In [3]: print(gravesend600633\t93.isl\tand)
             on the island
             on the island
             Canvey
