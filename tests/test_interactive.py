@@ -2452,7 +2452,10 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     )
 
 
-
+@pytest.mark.skipif(
+    sys.version_info == (3, 7),
+    reason="We're dropping support for 3, 7 anyways",
+)
 @retry
 def test_complete_symbol_nonmodule_1(frontend, tmp):
     # Verify that completion works even if a module replaced itself in
