@@ -534,6 +534,10 @@ def replace_star_imports(codeblock, params=None):
     return transformer.output(params=params)
 
 
+def sort_imports(codeblock):
+    return codeblock
+
+
 def transform_imports(codeblock, transformations, params=None):
     """
     Transform imports as specified by ``transformations``.
