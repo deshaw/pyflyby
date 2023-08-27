@@ -681,3 +681,64 @@ def test_tidy_imports_symlinks_bad_argument():
     assert b"error: --symlinks must be one of" in proc_output
     assert output == input
     assert symlink_output == input
+
+
+def test_tidy_imports_sorting():
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(dedent("""
+            import numpy
+
+            from pkg1.mod1 import foo
+            from pkg1.mod2 import bar
+            from pkg2 import baz
+            import yy
+
+            from pkg1.mod1 import foo2
+            from pkg1.mod3 import quux
+            from pkg2 import baar
+            import sympy
+            import zz
+
+
+            zz.foo()
+            bar()
+            quux()
+            foo2()
+            yy.f()
+            bar()
+            foo()
+            numpy.arange()
+            baz
+            baar
+            sympy
+        """).lstrip())
+        f.flush()
+        result = pipe([BIN_DIR+"/tidy-imports", f.name])
+        expected = dedent("""
+            import numpy
+
+            from   pkg1.mod1                import foo
+            from   pkg1.mod2                import bar
+            from   pkg2                     import baz
+            import yy
+
+            from   pkg1.mod1                import foo2
+            from   pkg1.mod3                import quux
+            from   pkg2                     import baar
+            import sympy
+            import zz
+
+
+            zz.foo()
+            bar()
+            quux()
+            foo2()
+            yy.f()
+            bar()
+            foo()
+            numpy.arange()
+            baz
+            baar
+            sympy
+        """).strip().format(f=f)
+        assert result == expected
