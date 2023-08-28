@@ -1,9 +1,7 @@
 # pyflyby/_imports2s.py.
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-
-
-
+import isort
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -535,7 +533,12 @@ def replace_star_imports(codeblock, params=None):
 
 
 def sort_imports(codeblock):
-    return codeblock
+    """
+    Sort imports for better grouping.
+    :param codeblock:
+    :return: codeblock
+    """
+    return isort.code(codeblock)
 
 
 def transform_imports(codeblock, transformations, params=None):
