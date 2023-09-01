@@ -236,7 +236,7 @@ Compatibility
 -------------
 
 Tested with:
-  - Python 3.7, 3.8, 3.9, 3.10
+  - Python 3.8, 3.9, 3.10
   - IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
     3.1, 3.2, 4.0., 7.11 (latest)
   - IPython (text console), IPython Notebook, Spyder

@@ -930,9 +930,7 @@ def test_find_missing_imports_code_loop_1():
     expected = ['use', 'y']
     assert expected == result
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only syntax.")
+
 def test_find_missing_imports_positional_only_args_1():
     code = dedent("""
         def func(x, /, y):
@@ -1225,11 +1223,6 @@ def test_find_missing_imports_tuple_ellipsis_type_1():
     assert expected == result
 
 
-# Only Python 3.8 includes type comments in the ast, so we only support this
-# there (see issue #31).
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only support.")
 def test_scan_for_import_issues_type_comment_1():
     code = dedent("""
     from typing import Sequence
@@ -1242,11 +1235,6 @@ def test_scan_for_import_issues_type_comment_1():
     assert missing == []
 
 
-# Only Python 3.8 includes type comments in the ast, so we only support this
-# there (see issue #31, 171, 174).
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only support.")
 def test_scan_for_import_issues_type_comment_2():
     code = dedent("""
     from typing import Sequence
@@ -1259,9 +1247,6 @@ def test_scan_for_import_issues_type_comment_2():
     assert missing == []
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only support.")
 def test_scan_for_import_issues_type_comment_3():
     code = dedent("""
     def foo(strings):
@@ -1273,9 +1258,6 @@ def test_scan_for_import_issues_type_comment_3():
     assert missing == [(1, DottedIdentifier('Sequence'))]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only support.")
 def test_scan_for_import_issues_type_comment_4():
     code = dedent("""
     from typing import Sequence, Tuple
@@ -1287,12 +1269,7 @@ def test_scan_for_import_issues_type_comment_4():
     assert unused == [(2, Import('from typing import Tuple'))]
     assert missing == []
 
-# Python 3.8 uses the correct line number for multiline strings (the first
-# line), making _annotate_ast_startpos irrelevant. Otherwise, the logic for
-# getting this right is too hard. See issue #12.
-@pytest.mark.skipif(
-    sys.version_info < (3, 8),
-    reason="Python 3.8+-only support.")
+
 def test_scan_for_import_issues_multiline_string_1():
     code = dedent('''
     x = (

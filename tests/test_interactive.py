@@ -1039,9 +1039,7 @@ def ipython(template, **kwargs):
     the template.  Assert that the result matches.
     """
     __tracebackhide__ = True
-    if sys.version_info[:2] >= (3, 8):
-        # more recent IPython have a different formatting.
-        template = template.replace("... in ...", "... line ...")
+    template = template.replace("... in ...", "... line ...")
     template = dedent(template).strip()
     input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
     args = kwargs.pop("args", ())
