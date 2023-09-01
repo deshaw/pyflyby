@@ -379,10 +379,7 @@ FLAGS = CompilerFlags(["absolute_import", "with_statement", "division",
 
 
 def _get_argspec(arg, _recurse=False):
-    if sys.version_info[0] == 3:
-        from inspect import getfullargspec as getargspec, FullArgSpec as ArgSpec
-    else:
-        from inspect import getargspec, ArgSpec
+    from inspect import getfullargspec as getargspec, FullArgSpec as ArgSpec
     if isinstance(arg, FunctionType):
         return getargspec(arg)
     elif isinstance(arg, MethodType):
@@ -402,10 +399,7 @@ def _get_argspec(arg, _recurse=False):
         return _get_argspec(arg.__call__, _recurse=False)
     elif callable(arg):
         # Unknown, probably a built-in method.
-        if sys.version_info[0] == 3:
-            return ArgSpec((), "args", "kwargs", None, [], None, {})
-        else:
-            return ArgSpec((), "args", "kwargs", None)
+        return ArgSpec((), "args", "kwargs", None, [], None, {})
     raise TypeError(
         "_get_argspec: unexpected %s" % (type(arg).__name__,))
 
@@ -515,12 +509,11 @@ def _build_function_usage_string(function_name, argspec, prefix):
     if argspec.varargs:
         syntax1 += " %s..." % argspec.varargs
     syntax1 += "]" * len(defaults)
-    if sys.version_info[0] == 3:
-        for arg in argspec.kwonlyargs:
-            if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
-                syntax1 += " [--%s=...]" % (arg,)
-            else:
-                syntax1 += " --%s=..." % (arg,)
+    for arg in argspec.kwonlyargs:
+        if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
+            syntax1 += " [--%s=...]" % (arg,)
+        else:
+            syntax1 += " --%s=..." % (arg,)
     if keywords:
         syntax1 += " [--...]"
     usage.append(syntax1)
@@ -531,12 +524,11 @@ def _build_function_usage_string(function_name, argspec, prefix):
             syntax2 += " [--%s=...]" % (arg,)
         else:
             syntax2 += " --%s=..." % (arg,)
-    if sys.version_info[0] == 3:
-        for arg in argspec.kwonlyargs:
-            if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
-                syntax2 += " [--%s=...]" % (arg,)
-            else:
-                syntax2 += " --%s=..." % (arg,)
+    for arg in argspec.kwonlyargs:
+        if argspec.kwonlydefaults and arg in argspec.kwonlydefaults:
+            syntax2 += " [--%s=...]" % (arg,)
+        else:
+            syntax2 += " --%s=..." % (arg,)
     if argspec.varargs:
         syntax2 += " %s..." % argspec.varargs
     if keywords:
@@ -717,20 +709,18 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
     for argname, default in zip(argspec.args[len(argspec.args)-len(defaults):],
                                 defaults):
         argname2default[argname] = make_expr(default, "raw_value")
-    if sys.version_info[0] == 3:
-        if argspec.kwonlydefaults:
-            for argname, default in argspec.kwonlydefaults.items():
-                argname2default[argname] = make_expr(default, "raw_value")
+    if argspec.kwonlydefaults:
+        for argname, default in argspec.kwonlydefaults.items():
+            argname2default[argname] = make_expr(default, "raw_value")
     # Create a map from prefix to arguments with that prefix.  E.g. {"foo":
     # ["foobar", "foobaz"]}
     prefix2argname = {}
     for argname in argspec.args:
         for prefix in prefixes(argname):
             prefix2argname.setdefault(prefix, []).append(argname)
-    if sys.version_info[0] == 3:
-        for argname in argspec.kwonlyargs:
-            for prefix in prefixes(argname):
-                prefix2argname.setdefault(prefix, []).append(argname)
+    for argname in argspec.kwonlyargs:
+        for prefix in prefixes(argname):
+            prefix2argname.setdefault(prefix, []).append(argname)
     # Enumerate over input arguments.
     got_pos_args = []
     got_keyword_args = {}
@@ -769,14 +759,9 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                         raise _ParseInterruptedWantHelp
                     if argname in ["source"]:
                         raise _ParseInterruptedWantSource
-                if sys.version_info[0] == 3:
-                    if not argspec.varkw:
-                        raise ParseError("Unknown option name %s" %
-                                         (argname,))
-                else:
-                    if not argspec.keywords:
-                        raise ParseError("Unknown option name %s" %
-                                         (argname,))
+                if not argspec.varkw:
+                    raise ParseError("Unknown option name %s" %
+                                     (argname,))
 
             elif len(matched_argnames) > 1:
                 raise ParseError(
