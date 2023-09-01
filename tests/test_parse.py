@@ -15,8 +15,10 @@ from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
 
 
-print_function_flag = CompilerFlags.from_int(0x100000)
-
+if sys.version_info < (3, 8, 3):
+    print_function_flag = CompilerFlags.from_int(0x10000)
+else:
+    print_function_flag = CompilerFlags.from_int(0x100000)
 
 def test_PythonBlock_FileText_1():
     text = FileText(

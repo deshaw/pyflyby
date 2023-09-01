@@ -1500,8 +1500,7 @@ def find_missing_imports(arg, namespaces):
             else:
                 return []
         # Parse the string into an AST.
-        kw = {'type_comments': True}
-        node = ast.parse(arg, **kw) # may raise SyntaxError
+        node = ast.parse(arg, type_comments=True) # may raise SyntaxError
         # Get missing imports from AST.
         return _find_missing_imports_in_ast(node, namespaces)
     elif isinstance(arg, PythonBlock):
