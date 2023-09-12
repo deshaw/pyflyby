@@ -146,8 +146,6 @@ def main():
     options, args = parse_args(
         _add_opts_and_defaults, import_format_params=True, modify_action_params=True, defaults=default_config)
     def modify(x):
-        if options.canonicalize:
-            x = canonicalize_imports(x, params=options.params)
         if options.transformations:
             x = transform_imports(x, options.transformations,
                                   params=options.params)
@@ -159,7 +157,10 @@ def main():
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             )
-        return sort_imports(x)
+        sx = sort_imports(x)
+        if options.canonicalize:
+            sx = canonicalize_imports(x, params=options.params)
+        return sx
     process_actions(args, options.actions, modify)
 
 
