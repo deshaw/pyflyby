@@ -145,6 +145,7 @@ def main():
         parser.set_defaults(**default_config)
     options, args = parse_args(
         _add_opts_and_defaults, import_format_params=True, modify_action_params=True, defaults=default_config)
+
     def modify(x):
         if options.transformations:
             x = transform_imports(x, options.transformations,
@@ -157,10 +158,10 @@ def main():
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             )
-        sx = sort_imports(x)
+        sorted_imports = sort_imports(x)
         if options.canonicalize:
-            sx = canonicalize_imports(x, params=options.params)
-        return sx
+            sorted_imports = canonicalize_imports(sorted_imports, params=options.params)
+        return sorted_imports
     process_actions(args, options.actions, modify)
 
 
