@@ -540,7 +540,10 @@ def sort_imports(codeblock):
     :param codeblock:
     :return: codeblock
     """
-    sorted_imports = isort.code(str(codeblock), force_sort_within_sections=True)
+    sorted_imports = isort.code(
+        str(codeblock),
+        force_sort_within_sections=True,
+    )
     # Step 1: Split the input string into a list of lines
     lines = sorted_imports.strip().split('\n')
 
