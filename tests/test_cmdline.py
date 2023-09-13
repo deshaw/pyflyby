@@ -717,17 +717,14 @@ def test_tidy_imports_sorting():
         expected = dedent("""
             import numpy
 
-            from   pkg1.mod1                import foo
+            from   pkg1.mod1                import foo, foo2
             from   pkg1.mod2                import bar
-            from   pkg2                     import baz
-            import yy
-
-            from   pkg1.mod1                import foo2
             from   pkg1.mod3                import quux
-            from   pkg2                     import baar
-            import sympy
-            import zz
 
+            from   pkg2                     import baar, baz
+            import sympy
+            import yy
+            import zz
 
             zz.foo()
             bar()
