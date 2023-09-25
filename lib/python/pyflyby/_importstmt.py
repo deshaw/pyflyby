@@ -9,8 +9,6 @@ import subprocess
 from   collections              import namedtuple
 from   functools                import total_ordering
 
-import black
-
 from pyflyby import logger
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
