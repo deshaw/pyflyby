@@ -121,6 +121,7 @@ def test_tidy_imports_filename_action_replace_1():
             foo() + os + sys
         import a
         import c
+
         a, c
     ''').lstrip()
     assert result == expected_result
@@ -138,6 +139,7 @@ def test_tidy_imports_no_add_no_remove_1():
         import a
         import b
         import c
+
         a, c, os, sys
     ''').strip()
     assert result == expected
@@ -409,6 +411,7 @@ def test_tidy_imports_query_no_change_1():
     input = dedent('''
         from __future__ import absolute_import, division
         import x1
+
         x1
     ''')
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
@@ -446,6 +449,7 @@ def test_tidy_imports_query_y_1():
     expected = dedent("""
         from __future__ import absolute_import, division
         import x1
+
         x1
     """)
     assert output == expected

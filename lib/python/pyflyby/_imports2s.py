@@ -545,10 +545,11 @@ def sort_imports(codeblock):
         # To sort all the import in lexicographic order
         force_sort_within_sections=True,
         # This is done below
-        lines_between_sections=0
+        lines_between_sections=0,
+        lines_after_imports=1
     )
     # Step 1: Split the input string into a list of lines
-    lines = sorted_imports.strip().split('\n')
+    lines = sorted_imports.split('\n')
 
     # Step 2: Identify groups of imports and keep track of their line numbers
     pkg_lines = defaultdict(list)
