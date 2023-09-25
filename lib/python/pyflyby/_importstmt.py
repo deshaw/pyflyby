@@ -5,9 +5,13 @@
 
 
 import ast
+import subprocess
 from   collections              import namedtuple
 from   functools                import total_ordering
 
+import black
+
+from pyflyby import logger
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
@@ -486,10 +490,31 @@ class ImportStatement(object):
             tokens.append(t)
         res = s0 + pyfill(s, tokens, params=params)
         if params.use_black:
-            import black
-            mode = black.FileMode()
-            return black.format_str(res, mode=mode)
+            return self.run_black(res, params)
         return res
+
+    @staticmethod
+    def run_black(str_to_format, params):
+        black_cmd = [
+            f'black --line-length {str(params.max_line_length)} -c "{str_to_format.strip()}"',
+        ]
+        try:
+            completed_process = subprocess.run(
+                black_cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
+
+            if completed_process.returncode == 0:
+                formatted_code = completed_process.stdout
+                return formatted_code
+            else:
+                logger.info(f"Black command failed: {black_cmd}")
+                raise ValueError(completed_process.stderr)
+        except Exception:
+            raise
 
     @property
     def _data(self):
