@@ -9,7 +9,6 @@ import subprocess
 from   collections              import namedtuple
 from   functools                import total_ordering
 
-from pyflyby import logger
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
@@ -509,7 +508,6 @@ class ImportStatement(object):
                 formatted_code = completed_process.stdout
                 return formatted_code
             else:
-                logger.info(f"Black command failed: {black_cmd}")
                 raise ValueError(completed_process.stderr)
         except Exception:
             raise
