@@ -457,7 +457,7 @@ def debugger(*args, **kwargs):
       forked child.
     '''
     from ._parse import PythonStatement, PythonBlock, FileText
-    if len(args) == 1:
+    if len(args) in {1, 2}:
         arg = args[0]
     elif len(args) == 0:
         arg = None
