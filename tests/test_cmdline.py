@@ -764,3 +764,51 @@ def test_tidy_imports_sorting():
             sympy
         """).strip().format(f=f)
         assert result == expected
+
+
+def test_tidy_imports_forward_references():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        foo = os.path.join(temp_dir, "foo.py")
+        with open(foo, "w") as foo_fp:
+            foo_fp.write(dedent("""
+                from __future__ import annotations
+
+
+                class A:
+                    param1: str
+                    param2: B
+
+
+                class B:
+                    param1: str
+            """).lstrip())
+            foo_fp.flush()
+
+        dot_pyflyby = os.path.join(temp_dir, ".pyflyby")
+        with open(dot_pyflyby, "w") as dot_pyflyby_fp:
+            dot_pyflyby_fp.write(dedent("""
+                from foo import A, B
+            """).lstrip())
+            dot_pyflyby_fp.flush()
+
+        os.chdir(temp_dir)
+        result = pipe([
+            BIN_DIR+"/tidy-imports", foo_fp.name
+        ], env={
+            "PYFLYBY_PATH": dot_pyflyby
+        })
+
+        expected = dedent(f"""
+            [PYFLYBY] {foo}: added 'from foo import B'
+            from __future__ import annotations
+            from   foo                      import B
+
+            class A:
+                param1: str
+                param2: B
+
+
+            class B:
+                param1: str
+        """).strip().format()
+        assert result == expected
