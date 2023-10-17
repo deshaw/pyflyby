@@ -521,7 +521,6 @@ def test_method_reference_current_class():
     assert unused == []
 
 
-
 def test_find_missing_imports_class_name_1():
     code = dedent(
         """
