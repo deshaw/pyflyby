@@ -184,6 +184,12 @@ def comm_open_handler(comm, message):
         elif data["type"] == TIDY_IMPORTS:
             checksum = data.get("checksum", '')
             cell_array = data.get("cellArray", [])
+            # import_statements is a string because when
+            # SourceToSourceFileImportsTransformation is run on a piece of code
+            # it will club similar imports together and re-order the imports
+            # by making the imports a string, all the imports are processed
+            # together making sure tidy-imports has context on all the imports
+            # while clubbing similar imports and re-ordering them.
             import_statements, processed_cell_array = "", []
             for cell in cell_array:
                 text = cell.get("text")
