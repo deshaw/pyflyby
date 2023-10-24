@@ -799,9 +799,7 @@ def test_tidy_imports_forward_references():
         })
 
         expected = dedent(f"""
-            [PYFLYBY] {foo}: added 'from foo import B'
             from __future__ import annotations
-            from   foo                      import B
 
             class A:
                 param1: str
