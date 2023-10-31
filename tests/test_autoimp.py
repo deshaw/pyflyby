@@ -540,10 +540,10 @@ def test_annotation_inside_class():
 def test_find_missing_imports_class_name_1():
     code = dedent(
         """
-        class Corinne(object):
+        class Corinne:
             pass
-        class Bobtail(object):
-            class Chippewa(object):
+        class Bobtail:
+            class Chippewa:
                 Bobtail
             Rockton = Passall, Corinne, Chippewa
     """)
