@@ -521,6 +521,23 @@ def test_method_reference_current_class():
     assert unused == []
 
 
+def test_annotation_inside_class():
+    code = dedent(
+        """
+        class B:
+            param1: str
+
+
+        class A:
+            param1: str
+            param2: B
+   """
+    )
+    missing, unused = scan_for_import_issues(code, [{}])
+    assert missing == []
+    assert unused == []
+
+
 def test_find_missing_imports_class_name_1():
     code = dedent(
         """
