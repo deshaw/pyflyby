@@ -524,13 +524,12 @@ def test_method_reference_current_class():
 def test_annotation_inside_class():
     code = dedent(
         """
-        class B:
-            param1: str
-
-
         class A:
             param1: str
             param2: B
+
+        class B:
+            param1: str
    """
     )
     missing, unused = scan_for_import_issues(code, [{}])
