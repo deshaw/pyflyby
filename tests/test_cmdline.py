@@ -808,5 +808,5 @@ def test_tidy_imports_forward_references():
 
             class B:
                 param1: str
-        """).strip().format()
+        """).strip()
         assert result == expected
