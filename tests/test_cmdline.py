@@ -687,6 +687,27 @@ def test_tidy_imports_symlinks_bad_argument():
     assert symlink_output == input
 
 
+def test_debug_filetype_with_py():
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(dedent("""
+            sys.argv
+        """).lstrip())
+        f.flush()
+        command = [BIN_DIR+"/py", "--debug", f.name]
+
+        output_result = b""
+        child = pexpect.spawn(' '.join(command), timeout=5)
+        child.expect('ipdb>')
+        output_result += child.before
+        child.sendline('c')
+        output_result += child.before
+        child.expect(pexpect.EOF)
+        output_result += child.before
+
+        expected = "Entering debugger.  Use 'n' to step, 'c' to run, 'q' to stop."
+        assert expected in output_result.decode()
+
+
 def test_tidy_imports_sorting():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write(dedent("""
