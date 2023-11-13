@@ -16,6 +16,41 @@ from   pyflyby._parse           import PythonStatement
 from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
+from   black                    import (find_pyproject_toml, format_str,
+                                        parse_pyproject_toml, format_str,
+                                        TargetVersion, FileMode as Mode)
+
+
+def read_black_config():
+    """Read the black configuration from ``pyproject.toml``
+
+
+    """
+    value = find_pyproject_toml('.')
+
+    raw_config = parse_pyproject_toml(value)
+
+    config = {}
+    for key in [
+        "line_length",
+        "skip_magic_trailing_comma",
+        "skip_string_normalization",
+    ]:
+        if key in raw_config:
+            config[key] = raw_config[key]
+    if "target_version" in raw_config:
+        target_version = raw_config["target_version"]
+        if isinstance(target_version, str):
+            config["target_version"] = target_version
+        elif isinstance(target_version, list):
+            # Convert TOML list to a Python set
+            config["target_version"] = set(target_version)
+        else:
+            raise ValueError(
+                f"Invalid config for black = {target_version!r} in {value}"
+            )
+    return config
+
 
 class ImportFormatParams(FormatParams):
     align_imports = True
@@ -491,26 +526,53 @@ class ImportStatement(object):
         return res
 
     @staticmethod
-    def run_black(str_to_format, params):
-        black_cmd = [
-            f'black --line-length {str(params.max_line_length)} -c "{str_to_format.strip()}"',
-        ]
-        try:
-            completed_process = subprocess.run(
-                black_cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-            )
+    def run_black(src_contents: str, params) -> str:
+        """Run the black formatter for the Python source code given as a string
 
-            if completed_process.returncode == 0:
-                formatted_code = completed_process.stdout
-                return formatted_code
+        This is adapted from https://github.com/akaihola/darker
+
+        """
+        black_config = read_black_config()
+        mode = dict()
+        if "line_length" in black_config:
+            mode["line_length"] = (
+                params.max_line_length
+                if params.max_line_length
+                else black_config["line_length"]
+            )
+        if "target_version" in black_config:
+            if isinstance(black_config["target_version"], set):
+                target_versions_in = black_config["target_version"]
             else:
-                raise ValueError(completed_process.stderr)
-        except Exception:
-            raise
+                target_versions_in = {black_config["target_version"]}
+            all_target_versions = {
+                tgt_v.name.lower(): tgt_v for tgt_v in TargetVersion
+            }
+            bad_target_versions = target_versions_in - set(all_target_versions)
+            if bad_target_versions:
+                raise ConfigurationError(
+                    f"Invalid target version(s) {bad_target_versions}"
+                )
+            mode["target_versions"] = {
+                all_target_versions[n] for n in target_versions_in
+            }
+        if "skip_magic_trailing_comma" in black_config:
+            mode["magic_trailing_comma"] = not black_config[
+                "skip_magic_trailing_comma"
+            ]
+        if "skip_string_normalization" in black_config:
+            # The ``black`` command line argument is
+            # ``--skip-string-normalization``, but the parameter for
+            # ``black.Mode`` needs to be the opposite boolean of
+            # ``skip-string-normalization``, hence the inverse boolean
+            mode["string_normalization"] = not black_config[
+                "skip_string_normalization"
+            ]
+
+        # The custom handling of empty and all-whitespace files below will be unnecessary if
+        # https://github.com/psf/black/pull/2484 lands in Black.
+        contents_for_black = src_contents
+        return format_str(contents_for_black, mode=Mode(**mode))
 
     @property
     def _data(self):
