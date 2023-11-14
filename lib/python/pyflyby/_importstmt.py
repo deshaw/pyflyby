@@ -5,7 +5,6 @@
 
 
 import ast
-import subprocess
 from   collections              import namedtuple
 from   functools                import total_ordering
 
@@ -17,8 +16,8 @@ from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
 from   black                    import (find_pyproject_toml, format_str,
-                                        parse_pyproject_toml, format_str,
-                                        TargetVersion, FileMode as Mode)
+                                        parse_pyproject_toml, TargetVersion,
+                                        FileMode as Mode)
 
 
 def read_black_config():
@@ -550,7 +549,7 @@ class ImportStatement(object):
             }
             bad_target_versions = target_versions_in - set(all_target_versions)
             if bad_target_versions:
-                raise ConfigurationError(
+                raise ValueError(
                     f"Invalid target version(s) {bad_target_versions}"
                 )
             mode["target_versions"] = {
