@@ -544,8 +544,9 @@ def test_find_missing_imports_class_name_1():
             pass
         class Bobtail:
             class Chippewa:
-                Bobtail
+                Bobtail # will be name error at runtime
             Rockton = Passall, Corinne, Chippewa
+                      # ^error, ^ok   , ^ok
     """)
     result   = find_missing_imports(code, [{}])
     result   = _dilist2strlist(result)

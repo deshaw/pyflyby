@@ -798,7 +798,7 @@ def test_tidy_imports_forward_references():
             "PYFLYBY_PATH": dot_pyflyby
         })
 
-        expected = dedent(f"""
+        expected = dedent("""
             from __future__ import annotations
 
             class A:
