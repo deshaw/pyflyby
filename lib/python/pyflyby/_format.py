@@ -8,7 +8,8 @@ import six
 
 
 class FormatParams(object):
-    max_line_length = 79
+    max_line_length = None
+    _max_line_lenght_default = 79
     wrap_paren = True
     indent = 4
     hanging_indent = 'never'
@@ -36,6 +37,9 @@ class FormatParams(object):
                 else:
                     raise ValueError("bad kwarg %r" % (key,))
         return self
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.__dict__}>'
 
 
 def fill(tokens, sep=(", ", ""), prefix="", suffix="", newline="\n",
@@ -125,7 +129,7 @@ def pyfill(prefix, tokens, params=FormatParams()):
     :rtype:
       ``str``
     """
-    N = params.max_line_length
+    N = params.max_line_length or params._max_line_lenght_default
     if params.wrap_paren:
         # Check how we will break up the tokens.
         len_full = sum(len(tok) for tok in tokens) + 2 * (len(tokens)-1)

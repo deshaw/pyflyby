@@ -221,8 +221,8 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
     ],
-    install_requires=["six", "toml", "isort", "pathlib ; python_version<'3'"],
-    python_requires=">3.0, !=3.0.*, !=3.1.*, !=3.2.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, <4",
+    install_requires=["six", "toml", "isort", "black"],
+    python_requires=">3.6, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,

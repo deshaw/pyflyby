@@ -207,13 +207,14 @@ def parse_args(
                          help=hfmt('''
                              (Default) Don't align the 'from __future__ import
                              ...' statement.'''))
-        group.add_option('--width', type='int', default=79, metavar='N',
+        group.add_option('--width', type='int', default=None, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
         group.add_option('--black', action='store_true', default=False,
                          help=hfmt('''
                              Use black to format imports. If this option is
-                             used, all other formatting options are ignored.'''))
+                             used, all other formatting options are ignored,
+                             except width'''))
         group.add_option('--hanging-indent', type='choice', default='never',
                          choices=['never','auto','always'],
                          metavar='never|auto|always',
