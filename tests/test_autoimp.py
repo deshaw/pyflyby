@@ -521,20 +521,58 @@ def test_method_reference_current_class():
     assert unused == []
 
 
+def test_annotation_inside_class():
+    code = dedent(
+        """
+        class A:
+            param1: str
+            param2: B
 
+        class B:
+            param1: str
+   """
+    )
+    missing, unused = scan_for_import_issues(code, [{}])
+    assert missing == []
+    assert unused == []
+
+
+@pytest.mark.xfail(
+    reason="Had to deactivate as part of https://github.com/deshaw/pyflyby/pull/269/files conflicting requirements"
+)
 def test_find_missing_imports_class_name_1():
     code = dedent(
         """
-        class Corinne(object):
+        class Corinne:
             pass
-        class Bobtail(object):
-            class Chippewa(object):
-                Bobtail
+        class Bobtail:
+            class Chippewa:
+                Bobtail # will be name error at runtime
             Rockton = Passall, Corinne, Chippewa
-    """)
-    result   = find_missing_imports(code, [{}])
-    result   = _dilist2strlist(result)
-    expected = ['Bobtail', 'Passall']
+                      # ^error, ^ok   , ^ok
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ["Bobtail", "Passall"]
+    assert expected == result
+
+
+def test_find_missing_imports_class_name_1b():
+    code = dedent(
+        """
+        class Corinne:
+            pass
+        class Bobtail:
+            class Chippewa:
+                Bobtail # will be name error at runtime
+            Rockton = Passall, Corinne, Chippewa
+                      # ^error, ^ok   , ^ok
+    """
+    )
+    result = find_missing_imports(code, [{}])
+    result = _dilist2strlist(result)
+    expected = ["Passall"]
     assert expected == result
 
 
