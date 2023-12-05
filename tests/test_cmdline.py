@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from   textwrap                 import dedent
 
-from   pyflyby._util            import EnvVarCtx
+from pyflyby._util import EnvVarCtx, CwdCtx
 
 import pytest
 
@@ -790,23 +790,23 @@ def test_tidy_imports_forward_references():
                 from foo import A, B
             """).lstrip())
             dot_pyflyby_fp.flush()
+        with CwdCtx(temp_dir):
+            result = pipe(
+                [BIN_DIR + "/tidy-imports", foo_fp.name],
+                env={"PYFLYBY_PATH": dot_pyflyby},
+            )
 
-        os.chdir(temp_dir)
-        result = pipe([
-            BIN_DIR+"/tidy-imports", foo_fp.name
-        ], env={
-            "PYFLYBY_PATH": dot_pyflyby
-        })
+            expected = dedent(
+                """
+                from __future__ import annotations
 
-        expected = dedent("""
-            from __future__ import annotations
-
-            class A:
-                param1: str
-                param2: B
+                class A:
+                    param1: str
+                    param2: B
 
 
-            class B:
-                param1: str
-        """).strip()
+                class B:
+                    param1: str
+            """
+            ).strip()
         assert result == expected
