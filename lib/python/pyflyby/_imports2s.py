@@ -564,12 +564,29 @@ def sort_imports(codeblock):
 
     # Step 3: Create the output list of lines with blank lines around groups with more than one import
     output_lines = []
+
+    def next_line(index):
+        if index + 1 < len(lines):
+            return lines[index + 1]
+        else:
+            return ""
+
     for i, line in enumerate(lines):
-        if i > 0 and line_pkg_dict.get(i) != line_pkg_dict.get(i-1) and len(pkg_lines[line_pkg_dict.get(i)]) > 1:
-            output_lines.append('')
+        if (
+            i > 0
+            and line_pkg_dict.get(i) != line_pkg_dict.get(i - 1)
+            and len(pkg_lines[line_pkg_dict.get(i)]) > 1
+            and next_line(i).startswith(("import", "from"))
+        ):
+            output_lines.append("")
         output_lines.append(line)
-        if i < len(lines) - 1 and line_pkg_dict.get(i) != line_pkg_dict.get(i+1) and len(pkg_lines[line_pkg_dict.get(i)]) > 1:
-            output_lines.append('')
+        if (
+            i < len(lines) - 1
+            and line_pkg_dict.get(i) != line_pkg_dict.get(i + 1)
+            and len(pkg_lines[line_pkg_dict.get(i)]) > 1
+            and next_line(i).startswith(("import", "from"))
+        ):
+            output_lines.append("")
 
     # Step 4: Join the lines to create the output string
     sorted_output_str = '\n'.join(output_lines)
