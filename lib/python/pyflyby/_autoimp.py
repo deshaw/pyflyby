@@ -22,12 +22,17 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import PythonBlock, infer_compile_mode
+from   pyflyby._parse           import PythonBlock, infer_compile_mode, _is_ast_str
 
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
 else:
     ATTRIBUTE_NAME = "s"
+
+if sys.version_info > (3, 11):
+    LOAD_SHIFT = 1
+else:
+    LOAD_SHIFT = 0
 
 if sys.version_info > (3, 11):
     LOAD_SHIFT = 1
@@ -580,7 +585,7 @@ class _MissingImportFinder(object):
             if not isinstance(node.value, ast.List):
                 logger.warning("Don't know how to handle __all__ as (%s)" % node.value)
                 return
-            if not all(isinstance(e, ast.Str) for e in node.value.elts):
+            if not all(_is_ast_str(e) for e in node.value.elts):
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
@@ -588,7 +593,11 @@ class _MissingImportFinder(object):
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
-        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
+        if sys.version_info > (3,12):
+            # we don't visit type_params, so autoimport won't work yet for type annotations
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'), node._fields
+        else:
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list'), node._fields
         self.visit(node.bases)
         self.visit(node.decorator_list)
         # The class's name is only visible to others (not to the body to the
@@ -619,7 +628,11 @@ class _MissingImportFinder(object):
         #     scope.
         #   - Store the name in the current scope (but not visibly to
         #     args/decorator_list).
-        assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
+        if sys.version_info > (3, 12):
+            # we don't visit type_params, so autoimport won't work yet for type annotations
+            assert node._fields ==  ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment', 'type_params'), node._fields
+        else:
+            assert node._fields ==  ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.decorator_list)
             self.visit(node.args)

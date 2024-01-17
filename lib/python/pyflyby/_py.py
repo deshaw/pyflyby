@@ -275,6 +275,7 @@ Examples
 
 
 from   functools                import total_ordering
+from   typing                   import Any
 
 from   pyflyby._util            import cmp
 
@@ -377,7 +378,7 @@ FLAGS = CompilerFlags(["absolute_import", "with_statement", "division",
                        "print_function"])
 
 
-def _get_argspec(arg, _recurse=False):
+def _get_argspec(arg:Any) -> inspect.FullArgSpec:
     from inspect import getfullargspec as getargspec, FullArgSpec as ArgSpec
     if isinstance(arg, FunctionType):
         return getargspec(arg)
@@ -394,8 +395,6 @@ def _get_argspec(arg, _recurse=False):
         else:
             argspec = _get_argspec(arg.__init__)
             return ArgSpec(argspec.args[1:], *argspec[1:])
-    elif _recurse and hasattr(arg, '__call__'):
-        return _get_argspec(arg.__call__, _recurse=False)
     elif callable(arg):
         # Unknown, probably a built-in method.
         return ArgSpec([], "args", "kwargs", None, [], None, {})
@@ -458,8 +457,16 @@ def _requires_parens_as_function(function_name:str):
     return True
 
 
-def _format_call_spec(function_name, argspec):
-    callspec = inspect.formatargspec(*argspec)
+def _format_call_spec(function_name:str, obj:Any)-> str:
+    # using signature() is not strictly identical
+    # as it might look at __text_signature__ and/or respect possitional only
+    # forward slash:
+    #   >>> def foo(a, /, b)
+    # whcih formatargspec did not do.
+    # argspec = _get_argspec(obj)
+    # old_callspect = inspect.formatargspec(*argspec)
+    # assert old_callspect == callspec , f"{old_callspect} !={callspec}"
+    callspec = str(inspect.signature(obj))
     if _requires_parens_as_function(function_name):
         return "(%s)%s" % (function_name, callspec)
     else:
@@ -483,11 +490,13 @@ except ImportError:
         return "'" + s.replace("'", "'\"'\"'") + "'"
 
 
-def _build_function_usage_string(function_name, argspec, prefix):
+def _build_function_usage_string(function_name:str, obj:Any, prefix:str):
+    argspec = _get_argspec(obj)
+
     usage = []
     # TODO: colorize
     usage.append("Python signature:")
-    usage.append("  >"+">> " + _format_call_spec(function_name, argspec))
+    usage.append("  >"+">> " + _format_call_spec(function_name, obj))
     usage.append("")
     usage.append("Command-line signature:")
     keywords = argspec.varkw
@@ -902,11 +911,10 @@ def _get_help(expr, verbosity=1):
     # TODO: colorize headers
     result = ""
     obj = expr.value
-    name = str(expr.source)
+    name:str = str(expr.source)
     if callable(obj):
-        argspec = _get_argspec(obj)
         prefix = os.path.basename(sys.orig_argv[0]) + " "
-        result += _build_function_usage_string(name, argspec, prefix)
+        result += _build_function_usage_string(name, obj, prefix)
     if verbosity == 0:
         include_filename = False
         include_doc      = False

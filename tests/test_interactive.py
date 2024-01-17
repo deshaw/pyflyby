@@ -3854,7 +3854,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
-@retry
+@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
@@ -3900,7 +3900,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@retry
+@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     ipython("""
@@ -3922,7 +3922,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
         ipdb> q
     """, frontend=frontend)
 
-
+@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3953,7 +3953,6 @@ def test_debug_namespace_1_py3(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
