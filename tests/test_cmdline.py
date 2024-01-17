@@ -709,8 +709,12 @@ def test_debug_filetype_with_py():
 
 
 def test_tidy_imports_sorting():
-    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
-        f.write(dedent("""
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as f:
+        f.write(
+            dedent(
+                """
+            from very_very_very_long_named_package.very_long_named_module \
+                                import(small_class, very_large_named_class as small_name)
             import numpy
 
             from pkg1.mod1 import foo
@@ -736,10 +740,16 @@ def test_tidy_imports_sorting():
             baz
             baar
             sympy
-        """).lstrip())
+            small_class
+            small_name
+        """
+            ).lstrip()
+        )
         f.flush()
-        result = pipe([BIN_DIR+"/tidy-imports", f.name])
-        expected = dedent("""
+        result = pipe([BIN_DIR + "/tidy-imports", f.name])
+        expected = (
+            dedent(
+                """
             import numpy
 
             from   pkg1.mod1                import foo, foo2
@@ -748,6 +758,9 @@ def test_tidy_imports_sorting():
 
             from   pkg2                     import baar, baz
             import sympy
+            from   very_very_very_long_named_package.very_long_named_module \\
+                                            import (small_class,
+                                                    very_large_named_class as small_name)
             import yy
             import zz
 
@@ -762,7 +775,13 @@ def test_tidy_imports_sorting():
             baz
             baar
             sympy
-        """).strip().format(f=f)
+            small_class
+            small_name
+        """
+            )
+            .strip()
+            .format(f=f)
+        )
         assert result == expected
 
 

@@ -885,21 +885,36 @@ def test_transform_imports_1():
 
 
 def test_canonicalize_imports_1():
-    input = PythonBlock(dedent('''
+    input = PythonBlock(
+        dedent(
+            """
+        from very_very_very_long_named_package.very_long_named_module \\
+                                import(small_class, very_large_named_class as small_name)
         from m import x
         from m import x as X
         import m.x
         print(m.x, m.xx)
-    ''').lstrip(), filename="/foo/test_transform_imports_1.py")
-    db = ImportDB("""
+    """
+        ).lstrip(),
+        filename="/foo/test_transform_imports_1.py",
+    )
+    db = ImportDB(
+        """
         __canonical_imports__ = {"m.x": "m.y.z"}
-    """)
+    """
+    )
     output = canonicalize_imports(input, db=db)
-    expected = PythonBlock(dedent('''
+    expected = PythonBlock(
+        dedent("""
         import m.y.z
-        from m.y import z as X, z as x
+        from m.y                                                      import (z as X,
+                                                                              z as x)
+        from very_very_very_long_named_package.very_long_named_module import (small_class,
+                                                                              very_large_named_class as small_name)
         print(m.y.z, m.xx)
-    ''').lstrip(), filename="/foo/test_transform_imports_1.py")
+        """).lstrip(),
+        filename="/foo/test_transform_imports_1.py",
+    )
     assert output == expected
 
 
