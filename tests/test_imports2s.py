@@ -822,6 +822,18 @@ def test_replace_star_no_imports_found(capsys):
     captured = capsys.readouterr()
     assert 'Traceback' not in captured.err
 
+
+def test_replace_star_imports_os_issue_281(capsys):
+    input = PythonBlock(dedent('''
+        from os import *
+
+        getcwd()
+    ''').lstrip(), filename="/foo/test_replace_os_imports.py")
+    _ = replace_star_imports(input)
+    captured = capsys.readouterr()
+    assert 'with' in captured.out and 'imports' in captured.out
+
+
 def test_replace_star_imports_1():
     input = PythonBlock(dedent('''
         from mod1                    import f1
