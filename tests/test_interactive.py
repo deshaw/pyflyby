@@ -92,6 +92,24 @@ def pytest_generate_tests(metafunc):
             metafunc.parametrize('frontend', [            'prompt_toolkit'])
         else:
             metafunc.parametrize('frontend', ['readline'])
+    elif 'frontend_no_ptk' in metafunc.fixturenames:
+        if _IPYTHON_VERSION >= (7,0):
+            # no other frontend than prompt toolkit, this mean that any test using
+            # frontend_no_ptk are skipped on IPython 8+
+            metafunc.parametrize('frontend_no_ptk', [])
+
+        elif _IPYTHON_VERSION >= (5,4):
+            try:
+                import rlipython
+                rlipython # used
+            except ImportError:
+                raise ImportError("test_interactive requires rlipython installed.  "
+                                  "Please try: pip install rlipython")
+            metafunc.parametrize('frontend_no_ptk', ['readline'])
+        elif _IPYTHON_VERSION >= (5,0):
+            assert False
+        else:
+            metafunc.parametrize('frontend_no_ptk', ['readline'])
 
 
 @pytest.fixture
@@ -1575,10 +1593,9 @@ def test_ipython_tab_fail_1(frontend):
 
 
 @retry
-def test_ipython_tab_multi_1(frontend):
+def test_ipython_tab_multi_1(frontend_no_ptk):
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion.
-    if frontend == "prompt_toolkit": pytest.skip()
     # Currently our test harness is only able to test this using rlipython.
     ipython("""
         In [1]: def foo(): pass
@@ -1588,7 +1605,7 @@ def test_ipython_tab_multi_1(frontend):
         foo.xyz1  foo.xyz2
         In [4]: foo.xyz\x062
         Out[4]: 222
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
@@ -1842,8 +1859,7 @@ def test_autoimport_multiline_statement_1():
 
 
 @retry
-def test_autoimport_multiline_continued_statement_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_autoimport_multiline_continued_statement_1(frontend_no_ptk):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1858,12 +1874,11 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         microphone
         In [3]: if 1: sys.stdout.write(b64decode('bG91ZHNwZWFrZXI='))
         loudspeaker
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
-def test_autoimport_multiline_continued_statement_fake_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_autoimport_multiline_continued_statement_fake_1(frontend_no_ptk):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1883,7 +1898,7 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
         In [4]: if 1: print(b64decode('YmFzZWJhbGw=').decode('utf-8'))
         [PYFLYBY] from base64 import b64decode
         baseball
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
@@ -2165,8 +2180,7 @@ def test_complete_symbol_basic_1():
 
 
 @retry
-def test_complete_symbol_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_complete_symbol_multiple_1(frontend_no_ptk):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b64\t
@@ -2174,12 +2188,11 @@ def test_complete_symbol_multiple_1(frontend):
         In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
-def test_complete_symbol_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_complete_symbol_partial_multiple_1(frontend_no_ptk):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b6\t
@@ -2187,7 +2200,7 @@ def test_complete_symbol_partial_multiple_1(frontend):
         In [2]: print(b64\x06d\tecode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
@@ -2243,9 +2256,7 @@ def test_complete_symbol_member_1(frontend):
 
 
 @retry
-def test_complete_symbol_member_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
+def test_complete_symbol_member_multiple_1(frontend_no_ptk):
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2259,14 +2270,12 @@ def test_complete_symbol_member_multiple_1(frontend):
         ... in ...
         AttributeError: module 'base64' has no attribute 'b64'
     """,
-        frontend=frontend,
+        frontend=frontend_no_ptk,
     )
 
 
 @retry
-def test_complete_symbol_member_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
+def test_complete_symbol_member_partial_multiple_1(frontend_no_ptk):
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2280,7 +2289,7 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
         ... in ...
         AttributeError: module 'base64' has no attribute 'b64'
     """,
-        frontend=frontend,
+        frontend=frontend_no_ptk,
     )
 
 
@@ -2326,8 +2335,7 @@ def test_complete_symbol_multiline_statement_1():
 
 
 @retry
-def test_complete_symbol_multiline_statement_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_complete_symbol_multiline_statement_member_1(frontend_no_ptk):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -2341,7 +2349,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
         In [3]: print(b64d\tecode('bGlvbg=='))
         [PYFLYBY] from base64 import b64decode
         lion
-    """, frontend=frontend)
+    """, frontend=frontend_no_ptk)
 
 
 @retry
@@ -2498,8 +2506,7 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
 @pytest.mark.skipif(
     _IPYTHON_VERSION < (0, 12),
     reason="test not implemented for this version")
-def test_complete_symbol_getitem_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
+def test_complete_symbol_getitem_1(frontend_no_ptk):
     if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2509,7 +2516,7 @@ def test_complete_symbol_getitem_1(frontend):
         In [3]: apples[1].l\x06ow\ter()
         Out[3]: 'pinklady'
     """, args=['--InteractiveShell.readline_remove_delims=-/~[]'],
-            frontend=frontend)
+            frontend=frontend_no_ptk)
 
 
 @pytest.mark.skipif(
@@ -3212,12 +3219,6 @@ def test_error_during_enable_1():
 # won't work.
 
 
-# @retry(ExpectError)
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @pytest.mark.parametrize('sendeof', [False, True])
 def test_ipython_console_1(sendeof):
     # Verify that autoimport and tab completion work in IPython console.
@@ -3242,11 +3243,6 @@ def test_ipython_console_1(sendeof):
     """, args='console', sendeof=sendeof)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
@@ -3262,11 +3258,6 @@ def test_ipython_kernel_console_existing_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_ipython_kernel_console_multiple_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
@@ -3311,11 +3302,6 @@ def test_ipython_notebook_basic_1():
             Out[2]: 77
             """, args=['console'], kernel=kernel)
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_ipython_notebook_1():
     with IPythonNotebookCtx() as kernel:
@@ -3339,11 +3325,6 @@ def test_ipython_notebook_1():
         )
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_ipython_notebook_reconnect_1():
     # Verify that we can reconnect to the same kernel, and pyflyby is still
@@ -3399,11 +3380,6 @@ def test_py_i_interactive_1(tmp):
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_py_console_1():
     # Verify that 'py console' works.
@@ -3414,11 +3390,6 @@ def test_py_console_1():
     """, prog="py", args=['console'])
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_py_kernel_1():
     # Verify that 'py kernel' works.
@@ -3432,11 +3403,6 @@ def test_py_kernel_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
@@ -3457,11 +3423,6 @@ def test_py_console_existing_1():
         )
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_py_notebook_1():
     with IPythonNotebookCtx(prog="py") as kernel:
@@ -3550,11 +3511,6 @@ def test_installed_in_config_redundant_1(tmp):
 
 
 @retry
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
     # installed in ipython_config.
@@ -3567,11 +3523,6 @@ def test_installed_in_config_ipython_console_1(tmp):
 
 
 @retry
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 def test_installed_in_config_ipython_kernel_1(tmp):
     # Verify that autoimport works in 'ipython kernel' when pyflyby is
     # installed in ipython_config.
@@ -3584,11 +3535,6 @@ def test_installed_in_config_ipython_kernel_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 @retry
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
