@@ -812,24 +812,23 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
                 % (argname, expr, type(e).__name__, e))
         parsed_args.append(value)
 
-    if sys.version_info[0] == 3:
-        for argname in argspec.kwonlyargs:
+    for argname in argspec.kwonlyargs:
+        try:
+            expr = got_keyword_args.pop(argname)
+        except KeyError:
             try:
-                expr = got_keyword_args.pop(argname)
+                expr = argname2default[argname]
             except KeyError:
-                try:
-                    expr = argname2default[argname]
-                except KeyError:
-                    raise ParseError(
-                        "missing required keyword argument %s" % (argname,))
-
-            try:
-                value = expr.value
-            except Exception as e:
                 raise ParseError(
-                    "Error parsing value for --%s=%s: %s: %s"
-                    % (argname, expr, type(e).__name__, e))
-            parsed_kwargs[argname] = value
+                    "missing required keyword argument %s" % (argname,))
+
+        try:
+            value = expr.value
+        except Exception as e:
+            raise ParseError(
+                "Error parsing value for --%s=%s: %s: %s"
+                % (argname, expr, type(e).__name__, e))
+        parsed_kwargs[argname] = value
 
     if len(got_pos_args) > len(argspec.args):
         if argspec.varargs:
