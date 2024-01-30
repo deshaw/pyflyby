@@ -336,7 +336,7 @@ FilePos._ONE_ONE = FilePos._from_lc(1, 1)
 
 
 @total_ordering
-class FileText(object):
+class FileText:
     """
     Represents a contiguous sequence of lines from a file.
     """

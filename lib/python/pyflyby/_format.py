@@ -24,10 +24,12 @@ class FormatParams(object):
         for arg in args:
             if arg is None:
                 pass
-            elif isinstance(arg, cls):
+            elif isinstance(arg, cls) or hasattr(self, "__dict__"):
                 dicts.append(arg.__dict__)
             else:
-                raise TypeError
+                raise TypeError(
+                    "expected None, or instance of %s cls, got %s" % (cls, arg)
+                )
         if kwargs:
             dicts.append(kwargs)
         for kwargs in dicts:

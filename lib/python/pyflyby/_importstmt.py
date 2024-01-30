@@ -15,9 +15,9 @@ from   pyflyby._parse           import PythonStatement
 from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
-from   black                    import (find_pyproject_toml, format_str,
-                                        parse_pyproject_toml, TargetVersion,
-                                        FileMode as Mode)
+from   black                    import format_str, FileMode as Mode
+from   black.files              import find_pyproject_toml, parse_pyproject_toml
+from   black.mode               import TargetVersion
 
 
 def read_black_config():
@@ -52,7 +52,7 @@ def read_black_config():
 
 
 class ImportFormatParams(FormatParams):
-    align_imports = True
+    align_imports:bool = True
     """
     Whether and how to align 'from modulename import aliases...'.  If ``True``,
     then the 'import' keywords will be aligned within a block.  If an integer,
@@ -60,19 +60,19 @@ class ImportFormatParams(FormatParams):
     wrapped if necessary.
     """
 
-    from_spaces = 1
+    from_spaces:int = 1
     """
     The number of spaces after the 'from' keyword.  (Must be at least 1.)
     """
 
-    separate_from_imports = True
+    separate_from_imports:bool = True
     """
     Whether all 'from ... import ...' in an import block should come after
     'import ...' statements.  ``separate_from_imports = False`` works well with
     ``from_spaces = 3``.  ('from __future__ import ...' always comes first.)
     """
 
-    align_future = False
+    align_future:bool = False
     """
     Whether 'from __future__ import ...' statements should be aligned with
     others.  If False, uses a single space after the 'from' and 'import'
@@ -124,6 +124,10 @@ class Import(object):
       Import('from foo import bar')
 
     """
+
+    fullname:str
+    import_as:str
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
