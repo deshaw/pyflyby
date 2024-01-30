@@ -8,10 +8,7 @@ from   functools                import total_ordering
 import io
 import os
 import re
-import six
 import sys
-
-from   six                      import string_types
 
 from   pyflyby._util            import cached_attribute, cmp, memoize
 
@@ -34,13 +31,13 @@ class Filename(object):
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             return cls._from_filename(arg)
         raise TypeError
 
     @classmethod
     def _from_filename(cls, filename):
-        if not isinstance(filename, six.string_types):
+        if not isinstance(filename, str):
             raise TypeError
         filename = str(filename)
         if not filename:
@@ -372,7 +369,7 @@ class FileText(object):
             return cls(read_file(arg), filename=filename, startpos=startpos)
         elif hasattr(arg, "__text__"):
             return FileText(arg.__text__(), filename=filename, startpos=startpos)
-        elif isinstance(arg, six.string_types):
+        elif isinstance(arg, str):
             self = object.__new__(cls)
             self.joined = arg
         else:
@@ -389,7 +386,7 @@ class FileText(object):
     def _from_lines(cls, lines, filename, startpos):
         assert type(lines) is tuple
         assert len(lines) > 0
-        assert isinstance(lines[0], string_types)
+        assert isinstance(lines[0], str)
         assert not lines[-1].endswith("\n")
         self = object.__new__(cls)
         self.lines    = lines

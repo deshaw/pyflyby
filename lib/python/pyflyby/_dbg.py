@@ -3,7 +3,7 @@
 # License: MIT http://opensource.org/licenses/MIT
 
 
-
+import builtins
 from   contextlib               import contextmanager
 import errno
 from   functools                import wraps
@@ -13,9 +13,6 @@ import signal
 import sys
 import time
 from   types                    import CodeType, FrameType, TracebackType
-
-import six
-from   six.moves                import builtins
 
 from   collections.abc          import Callable
 
@@ -349,7 +346,8 @@ def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"
         print("Entering debugger.  Use 'n' to step, 'c' to run, 'q' to stop.")
         print("")
         from ._parse import PythonStatement, PythonBlock, FileText
-        if isinstance(arg, (six.string_types, PythonStatement, PythonBlock, FileText)):
+
+        if isinstance(arg, (str, PythonStatement, PythonBlock, FileText)):
             # Compile the block so that we can get the right compile mode.
             arg = PythonBlock(arg)
             # TODO: enter text into linecache
@@ -502,8 +500,9 @@ def debugger(*args, **kwargs):
             # TODO: capture globals/locals when relevant.
             wait_for_debugger_to_attach(arg)
             return
-    if isinstance(arg, (six.string_types, PythonStatement, PythonBlock, FileText,
-                        CodeType, Callable)):
+    if isinstance(
+        arg, (str, PythonStatement, PythonBlock, FileText, CodeType, Callable)
+    ):
         _debug_code(arg, globals=globals, locals=locals, tty=tty)
         on_continue()
         return
@@ -1013,12 +1012,12 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     """
     import subprocess
     os.kill(pid, 0) # raises OSError "No such process" unless pid exists
-    if isinstance(statements, six.string_types):
+    if isinstance(statements, str):
         statements = (statements,)
     else:
         statements = tuple(statements)
     for statement in statements:
-        if not isinstance(statement, six.string_types):
+        if not isinstance(statement, str):
             raise TypeError(
                 "Expected iterable of strings, not %r" % (type(statement),))
     # Based on

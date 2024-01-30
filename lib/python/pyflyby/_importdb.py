@@ -504,27 +504,27 @@ class ImportDB(object):
 
     @classmethod
     def _parse_import_set(cls, arg):
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             arg = [arg]
         if not isinstance(arg, (tuple, list)):
             raise ValueError("Expected a list, not a %s" % (type(arg).__name__,))
         for item in arg:
-            if not isinstance(item, six.string_types):
+            if not isinstance(item, str):
                 raise ValueError(
                     "Expected a list of str, not %s" % (type(item).__name__,))
         return ImportSet(arg)
 
     @classmethod
     def _parse_import_map(cls, arg):
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             arg = [arg]
         if not isinstance(arg, dict):
             raise ValueError("Expected a dict, not a %s" % (type(arg).__name__,))
         for k, v in arg.items():
-            if not isinstance(k, six.string_types):
+            if not isinstance(k, str):
                 raise ValueError(
                     "Expected a dict of str, not %s" % (type(k).__name__,))
-            if not isinstance(v, six.string_types):
+            if not isinstance(v, str):
                 raise ValueError(
                     "Expected a dict of str, not %s" % (type(v).__name__,))
         return ImportMap(arg)
