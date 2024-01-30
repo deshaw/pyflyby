@@ -1660,11 +1660,6 @@ def test_no_autoimport_1():
     )
 
 
-skipif_ipython_too_old_for_load_ext = pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="IPython version %s does not support %load_ext, so nothing to test")
-
-@skipif_ipython_too_old_for_load_ext
 def test_load_ext_1():
     # Test that %load_ext works.
     ipython("""
@@ -1678,7 +1673,6 @@ def test_load_ext_1():
     """)
 
 
-@skipif_ipython_too_old_for_load_ext
 @retry
 def test_unload_ext_1():
     # Test that %unload_ext works.
@@ -1701,7 +1695,6 @@ def test_unload_ext_1():
 
 
 
-@skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_1():
     # Test that autoimporting still works after %reload_ext.
@@ -1720,7 +1713,6 @@ def test_reload_ext_1():
     """)
 
 
-@skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_reload_importdb_1(tmp):
     # Test that %reload_ext causes the importdb to be refreshed.
@@ -1755,7 +1747,6 @@ def test_reload_ext_reload_importdb_1(tmp):
     )
 
 
-@skipif_ipython_too_old_for_load_ext
 @retry
 def test_reload_ext_retry_failed_imports_1(tmp):
     # Verify that %xreload_ext causes us to retry imports that we previously
@@ -3215,17 +3206,12 @@ def test_error_during_enable_1():
     )
 
 
-skipif_ipython_too_old_for_kernel = pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="IPython version %s does not support kernel, so nothing to test")
-
 # We could write to jupyter_console_config.py and set JUPYTER_CONFIG_DIR, but
 # it only supports highlight_matching_brackets, not
 # display_completions='readlinelike', so any test that uses tab completion
 # won't work.
 
 
-@skipif_ipython_too_old_for_kernel
 # @retry(ExpectError)
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
@@ -3256,7 +3242,6 @@ def test_ipython_console_1(sendeof):
     """, args='console', sendeof=sendeof)
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3277,7 +3262,6 @@ def test_ipython_kernel_console_existing_1():
         """, args=['console'], kernel=kernel)
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3315,7 +3299,6 @@ def test_ipython_kernel_console_multiple_existing_1():
 
 
 @pytest.mark.skip(reason="hangs")
-@skipif_ipython_too_old_for_kernel
 @retry
 def test_ipython_notebook_basic_1():
     with IPythonNotebookCtx() as kernel:
@@ -3328,7 +3311,6 @@ def test_ipython_notebook_basic_1():
             Out[2]: 77
             """, args=['console'], kernel=kernel)
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3357,7 +3339,6 @@ def test_ipython_notebook_1():
         )
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3418,7 +3399,6 @@ def test_py_i_interactive_1(tmp):
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3434,7 +3414,6 @@ def test_py_console_1():
     """, prog="py", args=['console'])
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3453,7 +3432,6 @@ def test_py_kernel_1():
         """, args=['console'], kernel=kernel)
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3479,7 +3457,6 @@ def test_py_console_existing_1():
         )
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
@@ -3572,7 +3549,6 @@ def test_installed_in_config_redundant_1(tmp):
     )
 
 
-@skipif_ipython_too_old_for_kernel
 @retry
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
@@ -3590,7 +3566,6 @@ def test_installed_in_config_ipython_console_1(tmp):
     """, args=['console'], ipython_dir=tmp.ipython_dir)
 
 
-@skipif_ipython_too_old_for_kernel
 @retry
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
@@ -3609,7 +3584,6 @@ def test_installed_in_config_ipython_kernel_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
-@skipif_ipython_too_old_for_kernel
 @pytest.mark.xfail(
     sys.version_info[0] == 3,
     reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
