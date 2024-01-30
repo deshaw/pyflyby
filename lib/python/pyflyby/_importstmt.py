@@ -25,9 +25,9 @@ def read_black_config():
 
 
     """
-    value = find_pyproject_toml('.')
+    pyproject_path = find_pyproject_toml('.')
 
-    raw_config = parse_pyproject_toml(value)
+    raw_config = parse_pyproject_toml(pyproject_path) if pyproject_path else {}
 
     config = {}
     for key in [
@@ -46,7 +46,7 @@ def read_black_config():
             config["target_version"] = set(target_version)
         else:
             raise ValueError(
-                f"Invalid config for black = {target_version!r} in {value}"
+                f"Invalid config for black = {target_version!r} in {pyproject_path}"
             )
     return config
 
