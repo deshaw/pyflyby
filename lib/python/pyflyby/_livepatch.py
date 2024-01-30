@@ -564,7 +564,8 @@ def _format_age(t):
 def _interpret_module(arg):
     def mod_fn(module):
         return getattr(module, "__file__", None)
-    if isinstance(arg, six.string_types):
+
+    if isinstance(arg, str):
         try:
             return sys.modules[arg]
         except KeyError:

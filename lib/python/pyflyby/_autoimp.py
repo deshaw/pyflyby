@@ -1489,7 +1489,7 @@ def find_missing_imports(arg, namespaces):
       ``list`` of ``DottedIdentifier``
     """
     namespaces = ScopeStack(namespaces)
-    if isinstance(arg, (DottedIdentifier, six.string_types)):
+    if isinstance(arg, (DottedIdentifier, str)):
         try:
             arg = DottedIdentifier(arg)
         except BadDottedIdentifierError:
@@ -1897,7 +1897,7 @@ def auto_eval(arg, filename=None, mode=None,
     """
     if isinstance(flags, int):
         assert isinstance(flags, CompilerFlags)
-    if isinstance(arg, (six.string_types, Filename, FileText, PythonBlock)):
+    if isinstance(arg, (str, Filename, FileText, PythonBlock)):
         block = PythonBlock(arg, filename=filename, flags=flags,
                             auto_flags=auto_flags)
         flags = block.flags

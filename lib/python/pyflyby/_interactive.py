@@ -1106,7 +1106,7 @@ def _list_members_for_completion(obj, ip):
                 pass
         else:
             words = dir(obj)
-    return [w for w in words if isinstance(w, six.string_types)]
+    return [w for w in words if isinstance(w, str)]
 
 
 def _auto_import_in_pdb_frame(pdb_instance, arg):

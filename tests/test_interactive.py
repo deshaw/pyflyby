@@ -19,7 +19,6 @@ import re
 import readline
 import requests
 from   shutil                   import rmtree
-import six
 from   six                      import BytesIO
 from   subprocess               import check_call
 import sys
@@ -514,7 +513,7 @@ def _build_pythonpath(PYTHONPATH):
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
     if sys.version_info < (3, 9):
         pypath += _extra_readline_pythonpath_dirs()
-    if isinstance(PYTHONPATH, (Filename, six.string_types)):
+    if isinstance(PYTHONPATH, (Filename, str)):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH
@@ -583,7 +582,7 @@ def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, fro
     else:
         # Get the program from the python that is running.
         cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
-    if isinstance(args, six.string_types):
+    if isinstance(args, str):
         args = [args]
     if args and not args[0].startswith("-"):
         app = args[0]
@@ -1043,7 +1042,7 @@ def ipython(template, **kwargs):
     template = dedent(template).strip()
     input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
     args = kwargs.pop("args", ())
-    if isinstance(args, six.string_types):
+    if isinstance(args, str):
         args = [args]
     args = list(args)
     if args and not args[0].startswith("-"):

@@ -7,7 +7,6 @@
 from   functools                import total_ordering
 from   keyword                  import kwlist
 import re
-import six
 
 from   pyflyby._util            import cached_attribute, cmp
 
@@ -111,7 +110,7 @@ def is_identifier(s, dotted=False, prefix=False):
     :rtype:
       ``bool``
     """
-    if not isinstance(s, six.string_types):
+    if not isinstance(s, str):
         raise TypeError("is_identifier(): expected a string; got a %s"
                         % (type(s).__name__,))
     if prefix:
@@ -144,7 +143,7 @@ class DottedIdentifier(object):
     def __new__(cls, arg, scope_info=None):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             return cls._from_name(arg, scope_info)
         if isinstance(arg, (tuple, list)):
             return cls._from_name(".".join(arg), scope_info)

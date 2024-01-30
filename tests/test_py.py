@@ -8,14 +8,11 @@
 import os
 import pytest
 from   shutil                   import rmtree
-import six
 import subprocess
 import sys
 import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
-
-from   six                      import string_types
 
 import pyflyby
 from   pyflyby._file            import Filename
@@ -30,7 +27,7 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 def flatten(args):
     result = []
     for arg in args:
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             result.append(arg)
         else:
             try:
@@ -100,7 +97,7 @@ def _build_pythonpath(PYTHONPATH):
       ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    if isinstance(PYTHONPATH, (Filename,) + string_types):
+    if isinstance(PYTHONPATH, (Filename, str)):
         PYTHONPATH = [PYTHONPATH]
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH
