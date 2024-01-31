@@ -577,6 +577,7 @@ def sort_imports(codeblock):
             and line_pkg_dict.get(i) != line_pkg_dict.get(i - 1)
             and len(pkg_lines[line_pkg_dict.get(i)]) > 1
             and next_line(i).startswith(("import", "from"))
+            and output_lines[-1] != ''
         ):
             output_lines.append("")
         output_lines.append(line)

@@ -160,8 +160,10 @@ def main():
             )
         sorted_imports = sort_imports(x)
         if options.canonicalize:
-            sorted_imports = canonicalize_imports(sorted_imports, params=options.params)
-        return sorted_imports
+            cannonical_imports = canonicalize_imports(sorted_imports, params=options.params)
+        else:
+            cannonical_imports = sort_imports
+        return cannonical_imports
     process_actions(args, options.actions, modify)
 
 
