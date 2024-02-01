@@ -5,4 +5,4 @@
 
 
 
-__version__ = '1.8.6.post1+importfix'
+__version__ = '1.8.6.post2+importfix+py311fix'
