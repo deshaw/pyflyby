@@ -250,6 +250,8 @@ class ModuleHandle(object):
         # Get the filename using loader.get_filename().  Note that this does
         # more than just loader.filename: for example, it adds /__init__.py
         # for packages.
+        if not hasattr(loader, 'get_filename'):
+            return None
         filename = loader.get_filename()
         if not filename:
             return None
