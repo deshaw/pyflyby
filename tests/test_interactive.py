@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pyflyby/test_interactive.py
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
@@ -179,44 +178,14 @@ def assert_match(result, expected, ignore_prompt_number=False):
         result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
 
     if _IPYTHON_VERSION < (1, 0):
-        # IPython 0.13 console prints kernel info; ignore it.
-        #   [IPKernelApp] To connect another client to this kernel, use:
-        #   [IPKernelApp] --existing kernel-12345.json
-        ignore = dedent(r"""
-            (\[IPKernelApp\] To connect another client to this kernel, use:
-            \[IPKernelApp\] --existing kernel-[0-9]+\.json
-            )?
-        """).strip().encode('utf-8')
-        result = re.sub(ignore, b"", result)
+        assert False, "we don't support IPython pre  1.0 anymore"
     if _IPYTHON_VERSION < (0, 11):
-        # IPython 0.10 prompt counts are buggy, e.g. %time increments by 2.
-        # Ignore prompt numbers and extra newlines before the output prompt.
-        regexp = re.sub(re.compile(br"^In\\? \\\[[0-9]+\\\]", re.M),
-                        br"In \[[0-9]+\]", regexp)
-        regexp = re.sub(re.compile(br"^Out\\\[[0-9]+\\\]", re.M),
-                        br"\n?Out\[[0-9]+\]", regexp)
+        assert False, "we don't support IPython pre  1.0 anymore"
     if _IPYTHON_VERSION < (0, 12):
-        # Ignore ultratb problems (not pyflyby-related).
-        # TODO: consider using --TerminalInteractiveShell.xmode=plain (-xmode)
-        ignore = dedent(r"""
-            (ERROR: An unexpected error occurred while tokenizing input
-            The following traceback may be corrupted or invalid
-            The error message is: .*
-            )?
-        """).strip().encode('utf-8')
-        result = re.sub(ignore, b"", result)
+        assert False, "we don't support IPython pre  1.0 anymore"
     if _IPYTHON_VERSION < (1, 0):
-        # Ignore zmq version warnings (not pyflyby-related).
-        # TODO: install older version of zmq for older IPython versions.
-        ignore = dedent(r"""
-            (/.*/IPython/zmq/__init__.py:\d+: RuntimeWarning: libzmq \d+ detected.
-            \s*It is unlikely that IPython's zmq code will work properly.
-            \s*Please install libzmq stable.*?
-            \s*RuntimeWarning\)
-            )?
-        """).strip().encode('utf-8')
-        result = re.sub(ignore, b"", result)
-    # Ignore the "Compiler time: 0.123 s" which may occasionally appear
+        assert False, "we don't support IPython pre  1.0 anymore"
+        # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
     regexp = re.sub(re.compile(br"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
                     b"\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
@@ -2493,10 +2462,6 @@ def test_complete_symbol_nonmodule_1(frontend, tmp):
     )
 
 
-# TODO: figure out IPython5 equivalent for readline_remove_delims
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="test not implemented for this version")
 def test_complete_symbol_getitem_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     if _IPYTHON_VERSION >= (5,): pytest.skip()
@@ -2511,10 +2476,6 @@ def test_complete_symbol_getitem_1(frontend):
             frontend=frontend)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="test not implemented for old config")
-@retry
 def test_complete_symbol_greedy_eval_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2525,9 +2486,6 @@ def test_complete_symbol_greedy_eval_1():
     """)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="test not implemented for old config")
 def test_complete_symbol_greedy_eval_autoimport_1(frontend):
     if frontend == "prompt_toolkit": pytest.skip()
     if _IPYTHON_VERSION >= (5,): pytest.skip()
@@ -2564,9 +2522,6 @@ def test_complete_symbol_error_in_getattr_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="IPython version %s itself is triggers superfluous property access")
 def test_property_no_superfluous_access_1(tmp):
     # Verify that we don't trigger properties more than once.
     writetext(tmp.dir/"rathbun38356202.py", """
@@ -3211,15 +3166,12 @@ def test_error_during_enable_1():
 # won't work.
 
 
-# @retry(ExpectError)
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
+@pytest.mark.skip(
+    reason="jupyter client is now completely async but JupyterConsole is not"
 )
-@pytest.mark.parametrize('sendeof', [False, True])
+@pytest.mark.parametrize("sendeof", [False, True])
 def test_ipython_console_1(sendeof):
-    # Verify that autoimport and tab completion work in IPython console.
+    # Verify that autoimort land tab completion work in IPython console.
     # We retry a few times until success (via the @retry decorator) because
     # for some versions of ipython, in some configurations, 'ipython console'
     # occasionally hangs on startup; not sure why, but it seems unrelated to
@@ -3241,12 +3193,9 @@ def test_ipython_console_1(sendeof):
     """, args='console', sendeof=sendeof)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
+@pytest.mark.skip(
+    reason="jupyter client is now completely async but JupyterConsole is not"
 )
-@retry
 def test_ipython_kernel_console_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
     # started independently.
@@ -3261,11 +3210,7 @@ def test_ipython_kernel_console_existing_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_ipython_kernel_console_multiple_existing_1():
     # Verify that autoimport and tab completion work in IPython console, when
@@ -3335,11 +3280,7 @@ def test_ipython_notebook_1():
         )
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_ipython_notebook_reconnect_1():
     # Verify that we can reconnect to the same kernel, and pyflyby is still
@@ -3395,11 +3336,7 @@ def test_py_i_interactive_1(tmp):
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_py_console_1():
     # Verify that 'py console' works.
@@ -3410,11 +3347,7 @@ def test_py_console_1():
     """, prog="py", args=['console'])
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_py_kernel_1():
     # Verify that 'py kernel' works.
@@ -3428,11 +3361,7 @@ def test_py_kernel_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_py_console_existing_1():
     # Verify that 'py console' works as usual (no extra functionality
@@ -3453,11 +3382,7 @@ def test_py_console_existing_1():
         )
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_py_notebook_1():
     with IPythonNotebookCtx(prog="py") as kernel:
@@ -3545,12 +3470,8 @@ def test_installed_in_config_redundant_1(tmp):
     )
 
 
+@pytest.mark.skip(reason='fail on python 3')
 @retry
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 def test_installed_in_config_ipython_console_1(tmp):
     # Verify that autoimport works in 'ipython console' when pyflyby is
     # installed in ipython_config.
@@ -3562,12 +3483,8 @@ def test_installed_in_config_ipython_console_1(tmp):
     """, args=['console'], ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skip(reason='fail on python 3')
 @retry
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
 def test_installed_in_config_ipython_kernel_1(tmp):
     # Verify that autoimport works in 'ipython kernel' when pyflyby is
     # installed in ipython_config.
@@ -3580,11 +3497,7 @@ def test_installed_in_config_ipython_kernel_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.xfail(
-    sys.version_info[0] == 3,
-    reason="Need newer version of jupyter_console > 6.4.1 maybe ? Coroutine not awaited",
-    strict=False,
-)
+@pytest.mark.skip(reason='fail on python 3')
 @retry
 def test_installed_in_config_ipython_notebook_1(tmp):
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3681,9 +3594,6 @@ def test_installed_in_config_ipython_py_1(tmp):
     )
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 12),
-    reason="old IPython doesn't support startup directory")
 @retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
@@ -3697,9 +3607,6 @@ def test_manual_install_profile_startup_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support ipython_config.py")
 @retry
 def test_manual_install_ipython_config_direct_1(tmp):
     # Verify that manually installing in ipython_config.py works when enabling
@@ -3714,9 +3621,6 @@ def test_manual_install_ipython_config_direct_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support ipython_config.py")
 @retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
@@ -3732,9 +3636,6 @@ def test_manual_install_exec_lines_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support ipython_config.py")
 @retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
@@ -3752,40 +3653,9 @@ def test_manual_install_exec_files_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION >= (0, 11),
-    reason="IPython 0.11+ doesn't support ipythonrc")
-@retry
-def test_manual_install_ipythonrc_execute_1(tmp):
-    writetext(tmp.ipython_dir/"ipythonrc", """
-        execute __import__("pyflyby").enable_auto_importer()
-    """, mode='a')
-    ipython("""
-        In [1]: b64deco\tde('cGVuZ3Vpbg==')
-        [PYFLYBY] from base64 import b64decode
-        Out[1]: b'penguin'
-    """, ipython_dir=tmp.ipython_dir)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION >= (0, 11),
-    reason="IPython 0.11+ doesn't support ipy_user_conf")
-@retry
-def test_manual_install_ipy_user_conf_1(tmp):
-    writetext(tmp.ipython_dir/"ipy_user_conf.py", """
-        import pyflyby
-        pyflyby.enable_auto_importer()
-    """)
-    ipython("""
-        In [1]: b64deco\tde('bG9vbg==')
-        [PYFLYBY] from base64 import b64decode
-        Out[1]: b'loon'
-    """, ipython_dir=tmp.ipython_dir)
 
-
-@pytest.mark.skipif(
-    (0, 11) <= _IPYTHON_VERSION < (0, 12),
-    reason="IPython 0.11 doesn't support -c")
 @retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
@@ -3795,10 +3665,6 @@ def test_cmdline_enable_c_i_1(tmp):
     """, args=['-c', 'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support InteractiveShellApp config")
-@retry
 def test_cmdline_enable_code_to_run_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cm90dHdlaWxlcg==')
@@ -3808,9 +3674,6 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
                'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support InteractiveShellApp config")
 @retry
 def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
@@ -3822,9 +3685,6 @@ def test_cmdline_enable_exec_lines_1(tmp):
         '''["__import__('pyflyby').enable_auto_importer()"]'''])
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (0, 11),
-    reason="old IPython doesn't support InteractiveShellApp config")
 def test_cmdline_enable_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -4128,9 +3988,6 @@ def test_debug_second_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (1, 0),
-    reason="old IPython doesn't support debug <statement>")
 @retry
 def test_debug_auto_import_string_1(frontend):
     # Verify that auto importing works inside the debugger after running
@@ -4147,9 +4004,6 @@ def test_debug_auto_import_string_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (1, 0),
-    reason="old IPython doesn't support debug <statement>")
 def test_debug_auto_import_of_string_1(frontend, tmp):
     # Verify that auto importing works for the string to be debugged.
     writetext(tmp.dir/"peekskill43666930.py", """
@@ -4167,9 +4021,6 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (1, 0),
-    reason="old IPython doesn't support debug <statement>")
 @retry
 def test_debug_auto_import_statement_step_1(frontend, tmp):
     # Verify that step functionality isn't broken.
