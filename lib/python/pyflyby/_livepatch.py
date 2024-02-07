@@ -134,7 +134,6 @@ XXX test
 import ast
 import os
 import re
-import six
 import sys
 import time
 import types

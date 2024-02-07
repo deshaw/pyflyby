@@ -7,7 +7,6 @@
 from   contextlib               import contextmanager
 import inspect
 import os
-import six
 from   six                      import reraise
 import sys
 import types
