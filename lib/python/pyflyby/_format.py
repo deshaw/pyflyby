@@ -4,9 +4,6 @@
 
 
 
-import six
-
-
 class FormatParams(object):
     max_line_length = None
     _max_line_lenght_default = 79
@@ -33,7 +30,7 @@ class FormatParams(object):
         if kwargs:
             dicts.append(kwargs)
         for kwargs in dicts:
-            for key, value in six.iteritems(kwargs):
+            for key, value in kwargs.items():
                 if hasattr(self, key):
                     setattr(self, key, value)
                 else:

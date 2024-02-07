@@ -369,7 +369,7 @@ def _livepatch__function(old_func, new_func, modname, cache, visit_stack):
         if type(oldcellv) != type(newcellv):
             return new_func
         if isinstance(oldcellv, (
-                types.FunctionType, types.MethodType, six.class_types, dict)):
+                types.FunctionType, types.MethodType, type, dict)):
             # Updateable type.  (Todo: make this configured globally.)
             continue
         try:
@@ -546,7 +546,7 @@ def _get_definition_module(obj):
     :rtype:
       ``str``
     """
-    if isinstance(obj, (type, six.class_types, types.FunctionType,
+    if isinstance(obj, (type, types.FunctionType,
                         types.MethodType)):
         return getattr(obj, "__module__", None)
     else:

@@ -237,11 +237,11 @@ class FunctionWithGlobals(object):
         for k in variables:
             old[k] = globals.get(k, UNSET)
         try:
-            for k, v in six.iteritems(variables):
+            for k, v in variables.items():
                 globals[k] = v
             return function(*args, **kwargs)
         finally:
-            for k, v in six.iteritems(old):
+            for k, v in old.items():
                 if v is UNSET:
                     del globals[k]
                 else:
@@ -335,7 +335,7 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if (isinstance(joinpoint, (types.FunctionType, six.class_types, type))
+        if (isinstance(joinpoint, (types.FunctionType, type))
             and not (joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
