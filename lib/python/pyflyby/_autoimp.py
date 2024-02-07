@@ -1002,7 +1002,7 @@ class _MissingImportFinder(object):
         if unused_imports is None:
             return
         scope = self.scopestack[-1]
-        for name, value in six.iteritems(scope):
+        for name, value in scope.items():
             if not isinstance(value, _UseChecker):
                 continue
             if value.used:

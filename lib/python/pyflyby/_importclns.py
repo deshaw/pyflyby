@@ -17,6 +17,8 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
+from typing import Dict
+
 
 class NoSuchImportError(ValueError):
     pass
@@ -228,9 +230,9 @@ class ImportSet(object):
             else:
                 frm_imports[module_name].add(imp)
         return tuple(
-            dict( (k, frozenset(v))
-                  for k, v in six.iteritems(imports))
-            for imports in [ftr_imports, pkg_imports, frm_imports])
+            dict((k, frozenset(v)) for k, v in imports.items())
+            for imports in [ftr_imports, pkg_imports, frm_imports]
+        )
 
     def get_statements(self, separate_from_imports=True):
         """
@@ -261,8 +263,8 @@ class ImportSet(object):
         if not separate_from_imports:
             def union_dicts(*dicts):
                 result = {}
-                for label, dict in enumerate(dicts):
-                    for k, v in six.iteritems(dict):
+                for label, dct in enumerate(dicts):
+                    for k, v in dct.items():
                         result[(k, label)] = v
                 return result
             groups = [groups[0], union_dicts(*groups[1:])]
@@ -317,8 +319,7 @@ class ImportSet(object):
         d = defaultdict(list)
         for imp in self._importset:
             d[imp.import_as].append(imp)
-        return dict( (k, tuple(sorted(stable_unique(v))))
-                     for k, v in six.iteritems(d) )
+        return dict((k, tuple(sorted(stable_unique(v)))) for k, v in d.items())
 
     @cached_attribute
     def member_names(self):
@@ -347,8 +348,7 @@ class ImportSet(object):
             for prefix in prefixes[1:]:
                 splt = prefix.rsplit(".", 1)
                 d[splt[0]].add(splt[1])
-        return dict( (k, tuple(sorted(v)))
-                     for k, v in six.iteritems(d) )
+        return dict((k, tuple(sorted(v))) for k, v in d.items())
 
     @cached_attribute
     def conflicting_imports(self):
@@ -364,10 +364,7 @@ class ImportSet(object):
         :rtype:
           ``bool``
         """
-        return tuple(
-            k
-            for k, v in six.iteritems(self.by_import_as)
-            if len(v) > 1 and k != "*")
+        return tuple(k for k, v in self.by_import_as.items() if len(v) > 1 and k != "*")
 
     @cached_attribute
     def flags(self):
@@ -522,6 +519,8 @@ class ImportMap(object):
     An ``ImportMap`` is an immutable data structure.
     """
 
+    _data: Dict
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -565,7 +564,7 @@ class ImportMap(object):
         return self._data.items()
 
     def iteritems(self):
-        return six.iteritems(self._data)
+        return self._data.items()
 
     def iterkeys(self):
         return six.iterkeys(self._data)
