@@ -3,27 +3,28 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-
-import IPython
 import atexit
-from   contextlib               import contextmanager
 import difflib
-import flaky
 import json
 import os
-import pexpect
-import pytest
 import random
 import re
 import readline
-import requests
-from   shutil                   import rmtree
-from   six                      import BytesIO
-from   subprocess               import check_call
 import sys
+import time
+
+from   contextlib               import contextmanager
+from   io                       import BytesIO
+from   shutil                   import rmtree
+from   subprocess               import check_call
 from   tempfile                 import mkdtemp, mkstemp
 from   textwrap                 import dedent
-import time
+
+import IPython
+import flaky
+import pexpect
+import pytest
+import requests
 
 import pyflyby
 from   pyflyby._file            import Filename

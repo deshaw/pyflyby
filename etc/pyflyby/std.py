@@ -142,7 +142,7 @@ from   shutil                   import (copyfile, copyfileobj, copystat,
                                         copytree, rmtree)
 import signal
 import six
-from   six                      import StringIO
+from   io                       import StringIO
 from   six.moves                import (builtins, cPickle, configparser,
                                         copyreg, email_mime_base,
                                         email_mime_image, email_mime_multipart,

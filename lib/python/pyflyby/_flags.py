@@ -7,11 +7,11 @@
 import __future__
 import ast
 import operator
-import six
 from   six.moves                import reduce
 import warnings
 
 from   pyflyby._util            import cached_attribute
+from typing import Tuple
 
 # Initialize mappings from compiler_flag to feature name and vice versa.
 _FLAG2NAME = {}
@@ -49,6 +49,10 @@ class CompilerFlags(int):
 
     """
 
+    # technically both those are compiler flags, but we can't use Self. May need typing_extensions ?
+    _ZERO:int
+    _UNKNOWN: int
+
     def __new__(cls, *args):
         """
         Construct a new ``CompilerFlags`` instance.
@@ -72,7 +76,7 @@ class CompilerFlags(int):
                 ' flags values change between Python versions. If you are sure use .from_int',
                 DeprecationWarning, stacklevel=2)
                 return cls.from_int(arg)
-            elif isinstance(arg, six.string_types):
+            elif isinstance(arg, str):
                 return cls.from_str(arg)
             elif isinstance(arg, ast.AST):
                 return cls.from_ast(arg)
@@ -100,7 +104,7 @@ class CompilerFlags(int):
                     raise ValueError
 
             #assert flags == [0x10000, 0x8000], flags
-                
+
             return cls.from_int(reduce(operator.or_, flags))
 
     @classmethod
@@ -117,7 +121,7 @@ class CompilerFlags(int):
         return self
 
     @classmethod
-    def from_str(cls, arg):
+    def from_str(cls, arg:str):
         try:
             flag = _NAME2FLAG[arg]
         except KeyError:
@@ -153,7 +157,7 @@ class CompilerFlags(int):
         return cls(flags)
 
     @cached_attribute
-    def names(self):
+    def names(self) -> Tuple[str]:
         return tuple(
             n
             for f, n in _FLAGNAME_ITEMS
