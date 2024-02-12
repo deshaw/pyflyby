@@ -1549,6 +1549,31 @@ def test_scan_for_import_issues_comprehension_attribute_complex_1():
     assert unused == []
 
 
+@pytest.mark.xfail(strict=True, reason="See issue #265")
+def test_scan_for_import_issues_dec_usage():
+    """
+    see https://github.com/deshaw/pyflyby/issues/265
+    """
+    code = dedent(
+        """
+        import random
+
+        def repeat(times):
+            def wrap(fn):
+                return fn
+            return wrap
+
+
+        @repeat(random.choice([1, 4]))
+        def foo(random):
+            print(random)
+    """
+    )
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
 def test_scan_for_import_issues_comprehension_attribute_subscript_1():
     code = dedent("""
         xx = []
