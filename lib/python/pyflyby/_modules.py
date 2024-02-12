@@ -10,7 +10,6 @@ from   functools                import total_ordering
 import itertools
 import os
 import re
-import six
 from   six                      import reraise
 import sys
 import types
@@ -131,7 +130,7 @@ class ModuleHandle(object):
             return arg
         if isinstance(arg, Filename):
             return cls._from_filename(arg)
-        if isinstance(arg, (six.string_types, DottedIdentifier)):
+        if isinstance(arg, (str, DottedIdentifier)):
             return cls._from_modulename(arg)
         if isinstance(arg, types.ModuleType):
             return cls._from_module(arg)

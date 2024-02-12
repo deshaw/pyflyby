@@ -345,8 +345,7 @@ from   contextlib               import contextmanager
 import inspect
 import os
 import re
-import six
-from   six.moves                import builtins
+import builtins
 import sys
 import types
 from   types                    import FunctionType, MethodType
@@ -399,12 +398,12 @@ def _get_argspec(arg, _recurse=False):
         return _get_argspec(arg.__call__, _recurse=False)
     elif callable(arg):
         # Unknown, probably a built-in method.
-        return ArgSpec((), "args", "kwargs", None, [], None, {})
+        return ArgSpec([], "args", "kwargs", None, [], None, {})
     raise TypeError(
         "_get_argspec: unexpected %s" % (type(arg).__name__,))
 
 
-def _requires_parens_as_function(function_name):
+def _requires_parens_as_function(function_name:str):
     """
     Returns whether the given string of a callable would require parentheses
     around it to call it.
@@ -638,7 +637,7 @@ class UserExpr(object):
             if source is not None:
                 raise ValueError(
                     "UserExpr(): source argument not allowed for auto")
-            if not isinstance(arg, six.string_types):
+            if not isinstance(arg, str):
                 raise ValueError(
                     "UserExpr(): arg must be a string if arg_mode='auto'")
             self._original_arg_as_source = PythonBlock(arg, flags=FLAGS)

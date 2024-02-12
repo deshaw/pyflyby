@@ -26,8 +26,7 @@
 
 
 import re
-import six
-from   six.moves                import builtins
+import builtins
 from   textwrap                 import dedent
 
 from   epydoc.apidoc            import (ClassDoc, ModuleDoc, PropertyDoc,
@@ -348,7 +347,7 @@ class XrefScanner(object):
             return ''
 
         def scan_tree(tree):
-            if isinstance(tree, six.string_types):
+            if isinstance(tree, str):
                 return tree
             variables = [scan_tree(child) for child in tree.children]
             if tree.tag == 'link':
