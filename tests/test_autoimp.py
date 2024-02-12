@@ -1715,13 +1715,19 @@ def test_load_symbol_missing_2():
         load_symbol("os.path.join", {})
 
 
-def load_symbol_eval_1():
+@pytest.mark.xfail(
+    strict=True, reason="old test that was not names with test_ and never passed"
+)
+def test_load_symbol_eval_1():
     assert 'a/b' == load_symbol("os.path.join('a','b')", {"os": os})
     assert '/'   == load_symbol("os.path.join('a','b')[1]", {"os": os})
     assert 'A'   == load_symbol("os.path.join('a','b')[0].upper()", {"os": os})
 
 
-def load_symbol_eval_2(capsys):
+@pytest.mark.xfail(
+    strict=True, reason="old test that was not names with test_ and never passed"
+)
+def test_load_symbol_eval_2(capsys):
     assert '/' == load_symbol("(os.path.sep[0])", {}, autoimport=True,
                               allow_eval=True)
     out, _ = capsys.readouterr()
@@ -1731,7 +1737,7 @@ def load_symbol_eval_2(capsys):
     assert expected == out
 
 
-def load_symbol_no_eval_1():
+def test_load_symbol_no_eval_1():
     with pytest.raises(LoadSymbolError):
         load_symbol("os.path.join('a','b')", {"os": os})
     with pytest.raises(LoadSymbolError):
@@ -1740,7 +1746,7 @@ def load_symbol_no_eval_1():
         load_symbol("os.path.join('a','b')[0].upper", {"os": os})
 
 
-def load_symbol_wrap_exc_1():
+def test_load_symbol_wrap_exc_1():
     class Foo89503828(object):
         def __getattr__(self, k):
             1/0
@@ -1753,9 +1759,13 @@ def load_symbol_wrap_exc_1():
         assert False
 
 
-def load_symbol_wrap_exc_eval_1():
+@pytest.mark.xfail(
+    strict=True, reason="old test that was not names with test_ and never passed"
+)
+def test_load_symbol_wrap_exc_eval_1():
     def foo31617859():
-        1/0
+        return 1 / 0
+
     ns = [{"foo": foo31617859()}]
     try:
         load_symbol("foo()", ns, auto_eval=True)
@@ -1765,7 +1775,10 @@ def load_symbol_wrap_exc_eval_1():
         assert False
 
 
-def load_symbol_wrap_exc_eval_getattr_1():
+@pytest.mark.xfail(
+    strict=True, reason="old test that was not names with test_ and never passed"
+)
+def test_load_symbol_wrap_exc_eval_getattr_1():
     class Foo15356301(object):
         def __getattr__(self, k):
             1/0
