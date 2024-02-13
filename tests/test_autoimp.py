@@ -1549,7 +1549,6 @@ def test_scan_for_import_issues_comprehension_attribute_complex_1():
     assert unused == []
 
 
-@pytest.mark.xfail(strict=True, reason="See issue #265")
 def test_scan_for_import_issues_dec_usage():
     """
     see https://github.com/deshaw/pyflyby/issues/265
