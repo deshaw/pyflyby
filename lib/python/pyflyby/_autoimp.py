@@ -450,6 +450,7 @@ class _MissingImportFinder(object):
                         continue
                     symbol_needs_import(ident, self.scopestack)
         self._scan_unused_imports()
+        logger.debug("missing: %s, unused: %s", missing_imports, self.unused_imports)
         return missing_imports, self.unused_imports
 
     def visit(self, node):
@@ -611,8 +612,8 @@ class _MissingImportFinder(object):
         #     args/decorator_list).
         assert node._fields == ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
-            self.visit(node.args)
             self.visit(node.decorator_list)
+            self.visit(node.args)
             if node.returns:
                 self.visit(node.returns)
             self._visit_typecomment(node.type_comment)
@@ -872,6 +873,7 @@ class _MissingImportFinder(object):
             # record it as unused.
             oldvalue = scope.get(fullname)
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
+                logger.debug("Adding to unused %s", oldvalue)
                 self.unused_imports.append((oldvalue.lineno, oldvalue.source))
         scope[fullname] = value
 
@@ -1007,6 +1009,7 @@ class _MissingImportFinder(object):
                 continue
             if value.used:
                 continue
+            logger.debug("Also Adding to usunsed import: %s ", value)
             unused_imports.append(( value.lineno, value.source ))
         unused_imports.sort()
 
