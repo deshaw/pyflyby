@@ -1914,8 +1914,27 @@ class AutoImporter(object):
                     is_multiline = len(ip.buffer) > 0
                 if namespaces is None:
                     namespaces = _ipython_namespaces(ip)
-                if not is_multiline and is_identifier(oname, dotted=True):
-                    self.auto_import(str(oname), [ns for nsname,ns in namespaces][::-1])
+                is_network_request = False
+                frame = inspect.currentframe()
+                # jupyter_lab_completer seem to send inspect request when
+                # cycling through completions which trigger import.
+                # We cannot differentiate those from actual inspect when
+                # clicking on an object.
+                # So for now when we see the inspect request comes from
+                # ipykernel, we just don't autoimport
+                while frame is not None:
+                    if "ipkernel.py" in inspect.getframeinfo(frame).filename:
+                        is_network_request = True
+                        break
+                    frame = frame.f_back
+                if (
+                    not is_multiline
+                    and is_identifier(oname, dotted=True)
+                    and not is_network_request
+                ):
+                    self.auto_import(
+                        str(oname), [ns for nsname, ns in namespaces][::-1]
+                    )
                 result = __original__(oname, namespaces=namespaces)
                 return result
             return True
