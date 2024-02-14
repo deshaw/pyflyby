@@ -1923,7 +1923,7 @@ class AutoImporter(object):
                 # So for now when we see the inspect request comes from
                 # ipykernel, we just don't autoimport
                 while frame is not None:
-                    if "ipykernel.py" in inspect.getframeinfo(frame).filename:
+                    if "ipykernel/ipkernel.py" in inspect.getframeinfo(frame).filename:
                         is_network_request = True
                         break
                     frame = frame.f_back
