@@ -5,11 +5,10 @@
 
 
 import ast
+import builtins
 import contextlib
 import copy
-import six
-from   six                      import exec_, reraise
-from   six.moves                import builtins
+from   six                      import reraise
 import sys
 import types
 
@@ -25,6 +24,15 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode
 
+if sys.version_info >= (3, 12):
+    ATTRIBUTE_NAME = "value"
+else:
+    ATTRIBUTE_NAME = "s"
+
+if sys.version_info > (3, 11):
+    LOAD_SHIFT = 1
+else:
+    LOAD_SHIFT = 0
 
 NoneType = type(None)
 EllipsisType = type(Ellipsis)
@@ -441,7 +449,8 @@ class _MissingImportFinder(object):
             literal_brace_identifiers = set(
                 iden
                 for f in codeblock.string_literals()
-                for iden in brace_identifiers(f.s))
+                for iden in brace_identifiers(getattr(f, ATTRIBUTE_NAME))
+            )
             if literal_brace_identifiers:
                 for ident in literal_brace_identifiers:
                     try:
@@ -499,11 +508,11 @@ class _MissingImportFinder(object):
                     self.visit(value)
                 else:
                     raise TypeError(
-                        "unexpected %s" %
-                        (', '.join(type(v).__name__ for v in value)))
-            elif isinstance(value, (six.integer_types, float, complex,
-                                    str, six.text_type, NoneType, bytes,
-                                    EllipsisType)):
+                        "unexpected %s" % (", ".join(type(v).__name__ for v in value))
+                    )
+            elif isinstance(
+                value, (int, float, complex, str, NoneType, bytes, EllipsisType)
+            ):
                 pass
             else:
                 raise TypeError(
@@ -1131,13 +1140,19 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             % (type(co).__name__,))
     # Initialize local constants for fast access.
     from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
+
     LOAD_ATTR    = opmap['LOAD_ATTR']
-    LOAD_METHOD = opmap['LOAD_METHOD']
+    LOAD_METHOD  = opmap['LOAD_METHOD']
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']
     STORE_GLOBAL = opmap['STORE_GLOBAL']
     STORE_NAME   = opmap['STORE_NAME']
+
+    if sys.version_info > (3, 11):
+        CACHE = opmap["CACHE"]
+    else:
+        CACHE = object()
     # Keep track of the partial name so far that started with a LOAD_GLOBAL.
     # If ``pending`` is not None, then it is a list representing the name
     # components we've seen so far.
@@ -1230,6 +1245,8 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         c = bytecode[i]
         op = _op(c)
         i += 1
+        if op == CACHE:
+            continue
         if op >= HAVE_ARGUMENT:
             oparg = bytecode[i] | extended_arg
             extended_arg = 0
@@ -1261,7 +1278,13 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 loads_before_label_without_stores.add(fullname)
             # Fall through.
 
-        if op in [LOAD_GLOBAL, LOAD_NAME]:
+        if op is LOAD_GLOBAL:
+            # Starting with 3.11, the low bit is used to tell whether to
+            # push an extra null on the stack, so we need to >> 1
+            # >> 0 does nothing
+            pending = [co.co_names[oparg >> LOAD_SHIFT]]
+            continue
+        if op is LOAD_NAME:
             pending = [co.co_names[oparg]]
             continue
 
@@ -1629,7 +1652,7 @@ def _try_import(imp, namespace):
     # then (3) copy into the user's namespace if it didn't already exist.
     scratch_namespace = {}
     try:
-        exec_(stmt, scratch_namespace)
+        exec(stmt, scratch_namespace)
         imported = scratch_namespace[name0]
     except Exception as e:
         logger.warning("Error attempting to %r: %s: %s", stmt, type(e).__name__, e,
