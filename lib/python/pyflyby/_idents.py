@@ -10,6 +10,8 @@ import re
 
 from   pyflyby._util            import cached_attribute, cmp
 
+from typing import Optional, Tuple, Dict
+
 
 # Don't consider "print" a keyword, in order to be compatible with user code
 # that uses "from __future__ import print_function".
@@ -45,12 +47,7 @@ def dotted_prefixes(dotted_name, reverse=False):
     return result
 
 
-_name_re               = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*$")
-_dotted_name_re        = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*$")
-_dotted_name_prefix_re = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*([.][a-zA-Z_][a-zA-Z0-9_]*)*[.]?$")
-
-
-def is_identifier(s, dotted=False, prefix=False):
+def is_identifier(s: str, dotted: bool = False, prefix: bool = False):
     """
     Return whether ``s`` is a valid Python identifier name.
 
@@ -139,7 +136,11 @@ class BadDottedIdentifierError(ValueError):
 
 # TODO: Use in various places, esp where e.g. dotted_prefixes is used.
 @total_ordering
-class DottedIdentifier(object):
+class DottedIdentifier:
+    name: str
+    parts: Tuple[str, ...]
+    scope_info: Optional[Dict]
+
     def __new__(cls, arg, scope_info=None):
         if isinstance(arg, cls):
             return arg
