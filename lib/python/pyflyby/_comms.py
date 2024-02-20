@@ -4,7 +4,8 @@ from __future__ import print_function
 from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
                                         SourceToSourceImportBlockTransformation,
                                         fix_unused_and_missing_imports,
-                                        replace_star_imports)
+                                        replace_star_imports,
+                                        reformat_import_statements)
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 import six
@@ -92,8 +93,6 @@ def comm_close_handler(comm, message):
 
 
 def _reformat_helper(input_code, imports):
-    from pyflyby._imports2s import reformat_import_statements
-
     if PYFLYBY_START_MSG in input_code:
         before, bmarker, middle = input_code.partition(PYFLYBY_START_MSG)
     else:
@@ -131,8 +130,8 @@ def extract_import_statements(text):
         extracting the import statements.
     """
     transformer = SourceToSourceFileImportsTransformation(text)
-    imports = '\n'.join([str(im.pretty_print()) for im in transformer.import_blocks])
-    remaining_code = "\n".join([str(st.pretty_print()) if not isinstance(st, SourceToSourceImportBlockTransformation) else "" for st in transformer.blocks])
+    imports = '\n'.join([str(im.pretty_print()).strip() for im in transformer.import_blocks])
+    remaining_code = "\n".join([str(st.pretty_print()).strip() if not isinstance(st, SourceToSourceImportBlockTransformation) else "" for st in transformer.blocks])
     return imports, remaining_code
 
 def collect_code_with_imports_on_top(imports: str, cell_array):
@@ -141,16 +140,18 @@ def collect_code_with_imports_on_top(imports: str, cell_array):
         + "\n"
         + "\n".join(
             [
-                cell["text"] if cell["type"] == "code" else ""
+                cell["text"] if cell["type"] == "code" and not cell.get("ignore", False) else ""
                 for cell in cell_array
             ]
         )
     )
 
 def run_tidy_imports(code):
-   return str(
-        fix_unused_and_missing_imports(
-            replace_star_imports(code)
+    return str(
+        reformat_import_statements(
+            fix_unused_and_missing_imports(
+                replace_star_imports(code)
+            )
         )
     )
 
@@ -192,12 +193,20 @@ def comm_open_handler(comm, message):
             # while clubbing similar imports and re-ordering them.
             import_statements, processed_cell_array = "", []
             for cell in cell_array:
+                ignore = False
                 text = cell.get("text")
                 cell_type = cell.get("type")
                 if cell_type == "code":
-                    imports, text = extract_import_statements(text)
-                    import_statements += imports
-                processed_cell_array.append({"text": text, "type": cell_type})
+                    try:
+                        imports, text = extract_import_statements(text)
+                        import_statements += (imports + "\n")
+                    except SyntaxError:
+                        # If a cell triggers Syntax Error, we set ignore to
+                        # True and don't include it when running tidy-imports
+                        # For eg. this is triggered due to cells with magic
+                        # commands
+                        ignore = True
+                processed_cell_array.append({"text": text, "type": cell_type, "ignore": ignore})
             code_with_collected_imports = collect_code_with_imports_on_top(import_statements, processed_cell_array)
             code_post_tidy_imports = run_tidy_imports(code_with_collected_imports)
             import_statements, _ = extract_import_statements(code_post_tidy_imports)
