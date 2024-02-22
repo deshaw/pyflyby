@@ -158,7 +158,10 @@ def main():
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             )
-        sorted_imports = sort_imports(x)
+        # TODO: disable sorting until we figure out #287
+        # https://github.com/deshaw/pyflyby/issues/287
+        # sorted_imports = sort_imports(x)
+        sorted_imports = x
         if options.canonicalize:
             cannonical_imports = canonicalize_imports(sorted_imports, params=options.params)
         else:
