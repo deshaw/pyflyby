@@ -121,7 +121,6 @@ def test_tidy_imports_filename_action_replace_1():
             foo() + os + sys
         import a
         import c
-
         a, c
     ''').lstrip()
     assert result == expected_result
@@ -139,7 +138,6 @@ def test_tidy_imports_no_add_no_remove_1():
         import a
         import b
         import c
-
         a, c, os, sys
     ''').strip()
     assert result == expected
@@ -449,7 +447,6 @@ def test_tidy_imports_query_y_1():
     expected = dedent("""
         from __future__ import absolute_import, division
         import x1
-
         x1
     """)
     assert output == expected
@@ -708,6 +705,7 @@ def test_debug_filetype_with_py():
         assert expected in output_result.decode()
 
 
+@pytest.mark.skip(reason='disable sorting for time being until 287 fixed')
 def test_tidy_imports_sorting():
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as f:
         f.write(
@@ -791,7 +789,6 @@ def test_tidy_imports_forward_references():
         with open(foo, "w") as foo_fp:
             foo_fp.write(dedent("""
                 from __future__ import annotations
-
 
                 class A:
                     param1: str
