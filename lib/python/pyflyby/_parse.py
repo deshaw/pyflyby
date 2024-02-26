@@ -14,15 +14,11 @@ import sys
 from   textwrap                 import dedent
 import types
 
-import six
-from   six.moves                import range
-
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
-from ast import Bytes
 
 from ast import TypeIgnore, AsyncFunctionDef
 
@@ -40,10 +36,38 @@ def _is_comment_or_blank(line):
     return re.sub("#.*", "", line).rstrip() == ""
 
 
+def _is_ast_str_or_byte(node) -> bool:
+    """
+    utility function that test if node is an ast.Str|ast.Bytes in Python < 3.12,
+    and if it is a ast.Constant, with node.value being a str in newer version.
+    """
+    return _is_ast_str(node) or _is_ast_bytes(node)
+
+def _is_ast_bytes(node) -> bool:
+    """
+    utility function that test if node is an ast.Str in Python < 3.12,
+    and if it is a ast.Constant, with node.value being a str in newer version.
+    """
+    if sys.version_info < (3,12):
+        return isinstance(node, ast.Bytes)
+    else:
+        return (isinstance(node, ast.Constant) and isinstance(node.value , bytes))
+
+
+def _is_ast_str(node) -> bool:
+    """
+    utility function that test if node is an ast.Str in Python < 3.12,
+    and if it is a ast.Constant, with node.value being a str in newer version.
+    """
+    if sys.version_info < (3,12):
+        return isinstance(node, ast.Str)
+    else:
+        return (isinstance(node, ast.Constant) and isinstance(node.value , str))
+
 def _ast_str_literal_value(node):
-    if isinstance(node, (ast.Str, Bytes)):
+    if _is_ast_str_or_byte(node):
         return node.s
-    if isinstance(node, ast.Expr) and isinstance(node.value, (ast.Str, Bytes)):
+    if isinstance(node, ast.Expr) and _is_ast_str_or_byte(node.value):
         return node.value.s
     else:
         return None
@@ -234,7 +258,7 @@ def _test_parse_string_literal(text, flags):
     except SyntaxError:
         return None
     body = module_node.body
-    if not isinstance(body, (ast.Str, Bytes)):
+    if not _is_ast_str_or_byte(body):
         return None
     return body.s
 
@@ -407,7 +431,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         #
         # To fix that, we copy start_lineno and start_colno from the Str
         # node once we've corrected the values.
-        assert not isinstance(ast_node, (ast.Str, Bytes))
+        assert not _is_ast_str_or_byte(ast_node)
         assert leftstr_node.lineno     == ast_node.lineno
         assert leftstr_node.col_offset == -1
         ast_node.startpos = leftstr_node.startpos
@@ -420,7 +444,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         ast_node.endpos = ast_node.value.startpos
 
         return True
-    if not isinstance(ast_node, (ast.Str, Bytes)):
+    if not _is_ast_str_or_byte(ast_node):
         raise ValueError(
             "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
     # The ``lineno`` attribute gives the ending line number of the multiline
@@ -666,7 +690,7 @@ def _ast_node_is_in_docstring_position(ast_node):
     :return:
       Whether this string ast node is in docstring position.
     """
-    if not isinstance(ast_node, (ast.Str, Bytes)):
+    if not _is_ast_str_or_byte(ast_node):
         raise TypeError
     expr_node = ast_node.context.parent
     if not isinstance(expr_node, ast.Expr):
@@ -732,7 +756,7 @@ class PythonStatement(object):
                 return arg
             arg = arg.block
             # Fall through
-        if isinstance(arg, (PythonBlock, FileText, str, six.text_type)):
+        if isinstance(arg, (PythonBlock, FileText, str)):
             block = PythonBlock(arg, filename=filename,
                                 startpos=startpos, flags=flags)
             statements = block.statements
@@ -904,7 +928,7 @@ class PythonBlock(object):
             flags = CompilerFlags(flags, arg.flags)
             arg = arg.text
             # Fall through
-        if isinstance(arg, (FileText, Filename, str, six.text_type)):
+        if isinstance(arg, (FileText, Filename, str)):
             return cls.from_text(
                 arg, filename=filename, startpos=startpos,
                 flags=flags, auto_flags=auto_flags)
@@ -1235,7 +1259,7 @@ class PythonBlock(object):
           Iterable of ``ast.Str``  or ``ast.Bytes`` nodes
         """
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
-            if isinstance(node, (ast.Str, Bytes)):
+            if _is_ast_str_or_byte(node):
                 assert hasattr(node, 'startpos')
                 yield node
 
