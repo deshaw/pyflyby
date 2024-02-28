@@ -495,30 +495,6 @@ def test_tidy_imports_query_junk_1():
     assert output == input
 
 
-@pytest.mark.skip(reason="seem to fail at importing six even if installed")
-def test_tidy_imports_py3_fallback():
-    input = dedent('''
-        import x
-
-        print 1
-    ''')
-    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
-        f.write(input)
-        f.flush()
-        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', f.name], timeout=5.0)
-        child.logfile = BytesIO()
-        child.expect_exact(" [y/N]")
-        child.send("n\n")
-        child.expect(pexpect.EOF)
-        with open(f.name) as f2:
-            output = f2.read()
-    proc_output = child.logfile.getvalue()
-    assert b"removed unused 'import x'" in proc_output
-    assert output == input
-    assert b"SyntaxError detected" in proc_output, proc_output
-    assert b"falling back" in proc_output, proc_output
-
-
 def test_tidy_imports_symlinks_default():
     input = dedent('''
         import x

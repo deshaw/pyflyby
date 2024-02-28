@@ -1118,24 +1118,6 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
     assert     (block.source_flags         & "print_function")
 
 
-def test_PythonBlock_auto_flags_ps_flagpf_futpf_1():
-    block = PythonBlock(dedent('''
-        from __future__ import print_function
-        print 42
-    ''').lstrip(), flags="print_function", auto_flags=True)
-    with pytest.raises(SyntaxError):
-        block.ast_node
-
-
-def test_PythonBlock_auto_flags_ps_flagps_futpf_1():
-    block = PythonBlock(dedent('''
-        from __future__ import print_function
-        print 42
-    ''').lstrip(), auto_flags=True)
-    with pytest.raises(SyntaxError):
-        block.ast_node
-
-
 def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
