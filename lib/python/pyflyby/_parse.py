@@ -260,7 +260,10 @@ def _test_parse_string_literal(text, flags):
     body = module_node.body
     if not _is_ast_str_or_byte(body):
         return None
-    return body.s
+    if sys.version_info < (3 ,9):
+        return body.s
+    else:
+        return body.value
 
 
 AstNodeContext = namedtuple("AstNodeContext", "parent field index")

@@ -14,6 +14,7 @@ jobs:
           - "3.8"
           - "3.9"
           - "3.10"
+          - "3.11"
         include:
           - os: macos-latest
             python-version: "3.10"
@@ -31,7 +32,7 @@ jobs:
     - name: Install and update Python dependencies on Python 3
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade "pexpect>=3.3" 'pytest<7' rlipython 'ipykernel>=5.4.3' requests jupyter flaky 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' ipython 'coverage<6.3' pytest-json-report
+        python -m pip install --upgrade "pexpect>=3.3" 'pytest<=8' rlipython 'ipykernel>=5.4.3' requests jupyter flaky 'notebook<6.1' wheel 'jupyter_console>=6.2' pytest-cov ipython coverage pytest-json-report
         pip install -e .
     - name: test release build
       run: |
@@ -61,7 +62,7 @@ jobs:
           ./report-*.json
     - uses: codecov/codecov-action@v2
     - name: Build docs
-      if: ${{ matrix.python-version == '3.10'}}
+      if: ${{ matrix.python-version == '3.11'}}
       run: |
         pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
         cd doc
