@@ -215,8 +215,8 @@ class ImportSet(object):
         """
         :return:
           (mapping from name to __future__ imports,
-           mapping from name to non-'from' imports,
-           mapping from name to 'from' imports)
+          mapping from name to non-'from' imports,
+          mapping from name to 'from' imports)
         """
         ftr_imports = defaultdict(set)
         pkg_imports = defaultdict(set)

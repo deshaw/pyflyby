@@ -7,58 +7,36 @@
 from   contextlib               import contextmanager
 import inspect
 import os
-from   six                      import reraise
 import sys
 import types
+
+# There used to be a custom caching_attribute implementation
+# this now uses functools's cached_property which is understood by
+# various static analysis tools.
+from functools import cached_property as cached_attribute # noqa: F401
 
 # Python 2/3 compatibility
 DictProxyType = type(object.__dict__)
 
-
-def memoize(function):
-    cache = {}
-    def wrapped_fn(*args, **kwargs):
-        cache_key = (args, tuple(sorted(kwargs.items())))
-        try:
-            return cache[cache_key]
-        except KeyError:
-            result = function(*args, **kwargs)
-            cache[cache_key] = result
-            return result
-    wrapped_fn.cache = cache
-    return wrapped_fn
+if sys.version_info > (3,9):
+    from functools import cache as memoize
+else:
+    def memoize(function):
+        cache = {}
+        def wrapped_fn(*args, **kwargs):
+            cache_key = (args, tuple(sorted(kwargs.items())))
+            try:
+                return cache[cache_key]
+            except KeyError:
+                result = function(*args, **kwargs)
+                cache[cache_key] = result
+                return result
+        wrapped_fn.cache = cache
+        return wrapped_fn
 
 
 class WrappedAttributeError(Exception):
     pass
-
-
-class cached_attribute(object):
-    """Computes attribute value and caches it in instance.
-
-    Example::
-
-        class MyClass(object):
-            @cached_attribute
-            def myMethod(self):
-                # ...
-
-    Use "del inst.myMethod" to clear cache."""
-    # http://code.activestate.com/recipes/276643/
-
-    def __init__(self, method, name=None):
-        self.method = method
-        self.name = name or method.__name__
-
-    def __get__(self, inst, cls):
-        if inst is None:
-            return self
-        try:
-            result = self.method(inst)
-        except AttributeError as e:
-            reraise(WrappedAttributeError, WrappedAttributeError(str(e)), sys.exc_info()[2])
-        setattr(inst, self.name, result)
-        return result
 
 
 def stable_unique(items):

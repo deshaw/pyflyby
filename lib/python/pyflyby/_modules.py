@@ -303,7 +303,7 @@ class ModuleHandle(object):
         Enumerate the importable submodules of this module.
 
           >>> ModuleHandle("email").submodules      # doctest:+ELLIPSIS
-          (..., 'email.encoders', ..., 'email.mime', ...)
+          (..., ModuleHandle('email.encoders'), ..., ModuleHandle('email.mime'), ...)
 
         :rtype:
           ``tuple`` of `ModuleHandle` s
