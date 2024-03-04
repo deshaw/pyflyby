@@ -1258,7 +1258,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         i += 1
         if op == CACHE:
             continue
-        if op in hasarg:
+        if take_arg(op):
             oparg = bytecode[i] | extended_arg
             extended_arg = 0
             if op == EXTENDED_ARG:
