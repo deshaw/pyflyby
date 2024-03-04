@@ -18,7 +18,8 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from typing import Dict, ClassVar, Sequence, Union, List
+from   typing                   import (ClassVar, Dict, FrozenSet, List,
+                                        Sequence, Union)
 
 
 class NoSuchImportError(ValueError):
@@ -49,7 +50,7 @@ class ImportSet(object):
     """
 
     _EMPTY : ClassVar[ImportSet]
-    _importset: frozenset[Import]
+    _importset : FrozenSet[Import]
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
@@ -480,17 +481,17 @@ class ImportSet(object):
                 % (type(params.align_imports).__name__,))
         return ''.join(pp(statement, import_column) for statement in statements)
 
-    def __contains__(self, x):
+    def __contains__(self, x) -> bool:
         return x in self._importset
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if self is other:
             return True
         if not isinstance(other, ImportSet):
             return NotImplemented
         return self._importset == other._importset
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
@@ -509,7 +510,7 @@ class ImportSet(object):
     def __hash__(self):
         return hash(self._importset)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.imports)
 
     def __iter__(self):
