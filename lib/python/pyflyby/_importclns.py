@@ -17,7 +17,7 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from typing import Dict
+from typing import Dict, FrozenSet
 
 
 class NoSuchImportError(ValueError):
@@ -46,6 +46,10 @@ class ImportSet(object):
 
     An ``ImportSet`` is an immutable data structure.
     """
+
+    _EMPTY: 'ImportSet'
+
+    _importset : FrozenSet[str]
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
