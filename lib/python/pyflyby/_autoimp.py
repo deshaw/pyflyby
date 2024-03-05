@@ -1275,7 +1275,6 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 stores.add(fullname)
                 continue
             if op in [LOAD_ATTR, LOAD_METHOD]:
-                print('------')
                 if sys.version_info >= (3,12):
                     # from the docs:
                     #
@@ -1310,7 +1309,6 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                     # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
                     # possibly more LOAD_ATTR/STORE_ATTR will follow
                     pending.append(co.co_names[oparg])
-                print('------')
                 continue
             # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* (and no more
             # LOAD_ATTR/STORE_ATTR)
