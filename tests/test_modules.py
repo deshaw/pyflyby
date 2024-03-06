@@ -64,7 +64,6 @@ def test_module_1():
     assert m.module is logging
 
 
-#@pytest.mark.xfail(reason="Fails on CI not locally")
 @pytest.mark.parametrize('modname', ['statistics', 'decimal', 'netrc'])
 def test_filename_noload_1(modname):
 
