@@ -480,8 +480,11 @@ class ModuleHandle(object):
             result = module.module
         except Exception as e:
             raise ImportError(e)
-        assert False
-        for part, prefix in zip(identifier, prefixes(identifier))[1:]:
+        # TODO: as far as I can tell the code here is never reached, or haven't
+        # been in quite some time as the line below was invalid on Python 3 since 2011
+        # zip(...)[...] fails as zip is not indexable.
+        # the only place that seem to be using this method is XrefScanner.
+        for part, prefix in list(zip(identifier, prefixes(identifier)))[1:]:
             try:
                 result = getattr(result, str(part))
             except Exception:
