@@ -125,6 +125,8 @@ class ModuleHandle(object):
     A handle to a module.
     """
 
+    name: DottedIdentifier
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -206,14 +208,8 @@ class ModuleHandle(object):
         if self.parent and not self.parent.exists:
             return False
 
-        # pkgutil.find_loader returns None for unimported Python 3
-        # namespace packages, so prefer importlib
-        try:
-            import importlib.util
-            find = importlib.util.find_spec
-        except ImportError:
-            import pkgutil
-            find = pkgutil.find_loader
+        import importlib.util
+        find = importlib.util.find_spec
 
         try:
             pkg = find(name)
@@ -241,6 +237,7 @@ class ModuleHandle(object):
         # module, which may be undesirable.
         import pkgutil
         try:
+             #TODO: deprecated and will be removed in 3.14
             loader = pkgutil.get_loader(str(self.name))
         except ImportError:
             return None
@@ -366,6 +363,7 @@ class ModuleHandle(object):
 
         # If __all__ is defined, try to use it
         all_is_good = False  # pun intended
+        all_members = []
         if "__all__" in members:
             # Iterate through the nodes and reconstruct the
             # value of __all__
@@ -482,7 +480,11 @@ class ModuleHandle(object):
             result = module.module
         except Exception as e:
             raise ImportError(e)
-        for part, prefix in zip(identifier, prefixes(identifier))[1:]:
+        # TODO: as far as I can tell the code here is never reached, or haven't
+        # been in quite some time as the line below was invalid on Python 3 since 2011
+        # zip(...)[...] fails as zip is not indexable.
+        # the only place that seem to be using this method is XrefScanner.
+        for part, prefix in list(zip(identifier, prefixes(identifier)))[1:]:
             try:
                 result = getattr(result, str(part))
             except Exception:

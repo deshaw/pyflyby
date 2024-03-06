@@ -17,7 +17,6 @@ from   textwrap                 import dedent
 
 import pytest
 
-
 def test_ModuleHandle_1():
     m = ModuleHandle("sys")
     assert m.name == DottedIdentifier("sys")
@@ -65,32 +64,47 @@ def test_module_1():
     assert m.module is logging
 
 
-@pytest.mark.xfail(reason="Fails on CI not locally")
-def test_filename_noload_1():
+@pytest.mark.parametrize('modname', ['statistics', 'decimal', 'netrc'])
+def test_filename_noload_1(modname):
+
+    # PRE_TEST
+
+    # Here we make sure that everything works properly before the actual test to
+    # not get false positive
+
+
     # ensure there is no problem with sys.exit itself.
-    retcode = subprocess.call([sys.executable, '-c', dedent('''
+    ret = subprocess.run([sys.executable, '-c', dedent('''
         import sys
         sys.exit(0)
-        ''')])
-    assert retcode == 0
+        ''')], capture_output=True)
+    assert ret.returncode == 0, (ret, ret.stdout, ret.stderr)
 
-    # Ensure there is no error with byflyby itself
-    retcode = subprocess.call([sys.executable, '-c', dedent('''
+    # Ensure there is no error with pyflyby itself
+    ret = subprocess.run([sys.executable, '-c', dedent(f'''
         from pyflyby._modules import ModuleHandle
         import sys
-        ModuleHandle("multiprocessing").filename
+        ModuleHandle("{modname}").filename
         sys.exit(0)
-        ''')])
-    assert retcode == 0
+        ''')], capture_output=True)
+    assert ret.returncode == 0, (ret, ret.stdout, ret.stderr)
+
+    # ACTUAL TEST
 
     # don't exit with 1, as something else may exit with 1.
-    retcode = subprocess.call([sys.executable, '-c', dedent('''
-        from pyflyby._modules import ModuleHandle
+    ret = subprocess.run([sys.executable, '-c', dedent(f'''
         import sys
-        ModuleHandle("multiprocessing").filename
-        if "multiprocessing" in sys.modules:
+        if "{modname}" in sys.modules:
+            sys.exit(120)
+        from pyflyby._modules import ModuleHandle
+        if "{modname}" in sys.modules:
+            sys.exit(121)
+        ModuleHandle("{modname}").filename
+        if "{modname}" in sys.modules:
             sys.exit(123)
         else:
             sys.exit(0)
-    ''')])
-    assert retcode == 0
+    ''')], capture_output=True)
+    assert ret.returncode != 121, f"{modname} imported by pyflyby import"
+    assert ret.returncode != 120, f"{modname} in sys.modules at startup"
+    assert ret.returncode == 0, (ret, ret.stdout, ret.stderr)
