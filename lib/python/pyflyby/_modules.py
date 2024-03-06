@@ -416,7 +416,7 @@ class ModuleHandle(object):
         members = [n for n in members if not n.startswith("_")]
 
         # Filter out artificially added "deep" members.
-        members = [(n, None) for n in members if "." not in n]
+        members = tuple([(n, None) for n in members if "." not in n])
         if not members:
             return None
         return ImportSet(

@@ -218,7 +218,7 @@ def test_ImportStatement_eqne_2():
     assert not (stmt1a == stmt2 )
 
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: None)
+@patch("black.files.find_pyproject_toml", lambda root: None)
 def test_ImportStatement_pretty_print_black_no_config():
     # running should not error out when no pyproject.toml file is found
     stmt = ImportStatement("from a import b")
@@ -226,16 +226,16 @@ def test_ImportStatement_pretty_print_black_no_config():
     assert isinstance(result, str)
 
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: None)
+@patch("black.files.find_pyproject_toml", lambda root: None)
 def test_read_black_config_no_config():
     # reading black config should work when no pyproject.toml file is found
     config = read_black_config()
     assert config == {}
 
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: "pyproject.toml")
+@patch("black.files.find_pyproject_toml", lambda root: "pyproject.toml")
 @patch(
-    "pyflyby._importstmt.parse_pyproject_toml",
+    "black.files.parse_pyproject_toml",
     lambda path: {
         "line_length": 80,
         "skip_magic_trailing_comma": True,
@@ -253,21 +253,21 @@ def test_read_black_config_extracts_config_subset():
     assert "skip_source_first_line" not in config
 
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: "pyproject.toml")
-@patch("pyflyby._importstmt.parse_pyproject_toml", lambda path: {"target_version": ["py310", "py311"]})
+@patch("black.files.find_pyproject_toml", lambda root: "pyproject.toml")
+@patch("black.files.parse_pyproject_toml", lambda path: {"target_version": ["py310", "py311"]})
 def test_read_black_config_target_version_list():
     config = read_black_config()
     assert config["target_version"] == {"py310", "py311"}
 
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: "pyproject.toml")
-@patch("pyflyby._importstmt.parse_pyproject_toml", lambda path: {"target_version": "py311"})
+@patch("black.files.find_pyproject_toml", lambda root: "pyproject.toml")
+@patch("black.files.parse_pyproject_toml", lambda path: {"target_version": "py311"})
 def test_read_black_config_target_version_str():
     config = read_black_config()
     assert config["target_version"] == "py311"
 
-@patch("pyflyby._importstmt.find_pyproject_toml", lambda root: "pyproject.toml")
-@patch("pyflyby._importstmt.parse_pyproject_toml", lambda path: {"target_version": object()})
+@patch("black.files.find_pyproject_toml", lambda root: "pyproject.toml")
+@patch("black.files.parse_pyproject_toml", lambda path: {"target_version": object()})
 def test_read_black_config_target_version_other():
     with raises(ValueError, match="Invalid config for black"):
         read_black_config()

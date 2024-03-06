@@ -15,17 +15,16 @@ from   pyflyby._parse           import PythonStatement
 from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
-from   black                    import format_str, FileMode as Mode
-from   black.files              import find_pyproject_toml, parse_pyproject_toml
-from   black.mode               import TargetVersion
+
+from   typing                   import Dict, Tuple, Optional
 
 
-def read_black_config():
-    """Read the black configuration from ``pyproject.toml``
 
+def read_black_config() -> Dict:
+    """Read the black configuration from ``pyproject.toml``"""
+    from black.files import find_pyproject_toml, parse_pyproject_toml
 
-    """
-    pyproject_path = find_pyproject_toml('.')
+    pyproject_path = find_pyproject_toml((".",))
 
     raw_config = parse_pyproject_toml(pyproject_path) if pyproject_path else {}
 
@@ -348,24 +347,31 @@ class Import(object):
             return NotImplemented
         return self._data < other._data
 
-def _validate_alias(arg):
+def _validate_alias(arg) -> Tuple[str, Optional[str]]:
     """
     Ensure each alias is a tuple (str, None|str), and return it.
 
     """
     assert isinstance(arg, tuple)
-    a0,a1 = arg
+    # Pyright does not seem to be able to infer the length from a
+    # the unpacking.
+    assert len(arg) == 2
+    a0, a1 = arg
     assert isinstance(a0, str)
     assert isinstance(a1, (str, type(None)))
     return arg
 
 @total_ordering
-class ImportStatement(object):
+class ImportStatement:
     """
     Token-level representation of an import statement containing multiple
     imports from a single module.  Corresponds to an ``ast.ImportFrom`` or
     ``ast.Import``.
     """
+
+    aliases : Tuple[Tuple[str, Optional[str]],...]
+    fromname : Optional[str]
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -381,10 +387,10 @@ class ImportStatement(object):
         raise TypeError
 
     @classmethod
-    def from_parts(cls, fromname, aliases):
-        assert isinstance(aliases, list)
+    def from_parts(cls, fromname:Optional[str], aliases:Tuple[Tuple[str, Optional[str]],...]):
+        assert isinstance(aliases, tuple)
         assert len(aliases) > 0
-        
+
         self = object.__new__(cls)
         self.fromname = fromname
         self.aliases = tuple(_validate_alias(a) for a in aliases)
@@ -440,7 +446,7 @@ class ImportStatement(object):
             raise NonImportStatementError(
                     'Expected ImportStatement, got {node}'.format(node=node)
                     )
-        aliases = [ (alias.name, alias.asname) for alias in node.names ]
+        aliases = tuple( (alias.name, alias.asname) for alias in node.names )
         return cls.from_parts(fromname, aliases)
 
     @classmethod
@@ -463,7 +469,7 @@ class ImportStatement(object):
             raise ValueError(
                 "Inconsistent module names %r" % (sorted(module_names),))
         fromname = list(module_names)[0]
-        aliases = [ imp.split[1:] for imp in imports ]
+        aliases = tuple(imp.split[1:] for imp in imports)
         return cls.from_parts(fromname, aliases)
 
     @cached_attribute
@@ -529,12 +535,15 @@ class ImportStatement(object):
         return res
 
     @staticmethod
-    def run_black(src_contents: str, params) -> str:
+    def run_black(src_contents: str, params:FormatParams) -> str:
         """Run the black formatter for the Python source code given as a string
 
         This is adapted from https://github.com/akaihola/darker
 
         """
+        from black import format_str, FileMode
+        from black.mode import TargetVersion
+
         black_config = read_black_config()
         mode = dict()
         if "line_length" in black_config:
@@ -568,14 +577,12 @@ class ImportStatement(object):
             # ``--skip-string-normalization``, but the parameter for
             # ``black.Mode`` needs to be the opposite boolean of
             # ``skip-string-normalization``, hence the inverse boolean
-            mode["string_normalization"] = not black_config[
-                "skip_string_normalization"
-            ]
+            mode["string_normalization"] = not black_config["skip_string_normalization"]
 
         # The custom handling of empty and all-whitespace files below will be unnecessary if
         # https://github.com/psf/black/pull/2484 lands in Black.
         contents_for_black = src_contents
-        return format_str(contents_for_black, mode=Mode(**mode))
+        return format_str(contents_for_black, mode=FileMode(**mode))
 
     @property
     def _data(self):
