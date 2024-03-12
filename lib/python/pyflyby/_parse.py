@@ -1,7 +1,7 @@
 # pyflyby/_parse.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-
+from __future__ import annotations
 
 
 import ast
@@ -13,6 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
+from   typing                   import Optional
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -741,7 +742,7 @@ class _DummyAst_Node(object):
     pass
 
 
-class PythonStatement(object):
+class PythonStatement:
     r"""
     Representation of a top-level Python statement or consecutive
     comments/blank lines.
@@ -753,7 +754,9 @@ class PythonStatement(object):
     top-level AST node.
     """
 
-    def __new__(cls, arg, filename=None, startpos=None, flags=None):
+    block: PythonBlock
+
+    def __new__(cls, arg:PythonStatement, filename=None, startpos=None, flags=None):
         if isinstance(arg, cls):
             if filename is startpos is flags is None:
                 return arg
@@ -773,7 +776,8 @@ class PythonStatement(object):
         raise TypeError("PythonStatement: unexpected %s" % (type(arg).__name__,))
 
     @classmethod
-    def _construct_from_block(cls, block):
+    def _construct_from_block(cls, block:PythonBlock):
+        assert isinstance(block, PythonBlock), repr(block)
         # Only to be used by PythonBlock.
         assert isinstance(block, PythonBlock)
         self = object.__new__(cls)
@@ -781,7 +785,7 @@ class PythonStatement(object):
         return self
 
     @property
-    def text(self):
+    def text(self) -> FileText:
         """
         :rtype:
           `FileText`
@@ -789,7 +793,7 @@ class PythonStatement(object):
         return self.block.text
 
     @property
-    def filename(self):
+    def filename(self) -> Optional[str]:
         """
         :rtype:
           `Filename`
@@ -829,8 +833,16 @@ class PythonStatement(object):
         raise AssertionError("More than one AST node in block")
 
     @property
+    def is_blank(self):
+        return self.ast_node is None and self.text.joined.strip() == ''
+
+    @property
+    def is_comment(self):
+        return self.ast_node is None and self.text.joined.strip() != ''
+
+    @property
     def is_comment_or_blank(self):
-        return self.ast_node is None
+        return self.is_comment or self.is_blank
 
     @property
     def is_comment_or_blank_or_string_literal(self):
@@ -898,7 +910,7 @@ class PythonStatement(object):
 
 
 @total_ordering
-class PythonBlock(object):
+class PythonBlock:
     r"""
     Representation of a sequence of consecutive top-level
     `PythonStatement` (s).
