@@ -1,7 +1,6 @@
 # pyflyby/_imports2s.py.
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-from collections import defaultdict
 
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
@@ -13,6 +12,8 @@ from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
 import re
+
+from typing import Union
 
 
 class SourceToSourceTransformationBase(object):
@@ -48,7 +49,7 @@ class SourceToSourceTransformationBase(object):
     def pretty_print(self, params=None):
         raise NotImplementedError
 
-    def output(self, params=None):
+    def output(self, params=None) -> PythonBlock:
         """
         Pretty-print and return as a `PythonBlock`.
 
@@ -305,12 +306,14 @@ def ImportPathForRelativeImportsCtx(codeblock):
     return ImportPathCtx(str(codeblock.filename.dir))
 
 
-def fix_unused_and_missing_imports(codeblock,
-                                   add_missing=True,
-                                   remove_unused="AUTOMATIC",
-                                   add_mandatory=True,
-                                   db=None,
-                                   params=None):
+def fix_unused_and_missing_imports(
+    codeblock: Union[PythonBlock, str],
+    add_missing=True,
+    remove_unused="AUTOMATIC",
+    add_mandatory=True,
+    db=None,
+    params=None,
+) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
 
@@ -338,11 +341,13 @@ def fix_unused_and_missing_imports(codeblock,
       `PythonBlock`
     """
     if isinstance(codeblock, Filename):
-        codeblock = PythonBlock(filename=codeblock)
+        _codeblock = PythonBlock(codeblock)
     if not isinstance(codeblock, PythonBlock):
-        codeblock = PythonBlock(codeblock)
+        _codeblock = PythonBlock(codeblock)
+    else:
+        _codeblock = codeblock
     if remove_unused == "AUTOMATIC":
-        fn = codeblock.filename
+        fn = _codeblock.filename
         remove_unused = not (fn and
                              (fn.base == "__init__.py"
                               or ".pyflyby" in str(fn).split("/")))
@@ -351,18 +356,19 @@ def fix_unused_and_missing_imports(codeblock,
     else:
         raise ValueError("Invalid remove_unused=%r" % (remove_unused,))
     params = ImportFormatParams(params)
-    db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
+    db = ImportDB.interpret_arg(db, target_filename=_codeblock.filename)
     # Do a first pass reformatting the imports to get rid of repeated or
     # shadowed imports, e.g. L1 here:
     #   import foo  # L1
     #   import foo  # L2
     #   foo         # L3
-    codeblock = reformat_import_statements(codeblock, params=params)
+    _codeblock = reformat_import_statements(_codeblock, params=params)
 
-    filename = codeblock.filename
-    transformer = SourceToSourceFileImportsTransformation(codeblock)
+    filename = _codeblock.filename
+    transformer = SourceToSourceFileImportsTransformation(_codeblock)
     missing_imports, unused_imports = scan_for_import_issues(
-        codeblock, find_unused_imports=remove_unused, parse_docstrings=True)
+        _codeblock, find_unused_imports=remove_unused, parse_docstrings=True
+    )
     logger.debug("missing_imports = %r", missing_imports)
     logger.debug("unused_imports = %r", unused_imports)
     if remove_unused and unused_imports:
@@ -552,67 +558,6 @@ def replace_star_imports(codeblock, params=None):
                                 imp.pretty_print().strip(), len(exports))
         block.importset = ImportSet(new_imports, ignore_shadowed=True)
     return transformer.output(params=params)
-
-
-def sort_imports(codeblock):
-    """
-    Sort imports for better grouping.
-    :param codeblock:
-    :return: codeblock
-    """
-    import isort
-    sorted_imports = isort.code(
-        str(codeblock),
-        # To sort all the import in lexicographic order
-        force_sort_within_sections=True,
-        # This is done below
-        lines_between_sections=0,
-        lines_after_imports=1
-    )
-    # Step 1: Split the input string into a list of lines
-    lines = sorted_imports.split('\n')
-
-    # Step 2: Identify groups of imports and keep track of their line numbers
-    pkg_lines = defaultdict(list)
-    line_pkg_dict = {}
-    for i, line in enumerate(lines):
-        match = re.match(r'(from (\w+)|import (\w+))', line)
-        if match:
-            current_pkg = match.groups()[1:3]
-            current_pkg = current_pkg[0] if current_pkg[0] is not None else current_pkg[1]
-            pkg_lines[current_pkg].append(i)
-            line_pkg_dict[i] = current_pkg
-
-    # Step 3: Create the output list of lines with blank lines around groups with more than one import
-    output_lines = []
-
-    def next_line(index):
-        if index + 1 < len(lines):
-            return lines[index + 1]
-        else:
-            return ""
-
-    for i, line in enumerate(lines):
-        if (
-            i > 0
-            and line_pkg_dict.get(i) != line_pkg_dict.get(i - 1)
-            and len(pkg_lines[line_pkg_dict.get(i)]) > 1
-            and next_line(i).startswith(("import", "from"))
-            and output_lines[-1] != ''
-        ):
-            output_lines.append("")
-        output_lines.append(line)
-        if (
-            i < len(lines) - 1
-            and line_pkg_dict.get(i) != line_pkg_dict.get(i + 1)
-            and len(pkg_lines[line_pkg_dict.get(i)]) > 1
-            and next_line(i).startswith(("import", "from"))
-        ):
-            output_lines.append("")
-
-    # Step 4: Join the lines to create the output string
-    sorted_output_str = '\n'.join(output_lines)
-    return PythonBlock(sorted_output_str)
 
 
 def transform_imports(codeblock, transformations, params=None):
