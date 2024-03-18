@@ -28,6 +28,8 @@ class Filename(object):
       Filename('/etc/passwd')
 
     """
+    _filename: str
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -337,6 +339,8 @@ class FileText:
     """
     Represents a contiguous sequence of lines from a file.
     """
+
+    filename: Filename
 
     def __new__(cls, arg, filename=None, startpos=None):
         """
