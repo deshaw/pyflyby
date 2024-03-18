@@ -7,11 +7,11 @@
 import optparse
 import os
 import signal
-from   six                      import reraise
-from   six.moves                import input
+from   builtins                 import input
 import sys
 from   textwrap                 import dedent
 import traceback
+from   typing                   import List
 
 
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
@@ -376,7 +376,7 @@ class Modifier(object):
             f.close()
 
 
-def process_actions(filenames, actions, modify_function,
+def process_actions(filenames:List[str], actions, modify_function,
                     reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
@@ -408,7 +408,7 @@ def process_actions(filenames, actions, modify_function,
                         # Exception takes more than one argument
                         pass
                 if logger.debug_enabled:
-                    reraise(type_e, e, tb)
+                    raise
                 traceback.print_exception(type(e), e, tb)
             finally:
                 tb = None # avoid refcycles involving tb
