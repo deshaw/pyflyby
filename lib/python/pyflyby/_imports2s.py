@@ -3,7 +3,6 @@
 # License: MIT http://opensource.org/licenses/MIT
 from collections import defaultdict
 
-import isort
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -14,10 +13,12 @@ from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
 import re
-from   six                      import exec_
 
 
 class SourceToSourceTransformationBase(object):
+
+    input: PythonBlock
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -52,11 +53,15 @@ class SourceToSourceTransformationBase(object):
 
 
 class SourceToSourceTransformation(SourceToSourceTransformationBase):
+
+    _output: PythonBlock
+
     def preprocess(self):
-        self.output = self.input
+        assert isinstance(self.input, PythonBlock), self.input
+        self._output = self.input
 
     def pretty_print(self, params=None):
-        return self.output.text
+        return self._output.text
 
 
 class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
@@ -214,7 +219,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         """
         block = SourceToSourceImportBlockTransformation("")
         sepblock = SourceToSourceTransformation("")
-        sepblock.output = PythonBlock("\n")
+        sepblock._output = PythonBlock("\n")
         self.insert_new_blocks_after_comments([block, sepblock])
         self.import_blocks.insert(0, block)
         return block
@@ -433,7 +438,7 @@ def remove_broken_imports(codeblock, params=None):
         for imp in list(block.importset.imports):
             ns = {}
             try:
-                exec_(imp.pretty_print(), ns)
+                exec(imp.pretty_print(), ns)
             except Exception as e:
                 logger.info("%s: Could not import %r; removing it: %s: %s",
                             filename, imp.fullname, type(e).__name__, e)
@@ -540,6 +545,7 @@ def sort_imports(codeblock):
     :param codeblock:
     :return: codeblock
     """
+    import isort
     sorted_imports = isort.code(
         str(codeblock),
         # To sort all the import in lexicographic order
@@ -644,7 +650,7 @@ def transform_imports(codeblock, transformations, params=None):
             output_imports = [ transform_import(imp) for imp in input_imports ]
             block.importset = ImportSet(output_imports, ignore_shadowed=True)
         else:
-            block.output = transform_block(block.input)
+            block._output = transform_block(block.input)
     return transformer.output(params=params)
 
 

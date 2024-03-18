@@ -920,6 +920,8 @@ class PythonBlock(object):
 
     """
 
+    text: FileText
+
     def __new__(cls, arg, filename=None, startpos=None, flags=None,
                 auto_flags=None):
         if isinstance(arg, PythonStatement):
