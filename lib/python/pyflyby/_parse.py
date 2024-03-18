@@ -14,6 +14,7 @@ import sys
 from   textwrap                 import dedent
 import types
 from   typing                   import Optional
+import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -22,6 +23,8 @@ from   pyflyby._util            import cached_attribute, cmp
 
 
 from ast import TypeIgnore, AsyncFunctionDef
+
+_sentinel = object()
 
 
 def _is_comment_or_blank(line):
@@ -1005,17 +1008,21 @@ class PythonBlock:
         return self
 
     @classmethod
-    def concatenate(cls, blocks, assume_contiguous=False):
+    def concatenate(cls, blocks, assume_contiguous=_sentinel):
         """
         Concatenate a bunch of blocks into one block.
 
         :type blocks:
           sequence of `PythonBlock` s and/or `PythonStatement` s
         :param assume_contiguous:
+          Deprecated, always True
           Whether to assume, without checking, that the input blocks were
           originally all contiguous.  This must be set to True to indicate the
           caller understands the assumption; False is not implemented.
         """
+        if assume_contiguous is not _sentinel:
+            warnings.warn('`assume_continuous` is deprecated and considered always `True`')
+            assume_contiguous = True
         if not assume_contiguous:
             raise NotImplementedError
         blocks = [PythonBlock(b) for b in blocks]
