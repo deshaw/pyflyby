@@ -4,13 +4,13 @@
 
 
 
-from   functools                import total_ordering
+from   functools                import total_ordering, cached_property
 import io
 import os
 import re
 import sys
 
-from   pyflyby._util            import cached_attribute, cmp, memoize
+from   pyflyby._util            import cmp, memoize
 
 
 class UnsafeFilenameError(ValueError):
@@ -28,6 +28,8 @@ class Filename(object):
       Filename('/etc/passwd')
 
     """
+    _filename: str
+
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
@@ -85,7 +87,7 @@ class Filename(object):
             return NotImplemented
         return cmp(self._filename, o._filename)
 
-    @cached_attribute
+    @cached_property
     def ext(self):
         """
         Returns the extension of this filename, including the dot.
@@ -99,15 +101,15 @@ class Filename(object):
             return None
         return dot + rhs
 
-    @cached_attribute
+    @cached_property
     def base(self):
         return os.path.basename(self._filename)
 
-    @cached_attribute
+    @cached_property
     def dir(self):
         return type(self)(os.path.dirname(self._filename))
 
-    @cached_attribute
+    @cached_property
     def real(self):
         return type(self)(os.path.realpath(self._filename))
 
@@ -338,6 +340,8 @@ class FileText:
     Represents a contiguous sequence of lines from a file.
     """
 
+    filename: Filename
+
     def __new__(cls, arg, filename=None, startpos=None):
         """
         Return a new ``FileText`` instance.
@@ -394,7 +398,7 @@ class FileText:
         self.startpos = startpos
         return self
 
-    @cached_attribute
+    @cached_property
     def lines(self):
         r"""
         Lines that have been split by newline.
@@ -414,7 +418,7 @@ class FileText:
         # (or requires extra work to process if we use splitlines(True)).
         return tuple(self.joined.split('\n'))
 
-    @cached_attribute
+    @cached_property
     def joined(self): # used if only initialized with 'lines'
         return '\n'.join(self.lines)
 
@@ -441,7 +445,7 @@ class FileText:
             result.startpos = startpos
             return result
 
-    @cached_attribute
+    @cached_property
     def endpos(self):
         """
         The position after the last character in the text.

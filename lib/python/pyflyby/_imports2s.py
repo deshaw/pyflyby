@@ -200,12 +200,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                     # insert in the middle.
                     self.blocks[:1] = (
                         [SourceToSourceTransformation(
-                            PythonBlock.concatenate(statements[:idx],
-                                                    assume_contiguous=True))] +
+                            PythonBlock.concatenate(statements[:idx]))] +
                         blocks +
                         [SourceToSourceTransformation(
-                            PythonBlock.concatenate(statements[idx:],
-                                                    assume_contiguous=True))])
+                            PythonBlock.concatenate(statements[idx:]))])
                 break
         else:
             # First block is entirely comments, so just insert after it.
