@@ -1267,7 +1267,7 @@ class PythonBlock:
         cls = type(self)
         for pred, stmts in groupby(self.statements, predicate):
             blocks = [s.block for s in stmts]
-            yield pred, cls.concatenate(blocks, assume_contiguous=True)
+            yield pred, cls.concatenate(blocks)
 
     def string_literals(self):
         r"""
