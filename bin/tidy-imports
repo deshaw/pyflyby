@@ -22,8 +22,6 @@ Only top-level import statements are touched.
 
 
 from   distutils.spawn          import find_executable
-import subprocess
-import sys
 import os
 
 from   pyflyby._cmdline         import hfmt, parse_args, process_actions
@@ -32,6 +30,7 @@ from pyflyby._imports2s import (canonicalize_imports,
                                 replace_star_imports,
                                 transform_imports, sort_imports)
 from   pyflyby._log             import logger
+from pyflyby._file import FileText
 
 import toml
 TOML_AVAIL = True

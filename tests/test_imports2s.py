@@ -20,6 +20,8 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._parse           import PythonBlock
 
+from pyflyby._file import FileText
+
 
 def test_reformat_import_statements_1():
     input = PythonBlock(dedent('''
