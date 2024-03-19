@@ -695,6 +695,41 @@ def test_fix_missing_imports_in_non_method():
     assert output == expected
 
 
+@pytest.mark.parametrize('data',("""
+    from __future__ import annotations
+
+    class _TestCls():
+        class WrappedFunction():
+            pass
+
+    class Popen():
+        def test(self) -> Popen:
+            return None""",
+    """
+    from __future__ import annotations
+
+    class _TestCls():
+        class WrappedFunction():
+            pass
+
+    class Popen():
+        def test(self:Popen):
+            return None
+    """))
+def test_fix_missing_imports_other_class(data):
+    """
+    This insert import for type annotations, only if a class is present before.
+
+    See https://github.com/deshaw/pyflyby/issues/318
+    """
+    data = dedent(data)
+    b = PythonBlock(data)
+    db = ImportDB("from subprocess import Popen")
+    output = fix_unused_and_missing_imports(b, db=db)
+    expected = PythonBlock(data)
+    assert output == expected
+
+
 def test_fix_unused_and_missing_continutation_1():
     input = PythonBlock(dedent(r'''
         a#\

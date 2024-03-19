@@ -952,7 +952,7 @@ class PythonBlock:
             return cls.from_text(
                 arg, filename=filename, startpos=startpos,
                 flags=flags, auto_flags=auto_flags)
-        raise TypeError("%s: unexpected %s"
+        raise TypeError("%r: unexpected %r"
                         % (cls.__name__, type(arg).__name__,))
 
     @classmethod

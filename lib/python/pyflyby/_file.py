@@ -9,6 +9,7 @@ import io
 import os
 import re
 import sys
+from   typing                   import Optional
 
 from   pyflyby._util            import cmp, memoize
 
@@ -232,6 +233,9 @@ class FilePos(object):
     Both lineno and colno are 1-indexed.
     """
 
+    lineno: int
+    colno: int
+
     def __new__(cls, *args):
         if len(args) == 0:
             return cls._ONE_ONE
@@ -267,7 +271,7 @@ class FilePos(object):
             raise TypeError("Expected (int,int); got %r" % (args,))
 
     @classmethod
-    def _from_lc(cls, lineno, colno):
+    def _from_lc(cls, lineno:int, colno:int):
         self = object.__new__(cls)
         self.lineno = lineno
         self.colno  = colno
@@ -340,7 +344,8 @@ class FileText:
     Represents a contiguous sequence of lines from a file.
     """
 
-    filename: Filename
+    filename: Optional[Filename]
+    startpos: FilePos
 
     def __new__(cls, arg, filename=None, startpos=None):
         """
@@ -387,11 +392,13 @@ class FileText:
         return self
 
     @classmethod
-    def _from_lines(cls, lines, filename, startpos):
+    def _from_lines(cls, lines, filename: Optional[Filename], startpos: FilePos):
         assert type(lines) is tuple
         assert len(lines) > 0
         assert isinstance(lines[0], str)
         assert not lines[-1].endswith("\n")
+        assert isinstance(startpos, FilePos), repr(startpos)
+        assert isinstance(filename, (Filename, type(None))), repr(filename)
         self = object.__new__(cls)
         self.lines    = lines
         self.filename = filename

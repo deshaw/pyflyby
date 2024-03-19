@@ -609,11 +609,11 @@ class _MissingImportFinder(object):
         if self._in_class_def == 0:
             self.scopestack._class_delayed[node.name] = None
         with self._NewScopeCtx(new_class_scope=True):
-            if not self._in_class_def:
-                self._in_class_def += 1
-                self._visit_Store(node.name)
+            self._in_class_def += 1
+            self._visit_Store(node.name)
             self.visit(node.body)
             self._in_class_def -= 1
+        assert self._in_class_def >= 0
         self._remove_from_missing_imports(node.name)
         self._visit_Store(node.name)
 
