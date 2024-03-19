@@ -9,7 +9,7 @@ import io
 import os
 import re
 import sys
-from   typing                   import Optional
+from   typing                   import Optional, Tuple
 
 from   pyflyby._util            import cmp, memoize
 
@@ -346,6 +346,7 @@ class FileText:
 
     filename: Optional[Filename]
     startpos: FilePos
+    _lines: Optional[Tuple[str, ...]] = None
 
     def __new__(cls, arg, filename=None, startpos=None):
         """
@@ -380,7 +381,7 @@ class FileText:
             return FileText(arg.__text__(), filename=filename, startpos=startpos)
         elif isinstance(arg, str):
             self = object.__new__(cls)
-            self.joined = arg
+            self._lines = tuple(arg.split('\n'))
         else:
             raise TypeError("%s: unexpected %s"
                             % (cls.__name__, type(arg).__name__))
@@ -400,13 +401,13 @@ class FileText:
         assert isinstance(startpos, FilePos), repr(startpos)
         assert isinstance(filename, (Filename, type(None))), repr(filename)
         self = object.__new__(cls)
-        self.lines    = lines
+        self._lines    = tuple(lines)
         self.filename = filename
         self.startpos = startpos
         return self
 
     @cached_property
-    def lines(self):
+    def lines(self) -> Tuple[str, ...]:
         r"""
         Lines that have been split by newline.
 
@@ -419,6 +420,8 @@ class FileText:
         :rtype:
           ``tuple`` of ``str``
         """
+        if self._lines is not None:
+            return self._lines
         # Used if only initialized with 'joined'.
         # We use str.split() instead of str.splitlines() because the latter
         # doesn't distinguish between strings that end in newline or not
@@ -426,8 +429,9 @@ class FileText:
         return tuple(self.joined.split('\n'))
 
     @cached_property
-    def joined(self): # used if only initialized with 'lines'
+    def joined(self) -> str:
         return '\n'.join(self.lines)
+
 
     @classmethod
     def from_filename(cls, filename):
@@ -446,8 +450,7 @@ class FileText:
             return self
         else:
             result = object.__new__(type(self))
-            result.lines    = self.lines
-            result.joined   = self.joined
+            result._lines   = self._lines
             result.filename = filename
             result.startpos = startpos
             return result
