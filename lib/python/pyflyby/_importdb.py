@@ -7,7 +7,6 @@
 from   collections              import defaultdict
 import os
 import re
-import six
 
 from pyflyby._file import Filename, expand_py_files_from_args, UnsafeFilenameError
 from   pyflyby._idents          import dotted_prefixes
@@ -560,7 +559,7 @@ class ImportDB(object):
             for prefix in dotted_prefixes(imp.fullname)[:-1]:
                 d[prefix].add(Import.from_parts(prefix, prefix))
         return dict( (k, tuple(sorted(v - set(self.forget_imports.imports))))
-                     for k, v in six.iteritems(d))
+                     for k, v in d.items())
 
     def __repr__(self):
         printed = self.pretty_print()

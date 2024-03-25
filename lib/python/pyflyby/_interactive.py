@@ -5,16 +5,16 @@
 
 
 import ast
+import builtins
 from   contextlib               import contextmanager
 import errno
 import inspect
 import os
+import operator
 import re
 import subprocess
 import sys
 
-import six
-from   six.moves                import builtins
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
@@ -36,6 +36,8 @@ from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
 if False:
     __original__ = None # for pyflakes
 
+
+get_method_self = operator.attrgetter('__self__')
 
 # TODO: also support arbitrary code (in the form of a lambda and/or
 # assignment) as new way to do "lazy" creations, e.g. foo = a.b.c(d.e+f.g())
@@ -2098,7 +2100,7 @@ class AutoImporter(object):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
             # 3.1, 3.2, 4.0.
             line_magics = ip.magics_manager.magics['line']
-            execmgr = six.get_method_self(line_magics['prun'])#.im_self
+            execmgr = get_method_self(line_magics['prun'])#.im_self
             if hasattr(execmgr, "_run_with_profiler"):
                 @self._advise(execmgr._run_with_profiler)
                 def run_with_profiler_with_autoimport(code, opts, namespace):
@@ -2303,7 +2305,7 @@ class AutoImporter(object):
             # Tested with IPython 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
             # 3.1, 3.2, 4.0, 5.8.
             line_magics = ip.magics_manager.magics['line']
-            execmgr = six.get_method_self(line_magics['debug'])
+            execmgr = get_method_self(line_magics['debug'])
             if hasattr(execmgr, "_run_with_debugger"):
                 @self._advise(execmgr._run_with_debugger)
                 def run_with_debugger_with_autoimport(code, code_ns,
