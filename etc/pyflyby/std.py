@@ -148,7 +148,7 @@ from   six.moves                import (builtins, cPickle, configparser,
                                         email_mime_image, email_mime_multipart,
                                         email_mime_text, http_client, map,
                                         queue, zip)
-from   six.moves.urllib.parse   import urlencode
+from   urllib.parse             import urlencode
 from   six.moves.urllib.request import urlopen
 import smtplib
 from   smtplib                  import (SMTP, SMTPAuthenticationError,

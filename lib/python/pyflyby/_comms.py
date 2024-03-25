@@ -8,7 +8,6 @@ from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
                                         reformat_import_statements)
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
-import six
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
@@ -67,7 +66,7 @@ def initialize_comms():
 
 
 def remove_comms():
-    for target_name, comm in six.iteritems(comms):
+    for target_name, comm in comms.items():
         comm.close()
         logger.debug("Closing comm for " + target_name)
 
@@ -87,7 +86,7 @@ def send_comm_message(target_name, msg):
 
 def comm_close_handler(comm, message):
     comm_id = message["comm_id"]
-    for target, comm in six.iterkeys(comms):
+    for target, comm in comms.keys():
         if comm.comm_id == comm_id:
             comms.pop(target)
 

@@ -4,11 +4,11 @@
 
 
 
+import builtins
 from   contextlib               import contextmanager
 import logging
 from   logging                  import Handler, Logger
 import os
-from   six.moves                import builtins
 import sys
 
 

@@ -6,7 +6,6 @@
 
 from   collections              import defaultdict
 from   functools                import total_ordering
-import six
 
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import dotted_prefixes, is_identifier
@@ -567,7 +566,7 @@ class ImportMap(object):
         return self._data.items()
 
     def iterkeys(self):
-        return six.iterkeys(self._data)
+        return iter(self._data.keys())
 
     def keys(self):
         return self._data.keys()

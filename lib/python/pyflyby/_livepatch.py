@@ -138,7 +138,7 @@ import sys
 import time
 import types
 
-from   six.moves                import reload_module
+from   importlib                import reload as reload_module
 
 import inspect
 from   pyflyby._log             import logger

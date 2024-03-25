@@ -7,7 +7,7 @@
 import __future__
 import ast
 import operator
-from   six.moves                import reduce
+from   functools                import reduce
 import warnings
 
 from   pyflyby._util            import cached_attribute
