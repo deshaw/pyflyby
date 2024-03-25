@@ -9,6 +9,8 @@ from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 
+from   typing                   import Dict, Any
+
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
 # formatting imports
@@ -23,7 +25,7 @@ PYFLYBY_END_MSG = "# END AUTO-GENERATED BLOCK\n"
 pyflyby_comm_targets= [MISSING_IMPORTS, FORMATTING_IMPORTS, TIDY_IMPORTS]
 
 # A map of the comms opened with a given target name.
-comms = {}
+comms:Dict[str, Any] = {}
 
 # TODO: Document the expected contract for the different
 # custom comm messages

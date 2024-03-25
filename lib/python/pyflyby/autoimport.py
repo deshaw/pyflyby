@@ -17,4 +17,4 @@ from   pyflyby._interactive     import enable_auto_importer
 
 install_auto_importer = enable_auto_importer
 
-__all__ = [install_auto_importer]
+__all__ = ['install_auto_importer']

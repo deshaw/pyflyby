@@ -40,6 +40,8 @@ from   pyflyby._dbg             import (breakpoint, debug_exception,
                                         enable_signal_handler_breakpoint,
                                         waitpoint)
 
+from   typing                   import Sequence
+
 
 # Promote the function & classes that we've chosen to expose publicly to be
 # known as pyflyby.Foo instead of pyflyby._module.Foo.
@@ -51,4 +53,4 @@ del x
 
 # Discourage "from pyflyby import *".
 # Use the tidy-imports/autoimporter instead!
-__all__ = []
+__all__:Sequence[str] = []
