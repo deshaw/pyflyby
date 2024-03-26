@@ -1048,9 +1048,9 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
             except LoadSymbolError as e2:
                 # Even after attempting auto-import, the symbol is still
                 # unavailable, or some other error occurred.  Nothing to complete.
-                e = getattr(e2, "__cause__", e2)
+                e3 = getattr(e2, "__cause__", e2)
                 logger.debug("complete_symbol(%r): couldn't load symbol %r: %s: %s",
-                             fullname, pname, type(e).__name__, e)
+                             fullname, pname, type(e3).__name__, e3)
                 return []
         logger.debug("complete_symbol(%r): %s == %r", fullname, pname, parent)
         results = set()

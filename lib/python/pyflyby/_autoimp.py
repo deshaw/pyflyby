@@ -24,6 +24,8 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, infer_compile_mode, _is_ast_str
 
+from   typing                   import Set, Any
+
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
 else:
@@ -39,8 +41,12 @@ if sys.version_info > (3, 11):
 else:
     LOAD_SHIFT = 0
 
-NoneType = type(None)
-EllipsisType = type(Ellipsis)
+if sys.version_info >= (3,10):
+    from types import NoneType, EllipsisType
+else:
+    NoneType = type(None)
+    EllipsisType = type(Ellipsis)
+
 
 class _ClassScope(dict):
     pass
@@ -1605,7 +1611,7 @@ def get_known_import(fullname, db=None):
     return None
 
 
-_IMPORT_FAILED = set()
+_IMPORT_FAILED:Set[Any] = set()
 """
 Set of imports we've already attempted and failed.
 """

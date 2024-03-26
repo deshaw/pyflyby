@@ -19,8 +19,12 @@ jobs:
     - name: Install and update Python dependencies on Python 3
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade pyflakes flake8 
+        python -m pip install --upgrade pyflakes flake8 mypy
+        python -m pip install types-six
         pip install -e .
+    - name: Mypy
+      run: |
+        mypy lib/python --ignore-missing-imports
     - name: lint
       run: |
         flake8 --exclude known_imports,etc,__init__.py --select=F;

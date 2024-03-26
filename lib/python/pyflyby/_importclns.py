@@ -2,6 +2,8 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
+
 
 
 from   collections              import defaultdict
@@ -16,7 +18,7 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from typing import Dict
+from typing import Dict, ClassVar
 
 
 class NoSuchImportError(ValueError):
@@ -45,6 +47,8 @@ class ImportSet(object):
 
     An ``ImportSet`` is an immutable data structure.
     """
+
+    _EMPTY : ClassVar[ImportSet]
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
@@ -519,6 +523,7 @@ class ImportMap(object):
     """
 
     _data: Dict
+    _EMPTY : ClassVar[ImportSet]
 
     def __new__(cls, arg):
         if isinstance(arg, cls):

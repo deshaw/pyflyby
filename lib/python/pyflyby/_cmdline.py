@@ -415,8 +415,8 @@ def process_actions(filenames:List[str], actions, modify_function,
             continue
     if errors:
         msg = "\n%s: encountered the following problems:\n" % (sys.argv[0],)
-        for e in errors:
-            lines = e.splitlines()
+        for er in errors:
+            lines = er.splitlines()
             msg += "    " + lines[0] + '\n'.join(
                 ("            %s"%line for line in lines[1:]))
         raise SystemExit(msg)

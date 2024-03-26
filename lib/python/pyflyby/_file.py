@@ -1,15 +1,14 @@
 # pyflyby/_file.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-
-
+from __future__ import annotations
 
 from   functools                import total_ordering, cached_property
 import io
 import os
 import re
 import sys
-from   typing                   import Optional, Tuple
+from   typing                   import Optional, Tuple, ClassVar
 
 from   pyflyby._util            import cmp, memoize
 
@@ -30,6 +29,7 @@ class Filename(object):
 
     """
     _filename: str
+    STDIN: Filename
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -235,6 +235,8 @@ class FilePos(object):
 
     lineno: int
     colno: int
+
+    _ONE_ONE: ClassVar[FilePos]
 
     def __new__(cls, *args):
         if len(args) == 0:

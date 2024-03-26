@@ -13,7 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Optional
+from   typing                   import Optional, Union
 import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -760,12 +760,15 @@ class PythonStatement:
     block: PythonBlock
 
     def __new__(cls, arg:PythonStatement, filename=None, startpos=None, flags=None):
+        arg_ : Union[PythonBlock, FileText, str, PythonStatement]
         if isinstance(arg, cls):
             if filename is startpos is flags is None:
                 return arg
-            arg = arg.block
+            arg_ = arg.block
             # Fall through
-        if isinstance(arg, (PythonBlock, FileText, str)):
+        else:
+            arg_ = arg
+        if isinstance(arg_, (PythonBlock, FileText, str)):
             block = PythonBlock(arg, filename=filename,
                                 startpos=startpos, flags=flags)
             statements = block.statements
@@ -776,7 +779,7 @@ class PythonStatement:
             statement, = statements
             assert isinstance(statement, cls)
             return statement
-        raise TypeError("PythonStatement: unexpected %s" % (type(arg).__name__,))
+        raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)
 
     @classmethod
     def _construct_from_block(cls, block:PythonBlock):
@@ -796,7 +799,7 @@ class PythonStatement:
         return self.block.text
 
     @property
-    def filename(self) -> Optional[str]:
+    def filename(self) -> Optional[Filename]:
         """
         :rtype:
           `Filename`

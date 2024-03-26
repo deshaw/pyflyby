@@ -8,13 +8,15 @@ from   collections              import defaultdict
 import os
 import re
 
-from pyflyby._file import Filename, expand_py_files_from_args, UnsafeFilenameError
+from   pyflyby._file            import Filename, expand_py_files_from_args, UnsafeFilenameError
 from   pyflyby._idents          import dotted_prefixes
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importstmt      import Import, ImportStatement
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import cached_attribute, memoize, stable_unique
+
+from   typing                   import Dict, Any
 
 
 @memoize
@@ -195,7 +197,7 @@ class ImportDB(object):
         return cls._from_args(arg) # PythonBlock, Filename, etc
 
 
-    _default_cache = {}
+    _default_cache: Dict[Any, Any] = {}
 
     @classmethod
     def clear_default_cache(cls):

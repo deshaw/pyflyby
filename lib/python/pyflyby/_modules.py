@@ -13,6 +13,7 @@ import re
 from   six                      import reraise
 import sys
 import types
+from typing                     import Dict, Any
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
@@ -20,6 +21,7 @@ from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, cmp, memoize,
                                         prefixes)
+
 
 
 class ErrorDuringImportError(ImportError):
@@ -138,7 +140,7 @@ class ModuleHandle(object):
             return cls._from_module(arg)
         raise TypeError("ModuleHandle: unexpected %s" % (type(arg).__name__,))
 
-    _cls_cache = {}
+    _cls_cache:Dict[Any, Any] = {}
 
     @classmethod
     def _from_modulename(cls, modulename):
