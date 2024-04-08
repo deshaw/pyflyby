@@ -157,12 +157,9 @@ def main():
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
         # sorted_imports = sort_imports(x)
-        sorted_imports = x
         if options.canonicalize:
-            cannonical_imports = canonicalize_imports(sorted_imports, params=options.params)
-        else:
-            cannonical_imports = sort_imports
-        return cannonical_imports
+            x = canonicalize_imports(x, params=options.params)
+        return x
     process_actions(args, options.actions, modify)
 
 
