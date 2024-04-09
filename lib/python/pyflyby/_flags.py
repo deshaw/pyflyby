@@ -157,7 +157,7 @@ class CompilerFlags(int):
         return cls(flags)
 
     @cached_attribute
-    def names(self) -> Tuple[str]:
+    def names(self) -> Tuple[str, ...]:
         return tuple(
             n
             for f, n in _FLAGNAME_ITEMS
