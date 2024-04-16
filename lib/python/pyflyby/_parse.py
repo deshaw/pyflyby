@@ -13,7 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Optional, Union
+from   typing                   import Optional, Union, Tuple, List
 import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -768,24 +768,37 @@ class PythonStatement:
             # Fall through
         else:
             arg_ = arg
-        if isinstance(arg_, (PythonBlock, FileText, str)):
-            block = PythonBlock(arg, filename=filename,
-                                startpos=startpos, flags=flags)
-            statements = block.statements
-            if len(statements) != 1:
-                raise ValueError(
-                    "Code contains %d statements instead of exactly 1: %r"
-                    % (len(statements), block))
-            statement, = statements
-            assert isinstance(statement, cls)
-            return statement
-        raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)
+
+        block: PythonBlock
+        if isinstance(arg_, (FileText, str)):
+            block = PythonBlock(arg, filename=filename, startpos=startpos, flags=flags)
+        elif isinstance(arg_, PythonBlock):
+            assert filename is None
+            assert startpos is None
+            assert flags is None
+            block = arg_
+        else:
+            raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)
+
+        statements = block.statements
+        if len(statements) != 1:
+            raise ValueError(
+                "Code contains %d statements instead of exactly 1: %r"
+                % (len(statements), block)
+            )
+        (statement,) = statements
+        if statement.is_comment:
+            assert not statement.text.joined.startswith(("\n", " ")), (
+                statement.text.joined,
+                statement,
+            )
+        assert isinstance(statement, cls)
+        return statement
 
     @classmethod
     def _construct_from_block(cls, block:PythonBlock):
-        assert isinstance(block, PythonBlock), repr(block)
         # Only to be used by PythonBlock.
-        assert isinstance(block, PythonBlock)
+        assert isinstance(block, PythonBlock), repr(block)
         self = object.__new__(cls)
         self.block = block
         return self
@@ -915,6 +928,12 @@ class PythonStatement:
         return hash(self.block)
 
 
+class AnnotatedModule(ast.Module):
+    text: FileText
+    flags: str
+    source_flags: CompilerFlags
+
+
 @total_ordering
 class PythonBlock:
     r"""
@@ -939,6 +958,8 @@ class PythonBlock:
     """
 
     text: FileText
+    _auto_flags: bool
+    _input_flags: Union[int,CompilerFlags]
 
     def __new__(cls, arg, filename=None, startpos=None, flags=None,
                 auto_flags=None):
@@ -993,10 +1014,10 @@ class PythonBlock:
         return self
 
     @classmethod
-    def __construct_from_annotated_ast(cls, annotated_ast_nodes, text, flags):
+    def __construct_from_annotated_ast(cls, annotated_ast_nodes, text:FileText, flags):
         # Constructor for internal use by _split_by_statement() or
         # concatenate().
-        ast_node = ast.Module(annotated_ast_nodes)
+        ast_node = AnnotatedModule(annotated_ast_nodes)
         ast_node.text = text
         ast_node.flags = flags
         if not hasattr(ast_node, "source_flags"):
@@ -1006,7 +1027,8 @@ class PythonBlock:
         self.ast_node                     = ast_node
         self.annotated_ast_node           = ast_node
         self.text                         = text
-        self.flags                        = self._input_flags = flags
+        self.flags                        = flags
+        self._input_flags                 = flags
         self._auto_flags                  = False
         return self
 
@@ -1193,7 +1215,7 @@ class PythonBlock:
         return compile(ast_node, filename, mode)
 
     @cached_attribute
-    def statements(self):
+    def statements(self) -> Tuple[PythonStatement, ...]:
         r"""
         Partition of this ``PythonBlock`` into individual ``PythonStatement`` s.
         Each one contains at most 1 top-level ast node.  A ``PythonStatement``
@@ -1215,7 +1237,7 @@ class PythonBlock:
             # with no surrounding whitespace/comment lines.  Return self.
             return (PythonStatement._construct_from_block(self),)
         cls = type(self)
-        statement_blocks = [
+        statement_blocks: List[PythonBlock] = [
             cls.__construct_from_annotated_ast(subnodes, subtext, self.flags)
             for subnodes, subtext in nodes_subtexts]
         # Convert to statements.
@@ -1223,10 +1245,6 @@ class PythonBlock:
         for b in statement_blocks:
             statement = PythonStatement._construct_from_block(b)
             statements.append(statement)
-            # Optimization: set the new sub-block's ``statements`` attribute
-            # since we already know it contains exactly one statement, itself.
-            assert 'statements' not in b.__dict__
-            b.statements = (statement,)
         return tuple(statements)
 
     @cached_attribute
