@@ -20,7 +20,7 @@ from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
 from   pyflyby._flags           import CompilerFlags
-from pyflyby._util import CwdCtx
+from   pyflyby._util            import CwdCtx
 
 
 @pytest.fixture
@@ -1271,6 +1271,51 @@ def test_scan_for_import_issues_type_comment_1():
     missing, unused = scan_for_import_issues(code)
     assert unused == []
     assert missing == []
+
+ok1 = """
+class MyClass:
+    def get_class(self):
+        return __class__
+"""
+
+ok2 = """
+class MyClass:
+    @classmethod
+    def get_class(cls):
+        return __class__
+"""
+ok3 = """
+class MyClass:
+    @staticmethod
+    def get_class():
+        return __class__
+"""
+
+@pytest.mark.parametrize('data', [ok1, ok2, ok3])
+def test_fix_missing_dunder_class(data):
+    """
+
+    See https://github.com/deshaw/pyflyby/issues/325
+    """
+    code = dedent(data)
+    missing = find_missing_imports(code, [{}])
+    assert missing == []
+
+notok1 = """print(__class__)"""
+notok2 = """
+class NotOk:
+    print(__class__)"""
+
+
+@pytest.mark.parametrize('data', [notok1, notok2])
+def test_ok_dunder_class(data):
+    """
+    See https://github.com/deshaw/pyflyby/issues/325
+    """
+    code = dedent(data)
+    missing = find_missing_imports(code, [{}])
+    assert missing == [DottedIdentifier('__class__')]
+
 
 
 def test_scan_for_import_issues_type_comment_2():

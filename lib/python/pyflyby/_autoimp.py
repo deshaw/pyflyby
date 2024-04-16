@@ -640,6 +640,10 @@ class _MissingImportFinder(object):
         else:
             assert node._fields ==  ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
+            # we want `__class__` to only be defined in
+            # methods and not class body
+            if self._in_class_def:
+                self.scopestack[-1]["__class__"] = None  # we just need to to be defined
             self.visit(node.decorator_list)
             self.visit(node.args)
             if node.returns:
