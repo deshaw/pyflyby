@@ -13,7 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Optional, Union, Tuple, List
+from   typing                   import Optional, Union, Tuple, List, Any
 import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -27,7 +27,7 @@ from ast import TypeIgnore, AsyncFunctionDef
 _sentinel = object()
 
 
-def _is_comment_or_blank(line):
+def _is_comment_or_blank(line, /):
     """
     Returns whether a line of python code contains only a comment is blank.
 
@@ -185,7 +185,7 @@ def _walk_ast_nodes_in_order(node):
         todo.extend(reversed(list(_iter_child_nodes_in_order(node))))
 
 
-def _flags_to_try(source, flags, auto_flags, mode):
+def _flags_to_try(source:str, flags, auto_flags, mode):
     """
     Flags to try for ``auto_flags``.
 
@@ -199,7 +199,7 @@ def _flags_to_try(source, flags, auto_flags, mode):
     return
 
 
-def _parse_ast_nodes(text, flags, auto_flags, mode):
+def _parse_ast_nodes(text:FileText, flags:CompilerFlags, auto_flags:bool, mode:str):
     """
     Parse a block of lines into an AST.
 
@@ -220,7 +220,7 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
     :rtype:
       ``ast.Module``
     """
-    text = FileText(text)
+    assert isinstance(text, FileText)
     filename = str(text.filename) if text.filename else "<unknown>"
     source = text.joined
     source = dedent(source)
@@ -233,7 +233,7 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
         cflags = ast.PyCF_ONLY_AST | int(flags)
         try:
             result = compile(
-                source, filename, mode, flags=cflags, dont_inherit=1)
+                source, filename, mode, flags=cflags, dont_inherit=True)
         except SyntaxError as e:
             exp = e
             pass
@@ -244,10 +244,13 @@ def _parse_ast_nodes(text, flags, auto_flags, mode):
             result.flags = result.input_flags | result.source_flags
             result.text = text
             return result
-    raise exp # SyntaxError
+    # None, would be unraisable and Mypy would complains below
+    assert exp is not None
+    raise exp
 
 
-def _test_parse_string_literal(text, flags):
+
+def _test_parse_string_literal(text:str, flags:CompilerFlags):
     r"""
     Attempt to parse ``text``.  If it parses cleanly to a single string
     literal, return its value.  Otherwise return ``None``.
@@ -256,9 +259,9 @@ def _test_parse_string_literal(text, flags):
       'foo\n\\nbar'
 
     """
-    text = FileText(text)
+    filetext = FileText(text)
     try:
-        module_node = _parse_ast_nodes(text, flags, False, "eval")
+        module_node = _parse_ast_nodes(filetext, flags, False, "eval")
     except SyntaxError:
         return None
     body = module_node.body
@@ -759,11 +762,15 @@ class PythonStatement:
 
     block: PythonBlock
 
-    def __new__(cls, arg:PythonStatement, filename=None, startpos=None, flags=None):
+    def __new__(cls, arg:Any, filename=None, startpos=None, flags=None):
         arg_ : Union[PythonBlock, FileText, str, PythonStatement]
         if isinstance(arg, cls):
             if filename is startpos is flags is None:
-                return arg
+                # TODO: this seem unreachable
+                assert False, "does test suite reach here ?"
+                return cls.from_statement(arg)
+            # TODO: this seem unreachable as well
+            assert False, "does test suite reach there ?"
             arg_ = arg.block
             # Fall through
         else:
@@ -780,6 +787,21 @@ class PythonStatement:
         else:
             raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)
 
+        return cls.from_block(block)
+
+    @classmethod
+    def from_statement(cls, statement):
+        assert isinstance(statement, cls), (statement, cls)
+        return statement
+
+    @classmethod
+    def from_block(cls, block:PythonBlock) -> PythonStatement:
+        """
+        Return a statement from a PythonBlock
+
+        This assume the PythonBlock is a single statement and check the comments
+        to not start with newlines.
+        """
         statements = block.statements
         if len(statements) != 1:
             raise ValueError(
@@ -787,13 +809,9 @@ class PythonStatement:
                 % (len(statements), block)
             )
         (statement,) = statements
-        if statement.is_comment:
-            assert not statement.text.joined.startswith(("\n", " ")), (
-                statement.text.joined,
-                statement,
-            )
         assert isinstance(statement, cls)
         return statement
+
 
     @classmethod
     def _construct_from_block(cls, block:PythonBlock):
@@ -961,7 +979,7 @@ class PythonBlock:
     _auto_flags: bool
     _input_flags: Union[int,CompilerFlags]
 
-    def __new__(cls, arg, filename=None, startpos=None, flags=None,
+    def __new__(cls, arg:Any, filename=None, startpos=None, flags=None,
                 auto_flags=None):
         if isinstance(arg, PythonStatement):
             arg = arg.block
@@ -1340,6 +1358,7 @@ class PythonBlock:
                 continue
             # If the first body item is a literal string, then yield the node.
             if (isinstance(node.body[0], ast.Expr) and
+                # TODO: sys.version_info >= (3,14)
                 isinstance(node.body[0].value, ast.Str)):
                 yield node.body[0].value
             for i in range(1, len(node.body)-1):
@@ -1348,6 +1367,7 @@ class PythonBlock:
                 n1, n2 = node.body[i], node.body[i+1]
                 if (isinstance(n1, ast.Assign) and
                     isinstance(n2, ast.Expr) and
+                    # TODO: sys.version_info >= (3,14)
                     isinstance(n2.value, ast.Str)):
                     yield n2.value
 

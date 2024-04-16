@@ -375,7 +375,9 @@ class ImportStatement:
     def __new__(cls, arg):
         if isinstance(arg, cls):
             return arg
-        if isinstance(arg, (PythonStatement, str)):
+        if isinstance(arg, str):
+            return cls._from_str(arg)
+        if isinstance(arg, PythonStatement):
             return cls._from_statement(arg)
         if isinstance(arg, (ast.ImportFrom, ast.Import)):
             return cls._from_ast_node(arg)
@@ -397,24 +399,24 @@ class ImportStatement:
         return self
 
     @classmethod
-    def _from_statement(cls, statement):
+    def _from_str(cls, code:str, /):
         """
-          >>> ImportStatement._from_statement("from foo  import bar, bar2, bar")
+          >>> ImportStatement._from_str("from foo  import bar, bar2, bar")
           ImportStatement('from foo import bar, bar2, bar')
 
-          >>> ImportStatement._from_statement("from foo  import bar as bar")
+          >>> ImportStatement._from_str("from foo  import bar as bar")
           ImportStatement('from foo import bar as bar')
 
-          >>> ImportStatement._from_statement("from foo.bar  import baz")
+          >>> ImportStatement._from_str("from foo.bar  import baz")
           ImportStatement('from foo.bar import baz')
 
-          >>> ImportStatement._from_statement("import  foo.bar")
+          >>> ImportStatement._from_str("import  foo.bar")
           ImportStatement('import foo.bar')
 
-          >>> ImportStatement._from_statement("from .foo  import bar")
+          >>> ImportStatement._from_str("from .foo  import bar")
           ImportStatement('from .foo import bar')
 
-          >>> ImportStatement._from_statement("from .  import bar, bar2")
+          >>> ImportStatement._from_str("from .  import bar, bar2")
           ImportStatement('from . import bar, bar2')
 
         :type statement:
@@ -422,7 +424,13 @@ class ImportStatement:
         :rtype:
           `ImportStatement`
         """
-        statement = PythonStatement(statement)
+
+        statement = PythonStatement(code)
+        return cls._from_ast_node(statement.ast_node)
+
+    @classmethod
+    def _from_statement(cls, statement):
+        statement = PythonStatement.from_statement(statement)
         return cls._from_ast_node(statement.ast_node)
 
     @classmethod
