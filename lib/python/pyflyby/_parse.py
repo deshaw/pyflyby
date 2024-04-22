@@ -1,7 +1,7 @@
 # pyflyby/_parse.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 
 import ast
@@ -13,7 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Optional, Union, Tuple, List, Any
+from typing import Any, List, Optional, Tuple, Union, cast
 import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -22,7 +22,7 @@ from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
 
-from ast import TypeIgnore, AsyncFunctionDef
+from ast import AsyncFunctionDef, TypeIgnore
 
 _sentinel = object()
 
@@ -276,7 +276,7 @@ def _test_parse_string_literal(text:str, flags:CompilerFlags):
 AstNodeContext = namedtuple("AstNodeContext", "parent field index")
 
 
-def _annotate_ast_nodes(ast_node):
+def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
     """
     Annotate AST with:
       - startpos and endpos
@@ -289,16 +289,20 @@ def _annotate_ast_nodes(ast_node):
     :return:
       ``None``
     """
-    text = ast_node.text
-    flags = ast_node.flags
+    aast_node: AnnotatedAst = ast_node  # type: ignore
+    text = aast_node.text
+    flags = aast_node.flags
     startpos = text.startpos
-    _annotate_ast_startpos(ast_node, None, startpos, text, flags)
+    _annotate_ast_startpos(aast_node, None, startpos, text, flags)
     # Not used for now:
     #   ast_node.context = AstNodeContext(None, None, None)
     #   _annotate_ast_context(ast_node)
+    return aast_node
 
 
-def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
+def _annotate_ast_startpos(
+    ast_node: ast.AST, parent_ast_node, minpos, text, flags
+) -> bool:
     r"""
     Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
     of the node within ``text``.
@@ -347,6 +351,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
       Could not find the starting line number.
     """
     assert isinstance(ast_node, (ast.AST, str, TypeIgnore)), ast_node
+    aast_node: AnnotatedAst = cast(AnnotatedAst, ast_node)
 
     # First, traverse child nodes.  If the first child node (recursively) is a
     # multiline string, then we need to transfer its information to this node.
@@ -356,49 +361,58 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
     child_minpos = minpos
     is_first_child = True
     leftstr_node = None
-    for child_node in _iter_child_nodes_in_order(ast_node):
-        leftstr = _annotate_ast_startpos(child_node, ast_node,
-                                         child_minpos, text, flags)
+    for child_node in _iter_child_nodes_in_order(aast_node):
+        leftstr = _annotate_ast_startpos(
+            child_node, aast_node, child_minpos, text, flags
+        )
         if is_first_child and leftstr:
             leftstr_node = child_node
         if hasattr(child_node, 'lineno') and not isinstance(child_node, TypeIgnore):
             if child_node.startpos < child_minpos:
                 raise AssertionError(
                     "Got out-of-order AST node(s):\n"
-                    "  parent minpos=%s\n" % minpos +
-                    "    node: %s\n" % ast.dump(ast_node) +
-                    "      fields: %s\n" % (" ".join(ast_node._fields)) +
-                    "      children:\n" +
-                    ''.join(
-                        "        %s %9s: %s\n" % (
+                    "  parent minpos=%s\n" % minpos
+                    + "    node: %s\n" % ast.dump(aast_node)
+                    + "      fields: %s\n" % (" ".join(aast_node._fields))
+                    + "      children:\n"
+                    + "".join(
+                        "        %s %9s: %s\n"
+                        % (
                             ("==>" if cn is child_node else "   "),
-                            getattr(cn, 'startpos', ""),
-                            ast.dump(cn))
-                        for cn in _iter_child_nodes_in_order(ast_node)) +
-                    "\n"
+                            getattr(cn, "startpos", ""),
+                            ast.dump(cn),
+                        )
+                        for cn in _iter_child_nodes_in_order(aast_node)
+                    )
+                    + "\n"
                     "This indicates a bug in pyflyby._\n"
                     "\n"
                     "pyflyby developer: Check if there's a bug or missing ast node handler in "
                     "pyflyby._parse._iter_child_nodes_in_order() - "
-                    "probably the handler for ast.%s." % type(ast_node).__name__)
+                    "probably the handler for ast.%s." % type(aast_node).__name__
+                )
             child_minpos = child_node.startpos
         is_first_child = False
 
     # If the node has no lineno at all, then skip it.  This should only happen
     # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
-    if not hasattr(ast_node, 'lineno') or isinstance(ast_node, TypeIgnore):
+    if not hasattr(aast_node, "lineno") or isinstance(aast_node, TypeIgnore):
         return False
     # If col_offset is set then the lineno should be correct also.
-    if ast_node.col_offset >= 0:
+    if aast_node.col_offset >= 0:
         # In Python 3.8+, FunctionDef.lineno is the line with the def. To
         # account for decorators, we need the lineno of the first decorator
-        if (isinstance(ast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
-                and ast_node.decorator_list):
-            delta = (ast_node.decorator_list[0].lineno-1,
-                     # The col_offset doesn't include the @
-                     ast_node.decorator_list[0].col_offset - 1)
+        if (
+            isinstance(aast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
+            and aast_node.decorator_list
+        ):
+            delta = (
+                aast_node.decorator_list[0].lineno - 1,
+                # The col_offset doesn't include the @
+                aast_node.decorator_list[0].col_offset - 1,
+            )
         else:
-            delta = (ast_node.lineno-1, ast_node.col_offset)
+            delta = (aast_node.lineno - 1, aast_node.col_offset)
 
         # Not a multiline string literal.  (I.e., it could be a non-string or
         # a single-line string.)
@@ -417,12 +431,12 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # Since we use startpos for breaking lines, we need to set startpos to
         # the beginning of the line.
         # In Python 3, the col_offset for the with is 0 again.
-        ast_node.startpos = startpos
+        aast_node.startpos = startpos
         if sys.version_info <= (3, 8):
-            ast_node.startpos = max(startpos, minpos)
+            aast_node.startpos = max(startpos, minpos)
         return False
 
-    assert ast_node.col_offset == -1
+    assert aast_node.col_offset == -1
     if leftstr_node:
         # This is an ast node where the leftmost deepest leaf is a
         # multiline string.  The bug that multiline strings have broken
@@ -441,28 +455,30 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         #
         # To fix that, we copy start_lineno and start_colno from the Str
         # node once we've corrected the values.
-        assert not _is_ast_str_or_byte(ast_node)
-        assert leftstr_node.lineno     == ast_node.lineno
+        assert not _is_ast_str_or_byte(aast_node)
+        assert leftstr_node.lineno == aast_node.lineno
         assert leftstr_node.col_offset == -1
-        ast_node.startpos = leftstr_node.startpos
+        aast_node.startpos = leftstr_node.startpos
         return True
 
     # It should now be the case that we are looking at a multi-line string
     # literal.
-    if isinstance(ast_node, ast.FormattedValue):
-        ast_node.startpos = ast_node.value.startpos
-        ast_node.endpos = ast_node.value.startpos
+    # TODO: everything below here is either untested or unreachable
+    # this maybe laftstr_node is always reached ?
+
+    if isinstance(aast_node, ast.FormattedValue):
+        aast_node.startpos = aast_node.value.startpos
+        aast_node.endpos = aast_node.value.startpos
 
         return True
-    if not _is_ast_str_or_byte(ast_node):
-        raise ValueError(
-            "got a non-string col_offset=-1: %s" % (ast.dump(ast_node)))
+    if not _is_ast_str_or_byte(aast_node):
+        raise ValueError("got a non-string col_offset=-1: %s" % (ast.dump(aast_node)))
     # The ``lineno`` attribute gives the ending line number of the multiline
     # string ... unless it's multiple multiline strings that are concatenated
     # by adjacency, in which case it's merely the end of the first one of
     # them.  At least we know that the start lineno is definitely not later
     # than the ``lineno`` attribute.
-    first_end_lineno = text.startpos.lineno + ast_node.lineno - 1
+    first_end_lineno = text.startpos.lineno + aast_node.lineno - 1
     # Compute possible start positions.
     # The starting line number of this string could be anywhere between the
     # end of the previous expression and ``first_end_lineno``.
@@ -475,7 +491,7 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         startpos_candidates.extend([
             (_m.group()[-1], FilePos(start_lineno, _m.start()+start_line_colno))
             for _m in re.finditer("[bBrRuU]*[\"\']", start_line)])
-    target_str = ast_node.s
+    target_str = aast_node.s
 
     # Loop over possible end_linenos.  The first one we've identified is the
     # by far most likely one, but in theory it could be anywhere later in the
@@ -521,10 +537,12 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         # quotechar to be different in case of adjacent string concatenation,
         # e.g.  "foo"'''bar'''.  That said, it's an unlikely case, so
         # deprioritize checking them.
-        likely_candidates = []
-        unlikely_candidates = []
+        likely_candidates: List[Tuple[FilePos, FilePos]] = []
+        unlikely_candidates: List[Tuple[FilePos, FilePos]] = []
         for end_quotechar, endpos in reversed(endpos_candidates):
             for start_quotechar, startpos in startpos_candidates:
+                assert isinstance(startpos, FilePos)
+                assert isinstance(endpos, FilePos)
                 if not startpos < endpos:
                     continue
                 if start_quotechar == end_quotechar:
@@ -537,7 +555,10 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
         for (startpos, endpos) in likely_candidates + unlikely_candidates:
             # Try to parse the given range and see if it matches the target
             # string literal.
-            subtext = text[startpos:endpos]
+
+            # TODO: this seem impossible as startpos and endpos are not int,
+            # but this might be unreachable  see comment earlier.
+            subtext = text[startpos:endpos]  # type: ignore
             candidate_str = _test_parse_string_literal(subtext, flags)
             if candidate_str is None:
                 continue
@@ -546,8 +567,8 @@ def _annotate_ast_startpos(ast_node, parent_ast_node, minpos, text, flags):
 
             if target_str == candidate_str and target_str:
                 # Success!
-                ast_node.startpos = startpos
-                ast_node.endpos   = endpos
+                aast_node.startpos = startpos
+                aast_node.endpos = endpos
                 # This node is a multiline string; and, it's a leaf, so by
                 # definition it is the leftmost node.
                 return True  # all done
@@ -575,7 +596,7 @@ def _annotate_ast_context(ast_node):
     Recursively annotate ``context`` on ast nodes, setting ``context`` to
     a `AstNodeContext` named tuple with values
     ``(parent, field, index)``.
-    Each ast_node satisfies ``parent.<field>[<index>] is ast_node``.
+    Each aast_node satisfies ``parent.<field>[<index>] is ast_node``.
 
     For non-list fields, the index part is ``None``.
     """
@@ -760,7 +781,7 @@ class PythonStatement:
     top-level AST node.
     """
 
-    block: PythonBlock
+    block: "PythonBlock"
 
     def __new__(cls, arg:Union[FileText, str], filename=None, startpos=None):
 
@@ -928,9 +949,19 @@ class PythonStatement:
         return hash(self.block)
 
 
-class AnnotatedModule(ast.Module):
+class AnnotatedAst(ast.AST):
     text: FileText
     flags: str
+    source_flags: CompilerFlags
+    startpos: FilePos
+    endpos: FilePos
+    lieneno: int
+    col_offset: int
+    value: AnnotatedAst
+    s: str
+
+
+class AnnotatedModule(ast.Module, AnnotatedAst):
     source_flags: CompilerFlags
 
 
@@ -1142,7 +1173,7 @@ class PythonBlock:
             raise r
 
     @cached_attribute
-    def annotated_ast_node(self):
+    def annotated_ast_node(self) -> AnnotatedAst:
         """
         Return ``self.ast_node``, annotated in place with positions.
 
@@ -1153,11 +1184,11 @@ class PythonBlock:
           ``ast.Module``
         """
         result = self.ast_node
-        _annotate_ast_nodes(result)
-        return result
+        # ! result is mutated and returned
+        return _annotate_ast_nodes(result)
 
     @cached_attribute
-    def expression_ast_node(self):
+    def expression_ast_node(self) -> Optional[ast.Expression]:
         """
         Return an ``ast.Expression`` if ``self.ast_node`` can be converted into
         one.  I.e., return parse(self.text, mode="eval"), if possible.
@@ -1173,7 +1204,7 @@ class PythonBlock:
         else:
             return None
 
-    def parse(self, mode=None):
+    def parse(self, mode=None) -> Union[ast.Expression, ast.Module]:
         """
         Parse the source text into an AST.
 
@@ -1186,9 +1217,11 @@ class PythonBlock:
           ``ast.AST``
         """
         if mode == "exec":
+            assert isinstance(self.ast_node, ast.Module)
             return self.ast_node
         elif mode == "eval":
             if self.expression_ast_node:
+                assert isinstance(self.ast_node, ast.Expression)
                 return self.expression_ast_node
             else:
                 raise SyntaxError
@@ -1196,6 +1229,7 @@ class PythonBlock:
             if self.expression_ast_node:
                 return self.expression_ast_node
             else:
+                assert isinstance(self.ast_node, ast.Module)
                 return self.ast_node
         elif mode == "exec":
             raise NotImplementedError
@@ -1231,7 +1265,7 @@ class PythonBlock:
           ``tuple`` of `PythonStatement` s
         """
         node = self.annotated_ast_node
-        nodes_subtexts = list(_split_code_lines(node.body, self.text))
+        nodes_subtexts = list(_split_code_lines(node.body, self.text))  # type: ignore
         if nodes_subtexts == [(self.ast_node.body, self.text)]:
             # This block is either all comments/blanks or a single statement
             # with no surrounding whitespace/comment lines.  Return self.
