@@ -762,27 +762,15 @@ class PythonStatement:
 
     block: PythonBlock
 
-    def __new__(cls, arg:Any, filename=None, startpos=None, flags=None):
-        arg_ : Union[PythonBlock, FileText, str, PythonStatement]
-        if isinstance(arg, cls):
-            if filename is startpos is flags is None:
-                # TODO: this seem unreachable
-                assert False, "does test suite reach here ?"
-                return cls.from_statement(arg)
-            # TODO: this seem unreachable as well
-            assert False, "does test suite reach there ?"
-            arg_ = arg.block
-            # Fall through
-        else:
-            arg_ = arg
+    def __new__(cls, arg:Any, filename=None, startpos=None):
+        arg_ : Union[PythonBlock, FileText, str] = arg
 
         block: PythonBlock
         if isinstance(arg_, (FileText, str)):
-            block = PythonBlock(arg, filename=filename, startpos=startpos, flags=flags)
+            block = PythonBlock(arg, filename=filename, startpos=startpos)
         elif isinstance(arg_, PythonBlock):
             assert filename is None
             assert startpos is None
-            assert flags is None
             block = arg_
         else:
             raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)

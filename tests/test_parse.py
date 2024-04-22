@@ -461,11 +461,11 @@ def test_PythonBlock_doctest_assignments_method_1():
 
 
 def test_PythonBlock_flags_good_1():
-    PythonBlock('print("x",\n file=None)\n', flags="print_function").statements
+    PythonBlock('print("x",\n file=None)\n').statements
 
 
 def test_PythonBlock_flags_1():
-    block = PythonBlock('print("x",\n file=None)\n', flags="print_function")
+    block = PythonBlock('print("x",\n file=None)\n')
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         assert block.flags == print_function_flag
