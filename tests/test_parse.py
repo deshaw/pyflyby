@@ -461,11 +461,11 @@ def test_PythonBlock_doctest_assignments_method_1():
 
 
 def test_PythonBlock_flags_good_1():
-    PythonBlock('print("x",\n file=None)\n').statements
+    PythonBlock('print("x",\n file=None)\n', flags="print_function").statements
 
 
 def test_PythonBlock_flags_1():
-    block = PythonBlock('print("x",\n file=None)\n')
+    block = PythonBlock('print("x",\n file=None)\n', flags="print_function")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         assert block.flags == print_function_flag
@@ -632,10 +632,10 @@ def test_PythonStatement_from_source_1():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         stmt = PythonStatement(
-            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+            'print("x",\n file=None)\n'
         )
         assert stmt.block == PythonBlock(
-            'print("x",\n file=None)\n', flags=CompilerFlags.print_function
+            'print("x",\n file=None)\n'
         )
 
 
@@ -652,7 +652,7 @@ def test_PythonStatement_from_block_1():
         block = PythonBlock(
             'print("x",\n file=None)\n', flags=CompilerFlags.print_function
         )
-    stmt = PythonStatement(block)
+    stmt = PythonStatement.from_block(block)
     assert stmt.block is block
 
 
@@ -662,7 +662,7 @@ def test_PythonStatement_bad_from_multi_statements_1():
 
 
 def test_PythonStatement_flags_good_1():
-    PythonStatement('print("x",\n file=None)\n', flags="print_function")
+    PythonStatement('print("x",\n file=None)\n')
 
 
 def test_str_lineno_simple_1():
