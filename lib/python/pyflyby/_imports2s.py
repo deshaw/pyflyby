@@ -29,8 +29,12 @@ class SourceToSourceTransformationBase(object):
 
     @classmethod
     def _from_source_code(cls, codeblock):
+        # TODO: don't do that.
         self = object.__new__(cls)
-        self.input = PythonBlock(codeblock)
+        if isinstance(codeblock, PythonBlock):
+            self.input = codeblock
+        else:
+            self.input = PythonBlock(codeblock)
         self.preprocess()
         return self
 
@@ -285,7 +289,8 @@ def ImportPathForRelativeImportsCtx(codeblock):
     :type codeblock:
       `PythonBlock`
     """
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     if not codeblock.filename:
         return NullCtx()
     if codeblock.flags & CompilerFlags("absolute_import"):
@@ -325,7 +330,8 @@ def fix_unused_and_missing_imports(codeblock,
     :rtype:
       `PythonBlock`
     """
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     if remove_unused == "AUTOMATIC":
         fn = codeblock.filename
         remove_unused = not (fn and
@@ -427,7 +433,8 @@ def remove_broken_imports(codeblock, params=None):
     :rtype:
       `PythonBlock`
     """
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
@@ -479,7 +486,8 @@ def replace_star_imports(codeblock, params=None):
     """
     from pyflyby._modules import ModuleHandle
     params = ImportFormatParams(params)
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
@@ -623,7 +631,8 @@ def transform_imports(codeblock, transformations, params=None):
     :rtype:
       `PythonBlock`
     """
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     @memoize
@@ -636,7 +645,8 @@ def transform_imports(codeblock, transformations, params=None):
         return imp
     def transform_block(block):
         # Do a crude string replacement in the PythonBlock.
-        block = PythonBlock(block)
+        if not isinstance(block, PythonBlock):
+            block = PythonBlock(block)
         s = block.text.joined
         for k, v in transformations.items():
             s = re.sub("\\b%s\\b" % (re.escape(k)), v, s)
@@ -662,7 +672,8 @@ def canonicalize_imports(codeblock, params=None, db=None):
     :rtype:
       `PythonBlock`
     """
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     params = ImportFormatParams(params)
     db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
     transformations = db.canonical_imports

@@ -278,6 +278,7 @@ from   functools                import total_ordering
 from   typing                   import Any
 
 from   pyflyby._util            import cmp
+from   shlex                    import quote as shquote
 
 usage = """
 py --- command-line python multitool with automatic importing
@@ -430,8 +431,10 @@ def _requires_parens_as_function(function_name:str):
     # TODO: this might be obsolete if we use unparse instead of keeping original
     #     user formatting (or alternatively, unparse should use something like this).
 
-    function_name = PythonBlock(function_name, flags=FLAGS)
-    node = function_name.expression_ast_node
+    assert isinstance(function_name, str)
+
+    block = PythonBlock(function_name, flags=FLAGS)
+    node = block.expression_ast_node
     if not node:
         # Couldn't parse?  Just assume we do need parens for now.  Or should
         # we raise an exception here?
@@ -473,21 +476,6 @@ def _format_call_spec(function_name:str, obj:Any)-> str:
         return "%s%s" % (function_name, callspec)
 
 
-# TODO: move to util module
-try:
-    from shlex import quote as shquote # python3.3+
-except ImportError:
-    # Backport of shlex.quote from python3.3
-    _find_unsafe = re.compile(r'[^\w@%+=:,./-]').search
-    def shquote(s):
-        """Return a shell-escaped version of the string *s*."""
-        if not s:
-            return "''"
-        if _find_unsafe(s) is None:
-            return s
-        # use single quotes, and put single quotes into double quotes
-        # the string $'b is then quoted as '$'"'"'b'
-        return "'" + s.replace("'", "'\"'\"'") + "'"
 
 
 def _build_function_usage_string(function_name:str, obj:Any, prefix:str):
@@ -871,7 +859,7 @@ def _parse_auto_apply_args(argspec, commandline_args, namespace, arg_mode="auto"
     return parsed_args, parsed_kwargs
 
 
-def _format_call(function_name, argspec, args, kwargs):
+def _format_call(function_name:str, argspec, args, kwargs):
     # TODO: print original unparsed arg strings
     defaults = argspec.defaults or ()
     first_with_default = len(argspec.args) - len(defaults)
@@ -1038,7 +1026,8 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         sys.stderr.write("\n" + usage)
         raise SystemExit(1)
     # Log what we're doing.
-    logger.info("%s", _format_call(function.source, argspec, args, kwargs))
+
+    logger.info("%s", _format_call(str(function.source), argspec, args, kwargs))
 
     # *** Call the function. ***
     f = function.value
@@ -1434,7 +1423,8 @@ class _Namespace(object):
         # Equivalent to::
         #   auto_eval(arg, mode=mode, flags=FLAGS, globals=self.globals)
         # but better logging and error raising.
-        block = PythonBlock(block, flags=FLAGS, auto_flags=True)
+        if not isinstance(block, PythonBlock):
+            block = PythonBlock(block, flags=FLAGS, auto_flags=True)
         if auto_import and not self.auto_import(block):
             missing = find_missing_imports(block, [self.globals])
             mstr = ", ".join(repr(str(x)) for x in missing)

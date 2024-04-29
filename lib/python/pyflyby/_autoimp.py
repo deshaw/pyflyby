@@ -425,7 +425,8 @@ class _MissingImportFinder(object):
 
     def scan_for_import_issues(self, codeblock):
         # See global `scan_for_import_issues`
-        codeblock = PythonBlock(codeblock)
+        if not isinstance(codeblock, PythonBlock):
+            codeblock = PythonBlock(codeblock)
         node = codeblock.ast_node
         self._scan_node(node)
         # Get missing imports now, before handling docstrings.  We don't want
@@ -1074,7 +1075,8 @@ def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings
 
     """
     logger.debug("scan_for_import_issues()")
-    codeblock = PythonBlock(codeblock)
+    if not isinstance(codeblock, PythonBlock):
+        codeblock = PythonBlock(codeblock)
     namespaces = ScopeStack([{}])
     finder = _MissingImportFinder(namespaces,
                                   find_unused_imports=find_unused_imports,
