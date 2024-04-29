@@ -753,8 +753,8 @@ class PythonStatement:
     Representation of a top-level Python statement or consecutive
     comments/blank lines.
 
-      >>> PythonStatement('print("x",\n file=None)\n', flags='print_function')  #doctest: +SKIP
-      PythonStatement('print("x",\n file=None)\n', flags=0x100000)
+      >>> PythonStatement('print("x",\n file=None)\n')  #doctest: +SKIP
+      PythonStatement('print("x",\n file=None)\n')
 
     Implemented as a wrapper around a `PythonBlock` containing at most one
     top-level AST node.
@@ -762,30 +762,12 @@ class PythonStatement:
 
     block: PythonBlock
 
-    def __new__(cls, arg:Any, filename=None, startpos=None, flags=None):
-        arg_ : Union[PythonBlock, FileText, str, PythonStatement]
-        if isinstance(arg, cls):
-            if filename is startpos is flags is None:
-                # TODO: this seem unreachable
-                assert False, "does test suite reach here ?"
-                return cls.from_statement(arg)
-            # TODO: this seem unreachable as well
-            assert False, "does test suite reach there ?"
-            arg_ = arg.block
-            # Fall through
-        else:
-            arg_ = arg
+    def __new__(cls, arg:Union[FileText, str], filename=None, startpos=None):
 
-        block: PythonBlock
-        if isinstance(arg_, (FileText, str)):
-            block = PythonBlock(arg, filename=filename, startpos=startpos, flags=flags)
-        elif isinstance(arg_, PythonBlock):
-            assert filename is None
-            assert startpos is None
-            assert flags is None
-            block = arg_
-        else:
-            raise TypeError("PythonStatement: unexpected %s" % type(arg_).__name__)
+        if not isinstance(arg, (FileText, str)):
+            raise TypeError("PythonStatement: unexpected %s" % type(arg).__name__)
+
+        block = PythonBlock(arg, filename=filename, startpos=startpos)
 
         return cls.from_block(block)
 
