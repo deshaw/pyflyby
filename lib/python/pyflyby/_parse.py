@@ -689,6 +689,8 @@ class PythonStatement:
             )
         (statement,) = statements
         assert isinstance(statement, cls)
+        if statement.is_comment:
+            assert not statement.text.joined.startswith("\n")
         return statement
 
 
@@ -698,6 +700,8 @@ class PythonStatement:
         assert isinstance(block, PythonBlock), repr(block)
         self = object.__new__(cls)
         self.block = block
+        if self.is_comment:
+            assert not self.text.joined.startswith("\n"), self.text.joined
         return self
 
     @property
@@ -1149,17 +1153,41 @@ class PythonBlock:
         """
         node = self.annotated_ast_node
         nodes_subtexts = list(_split_code_lines(node.body, self.text))  # type: ignore
-        if nodes_subtexts == [(self.ast_node.body, self.text)]:
-            # This block is either all comments/blanks or a single statement
-            # with no surrounding whitespace/comment lines.  Return self.
-            return (PythonStatement._construct_from_block(self),)
         cls = type(self)
         statement_blocks: List[PythonBlock] = [
             cls.__construct_from_annotated_ast(subnodes, subtext, self.flags)
             for subnodes, subtext in nodes_subtexts]
+
+        no_newline_blocks = []
+        for block in statement_blocks:
+            # The ast parsing make "comments" start at the ends of the previous node,
+            # so might including starting with blank lines. We never want blocks to
+            # start with new liens or that messes up the formatting code that insert/count new lines.
+            while block.text.joined.startswith("\n") and block.text.joined != "\n":
+                first, *other = block.text.lines
+                assert not first.endswith('\n')
+                no_newline_blocks.append(
+                    PythonBlock(
+                        first+'\n',
+                        filename=block.filename,
+                        startpos=block.startpos,
+                        flags=block.flags,
+                    )
+                )
+                # assert block.startpos == (0,0), (block.startpos, block.text.joined)
+                # just use lines 1: here and decrease startpos ?
+                block = PythonBlock(
+                    "\n".join(other),
+                    filename=block.filename,
+                    startpos=block.startpos,
+                    flags=block.flags,
+                )
+            no_newline_blocks.append(block)
+
         # Convert to statements.
         statements = []
-        for b in statement_blocks:
+        for b in no_newline_blocks:
+            assert isinstance(b, PythonBlock)
             statement = PythonStatement._construct_from_block(b)
             statements.append(statement)
         return tuple(statements)

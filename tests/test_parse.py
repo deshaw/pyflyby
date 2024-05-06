@@ -33,10 +33,29 @@ def test_PythonBlock_FileText_1():
         startpos=(101, 55),
     )
     block = PythonBlock(text)
-    assert text is block.text
-    assert text is FileText(block)
+    assert text == block.text
+    assert text == FileText(block)
     assert block.filename == Filename("/foo/test_PythonBlock_1.py")
     assert block.startpos == FilePos(101, 55)
+
+def test_PythonBlock_StatementComment():
+    """
+    Make sure that comments and statements in general do not start with a newline
+
+    This would be problematic when reformatting files as we can't poke ahead at
+    the next block to know whether or not it start a new line.
+    """
+    block = PythonBlock(dedent('''
+        import foo
+
+        # this
+
+        import bar
+    '''))
+    for statement in block.statements:
+        if statement.text.joined != '\n':
+            assert not statement.text.joined.startswith('\n'), statement
+    assert len(block.statements) == 5
 
 
 def test_PythonBlock_attrs_1():
@@ -230,25 +249,25 @@ def test_PythonBlock_statements_comment_backslash_1():
 def test_PythonBlock_statements_single_1():
     block = PythonBlock("foo(1,2)")
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_statements_empty_1():
     block = PythonBlock("")
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_statements_lone_comment_no_newline_1():
     block = PythonBlock('#a a')
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_statements_lone_comment_no_newline_with_offset_1():
     block = PythonBlock('#a a', startpos=(101,55))
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_statements_single_trailing_comment_1():
@@ -278,13 +297,13 @@ def test_PythonBlock_statements_single_preceding_comment_1():
 def test_PythonBlock_statements_all_comments_1():
     block = PythonBlock("#a\n#b")
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_statements_all_comments_2():
     block = PythonBlock("#a\n#b\n")
     assert len(block.statements) == 1
-    assert block.statements[0].block is block
+    assert block.statements[0].block == block
 
 
 def test_PythonBlock_doctest_1():
@@ -653,7 +672,7 @@ def test_PythonStatement_from_block_1():
             'print("x",\n file=None)\n', flags=CompilerFlags.print_function
         )
     stmt = PythonStatement.from_block(block)
-    assert stmt.block is block
+    assert stmt.block == block
 
 
 def test_PythonStatement_bad_from_multi_statements_1():
