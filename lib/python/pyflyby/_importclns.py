@@ -18,7 +18,7 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from typing import Dict, ClassVar
+from typing import Dict, ClassVar, Sequence, Union, List
 
 
 class NoSuchImportError(ValueError):
@@ -49,6 +49,7 @@ class ImportSet(object):
     """
 
     _EMPTY : ClassVar[ImportSet]
+    _importset: frozenset[Import]
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
@@ -70,7 +71,7 @@ class ImportSet(object):
         """
         if isinstance(arg, cls):
             if ignore_shadowed:
-                return cls._from_imports(arg._importset, ignore_shadowed=True)
+                return cls._from_imports(list(arg._importset), ignore_shadowed=True)
             else:
                 return arg
         return cls._from_args(
@@ -79,7 +80,7 @@ class ImportSet(object):
             ignore_shadowed=ignore_shadowed)
 
     @classmethod
-    def _from_imports(cls, imports, ignore_shadowed=False):
+    def _from_imports(cls, imports:List[Import], ignore_shadowed:bool=False):
         """
         :type imports:
           Sequence of `Import` s
@@ -89,26 +90,30 @@ class ImportSet(object):
           `ImportSet`
         """
         # Canonicalize inputs.
-        imports = [Import(imp) for imp in imports]
+        by_import_as: Dict[Union[str, Import], Import]
+        filtered_imports: Sequence[Import]
+        for imp in imports:
+            assert isinstance(imp, Import)
+        _imports = [Import(imp) for imp in imports]
         if ignore_shadowed:
             # Filter by overshadowed imports.  Later imports take precedence.
             by_import_as = {}
-            for imp in imports:
+            for imp in _imports:
                 if imp.import_as == "*":
                     # Keep all unique star imports.
                     by_import_as[imp] = imp
                 else:
                     by_import_as[imp.import_as] = imp
-            filtered_imports = by_import_as.values()
+            filtered_imports = list(by_import_as.values())
         else:
-            filtered_imports = imports
+            filtered_imports = _imports
         # Construct and return.
         self = object.__new__(cls)
         self._importset = frozenset(filtered_imports)
         return self
 
     @classmethod
-    def _from_args(cls, args, ignore_nonimports=False, ignore_shadowed=False):
+    def _from_args(cls, args, ignore_nonimports:bool=False, ignore_shadowed=False):
         """
         :type args:
           ``tuple`` or ``list`` of `ImportStatement` s, `PythonStatement` s,
@@ -143,7 +148,10 @@ class ImportSet(object):
             elif isinstance(arg, str) and is_identifier(arg, dotted=True):
                 imports.append(Import(arg))
             else: # PythonBlock, PythonStatement, Filename, FileText, str
-                block = PythonBlock(arg)
+                if not isinstance(arg, PythonBlock):
+                    block = PythonBlock(arg)
+                else:
+                    block = arg
                 for statement in block.statements:
                     # Ignore comments/blanks.
                     if statement.is_comment_or_blank:
@@ -174,7 +182,7 @@ class ImportSet(object):
           `ImportSet`
         """
         other = ImportSet(other)
-        return type(self)._from_imports(self._importset | other._importset)
+        return type(self)._from_imports(list(self._importset | other._importset))
 
     def without_imports(self, removals):
         """

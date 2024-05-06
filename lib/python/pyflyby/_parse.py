@@ -957,7 +957,14 @@ class PythonBlock:
             assume_contiguous = True
         if not assume_contiguous:
             raise NotImplementedError
-        blocks = [PythonBlock(b) for b in blocks]
+        blocks2 = []
+        for b in blocks:
+            if isinstance(b, PythonStatement):
+                b = b.block
+            if not isinstance(b, PythonBlock):
+                b = PythonBlock(b)
+            blocks2.append(b)
+        blocks = blocks2
         if len(blocks) == 1:
             return blocks[0]
         assert blocks
