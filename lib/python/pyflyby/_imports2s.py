@@ -33,7 +33,11 @@ class SourceToSourceTransformationBase(object):
         self = object.__new__(cls)
         if isinstance(codeblock, PythonBlock):
             self.input = codeblock
+        elif isinstance(codeblock, FileText):
+            self.input = PythonBlock(codeblock)
         else:
+            if not codeblock.endswith('\n'):
+                codeblock += '\n'
             self.input = PythonBlock(codeblock)
         self.preprocess()
         return self
@@ -75,6 +79,9 @@ class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
     def pretty_print(self, params=None):
         params = ImportFormatParams(params)
         return self.importset.pretty_print(params)
+
+    def __repr__(self):
+        return f"<SourceToSourceImportBlockTransformation {self.importset!r} @{hex(id(self))}>"
 
 
 class LineNumberNotFoundError(Exception):
@@ -169,7 +176,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                block.input.endpos.lineno),
               block )
             for block in self.import_blocks
-            if block.input.endpos.lineno <= max_lineno ]
+            if block.input.endpos.lineno <= max_lineno+1 ]
         if not annotated_blocks:
             raise NoImportBlockError()
         annotated_blocks.sort()
@@ -330,6 +337,8 @@ def fix_unused_and_missing_imports(codeblock,
     :rtype:
       `PythonBlock`
     """
+    if isinstance(codeblock, Filename):
+        codeblock = PythonBlock(filename=codeblock)
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
     if remove_unused == "AUTOMATIC":
