@@ -492,6 +492,39 @@ class ImportStatement:
             Import.from_split((self.fromname, alias[0], alias[1]))
             for alias in self.aliases)
 
+    @property
+    def module(self) -> Tuple[str, ...]:
+        """
+
+        return the import module as a list of string (which would be joined by
+        dot in the original import form.
+
+        This is useful for sorting purposes
+
+        Note that this may contain some empty string in particular with relative
+        imports
+        """
+        if self.fromname:
+            return tuple(self.fromname.split('.'))
+
+
+        assert len(self.aliases) == 1, self.aliases
+
+        return tuple(self.aliases[0][0].split('.'))
+
+        
+    def _cmp(self):
+        """
+        Comparison function for sorting.
+
+        We want to sort:
+            - by the root module
+            - whether it is an "import ... as", or "from ... import as" import
+            - then lexicographically
+
+        """
+        return (self.module[0], 0 if self.fromname is not None else 1, self.fromname)
+
     @cached_attribute
     def flags(self):
         """
