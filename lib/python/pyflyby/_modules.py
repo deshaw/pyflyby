@@ -233,11 +233,11 @@ class ModuleHandle(object):
         :rtype:
           `Filename`
         """
-        if sys.version_info > (3, 10):
+        if sys.version_info > (3, 12):
             from importlib.util import find_spec
             try:
                 mod = find_spec(str(self.name))
-                if mod.origin is None:
+                if mod is None or mod.origin is None:
                     return None
                 else:
                     assert isinstance(mod.origin, str)
