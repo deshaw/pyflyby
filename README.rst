@@ -8,7 +8,7 @@
 .. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
    :target: https://travis-ci.org/deshaw/pyflyby
 
-Pyflyby is a set of Python programming productivity tools for Python 3.7+.
+Pyflyby is a set of Python programming productivity tools for Python 3.8+.
 
 For command-line interaction:
   * ``py``: command-line multitool

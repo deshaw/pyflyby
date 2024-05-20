@@ -222,7 +222,7 @@ setup(
         "Programming Language :: Python",
     ],
     install_requires=["six", "toml", "isort", "black"],
-    python_requires=">3.6, <4",
+    python_requires=">=3.8, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,
