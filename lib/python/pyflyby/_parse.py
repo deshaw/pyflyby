@@ -432,8 +432,6 @@ def _annotate_ast_startpos(
         # the beginning of the line.
         # In Python 3, the col_offset for the with is 0 again.
         aast_node.startpos = startpos
-        if sys.version_info <= (3, 8):
-            aast_node.startpos = max(startpos, minpos)
         return False
 
     assert aast_node.col_offset == -1
