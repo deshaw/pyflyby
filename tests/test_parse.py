@@ -5,16 +5,15 @@
 
 
 
+from   pyflyby._file            import FilePos, FileText, Filename
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
+from   pyflyby._parse           import PythonBlock, PythonStatement
+
 import pytest
 import sys
 from   textwrap                 import dedent
 import warnings
-
-from   pyflyby._file            import FilePos, FileText, Filename
-from   pyflyby._flags           import CompilerFlags
-from   pyflyby._parse           import PythonBlock, PythonStatement
-from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
-
 
 if sys.version_info < (3, 8, 3):
     print_function_flag = CompilerFlags.from_int(0x10000)
@@ -758,7 +757,7 @@ def test_str_lineno_simple_1():
         PythonStatement("d = 'ten\\n'\n"           , startpos=(110,1))
     )
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected = [
         ("five-a"          , FilePos(105,5)),
         ("five-b"          , FilePos(105,16)),
@@ -783,7 +782,7 @@ def test_str_lineno_trailing_1():
         PythonStatement('six\n'                          , startpos=(106,1)),
     )
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [("\nthree\nfour\n", FilePos(102,1))]
     assert literals == expected_literals
 
@@ -807,7 +806,7 @@ def test_str_lineno_multichars_1():
         PythonStatement("9\n", startpos=(109,1)),
         )
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [(' 5 "" " ""\n6 "" "\n7 "" ', FilePos(105,1 )),
                          ('b "" "\n8 " "" '          , FilePos(107,11))]
     assert literals == expected_literals
@@ -826,7 +825,7 @@ def test_str_lineno_in_dict_1():
                 bar9
                 \'\'\'}
     ''').lstrip(), startpos=(101,1))
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [('\n        foo4\n        bar5\n        ', FilePos(103,9)),
                          ('\n        foo8\n        bar9\n        ', FilePos(107,9))]
     assert literals == expected_literals
@@ -845,7 +844,7 @@ def test_str_lineno_strprefix_1():
         PythonStatement('r"x"\n'             , startpos=(103,1)),
     )
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [
         ('aa\\nbb'  , FilePos(101,1)),
         ('x'        , FilePos(103,1)),
@@ -868,7 +867,7 @@ def test_str_lineno_escaped_single_1():
         PythonStatement("""'f' \\\n#'g'\n""", startpos=(105,1)),
     )
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [('a#bc#de', FilePos(101,5)),
                          ('f'      , FilePos(105,1))]
     assert literals == expected_literals
@@ -933,7 +932,7 @@ def test_str_lineno_concatenated_1():
     )
 
     assert block.statements == expected_statements
-    literals = [(f.s, f.startpos) for f in block.string_literals()]
+    literals = [(f.value, f.startpos) for f in block.string_literals()]
     expected_literals = [
         ("Aa", FilePos(101,1)),
         ("Bb", FilePos(102,1)),

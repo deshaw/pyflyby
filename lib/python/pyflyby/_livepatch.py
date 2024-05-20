@@ -674,7 +674,10 @@ def _xreload_module(module, filename, force=False):
     astnode = compile(source, filename, "exec", ast.PyCF_ONLY_AST, 1)
     # Get the new docstring.
     try:
-        doc = astnode.body[0].value.s
+        if sys.versin_info > (3,10):
+            doc = astnode.body[0].value.value
+        else:
+            doc = astnode.body[0].value.s
     except (AttributeError, IndexError):
         doc = None
     # Compile into code.

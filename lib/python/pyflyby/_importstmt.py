@@ -16,7 +16,7 @@ from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
 
-from   typing                   import Dict, Tuple, Optional
+from   typing                   import Dict, Tuple, Optional, Union
 
 
 
@@ -51,7 +51,7 @@ def read_black_config() -> Dict:
 
 
 class ImportFormatParams(FormatParams):
-    align_imports:bool = True
+    align_imports:Union[bool, set, list, tuple, str] = True
     """
     Whether and how to align 'from modulename import aliases...'.  If ``True``,
     then the 'import' keywords will be aligned within a block.  If an integer,

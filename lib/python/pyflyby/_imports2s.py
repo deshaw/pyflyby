@@ -15,6 +15,8 @@ import re
 
 from typing import Union
 
+from textwrap import indent
+
 
 class SourceToSourceTransformationBase(object):
 
@@ -59,6 +61,9 @@ class SourceToSourceTransformationBase(object):
         result = self.pretty_print(params=params)
         result = PythonBlock(result, filename=self.input.filename)
         return result
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}\n{indent(str(self.pretty_print()),'    ')}\n at 0x{hex(id(self))}>"
 
 
 class SourceToSourceTransformation(SourceToSourceTransformationBase):

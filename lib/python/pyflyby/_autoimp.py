@@ -6,13 +6,9 @@
 
 import ast
 import builtins
+from   collections.abc          import Sequence
 import contextlib
 import copy
-from   six                      import reraise
-import sys
-import types
-
-from collections.abc import Sequence
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -22,9 +18,13 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import PythonBlock, infer_compile_mode, _is_ast_str
+from   pyflyby._parse           import (PythonBlock, _is_ast_str,
+                                        infer_compile_mode)
 
-from   typing                   import Set, Any
+from   six                      import reraise
+import sys
+import types
+from   typing                   import Any, Set
 
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
@@ -36,12 +36,8 @@ if sys.version_info > (3, 11):
 else:
     LOAD_SHIFT = 0
 
-if sys.version_info > (3, 11):
-    LOAD_SHIFT = 1
-else:
-    LOAD_SHIFT = 0
 
-if sys.version_info >= (3,10):
+if sys.version_info >= (3, 10):
     from types import NoneType, EllipsisType
 else:
     NoneType = type(None)
@@ -596,7 +592,10 @@ class _MissingImportFinder(object):
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
-                self._visit_Load_defered_global(e.s)
+                if sys.version_info > (3,10):
+                    self._visit_Load_defered_global(e.value)
+                else:
+                    self._visit_Load_defered_global(e.s)
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
@@ -1164,10 +1163,13 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
             "_find_loads_without_stores_in_code(): expected a CodeType; got a %s"
             % (type(co).__name__,))
     # Initialize local constants for fast access.
-    from opcode import HAVE_ARGUMENT, EXTENDED_ARG, opmap
+    from opcode import EXTENDED_ARG, opmap
 
     LOAD_ATTR    = opmap['LOAD_ATTR']
+    # LOAD_METHOD is _supposed_ to be removed in 3.12 but still present in opmap
+    # if sys.version_info < (3, 12):
     LOAD_METHOD  = opmap['LOAD_METHOD']
+    # endif
     LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
     LOAD_NAME    = opmap['LOAD_NAME']
     STORE_ATTR   = opmap['STORE_ATTR']
@@ -1267,12 +1269,11 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
     earliest_backjump_label = _find_earliest_backjump_label(bytecode)
     # Loop through bytecode.
     while i < n:
-        c = bytecode[i]
-        op = _op(c)
+        op = bytecode[i]
         i += 1
         if op == CACHE:
             continue
-        if op >= HAVE_ARGUMENT:
+        if take_arg(op):
             oparg = bytecode[i] | extended_arg
             extended_arg = 0
             if op == EXTENDED_ARG:
@@ -1289,9 +1290,40 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 stores.add(fullname)
                 continue
             if op in [LOAD_ATTR, LOAD_METHOD]:
-                # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
-                # possibly more LOAD_ATTR/STORE_ATTR will follow
-                pending.append(co.co_names[oparg])
+                if sys.version_info >= (3,12):
+                    # from the docs:
+                    #
+                    # If the low bit of namei is not set, this replaces
+                    # STACK[-1] with getattr(STACK[-1], co_names[namei>>1]).
+                    #
+                    # If the low bit of namei is set, this will attempt to load
+                    # a method named co_names[namei>>1] from the STACK[-1]
+                    # object. STACK[-1] is popped. This bytecode distinguishes
+                    # two cases: if STACK[-1] has a method with the correct
+                    # name, the bytecode pushes the unbound method and
+                    # STACK[-1]. STACK[-1] will be used as the first argument
+                    # (self) by CALL when calling the unbound method. Otherwise,
+                    # NULL and the object returned by the attribute lookup are
+                    # pushed.
+                    #
+                    # Changed in version 3.12: If the low bit of namei is set,
+                    # then a NULL or self is pushed to the stack before the
+                    # attribute or unbound method respectively.
+                    #
+                    # Implication for Pyflyby
+                    #
+                    # In our case I think it means we are always looking at
+                    # oparg>>1 as the name of the names we need to load,
+                    # Though we don't keep track of the stack, and so we may get
+                    # wrong results ?
+                    #
+                    # In any case this seem to match what load_method was doing
+                    # before.
+                    pending.append(co.co_names[oparg>>1])
+                else:
+                    # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* so far;
+                    # possibly more LOAD_ATTR/STORE_ATTR will follow
+                    pending.append(co.co_names[oparg])
                 continue
             # {LOAD_GLOBAL|LOAD_NAME} {LOAD_ATTR}* (and no more
             # LOAD_ATTR/STORE_ATTR)
@@ -1378,10 +1410,14 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
         if isinstance(arg, types.CodeType):
             _find_loads_without_stores_in_code(arg, loads_without_stores)
 
-
-def _op(c):
-    return c
-
+if sys.version_info >= (3,12):
+    from dis import hasarg
+    def take_arg(op):
+        return op in hasarg
+else:
+    def take_arg(op):
+        from opcode import HAVE_ARGUMENT
+        return op >= HAVE_ARGUMENT
 
 def _find_earliest_backjump_label(bytecode):
     """
@@ -1423,19 +1459,20 @@ def _find_earliest_backjump_label(bytecode):
       The earliest target of a backward jump, as an offset into the bytecode.
     """
     # Code based on dis.findlabels().
-    from opcode import HAVE_ARGUMENT, hasjrel, hasjabs
+    from opcode import hasjrel, hasjabs
     if not isinstance(bytecode, bytes):
         raise TypeError
     n = len(bytecode)
     earliest_backjump_label = n
     i = 0
     while i < n:
-        c = bytecode[i]
-        op = _op(c)
+        op = bytecode[i]
         i += 1
-        if op < HAVE_ARGUMENT:
+        if not take_arg(op):
             continue
-        oparg = _op(bytecode[i]) + _op(bytecode[i+1])*256
+        if i+1 >= len(bytecode):
+            break
+        oparg = bytecode[i] + bytecode[i+1]*256
         i += 2
         label = None
         if op in hasjrel:

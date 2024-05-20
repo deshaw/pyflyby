@@ -9,11 +9,6 @@ import ast
 from   functools                import total_ordering
 import itertools
 import os
-import re
-from   six                      import reraise
-import sys
-import types
-from typing                     import Dict, Any
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
@@ -22,7 +17,11 @@ from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, cmp, memoize,
                                         prefixes)
 
-
+import re
+from   six                      import reraise
+import sys
+import types
+from   typing                   import Any, Dict
 
 class ErrorDuringImportError(ImportError):
     """
@@ -234,9 +233,23 @@ class ModuleHandle(object):
         :rtype:
           `Filename`
         """
+        if sys.version_info > (3, 12):
+            from importlib.util import find_spec
+            try:
+                mod = find_spec(str(self.name))
+                if mod is None or mod.origin is None:
+                    return None
+                else:
+                    assert isinstance(mod.origin, str)
+                    return Filename(mod.origin)
+            except ModuleNotFoundError:
+                return None
+            assert False
+
         # Use the loader mechanism to find the filename.  We do so instead of
         # using self.module.__file__, because the latter forces importing a
         # module, which may be undesirable.
+
         import pkgutil
         try:
              #TODO: deprecated and will be removed in 3.14

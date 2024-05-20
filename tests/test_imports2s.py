@@ -869,6 +869,9 @@ def test_replace_star_imports_os_issue_281(capsys):
     assert 'with' in captured.out and 'imports' in captured.out
 
 
+@pytest.mark.skipif(
+        sys.version_info >= (3,12),
+        reason='Pyton 3.12 uses find_spec which does not work with injected modules')
 def test_replace_star_imports_1():
     input = PythonBlock(dedent('''
         from mod1                    import f1

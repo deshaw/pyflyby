@@ -137,21 +137,21 @@ def test_0prefix_raw_1():
     # Verify that we're testing the virtualenv we think we are.
     result = pipe([python, '-c', 'import sys; print(sys.prefix)'])
     expected = sys.prefix
-    assert expected == result
+    assert result == expected
 
 
 def test_0version_1():
     # Verify that we're testing the version we think we are.
     result = py('-q', '--print', 'sys.version').strip()
     expected = sys.version
-    assert expected == result
+    assert result == expected
 
 
 def test_0prefix_1():
     # Verify that we're testing the virtualenv we think we are.
     result = py('-q', '--print', 'sys.prefix').strip()
     expected = sys.prefix
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_1():
@@ -161,7 +161,7 @@ def test_eval_1():
         [PYFLYBY] b64decode('VGhvbXBzb24=')
         b'Thompson'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_single_dash_1():
@@ -171,7 +171,7 @@ def test_eval_single_dash_1():
         [PYFLYBY] b64decode('V29vc3Rlcg==')
         b'Wooster'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_equals_1():
@@ -181,7 +181,7 @@ def test_eval_equals_1():
         [PYFLYBY] b64decode('TWVyY2Vy')
         b'Mercer'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_single_dash_equals_1():
@@ -191,7 +191,7 @@ def test_eval_single_dash_equals_1():
         [PYFLYBY] b64decode('VW5pdmVyc2l0eQ==')
         b'University'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_c_1():
@@ -201,29 +201,29 @@ def test_eval_c_1():
         [PYFLYBY] b64decode('QmxlZWNrZXI=')
         b'Bleecker'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_quiet_1():
     result = py("-q", "-c", "b64decode('U3VsbGl2YW4=')")
     expected = "b'Sullivan'"
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_expression_1():
     result = py("--eval", "calendar.WEDNESDAY")
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.WEDNESDAY
-        2
+        {WEDNESDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_eval_expression_quiet_1():
     result = py("--quiet", "--eval", "calendar.WEDNESDAY")
-    expected = "2"
-    assert expected == result
+    expected = WEDNESDAY
+    assert result == expected
 
 
 def test_exec_1():
@@ -233,7 +233,7 @@ def test_exec_1():
         [PYFLYBY] if 1: print(b64decode('UHJpbmNl'))
         b'Prince'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argv_1():
@@ -243,7 +243,7 @@ def test_argv_1():
         [PYFLYBY] sys.argv
         ['-c', 'x', 'y']
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argv_2():
@@ -253,7 +253,7 @@ def test_argv_2():
         [PYFLYBY] sys.argv
         ['-c', '--debug', '-x  x']
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_file_1():
@@ -265,7 +265,7 @@ def test_file_1():
         [PYFLYBY] import sys
         ('Boone', [%r, 'a', 'b'])
     """).strip() % (f.name,)
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("arg", [
@@ -287,7 +287,7 @@ def test_file_variants_1(arg):
         ('Longfellow', [%r, 'a', 'b'])
         %s
     """).strip() % (f.name, f.name)
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_1():
@@ -296,7 +296,7 @@ def test_apply_1():
         [PYFLYBY] str.upper('Roosevelt')
         'ROOSEVELT'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_stdin_1():
@@ -305,7 +305,7 @@ def test_apply_stdin_1():
         [PYFLYBY] str.upper('Eagle')
         'EAGLE'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_stdin_more_args_1():
@@ -314,7 +314,7 @@ def test_apply_stdin_more_args_1():
         [PYFLYBY] str.find('Jackson\n', 'k')
         3
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_lambda_1():
@@ -323,7 +323,7 @@ def test_apply_lambda_1():
         [PYFLYBY] (lambda a,b:a*b)(6, 7)
         42
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_lambda_nested_1():
@@ -332,7 +332,7 @@ def test_apply_lambda_nested_1():
         [PYFLYBY] (lambda a,b: lambda c,d: a*b*c*d)(2,3)(5, 11)
         330
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_args_1():
@@ -341,7 +341,7 @@ def test_apply_args_1():
         [PYFLYBY] round(2.984375, 3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_kwargs_1():
@@ -350,7 +350,7 @@ def test_apply_kwargs_1():
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_kwonlyargs_1():
@@ -359,7 +359,7 @@ def test_apply_kwonlyargs_1():
         [PYFLYBY] (lambda x, *, y: x + y)(2, y=3)
         5
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_kwonlyargs_2():
@@ -368,7 +368,7 @@ def test_apply_kwonlyargs_2():
         [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=1)
         6
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_print_function_1():
@@ -377,7 +377,7 @@ def test_apply_print_function_1():
         [PYFLYBY] print(50810461)
         50810461
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_print_function_string_1():
@@ -386,7 +386,7 @@ def test_apply_print_function_string_1():
         [PYFLYBY] print('Bedford')
         Bedford
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_print_function_expression_1():
@@ -395,7 +395,7 @@ def test_apply_print_function_expression_1():
         [PYFLYBY] print('Bedford')
         Bedford
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_variant_1():
@@ -404,7 +404,7 @@ def test_apply_variant_1():
         [PYFLYBY] round(2.984375, 3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_expression_1():
@@ -413,7 +413,7 @@ def test_apply_expression_1():
         [PYFLYBY] 3.0.is_integer()
         True
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_string_1():
@@ -422,7 +422,7 @@ def test_argmode_string_1():
         [PYFLYBY] print('Barrow')
         Barrow
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_string_donteval_module_1():
@@ -431,7 +431,7 @@ def test_argmode_string_donteval_module_1():
         [PYFLYBY] print('sys')
         sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_string_donteval_expression_1():
@@ -440,7 +440,7 @@ def test_argmode_string_donteval_expression_1():
         [PYFLYBY] print('1+2')
         1+2
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -458,7 +458,7 @@ def test_argmode_string_variants_1(args):
         [PYFLYBY] print('sys')
         sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_string_quoted_1():
@@ -467,7 +467,7 @@ def test_argmode_string_quoted_1():
         [PYFLYBY] print("'Jones'")
         'Jones'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_eval_1():
@@ -476,7 +476,7 @@ def test_argmode_eval_1():
         [PYFLYBY] print('Vandam')
         Vandam
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_eval_expression_1():
@@ -485,7 +485,7 @@ def test_argmode_eval_expression_1():
         [PYFLYBY] print(3)
         3
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_eval_unparsable_1():
@@ -501,7 +501,7 @@ def test_argmode_eval_modname_1():
         [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_eval_badname_1():
@@ -525,7 +525,7 @@ def test_argmode_eval_variants_1(args):
         [PYFLYBY] print(7)
         7
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_unparsable_1():
@@ -534,7 +534,7 @@ def test_argmode_auto_unparsable_1():
         [PYFLYBY] print('1+')
         1+
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_expression_1():
@@ -543,7 +543,7 @@ def test_argmode_auto_expression_1():
         [PYFLYBY] print(3)
         3
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_goodname_1():
@@ -553,7 +553,7 @@ def test_argmode_auto_goodname_1():
         [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_badname_1():
@@ -562,7 +562,7 @@ def test_argmode_auto_badname_1():
         [PYFLYBY] print('foo71398671')
         foo71398671
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_each_1():
@@ -571,7 +571,7 @@ def test_argmode_auto_each_1():
         [PYFLYBY] print('7_', 8)
         7_ 8
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -587,7 +587,7 @@ def test_argmode_auto_variants_1(args):
         [PYFLYBY] print('7_', 8)
         7_ 8
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_1():
@@ -596,7 +596,7 @@ def test_heuristic_eval_1():
         [PYFLYBY] 1+2
         3
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_concat_1():
@@ -605,7 +605,7 @@ def test_heuristic_eval_concat_1():
         [PYFLYBY] 5 + 7
         12
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_complex_1():
@@ -614,7 +614,7 @@ def test_heuristic_eval_complex_1():
         [PYFLYBY] 5 + 7j
         (5+7j)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_complex_2():
@@ -623,7 +623,7 @@ def test_heuristic_eval_complex_2():
         [PYFLYBY] (5+7j) ** 12
         (65602966976-150532462080j)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_exponentiation_1():
@@ -632,7 +632,7 @@ def test_heuristic_eval_exponentiation_1():
         [PYFLYBY] 123**4
         228886641
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_with_argv_1():
@@ -644,7 +644,7 @@ def test_heuristic_eval_with_argv_1():
         Canal
         Grand
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_exec_statement_1():
@@ -653,7 +653,7 @@ def test_heuristic_exec_statement_1():
         [PYFLYBY] if 1: print("Mulberry")
         Mulberry
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_exec_multiline_statement_1():
@@ -663,7 +663,7 @@ def test_heuristic_exec_multiline_statement_1():
         [PYFLYBY]   print("Mott")
         Mott
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_1():
@@ -672,7 +672,7 @@ def test_heuristic_apply_1():
         [PYFLYBY] str.upper('Ditmars')
         'DITMARS'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_stdin_1():
@@ -681,7 +681,7 @@ def test_heuristic_apply_stdin_1():
         [PYFLYBY] str.upper('Nassau')
         'NASSAU'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_stdin_2():
@@ -691,7 +691,7 @@ def test_heuristic_apply_stdin_2():
         [PYFLYBY] sys.stdout.write('Downing')
         Downing
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_stdin_no_eval_1():
@@ -701,13 +701,13 @@ def test_heuristic_apply_stdin_no_eval_1():
         [PYFLYBY] sys.stdout.write('3+4')
         3+4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_stdin_quiet_1():
     result = py("--output=silent", "-q", "sys.stdout.write", "-", stdin=b"Houston")
     expected = "Houston"
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_lambda_1():
@@ -717,7 +717,7 @@ def test_heuristic_apply_lambda_1():
         [PYFLYBY] (lambda a,b:a*b)(6, 7)
         42
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_lambda_nested_1():
@@ -727,7 +727,7 @@ def test_heuristic_apply_lambda_nested_1():
         [PYFLYBY] (lambda a,b: lambda c,d: a*b*c*d)(2,3)(5, 7)
         210
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_builtin_args_1():
@@ -736,7 +736,7 @@ def test_heuristic_apply_builtin_args_1():
         [PYFLYBY] round(2.984375, 3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_builtin_args_2():
@@ -745,7 +745,7 @@ def test_heuristic_apply_builtin_args_2():
         [PYFLYBY] round(2.984375)
         3
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_builtin_kwargs_1():
@@ -754,7 +754,7 @@ def test_heuristic_apply_builtin_kwargs_1():
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_builtin_kwargs_separate_arg_1():
@@ -763,7 +763,7 @@ def test_heuristic_apply_builtin_kwargs_separate_arg_1():
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_print_1():
@@ -772,7 +772,7 @@ def test_heuristic_print_1():
         [PYFLYBY] print(4, 5)
         4 5
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_expression_1():
@@ -781,7 +781,7 @@ def test_heuristic_apply_expression_1():
         [PYFLYBY] 3.0.is_integer()
         True
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_expression_2():
@@ -790,7 +790,7 @@ def test_heuristic_apply_expression_2():
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.flush()
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_expression_1():
@@ -800,7 +800,7 @@ def test_heuristic_eval_expression_1():
         [PYFLYBY] os.path.sep
         '/'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_eval_expression_nonmodule_1():
@@ -810,7 +810,7 @@ def test_heuristic_eval_expression_nonmodule_1():
         [PYFLYBY] os.getcwd.__name__
         'getcwd'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_apply_method_arg_1():
@@ -819,13 +819,13 @@ def test_heuristic_apply_method_arg_1():
         [PYFLYBY] float.is_integer(3.0)
         True
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py("float.is_integer", "3.5")
     expected = dedent("""
         [PYFLYBY] float.is_integer(3.5)
         False
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_builtin_too_few_args_1():
@@ -845,55 +845,66 @@ def test_apply_builtin_bad_kwarg_1():
     assert retcode == 1
     assert "TypeError: 'foo' is an invalid keyword argument" in result
 
+if sys.version_info >= (3, 12):
+    MONDAY = 'calendar.MONDA'
+    TUESDAY = 'calendar.TUESDAY'
+    WEDNESDAY = 'calendar.WEDNESDAY'
+    THURSDAY = 'calendar.THURSDAY'
+    FRIDAY = 'calendar.FRIDAY'
+else:
+    TUESDAY = '1'
+    WEDNESDAY = '2'
+    THURSDAY = '3'
+    FRIDAY = '4'
 
 def test_apply_pyfunc_posargs_1():
     result = py("calendar.weekday 2014 7 18".split())
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 18)
-        4
+        {FRIDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_pyfunc_kwarg_1():
     result = py("calendar.weekday --year=2014 --month=7 --day=17".split())
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 17)
-        3
+        {THURSDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_pyfunc_kwarg_disorder_1():
     result = py("calendar.weekday --day=16 --month=7 --year=2014".split())
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 16)
-        2
+        {WEDNESDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_pyfunc_kwarg_short_1():
     result = py("calendar.weekday -m 7 -d 15 -y 2014".split())
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 15)
-        1
+        {TUESDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_pyfunc_hybrid_args_disorder_1():
     result = py("calendar.weekday 2014 -day 15 -month 7".split())
-    expected = dedent("""
+    expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 15)
-        1
+        {TUESDAY}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_argspec_too_few_args_1():
@@ -941,7 +952,7 @@ def test_apply_dashdash_1():
         [PYFLYBY] print(4.0, '--help', '5.000')
         4.0 --help 5.000
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_namedtuple_1():
@@ -952,7 +963,7 @@ def test_apply_namedtuple_1():
         [PYFLYBY] namedtuple("ab", "aa bb")(3, 4)
         ab(aa=3, bb=4)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_repr_str_1():
@@ -961,7 +972,7 @@ def test_repr_str_1():
         [PYFLYBY] 'Astor'
         'Astor'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_future_division_1():
@@ -970,7 +981,7 @@ def test_future_division_1():
         [PYFLYBY] 1/2
         0.5
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_integer_division_1():
@@ -979,7 +990,7 @@ def test_integer_division_1():
         [PYFLYBY] 7//3
         2
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_print_statement_1():
@@ -988,7 +999,7 @@ def test_print_statement_1():
         [PYFLYBY] print(42)
         42
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_print_statement_sep_1():
@@ -997,7 +1008,7 @@ def test_print_statement_sep_1():
         [PYFLYBY] print(43)
         43
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_print_function_1():
@@ -1007,7 +1018,7 @@ def test_print_function_1():
         [PYFLYBY] print(44, file=sys.stdout)
         44
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_print_function_tuple_1():
@@ -1016,7 +1027,7 @@ def test_print_function_tuple_1():
         [PYFLYBY] print(5,6)
         5 6
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_write_1():
@@ -1025,7 +1036,7 @@ def test_write_1():
         assert output == ""
         result = f.read()
     expected = "Greenwich"
-    assert expected == result
+    assert result == expected
 
 
 def test_print_args_1():
@@ -1035,7 +1046,7 @@ def test_print_args_1():
         assert output == ""
         result = f.read()
     expected = "Spring\n"
-    assert expected == result
+    assert result == expected
 
 
 def test_program_help_1():
@@ -1073,7 +1084,10 @@ def test_function_help_expression_1():
     output = py("sys.stdout.write", "--help")
     assert '>>> sys.stdout.write(' in output
     assert "$ py sys.stdout.write " in output
-    assert "Write string to stream." in output, output
+    if sys.version_info > (3,12):
+        assert "Write string s to stream." in output, output
+    else:
+        assert "Write string to stream." in output, output
 
 
 def test_function_help_quote_need_parens_1():
@@ -1320,7 +1334,7 @@ def test_function_arg_help_1(args):
         [PYFLYBY] (lambda help: help*4)(3)
         12
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1348,7 +1362,7 @@ def test_function_arg_hello_1(args):
         [PYFLYBY] (lambda hello: hello*7)(3)
         21
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_function_arg_help_qmark_1():
@@ -1435,7 +1449,7 @@ def test_arg_nodashdash_1():
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>)
         42.0 <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_1():
@@ -1444,7 +1458,7 @@ def test_arg_dashdash_1():
         [PYFLYBY] print('42.0000', 'sys')
     42.0000 sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_2():
@@ -1453,7 +1467,7 @@ def test_arg_dashdash_2():
         [PYFLYBY] print(42.0, 'sys')
     42.0 sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_3():
@@ -1463,7 +1477,7 @@ def test_arg_dashdash_3():
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>)
         42.0 <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_4():
@@ -1473,7 +1487,7 @@ def test_arg_dashdash_4():
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>, '--')
         42.0 <module 'sys' (built-in)> --
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_help_1():
@@ -1482,7 +1496,7 @@ def test_arg_dashdash_help_1():
         [PYFLYBY] print('--help')
         --help
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_arg_dashdash_dashdash_1():
@@ -1491,7 +1505,7 @@ def test_arg_dashdash_dashdash_1():
         [PYFLYBY] print('--', '42.000')
         -- 42.000
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_kwargs_no_dashdash_1():
@@ -1501,7 +1515,7 @@ def test_kwargs_no_dashdash_1():
         [PYFLYBY] (lambda *a,**k: (a,k))(3.5, foo=7.5)
         ((3.5,), {'foo': 7.5})
     """).strip()
-    assert expected == result, result
+    assert result == expected, result
 
 
 def test_kwargs_dashdash_1():
@@ -1511,7 +1525,7 @@ def test_kwargs_dashdash_1():
         [PYFLYBY] (lambda *a,**k: (a,k))('3.500', '--foo', '7.500')
         (('3.500', '--foo', '7.500'), {})
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_joinstr_1():
@@ -1520,7 +1534,7 @@ def test_joinstr_1():
         [PYFLYBY] 3 + 5
         8
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_print_joinstr_1():
@@ -1529,7 +1543,7 @@ def test_print_joinstr_1():
         [PYFLYBY] print(3, '+', 5)
         3 + 5
     """).strip()
-    assert expected == result
+    assert result == expected
 
 def test_print_joinstr_2():
     result = py("print", "3 + 5")
@@ -1537,7 +1551,7 @@ def test_print_joinstr_2():
         [PYFLYBY] print(8)
         8
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_join_single_arg_1():
@@ -1550,7 +1564,7 @@ def test_join_single_arg_1():
         <module 'sys' (built-in)>
     """).strip()
 
-    assert expected == result
+    assert result == expected
 
 
 def test_join_single_arg_fallback_1():
@@ -1562,13 +1576,13 @@ def test_join_single_arg_fallback_1():
         [PYFLYBY] print('ardmore23653526')
         ardmore23653526
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_no_ipython_for_eval_1():
     result = py("-q", "'os' in sys.modules, 'IPython' in sys.modules")
     expected = "(True, False)"
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_interactive_pprint_1():
@@ -1586,7 +1600,7 @@ def test_outputmode_interactive_pprint_1():
          'i': 'I',
          'j': 'J'}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_interactive_pprint_str_1():
@@ -1595,7 +1609,7 @@ def test_outputmode_interactive_pprint_str_1():
         [PYFLYBY] "Grove"
         'Grove'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_interactive_none_1():
@@ -1603,7 +1617,7 @@ def test_outputmode_interactive_none_1():
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1625,12 +1639,12 @@ def test_outputmode_interactive_variants_1(args):
         [PYFLYBY] "Perry"
         'Perry'
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + " None").split())
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_str_1():
@@ -1639,7 +1653,7 @@ def test_outputmode_str_1():
         [PYFLYBY] "Morton"
         Morton
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_str_date_1():
@@ -1649,7 +1663,7 @@ def test_outputmode_str_date_1():
         [PYFLYBY] datetime.date(2014,7,18)
         2014-07-18
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_str_none_1():
@@ -1658,7 +1672,7 @@ def test_outputmode_str_none_1():
         [PYFLYBY] None
         None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_str_str_none_1():
@@ -1667,7 +1681,7 @@ def test_outputmode_str_str_none_1():
         [PYFLYBY] "None"
         None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1684,7 +1698,7 @@ def test_outputmode_str_variants_1(args):
         [PYFLYBY] "Greene"
         Greene
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_silent_1():
@@ -1692,7 +1706,7 @@ def test_outputmode_silent_1():
     expected = dedent("""
         [PYFLYBY] "Bethune"
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_silent_outputonly_1():
@@ -1702,7 +1716,7 @@ def test_outputmode_silent_outputonly_1():
         [PYFLYBY] sys.stdout.write("Gansevoort"), 78844525
         Gansevoort
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1716,7 +1730,7 @@ def test_outputmode_silent_outputonly_1():
 def test_outputmode_silent_variants_1(args):
     result = py((args + ' "Clarkson"').split())
     expected = '[PYFLYBY] "Clarkson"'
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_repr_str_1():
@@ -1725,7 +1739,7 @@ def test_outputmode_repr_str_1():
         [PYFLYBY] "Moore"
         'Moore'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_repr_date_1():
@@ -1735,7 +1749,7 @@ def test_outputmode_repr_date_1():
         [PYFLYBY] datetime.date(2014,7,18)
         datetime.date(2014, 7, 18)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_repr_none_1():
@@ -1744,7 +1758,7 @@ def test_outputmode_repr_none_1():
         [PYFLYBY] None
         None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_repr_str_none_1():
@@ -1753,7 +1767,7 @@ def test_outputmode_repr_str_none_1():
         [PYFLYBY] "None"
         'None'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1770,13 +1784,13 @@ def test_outputmode_repr_variants_1(args):
         [PYFLYBY] "Norfolk"
         'Norfolk'
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' None').split())
     expected = dedent("""
         [PYFLYBY] None
         None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_reprifnotnone_date_1():
@@ -1786,7 +1800,7 @@ def test_outputmode_reprifnotnone_date_1():
         [PYFLYBY] datetime.date(2014,7,18)
         datetime.date(2014, 7, 18)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_reprifnotnone_none_1():
@@ -1794,7 +1808,7 @@ def test_outputmode_reprifnotnone_none_1():
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1809,12 +1823,12 @@ def test_outputmode_reprifnotnone_variants_1(args):
         [PYFLYBY] "Suffolk"
         'Suffolk'
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' None').split())
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_pprint_1():
@@ -1832,7 +1846,7 @@ def test_outputmode_pprint_1():
          'i': 'I',
          'j': 'J'}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_pprint_str_1():
@@ -1841,7 +1855,7 @@ def test_outputmode_pprint_str_1():
         [PYFLYBY] "Willett"
         'Willett'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_pprint_none_1():
@@ -1850,7 +1864,7 @@ def test_outputmode_pprint_none_1():
         [PYFLYBY] None
         None
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1867,13 +1881,13 @@ def test_outputmode_pprint_variants_1(args):
         [PYFLYBY] "Delancey"
         'Delancey'
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' None').split())
     expected = dedent("""
         [PYFLYBY] None
         None
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
@@ -1888,7 +1902,7 @@ def test_outputmode_pprint_variants_1(args):
          'i': 'I',
          'j': 'J'}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_pprintifnotnone_1():
@@ -1897,7 +1911,7 @@ def test_outputmode_pprintifnotnone_1():
         [PYFLYBY] "Baruch"
         'Baruch'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_pprintifnotnone_none_1():
@@ -1905,7 +1919,7 @@ def test_outputmode_pprintifnotnone_none_1():
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py('--quiet', '--output=pprint-if-not-none', 'None')
     assert "" == result
 
@@ -1922,12 +1936,12 @@ def test_outputmode_pprintifnotnone_variants_1(args):
         [PYFLYBY] "Rivington"
         'Rivington'
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' None').split())
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
-    assert expected == result
+    assert result == expected
     result = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
@@ -1942,7 +1956,7 @@ def test_outputmode_pprintifnotnone_variants_1(args):
          'i': 'I',
          'j': 'J'}
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_outputmode_bad_1():
@@ -1957,7 +1971,7 @@ def test_run_module_1():
         [PYFLYBY] python -m base64 -d -
         Trinity
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -1974,7 +1988,7 @@ def test_run_module_variants_1(args):
         [PYFLYBY] python -m base64 -d -
         Troutman
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_run_module_argstr_1(tmp):
@@ -1992,7 +2006,7 @@ def test_run_module_argstr_1(tmp):
         [PYFLYBY] python -m odule12786636 22524739.000 math
         Rector ['%s/odule12786636.py', '22524739.000', 'math']
     """).strip() % tmp.dir
-    assert expected == result
+    assert result == expected
 
 
 def test_run_module_under_package_1(tmp):
@@ -2002,7 +2016,7 @@ def test_run_module_under_package_1(tmp):
         [PYFLYBY] python -m encodings.rot_13
         Granite
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_run_module_1():
@@ -2011,7 +2025,7 @@ def test_heuristic_run_module_1():
         [PYFLYBY] python -m base64 -d -
         Seneca
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_run_module_under_package_1(tmp):
@@ -2021,7 +2035,7 @@ def test_heuristic_run_module_under_package_1(tmp):
         [PYFLYBY] python -m encodings.rot_13
         Decker
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_run_module_under_package_2(tmp):
@@ -2048,7 +2062,7 @@ def test_heuristic_run_module_under_package_2(tmp):
         [PYFLYBY] python -m bard22402805.douglas.thames
         Huron __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_run_module_no_auto_import_1(tmp):
@@ -2100,7 +2114,7 @@ def test_heuristic_run_module_argstr_1(tmp):
         [PYFLYBY] python -m gantry20720070 26792622.000 math
         Belmont ['%s/gantry20720070.py', '26792622.000', 'math']
     """).strip() % tmp.dir
-    assert expected == result
+    assert result == expected
 
 
 def test_builtin_no_run_module_1(tmp):
@@ -2113,7 +2127,7 @@ def test_builtin_no_run_module_1(tmp):
         [PYFLYBY] round(17534159.5)
         17534160
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_run_module_no_superfluous_import_1(tmp):
@@ -2128,7 +2142,7 @@ def test_run_module_no_superfluous_import_1(tmp):
         [PYFLYBY] python -m delafield47227231
         Oakwood __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_heuristic_run_module_no_superfluous_import_1(tmp):
@@ -2143,7 +2157,7 @@ def test_heuristic_run_module_no_superfluous_import_1(tmp):
         [PYFLYBY] python -m pelton58495419
         Bement __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_unsafe_pyflyby_path_1(tmp):
@@ -2159,7 +2173,7 @@ def test_unsafe_pyflyby_path_1(tmp):
         [PYFLYBY] Walton
         3058692
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_safe_no_pyflyby_path_1(tmp):
@@ -2185,7 +2199,7 @@ def test_safe_fully_qualified_module_1(tmp):
         [PYFLYBY] f47762194.Montefiore
         85883909
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_unsafe_args_1():
@@ -2195,7 +2209,7 @@ def test_unsafe_args_1():
         [PYFLYBY] type(<module 'sys' (built-in)>)
         <class 'module'>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_safe_args_1():
@@ -2204,7 +2218,7 @@ def test_safe_args_1():
         [PYFLYBY] type('sys')
         <class 'str'>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_string_dashdash_1():
@@ -2213,7 +2227,7 @@ def test_argmode_string_dashdash_1():
         [PYFLYBY] print('Beekman/', 'Spruce/', '--')
         Beekman/ Spruce/ --
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_safe_dashdash_1():
@@ -2222,7 +2236,7 @@ def test_safe_dashdash_1():
         [PYFLYBY] print('Oliver/', 'Catherine/', '--')
         Oliver/ Catherine/ --
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_safe_no_concat_1():
@@ -2231,7 +2245,7 @@ def test_safe_no_concat_1():
         [PYFLYBY] print('sys')
         sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_str_no_concat_1():
@@ -2240,7 +2254,7 @@ def test_argmode_str_no_concat_1():
         [PYFLYBY] print('sys')
         sys
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_eval_no_concat_1():
@@ -2250,7 +2264,7 @@ def test_argmode_eval_no_concat_1():
         [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argmode_auto_no_concat_1():
@@ -2260,13 +2274,13 @@ def test_argmode_auto_no_concat_1():
         [PYFLYBY] print(<module 'sys' (built-in)>)
         <module 'sys' (built-in)>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_exec_stdin_print_statement_1():
     result = py(stdin=b"print('Carnegie')")
     expected = "Carnegie"
-    assert expected == result
+    assert result == expected
 
 
 def test_exec_stdin_print_function_1():
@@ -2275,7 +2289,7 @@ def test_exec_stdin_print_function_1():
         [PYFLYBY] import sys
         Sinai
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_exec_stdin_noresult_1():
@@ -2289,7 +2303,7 @@ def test_argv_stdin_noarg_1():
         [PYFLYBY] import sys
         ['']
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argv_stdin_dash_1():
@@ -2298,7 +2312,7 @@ def test_argv_stdin_dash_1():
         [PYFLYBY] import sys
         ['-']
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_argv_stdin_dash_args_1():
@@ -2307,7 +2321,7 @@ def test_argv_stdin_dash_args_1():
         [PYFLYBY] import sys
         ['-', 'sys']
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_1():
@@ -2316,7 +2330,7 @@ def test_map_1():
         2
         4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_2():
@@ -2327,7 +2341,7 @@ def test_map_2():
         [PYFLYBY] str.capitalize('world')
         'World'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_3():
@@ -2338,7 +2352,7 @@ def test_map_3():
         [PYFLYBY] float.as_integer_ratio(3.5)
         (7, 2)
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_eval_1():
@@ -2347,7 +2361,7 @@ def test_map_eval_1():
         0.5
         0.25
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_stringarg_1():
@@ -2356,7 +2370,7 @@ def test_map_stringarg_1():
         1/2
         1/4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_safe_1():
@@ -2365,7 +2379,7 @@ def test_map_safe_1():
         1/2
         1/4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_safe_dashdash_1():
@@ -2375,7 +2389,7 @@ def test_map_safe_dashdash_1():
         1/2
         --
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_dashdash_1():
@@ -2384,7 +2398,7 @@ def test_map_dashdash_1():
         1/2
         1/4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_dashdash_dashdash_1():
@@ -2395,7 +2409,7 @@ def test_map_dashdash_dashdash_1():
         --
         1/4
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_lambda_1():
@@ -2412,7 +2426,7 @@ def test_map_lambda_1():
         [PYFLYBY] (lambda x: x**2)(5)
         25
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_map_empty_1():
@@ -2434,7 +2448,7 @@ def test_map_missing_function_1():
 def test_output_exit_1():
     result = py("--output=exit", "5+7")
     expected = ("[PYFLYBY] 5+7", 12)
-    assert expected == result
+    assert result == expected
 
 
 @pytest.mark.parametrize("args", [
@@ -2447,7 +2461,7 @@ def test_output_exit_1():
 def test_output_exit_variants_1(args):
     result = py(("-q " + args).split())
     expected = ("", 12)
-    assert expected == result
+    assert result == expected
 
 
 def test_info_function_simple_1():
@@ -2457,7 +2471,7 @@ def test_info_function_simple_1():
         [PYFLYBY] sys.stdout.write('Franklin')
         Franklin
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_info_function_lambda_1():
@@ -2468,7 +2482,7 @@ def test_info_function_lambda_1():
         [PYFLYBY] (lambda: sys.stdout.write)()('Chambers')
         Chambers
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_eval_1():
@@ -2477,7 +2491,7 @@ def test_name_eval_1():
         [PYFLYBY] __name__
         '__main__'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_heuristic_eval_1():
@@ -2486,7 +2500,7 @@ def test_name_heuristic_eval_1():
         [PYFLYBY] __name__
         '__main__'
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_heuristic_apply_eval_1():
@@ -2496,7 +2510,7 @@ def test_name_heuristic_apply_eval_1():
         [PYFLYBY] sys.stdout.write('__main__')
         __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_heuristic_join_eval_1():
@@ -2505,7 +2519,7 @@ def test_name_heuristic_join_eval_1():
         [PYFLYBY] print('Castle', ',', '__main__')
         Castle , __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_stdin_1():
@@ -2513,7 +2527,7 @@ def test_name_stdin_1():
     expected = dedent("""
         ('Winter', '__main__')
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_dash_stdin_1():
@@ -2521,7 +2535,7 @@ def test_name_dash_stdin_1():
     expected = dedent("""
         ('Victory', '__main__')
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_file_1():
@@ -2532,7 +2546,7 @@ def test_name_file_1():
     expected = dedent("""
         Forest __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_heuristic_file_1():
@@ -2543,7 +2557,7 @@ def test_name_heuristic_file_1():
     expected = dedent("""
         Oakland __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_module_1(tmp):
@@ -2558,7 +2572,7 @@ def test_name_module_1(tmp):
         [PYFLYBY] python -m swan80274886
         Lafayette __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_name_heuristic_module_1(tmp):
@@ -2573,7 +2587,7 @@ def test_name_heuristic_module_1(tmp):
         [PYFLYBY] python -m arnold17339681
         Hendricks __main__
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_unknown_option_1():
@@ -2610,7 +2624,7 @@ def test_single_char_arg0_1(tmp, m):
         [PYFLYBY] python -m %s 42
         Hayward 42
     """).strip() % m
-    assert expected == result
+    assert result == expected
 
 
 def test_auto_arg_goodname_1():
@@ -2621,7 +2635,7 @@ def test_auto_arg_goodname_1():
         [PYFLYBY] sys.stdout.write('/')
         /
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_auto_arg_badname_1():
@@ -2631,7 +2645,7 @@ def test_auto_arg_badname_1():
         [PYFLYBY] sys.stdout.write('Burnside55731946.Valentine')
         Burnside55731946.Valentine
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_auto_arg_goodname_property_1(tmp):
@@ -2650,7 +2664,7 @@ def test_auto_arg_goodname_property_1(tmp):
         [PYFLYBY] sys.stdout.write('arden')
         arden
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_auto_arg_broken_name_property_1(tmp):
@@ -2723,7 +2737,7 @@ def test_function_defaults_1(tmp):
         [PYFLYBY] dobbin69118865.meserole('java', 'kent', c=<X 1>, d='77610270.000', e='paidge', f=<X 2>)
         java kent <<X 1>> 77610270.000 paidge <<X 2>>
     """).strip()
-    assert expected == result
+    assert result == expected
 
 
 def test_apply_not_a_function():
