@@ -221,7 +221,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
     ],
-    install_requires=["six", "toml", "isort", "black"],
+    install_requires=["six", "toml", "black"],
     python_requires=">3.6, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
