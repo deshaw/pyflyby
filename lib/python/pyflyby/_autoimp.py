@@ -592,7 +592,10 @@ class _MissingImportFinder(object):
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
-                self._visit_Load_defered_global(e.s)
+                if sys.version_info > (3,10):
+                    self._visit_Load_defered_global(e.value)
+                else:
+                    self._visit_Load_defered_global(e.s)
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
@@ -1467,7 +1470,8 @@ def _find_earliest_backjump_label(bytecode):
         i += 1
         if not take_arg(op):
             continue
-        assert i+1 < len(bytecode)
+        if i+1 >= len(bytecode):
+            break
         oparg = bytecode[i] + bytecode[i+1]*256
         i += 2
         label = None

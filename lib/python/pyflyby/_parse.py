@@ -72,7 +72,10 @@ def _ast_str_literal_value(node):
     if _is_ast_str_or_byte(node):
         return node.s
     if isinstance(node, ast.Expr) and _is_ast_str_or_byte(node.value):
-        return node.value.s
+        if sys.version_info > (3,10):
+            return node.value.value
+        else:
+            return node.value.s
     else:
         return None
 
@@ -120,22 +123,44 @@ def _iter_child_nodes_in_order_internal_1(node):
         assert node._fields == ("keys", "values")
         yield list(zip(node.keys, node.values))
     elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
-        assert node._fields == (
-            "name",
-            "args",
-            "body",
-            "decorator_list",
-            "returns",
-            "type_comment",
-        ), node._fields
-        res = (
-            node.type_comment,
-            node.decorator_list,
-            node.args,
-            node.returns,
-            node.body,
-        )
-        yield res
+        if sys.version_info < (3,12):
+            assert node._fields == (
+                "name",
+                "args",
+                "body",
+                "decorator_list",
+                "returns",
+                "type_comment",
+            ), node._fields
+            res = (
+                node.type_comment,
+                node.decorator_list,
+                node.args,
+                node.returns,
+                node.body,
+            )
+            yield res
+        else:
+            assert node._fields == (
+                "name",
+                "args",
+                "body",
+                "decorator_list",
+                "returns",
+                "type_comment",
+                "type_params"
+            ), node._fields
+            res = (
+                node.type_comment,
+                node.decorator_list,
+                node.args,
+                node.returns,
+                node.body,
+                node.type_params
+            )
+            yield res
+
+
         # node.name is a string, not an AST node
     elif isinstance(node, ast.arguments):
         assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
@@ -156,8 +181,12 @@ def _iter_child_nodes_in_order_internal_1(node):
                       [(k.lineno,k.col_offset, k) for k in node.args])
         yield [a[2] for a in args]
     elif isinstance(node, ast.ClassDef):
-        assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list')
-        yield node.decorator_list, node.bases, node.body
+        if sys.version_info > (3, 12):
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'), node._fields
+            yield node.decorator_list, node.bases, node.body, node.type_params
+        else:
+            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list'), node._fields
+            yield node.decorator_list, node.bases, node.body
         # node.name is a string, not an AST node
     elif isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
@@ -1285,8 +1314,7 @@ class PythonBlock:
                 continue
             # If the first body item is a literal string, then yield the node.
             if (isinstance(node.body[0], ast.Expr) and
-                # TODO: sys.version_info >= (3,14)
-                isinstance(node.body[0].value, ast.Str)):
+                _is_ast_str(node.body[0].value)):
                 yield node.body[0].value
             for i in range(1, len(node.body)-1):
                 # If a body item is an assignment and the next one is a
@@ -1294,8 +1322,7 @@ class PythonBlock:
                 n1, n2 = node.body[i], node.body[i+1]
                 if (isinstance(n1, ast.Assign) and
                     isinstance(n2, ast.Expr) and
-                    # TODO: sys.version_info >= (3,14)
-                    isinstance(n2.value, ast.Str)):
+                    _is_ast_str(n2.value)):
                     yield n2.value
 
     def get_doctests(self):
@@ -1314,9 +1341,15 @@ class PythonBlock:
         flags = self.flags
         for ast_node in self._get_docstring_nodes():
             try:
-                examples = parser.get_examples(ast_node.s)
+                if sys.version_info >= (3, 10):
+                    examples = parser.get_examples(ast_node.value)
+                else:
+                    examples = parser.get_examples(ast_node.s)
             except Exception:
-                blob = ast_node.s
+                if sys.version_info >= (3, 10):
+                    blob = ast_node.s
+                else:
+                    blob = ast_node.value
                 if len(blob) > 60:
                     blob = blob[:60] + '...'
                 # TODO: let caller decide how to handle
