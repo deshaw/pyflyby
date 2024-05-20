@@ -3,28 +3,40 @@
 # License: MIT http://opensource.org/licenses/MIT
 from __future__ import annotations, print_function
 
-
 import ast
+from   ast                      import AsyncFunctionDef, TypeIgnore
+
 from   collections              import namedtuple
 from   doctest                  import DocTestParser
 from   functools                import total_ordering
 from   itertools                import groupby
-import re
-import sys
-from   textwrap                 import dedent
-import types
-from typing import Any, List, Optional, Tuple, Union, cast
-import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
-
-from ast import AsyncFunctionDef, TypeIgnore
+import re
+import sys
+from   textwrap                 import dedent
+import types
+from   typing                   import Any, List, Optional, Tuple, Union, cast
+import warnings
 
 _sentinel = object()
+
+if sys.version_info < (3, 10):
+
+    class MatchAs:
+        name: str
+        pattern: ast.AST
+
+    class MatchMapping:
+        keys: List[ast.AST]
+        patterns: List[MatchAs]
+
+else:
+    from ast import MatchAs, MatchMapping
 
 
 def _is_comment_or_blank(line, /):
@@ -162,6 +174,12 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
         yield node.value,
+    elif isinstance(node, MatchAs):
+        yield node.pattern
+        yield node.name,
+    elif isinstance(node, MatchMapping):
+        for k, p in zip(node.keys, node.patterns):
+            yield k, p
     else:
         # Default behavior.
         yield ast.iter_child_nodes(node)
@@ -432,8 +450,6 @@ def _annotate_ast_startpos(
         # the beginning of the line.
         # In Python 3, the col_offset for the with is 0 again.
         aast_node.startpos = startpos
-        if sys.version_info <= (3, 8):
-            aast_node.startpos = max(startpos, minpos)
         return False
 
     assert aast_node.col_offset == -1

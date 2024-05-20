@@ -555,24 +555,79 @@ def test_PythonBlock_flags_type_comment_fail_transform():
     assert s.output() == block
 
 
-examples_transform = ["""
-    a = None # type: ignore
-    """]
+examples_transform = [
+    dedent(x)
+    for x in [
+        """
+        a = None # type: ignore
+        """,
+        """
+        class A:
+            async def func(self, location: str) -> bytes:
+                async with aiofiles.open(location, "rb") as file:
+                    return await file.read()
+        """,
+        # positional only
+        """
+        def f(x, y=None, / , z=None):
+             pass
+        """,
+    ]
+]
 
-examples_transform.append(
-"""
-class A:
-    async def func(self, location: str) -> bytes:
-        async with aiofiles.open(location, "rb") as file:
-            return await file.read()
-    """
-        )
+if sys.version_info >= (3, 10):
+    examples_transform.extend(
+        [
+            dedent(x)
+            for x in [
+                """
+            match { "foo": 1, "bar": 2 }:
+                case {
+                    "foo": foo,
+                    "bar": bar,
+                    **rest,
+                }:
+                    pass
+                case _:
+                    pass
+            """,
+            """
+            match event.get():
+                case Click(position=(x, y)):
+                    handle_click_at(x, y)
+                case KeyPress(key_name="Q") | Quit():
+                    game.quit()
+                case KeyPress(key_name="up arrow"):
+                    game.go_north()
+                case KeyPress():
+                    pass # Ignore other keystrokes
+                case other_event:
+                    raise ValueError(f"Unrecognized event: {other_event}")
+            """,
+            """
+            match event.get():
+                case Click((x, y), button=Button.LEFT):  # This is a left click
+                    handle_click_at(x, y)
+                case Click():
+                    pass  # ignore other clicks
+            """,
+            """
+            def http_error(status):
+                match status:
+                    case 400:
+                        return "Bad request"
+                    case 404:
+                        return "Not found"
+                    case 418:
+                        return "I'm a teapot"
+                    case 500 | 501 | 502:
+                        return "I'm a teapot"
+                    case _:
+                        return "Something's wrong with the Internet"
 
-examples_transform.append(
-# positional only
-"""
-def f(x, y=None, / , z=None):
-     pass"""
+            """
+            ]
+        ]
     )
 
 
@@ -583,8 +638,7 @@ def test_PythonBlock_flags_type_comment_ignore_fails_transform(source):
 
     Type: ignore are custom ast.AST who have no col_offset.
     """
-    block = PythonBlock(
-    dedent(source))
+    block = PythonBlock(dedent(source))
     s = SourceToSourceFileImportsTransformation(block)
     assert s.output() == block
 
