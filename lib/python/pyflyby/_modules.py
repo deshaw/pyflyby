@@ -13,7 +13,7 @@ import re
 from   six                      import reraise
 import sys
 import types
-from typing                     import Dict, Any
+from   typing                   import Any, Dict
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier

@@ -12,7 +12,7 @@ from   six                      import reraise
 import sys
 import types
 
-from collections.abc import Sequence
+from   collections.abc          import Sequence
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -22,9 +22,10 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import PythonBlock, infer_compile_mode, _is_ast_str
+from   pyflyby._parse           import (PythonBlock, _is_ast_str,
+                                        infer_compile_mode)
 
-from   typing                   import Set, Any
+from   typing                   import Any, Set
 
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
@@ -37,7 +38,7 @@ else:
     LOAD_SHIFT = 0
 
 
-if sys.version_info >= (3,10):
+if sys.version_info >= (3, 10):
     from types import NoneType, EllipsisType
 else:
     NoneType = type(None)

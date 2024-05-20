@@ -12,8 +12,8 @@ import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
-from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
+from   pyflyby._parse           import PythonBlock, PythonStatement
 
 
 if sys.version_info < (3, 8, 3):

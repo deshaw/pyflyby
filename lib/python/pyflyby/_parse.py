@@ -13,7 +13,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from typing import Any, List, Optional, Tuple, Union, cast
+from   typing                   import Any, List, Optional, Tuple, Union, cast
 import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
@@ -22,7 +22,7 @@ from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
 
-from ast import AsyncFunctionDef, TypeIgnore
+from   ast                      import AsyncFunctionDef, TypeIgnore
 
 _sentinel = object()
 
