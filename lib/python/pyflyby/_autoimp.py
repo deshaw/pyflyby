@@ -6,13 +6,9 @@
 
 import ast
 import builtins
+from   collections.abc          import Sequence
 import contextlib
 import copy
-from   six                      import reraise
-import sys
-import types
-
-from   collections.abc          import Sequence
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -25,6 +21,9 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (PythonBlock, _is_ast_str,
                                         infer_compile_mode)
 
+from   six                      import reraise
+import sys
+import types
 from   typing                   import Any, Set
 
 if sys.version_info >= (3, 12):

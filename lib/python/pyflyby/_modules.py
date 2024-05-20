@@ -9,11 +9,6 @@ import ast
 from   functools                import total_ordering
 import itertools
 import os
-import re
-from   six                      import reraise
-import sys
-import types
-from   typing                   import Any, Dict
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
@@ -22,7 +17,11 @@ from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
                                         cached_attribute, cmp, memoize,
                                         prefixes)
 
-
+import re
+from   six                      import reraise
+import sys
+import types
+from   typing                   import Any, Dict
 
 class ErrorDuringImportError(ImportError):
     """

@@ -3,26 +3,25 @@
 # License: MIT http://opensource.org/licenses/MIT
 from __future__ import annotations, print_function
 
-
 import ast
+from   ast                      import AsyncFunctionDef, TypeIgnore
+
 from   collections              import namedtuple
 from   doctest                  import DocTestParser
 from   functools                import total_ordering
 from   itertools                import groupby
-import re
-import sys
-from   textwrap                 import dedent
-import types
-from   typing                   import Any, List, Optional, Tuple, Union, cast
-import warnings
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, cmp
 
-
-from   ast                      import AsyncFunctionDef, TypeIgnore
+import re
+import sys
+from   textwrap                 import dedent
+import types
+from   typing                   import Any, List, Optional, Tuple, Union, cast
+import warnings
 
 _sentinel = object()
 
