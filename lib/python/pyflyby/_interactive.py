@@ -15,11 +15,14 @@ import re
 import subprocess
 import sys
 
+from typing import List, Any, Dict
+
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
                                         clear_failed_imports_cache,
                                         load_symbol)
+from   pyflyby._dynimp          import inject as inject_dynamic_import
 from   pyflyby._comms           import (initialize_comms, remove_comms,
                                         send_comm_message, MISSING_IMPORTS)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
@@ -1368,19 +1371,29 @@ def UpdateIPythonStdioCtx():
 
 
 
-class _EnableState(object):
+class _EnableState:
     DISABLING = "DISABLING"
     DISABLED  = "DISABLED"
     ENABLING  = "ENABLING"
     ENABLED   = "ENABLED"
 
 
-class AutoImporter(object):
+class AutoImporter:
     """
     Auto importer enable state.
 
     The state is attached to an IPython "application".
     """
+
+    db: ImportDB
+    app: Any
+    _state: _EnableState
+    _disablers: List[Any]
+
+    _errored: bool
+    _ip: Any
+    _ast_transformer: Any
+    _autoimported_this_cell: Dict[Any, Any]
 
     def __new__(cls, arg=Ellipsis):
         """
@@ -1418,7 +1431,7 @@ class AutoImporter(object):
             raise TypeError("AutoImporter(): unexpected %s" % (clsname,))
 
     @classmethod
-    def _from_app(cls, app):
+    def _from_app(cls, app) -> 'AutoImporter':
         subapp = getattr(app, "subapp", None)
         if subapp is not None:
             app = subapp
@@ -1432,6 +1445,7 @@ class AutoImporter(object):
         # Create a new instance and assign to the app.
         self = cls._construct(app)
         app.auto_importer = self
+        self.db = ImportDB("")
         return self
 
     @classmethod
@@ -2464,7 +2478,8 @@ class AutoImporter(object):
             send_comm_message(MISSING_IMPORTS, {"missing_imports": str(imp)})
 
         return self._safe_call(
-            auto_import, arg, namespaces,
+            auto_import, arg=arg, namespaces=namespaces,
+            extra_db=self.db,
             autoimported=self._autoimported_this_cell,
             raise_on_error=raise_on_error, on_error=on_error,
             post_import_hook=post_import_hook)
@@ -2567,6 +2582,8 @@ def load_ipython_extension(arg=Ellipsis):
                  os.path.dirname(__file__))
     # Turn on the auto-importer.
     auto_importer = AutoImporter(arg)
+    if arg is not Ellipsis:
+        arg._auto_importer = auto_importer
     auto_importer.enable(even_if_previously_errored=True)
     # Clear ImportDB cache.
     ImportDB.clear_default_cache()
@@ -2584,6 +2601,7 @@ def load_ipython_extension(arg=Ellipsis):
     enable_signal_handler_debugger()
     enable_sigterm_handler(on_existing_handler='keep_existing')
     add_debug_functions_to_builtins()
+    inject_dynamic_import()
     initialize_comms()
 
 
