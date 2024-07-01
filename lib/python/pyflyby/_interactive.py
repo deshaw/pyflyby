@@ -1517,7 +1517,6 @@ class AutoImporter(object):
             self.app = app
         logger.debug("app = %r", app)
         ok = True
-        ok &= self._enable_ipython_bugfixes()
         ok &= self._enable_initializer_hooks(app)
         ok &= self._enable_kernel_manager_hook(app)
         ok &= self._enable_shell_hooks(app)
@@ -1681,67 +1680,6 @@ class AutoImporter(object):
                 finally:
                     format_kernel_cmd_with_autoimport.unadvise()
             return True
-        try:
-            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
-            # 3.2.
-            from IPython.kernel.manager import KernelManager as IPythonKernelManager
-        except ImportError:
-            pass
-        else:
-            @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport_ipython(*args, **kwargs):
-                logger.debug("start_kernel()")
-                # Advise format_kernel_cmd(), which is the function that
-                # computes the command line for a subprocess to run a new
-                # kernel.  Note that we advise the method on the class, rather
-                # than this instance of kernel_manager, because start_kernel()
-                # actually creates a *new* KernelInstance for this.
-                @advise(IPythonKernelManager.format_kernel_cmd)
-                def format_kernel_cmd_with_autoimport(*args, **kwargs):
-                    result = __original__(*args, **kwargs)
-                    logger.debug("intercepting format_kernel_cmd(): orig = %r", result)
-                    if result[1:3] in [
-                            # IPython 3.x
-                            ['-m', 'IPython.kernel'],
-                            # IPython 1.x, 2.x
-                            ['-c', 'from IPython.kernel.zmq.kernelapp import main; main()'],
-                    ]:
-                        result[1:3] = new_cmd
-                        logger.debug("intercepting format_kernel_cmd(): new = %r", result)
-                        return result
-                    else:
-                        logger.debug("intercepting format_kernel_cmd(): unexpected output; not modifying it")
-                        return result
-                try:
-                    return __original__(*args, **kwargs)
-                finally:
-                    format_kernel_cmd_with_autoimport.unadvise()
-            return True
-        # Tested with IPython 0.12, 0.13
-        try:
-            import IPython.zmq.ipkernel
-        except ImportError:
-            pass
-        else:
-            @self._advise(kernel_manager.start_kernel)
-            def start_kernel_with_autoimport013(*args, **kwargs):
-                logger.debug("start_kernel()")
-                @advise((IPython.zmq.ipkernel, 'base_launch_kernel'))
-                def base_launch_kernel_with_autoimport(cmd, *args, **kwargs):
-                    logger.debug("base_launch_kernel()")
-                    expected_cmd = 'from IPython.zmq.ipkernel import main; main()'
-                    if cmd != expected_cmd:
-                        logger.debug("unexpected command, not modifying it: %r", cmd)
-                    else:
-                        cmd = (
-                            'from pyflyby._interactive import start_ipython_kernel_with_autoimporter; '
-                            'start_ipython_kernel_with_autoimporter()')
-                    return __original__(cmd, *args, **kwargs)
-                try:
-                    return __original__(*args, **kwargs)
-                finally:
-                    base_launch_kernel_with_autoimport.unadvise()
-            return True
         logger.debug("Couldn't enable start_kernel hook")
         return False
 
@@ -1883,14 +1821,6 @@ class AutoImporter(object):
             @self._advise(ip.input_splitter.reset)
             def reset_input_splitter_and_autoimporter_state():
                 logger.debug("reset_input_splitter_and_autoimporter_state()")
-                self.reset_state_new_cell()
-                return __original__()
-            return True
-        elif hasattr(ip, "resetbuffer"):
-            # Tested with IPython 0.10.
-            @self._advise(ip.resetbuffer)
-            def resetbuffer_and_autoimporter_state():
-                logger.debug("resetbuffer_and_autoimporter_state")
                 self.reset_state_new_cell()
                 return __original__()
             return True
@@ -2045,15 +1975,6 @@ class AutoImporter(object):
                     __original__, compile=self.compile_with_autoimport)
                 return wrapped(*args, **kwargs)
             return True
-        elif hasattr(ip, 'magic_time'):
-            # Tested with IPython 0.10, 0.11, 0.12
-            @self._advise(ip.magic_time)
-            def magic_time_with_autoimport(*args, **kwargs):
-                logger.debug("time_with_autoimport()")
-                wrapped = FunctionWithGlobals(
-                    __original__, compile=self.compile_with_autoimport)
-                return wrapped(*args, **kwargs)
-            return True
         else:
             logger.debug("Couldn't enable time hook")
             return False
@@ -2074,15 +1995,6 @@ class AutoImporter(object):
             line_magics = ip.magics_manager.magics['line']
             @self._advise((line_magics, 'timeit'))
             def timeit_with_autoimport(*args, **kwargs):
-                logger.debug("timeit_with_autoimport()")
-                wrapped = FunctionWithGlobals(
-                    __original__, compile=self.compile_with_autoimport)
-                return wrapped(*args, **kwargs)
-            return True
-        elif hasattr(ip, 'magic_timeit'):
-            # Tested with IPython 0.10, 0.11, 0.12
-            @self._advise(ip.magic_timeit)
-            def magic_timeit_with_autoimport(*args, **kwargs):
                 logger.debug("timeit_with_autoimport()")
                 wrapped = FunctionWithGlobals(
                     __original__, compile=self.compile_with_autoimport)
@@ -2126,24 +2038,6 @@ class AutoImporter(object):
                         __original__, profile=ProfileFactory_with_autoimport())
                     return wrapped(*args, **kwargs)
                 return True
-        elif hasattr(ip, "magic_prun"):
-            # Tested with IPython 0.10, 0.11, 0.12.
-            class ProfileFactory_with_autoimport(object):
-                def Profile(self_, *args):
-                    import profile
-                    p = profile.Profile()
-                    @advise(p.runctx)
-                    def runctx_with_autoimport(cmd, globals, locals):
-                        self.auto_import(cmd, [globals, locals])
-                        return __original__(cmd, globals, locals)
-                    return p
-            @self._advise(ip.magic_prun)
-            def magic_prun_with_autoimport(*args, **kwargs):
-                logger.debug("magic_prun_with_autoimport()")
-                wrapped = FunctionWithGlobals(
-                    __original__, profile=ProfileFactory_with_autoimport())
-                return wrapped(*args, **kwargs)
-            return True
         else:
             logger.debug("Couldn't enable prun hook")
             return False
@@ -2333,41 +2227,6 @@ class AutoImporter(object):
         # because it uses Unicode for the module name.  This is a bug in
         # IPython itself ("run -n" is plain broken for ipython-2.x on
         # python-2.x); we patch it here.
-        return True
-
-    def _enable_ipython_bugfixes(self):
-        """
-        Enable some advice that's actually just fixing bugs in IPython.
-        """
-        ok = True
-        ok &= self._enable_ipython_bugfixes_LevelFormatter()
-        return ok
-
-    def _enable_ipython_bugfixes_LevelFormatter(self):
-        # New versions of IPython complain if you import 'IPython.config'.
-        # Old versions of IPython already have it imported.
-        if 'IPython.config' not in sys.modules:
-            return True
-        try:
-            from IPython.config.application import LevelFormatter
-        except ImportError:
-            return True
-        if (not issubclass(LevelFormatter, object) and
-            "super" in LevelFormatter.format.__func__.__code__.co_names and
-            "logging" not in LevelFormatter.format.__func__.__code__.co_names):
-            # In IPython 1.0, LevelFormatter uses super(), which assumes
-            # that logging.Formatter is a subclass of object.  However,
-            # this is only true in Python 2.7+, not in Python 2.6.  So
-            # Python 2.6 + IPython 1.0 causes problems.  IPython 1.2
-            # already includes this fix.
-            from logging import Formatter
-            @self._advise(LevelFormatter.format)
-            def format_patched(self, record):
-                if record.levelno >= self.highlevel_limit:
-                    record.highlevel = self.highlevel_format % record.__dict__
-                else:
-                    record.highlevel = ""
-                return Formatter.format(self, record)
         return True
 
     def disable(self):
