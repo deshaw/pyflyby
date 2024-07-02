@@ -81,6 +81,36 @@ or
    [PYFLYBY] from base64 import b64decode
    Out[1]: 'hello'
 
+Auto importer lazy variables
+----------------------------
+
+It is possible to use the autoimporter to lazily define variables.
+
+To use, put the following in your IPython startup files
+(``~/.ipython/profile_default/startup/autoimp.py``), or in your IPython
+configuration file:
+
+.. code:: python
+
+   
+    from pyflyby import add_import
+
+    add_import("foo", "foo = 1")
+
+    add_import(
+        "df, data as dd",
+        '''
+        import pandas as pd
+        data = [1,2,3]
+        df =  pd.DataFrame(data)
+    ''')
+
+
+You can add the keyword ``strict=False`` to not fail if not in IPython or of the
+pyflyby extensions is not loaded.
+
+
+
 
 Quick start: ``py`` command-line multi-tool
 ===========================================

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-
+import sys
 
 from   collections              import defaultdict
 from   functools                import total_ordering
@@ -18,8 +18,18 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from   typing                   import (ClassVar, Dict, FrozenSet, List,
-                                        Sequence, Union)
+from typing import (
+    ClassVar,
+    Dict,
+    FrozenSet,
+    Sequence,
+    Union,
+)
+
+if sys.version_info < (3, 12):
+    from typing_extensions          import Self
+else:
+    from typing import Self
 
 
 class NoSuchImportError(ValueError):
@@ -30,7 +40,7 @@ class ConflictingImportsError(ValueError):
     pass
 
 @total_ordering
-class ImportSet(object):
+class ImportSet:
     r"""
     Representation of a set of imports organized into import statements.
 
@@ -49,8 +59,8 @@ class ImportSet(object):
     An ``ImportSet`` is an immutable data structure.
     """
 
-    _EMPTY : ClassVar[ImportSet]
-    _importset : FrozenSet[Import]
+    _EMPTY: ClassVar[ImportSet]
+    _importset: FrozenSet[Import]
 
     def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
         """
@@ -80,8 +90,11 @@ class ImportSet(object):
             ignore_nonimports=ignore_nonimports,
             ignore_shadowed=ignore_shadowed)
 
+    def __or__(self: Self, other: Self) -> Self:
+        return type(self)._from_imports(list(self._importset | other._importset))
+
     @classmethod
-    def _from_imports(cls, imports:List[Import], ignore_shadowed:bool=False):
+    def _from_imports(cls, imports: Sequence[Import], ignore_shadowed: bool = False):
         """
         :type imports:
           Sequence of `Import` s
@@ -114,7 +127,7 @@ class ImportSet(object):
         return self
 
     @classmethod
-    def _from_args(cls, args, ignore_nonimports:bool=False, ignore_shadowed=False):
+    def _from_args(cls, args, ignore_nonimports:bool=False, ignore_shadowed=False) -> Self:
         """
         :type args:
           ``tuple`` or ``list`` of `ImportStatement` s, `PythonStatement` s,
@@ -133,7 +146,7 @@ class ImportSet(object):
         # more often.
         args = [a for a in args if a]
         if not args:
-            return cls._EMPTY
+            return cls._EMPTY  # type: ignore[return-value]
         # If we only got one ``ImportSet``, just return it.
         if len(args) == 1 and type(args[0]) is cls and not ignore_shadowed:
             return args[0]
@@ -543,9 +556,12 @@ class ImportMap(object):
             if not len(arg):
                 return cls._EMPTY
             return cls._from_map(arg)
-        else:
-            raise TypeError("ImportMap: expected a dict, not a %s"
-                            % (type(arg).__name__,))
+        raise TypeError("ImportMap: expected a dict, not a %s" % (type(arg).__name__,))
+
+    def __or__(self, other):
+        assert isinstance(other, ImportMap)
+        assert set(self._data.keys()).intersection(other._data.keys()) == set(), set(self._data.keys()).intersection(other._data.keys())
+        return self._merge([self, other])
 
     @classmethod
     def _from_map(cls, arg):
@@ -562,8 +578,8 @@ class ImportMap(object):
         if not maps:
             return cls._EMPTY
         data = {}
-        for map in maps:
-            data.update(map._data)
+        for map_ in maps:
+            data.update(map_._data)
         return cls(data)
 
     def __getitem__(self, k):

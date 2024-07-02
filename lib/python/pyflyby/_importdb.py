@@ -7,6 +7,10 @@
 from   collections              import defaultdict
 import os
 import re
+import sys
+
+from   typing                   import Dict, Any, Tuple
+
 
 from   pyflyby._file            import Filename, expand_py_files_from_args, UnsafeFilenameError
 from   pyflyby._idents          import dotted_prefixes
@@ -16,7 +20,10 @@ from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
-from   typing                   import Dict, Any
+if sys.version_info <= (3, 12):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
 
 @memoize
@@ -171,7 +178,7 @@ def _expand_tripledots(pathnames, target_dirname):
     return result
 
 
-class ImportDB(object):
+class ImportDB:
     """
     A database of known, mandatory, canonical imports.
 
@@ -186,6 +193,11 @@ class ImportDB(object):
       canonical_imports.
     """
 
+    forget_imports   : ImportSet
+    known_imports    : ImportSet
+    mandatory_imports: ImportSet
+    canonical_imports: ImportMap
+
     def __new__(cls, *args):
         if len(args) != 1:
             raise TypeError
@@ -196,6 +208,7 @@ class ImportDB(object):
             return cls._from_data(arg, [], [], [])
         return cls._from_args(arg) # PythonBlock, Filename, etc
 
+    
 
     _default_cache: Dict[Any, Any] = {}
 
@@ -366,6 +379,16 @@ class ImportDB(object):
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
 
+    def __or__(self, other:'Self') -> 'Self':
+        assert isinstance(other, ImportDB)
+        return self._from_data(
+                known_imports = self.known_imports | other.known_imports,
+                mandatory_imports = self.mandatory_imports | other.mandatory_imports,
+                canonical_imports = self.canonical_imports | other.canonical_imports,
+                forget_imports = self.forget_imports | other.forget_imports
+                )
+
+
     @classmethod
     def _from_args(cls, args):
         # TODO: support merging input ImportDBs.  For now we support
@@ -531,7 +554,7 @@ class ImportDB(object):
         return ImportMap(arg)
 
     @cached_attribute
-    def by_fullname_or_import_as(self):
+    def by_fullname_or_import_as(self) -> Dict[str, Tuple[Import, ...]]:
         """
         Map from ``fullname`` and ``import_as`` to `Import` s.
 

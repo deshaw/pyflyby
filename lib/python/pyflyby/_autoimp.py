@@ -1860,7 +1860,7 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
     return True
 
 
-def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=None):
+def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=None, *, extra_db=None):
     """
     Parse ``arg`` for symbols that need to be imported and automatically import
     them.
@@ -1914,6 +1914,8 @@ def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=No
     if autoimported is None:
         autoimported = {}
     db = ImportDB.interpret_arg(db, target_filename=filename)
+    if extra_db:
+        db = db|extra_db
     ok = True
     for fullname in fullnames:
         ok &= auto_import_symbol(fullname, namespaces, db, autoimported, post_import_hook=post_import_hook)

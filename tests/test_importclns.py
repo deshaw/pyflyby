@@ -241,3 +241,9 @@ def test_ImportSet_without_imports_star_dot_1():
 def test_ImportMap_1():
     importmap = ImportMap({'a.b': 'aa.bb', 'a.b.c': 'aa.bb.cc'})
     assert importmap['a.b'] == 'aa.bb'
+
+def test_ImportSet_union():
+    a = ImportSet('from numpy import einsum, cos')
+    b = ImportSet('from numpy import sin, cos')
+    c = ImportSet('from numpy import einsum, sin, cos')
+    assert a|b == c
