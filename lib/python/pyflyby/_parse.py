@@ -208,6 +208,7 @@ def _iter_child_nodes_in_order_internal_1(node):
         yield node.name,
     elif isinstance(node, MatchMapping):
         for k, p in zip(node.keys, node.patterns):
+            pass
             yield k, p
     else:
         # Default behavior.

@@ -624,7 +624,18 @@ if sys.version_info >= (3, 10):
                     case _:
                         return "Something's wrong with the Internet"
 
-            """
+            """,
+                """
+            match {"foo": 1, "bar": 2}:
+                case {
+                    "foo": foo,
+                    "bar": bar,
+                    **rest,
+                }:
+                    print(foo)
+                case _:
+                    pass
+            """,
             ]
         ]
     )

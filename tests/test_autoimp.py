@@ -479,7 +479,7 @@ def test_find_missing_imports_class_name_2():
     assert expected == result
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True)
 def test_find_missing_import_xfail_after_pr_152():
     code = dedent(
         """
@@ -538,7 +538,8 @@ def test_annotation_inside_class():
 
 
 @pytest.mark.xfail(
-    reason="Had to deactivate as part of https://github.com/deshaw/pyflyby/pull/269/files conflicting requirements"
+    reason="Had to deactivate as part of https://github.com/deshaw/pyflyby/pull/269/files conflicting requirements",
+    strict=True,
 )
 def test_find_missing_imports_class_name_1():
     code = dedent(
@@ -1146,6 +1147,48 @@ def test_find_missing_imports_true_false_none_1():
     assert expected == result
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
+def test_find_missing_imports_pattern_match_1():
+    code = dedent("""
+    match {"foo": 1, "bar": 2}:
+        case {
+            "foo": the_foo_value,
+            "bar": the_bar_value,
+            **rest,
+        }:
+            print(the_foo_value)
+        case _:
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+@pytest.mark.xfail(reason='''The way the scope work in pyflyby it is hard to define a variable...
+            only in one case I believe. We would need a scope stack in `def
+            visit_match_case`, but that would remove the variable definition
+            when leaving the match statement.
+                   ''',strict=True)
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
+def test_find_missing_imports_pattern_match_2():
+    code = dedent("""
+    match {"foo": 1, "bar": 2}:
+        case {
+            "foo": the_foo_value,
+            "bar": the_bar_value,
+            **rest,
+        }:
+            print(the_foo_value)
+        case _:
+            print('here the_x_value might be unknown', the_foo_value)
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = [DottedIdentifier('the_foo_value')]
+    assert expected == result
+
+
 def test_find_missing_imports_matmul_1():
     code = dedent("""
     a@b
@@ -1572,7 +1615,7 @@ def test_scan_for_import_issues_comprehension_attribute_1():
     assert unused == []
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True)
 def test_scan_for_import_issues_comprehension_attribute_missing_1():
     code = dedent("""
         [123 for xx.yy in []]
