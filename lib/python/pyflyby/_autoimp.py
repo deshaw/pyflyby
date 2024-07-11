@@ -19,7 +19,7 @@ from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (PythonBlock, _is_ast_str,
-                                        infer_compile_mode)
+                                        infer_compile_mode, MatchAs)
 
 from   six                      import reraise
 import sys
@@ -491,8 +491,11 @@ class _MissingImportFinder(object):
                 logger.debug(
                     "_MissingImportFinder has no method %r, using generic_visit", method
                 )
-
-            visitor = getattr(self, method, self.generic_visit)
+            if hasattr(self, method):
+                visitor = getattr(self, method)
+            else:
+                logger.debug("No method `%s`, using `generic_visit`", method)
+                visitor = self.generic_visit
             return visitor(node)
         else:
             raise TypeError("unexpected %s" % (type(node).__name__,))
@@ -827,6 +830,47 @@ class _MissingImportFinder(object):
         self._visit_StoreImport(node, modulename)
         self.generic_visit(node)
 
+    if sys.version_info >= (3,10):
+        def visit_match_case(self, node:ast.match_case):
+            logger.debug("visit_match_case(%r)", node)
+            return self.generic_visit(node)
+
+        def visit_Match(self, node:ast.Match):
+            logger.debug("visit_Match(%r)", node)
+            return self.generic_visit(node)
+
+        def visit_MatchMapping(self, node:ast.MatchMapping):
+            logger.debug("visit_MatchMapping(%r)", node)
+            return self.generic_visit(node)
+
+        def visit_MatchAs(self, node:MatchAs):
+            logger.debug("visit_MatchAs(%r)", node)
+            if node.name is None:
+                return
+            isinstance(node.name, str), node.name
+            return self._visit_Store(node.name)
+
+    def visit_Call(self, node:ast.Call):
+        logger.debug("visit_Call(%r)", node)
+        return self.generic_visit(node)
+
+    def visit_Pass(self, node:ast.Pass):
+        logger.debug("visit_Pass(%r)", node)
+        return self.generic_visit(node)
+
+    def visit_Constant(self, node:ast.Constant):
+        logger.debug("visit_Constant(%r)", node)
+        return self.generic_visit(node)
+
+    def visit_Module(self, node:ast.Module):
+        logger.debug("visit_Module(%r)", node)
+        return self.generic_visit(node)
+
+    def visit_Expr(self, node:ast.Expr):
+        logger.debug("visit_Expr(%r)", node)
+        return self.generic_visit(node)
+
+
     def visit_Name(self, node):
         logger.debug("visit_Name(%r)", node.id)
         self._visit_fullname(node.id, node.ctx)
@@ -884,7 +928,7 @@ class _MissingImportFinder(object):
             value = _UseChecker(name, imp, self._lineno)
         self._visit_Store(name, value)
 
-    def _visit_Store(self, fullname, value=None):
+    def _visit_Store(self, fullname:str, value=None):
         logger.debug("_visit_Store(%r)", fullname)
         if fullname is None:
             return
