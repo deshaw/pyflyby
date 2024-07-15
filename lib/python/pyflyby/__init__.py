@@ -6,6 +6,7 @@
 
 from   pyflyby._autoimp         import (auto_eval, auto_import,
                                         find_missing_imports)
+from   pyflyby._dynimp          import add_import
 from   pyflyby._dbg             import (add_debug_functions_to_builtins,
                                         attach_debugger, debug_on_exception,
                                         debug_statement, debugger,
