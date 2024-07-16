@@ -9,10 +9,10 @@ import os
 import re
 import sys
 
-from   typing                   import Dict, Any, Tuple
+from   typing                   import Any, Dict, Tuple, Union, List
 
-
-from   pyflyby._file            import Filename, expand_py_files_from_args, UnsafeFilenameError
+from   pyflyby._file            import (Filename, UnsafeFilenameError,
+                                        expand_py_files_from_args)
 from   pyflyby._idents          import dotted_prefixes
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importstmt      import Import, ImportStatement
@@ -90,8 +90,11 @@ def _get_python_path(env_var_name, default_path, target_dirname):
             .format(env_var_name=env_var_name, p=p))
     pathnames = [os.path.expanduser(p) for p in pathnames]
     pathnames = _expand_tripledots(pathnames, target_dirname)
-    pathnames = [Filename(fn) for fn in pathnames]
+    for fn in pathnames:
+        assert isinstance(fn, Filename)
     pathnames = stable_unique(pathnames)
+    for p in pathnames:
+        assert isinstance(p, Filename)
     pathnames = expand_py_files_from_args(pathnames)
     if not pathnames:
         logger.warning(
@@ -103,8 +106,8 @@ def _get_python_path(env_var_name, default_path, target_dirname):
 # TODO: stop memoizing here after using StatCache.  Actually just inline into
 # _ancestors_on_same_partition
 @memoize
-def _get_st_dev(filename):
-    filename = Filename(filename)
+def _get_st_dev(filename: Filename):
+    assert isinstance(filename, Filename)
     try:
         return os.stat(str(filename)).st_dev
     except OSError:
@@ -159,7 +162,7 @@ def _expand_tripledots(pathnames, target_dirname):
     :rtype:
       ``list`` of `Filename`
     """
-    target_dirname = Filename(target_dirname)
+    assert isinstance(target_dirname, Filename)
     if not isinstance(pathnames, (tuple, list)):
         pathnames = [pathnames]
     result = []
@@ -238,7 +241,7 @@ class ImportDB:
             cls._default_cache.clear()
 
     @classmethod
-    def get_default(cls, target_filename):
+    def get_default(cls, target_filename: Union[Filename, str]):
         """
         Return the default import library for the given target filename.
 
@@ -263,11 +266,15 @@ class ImportDB:
         # TODO: Consider refreshing periodically.  Check if files have
         # been touched, and if so, return new data.  Check file timestamps at
         # most once every 60 seconds.
-        cache_keys = []
-        target_filename = Filename(target_filename or ".")
+        cache_keys:List[Tuple[Any,...]] = []
+        if target_filename:
+            if isinstance(target_filename, str):
+                target_filename = Filename(target_filename)
+        target_filename = target_filename or Filename(".")
+        assert isinstance(target_filename, Filename)
         if target_filename.startswith("/dev"):
             target_filename = Filename(".")
-        target_dirname = target_filename
+        target_dirname:Filename = target_filename
         # TODO: with StatCache
         while True:
             cache_keys.append((1,
@@ -493,8 +500,11 @@ class ImportDB:
           `ImportDB`
         """
         if not isinstance(filenames, (tuple, list)):
+            # TODO DeprecationWarning July 2024,
+            # this is internal deprecate not passing a list;
             filenames = [filenames]
-        filenames = [Filename(f) for f in filenames]
+        for f in filenames:
+            assert isinstance(f, Filename)
         logger.debug("ImportDB: loading [%s], mandatory=[%s]",
                      ', '.join(map(str, filenames)),
                      ', '.join(map(str, _mandatory_filenames_deprecated)))

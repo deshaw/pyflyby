@@ -29,6 +29,7 @@ import requests
 import pyflyby
 from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
+from   typing                   import Union
 
 
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
@@ -134,10 +135,9 @@ class _TmpFixture(object):
         return Filename(f)
 
 
-
-def writetext(filename, text, mode='w'):
+def writetext(filename: Filename, text: str, mode: str = "w") -> Filename:
+    assert isinstance(filename, Filename)
     text = dedent(text)
-    filename = Filename(filename)
     with open(str(filename), mode) as f:
         f.write(text)
     return filename
@@ -473,7 +473,7 @@ def _extra_readline_pythonpath_dirs():
     return (dir,)
 
 
-def _build_pythonpath(PYTHONPATH):
+def _build_pythonpath(PYTHONPATH) -> str:
     """
     Build PYTHONPATH value to use.
 
@@ -483,16 +483,22 @@ def _build_pythonpath(PYTHONPATH):
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
     if sys.version_info < (3, 9):
         pypath += _extra_readline_pythonpath_dirs()
-    if isinstance(PYTHONPATH, (Filename, str)):
+    if isinstance(PYTHONPATH, Filename):
+        PYTHONPATH = [str(PYTHONPATH)]
+    if isinstance(PYTHONPATH, str):
         PYTHONPATH = [PYTHONPATH]
+    for p in PYTHONPATH:
+        assert isinstance(p, str)
     PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
     pypath += PYTHONPATH
     pypath += os.environ["PYTHONPATH"].split(":")
     return ":".join(pypath)
 
 
-def _init_ipython_dir(ipython_dir):
-    ipython_dir = Filename(ipython_dir)
+def _init_ipython_dir(ipython_dir: Union[Filename, str]):
+    if isinstance(ipython_dir, str):
+        ipython_dir = Filename(ipython_dir)
+    assert isinstance(ipython_dir, Filename)
     if _IPYTHON_VERSION >= (0, 11):
         os.makedirs(str(ipython_dir/"profile_default"))
         os.makedirs(str(ipython_dir/"profile_default/startup"))
@@ -538,12 +544,14 @@ def _init_ipython_dir(ipython_dir):
         writetext(ipython_dir/"ipy_user_conf.py", "")
 
 
-def _build_ipython_cmd(ipython_dir, prog="ipython", args=[], autocall=False, frontend=None):
+def _build_ipython_cmd(
+    ipython_dir: Filename, prog="ipython", args=[], autocall=False, frontend=None
+):
     """
     Prepare the command to run IPython.
     """
     python = sys.executable
-    ipython_dir = Filename(ipython_dir)
+    assert isinstance(ipython_dir, Filename)
     cmd = [python]
     if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
@@ -834,7 +842,8 @@ def IPythonCtx(prog="ipython",
     __tracebackhide__ = True
     if hasattr(PYFLYBY_PATH, "write"):
         PYFLYBY_PATH = PYFLYBY_PATH.name
-    PYFLYBY_PATH = str(Filename(PYFLYBY_PATH))
+    assert isinstance(PYFLYBY_PATH, Filename)
+    PYFLYBY_PATH = str(PYFLYBY_PATH)
     cleanup_dirs = []
     # Create a temporary directory which we'll use as our IPYTHONDIR.
     if not ipython_dir:
@@ -854,13 +863,16 @@ def IPythonCtx(prog="ipython",
         env = {}
         env["PYFLYBY_PATH"]      = PYFLYBY_PATH
         env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
-        env["PYTHONPATH"]        = _build_pythonpath(PYTHONPATH)
-        env["PYTHONSTARTUP"]     = ""
-        env["MPLCONFIGDIR"]      = mplconfigdir
-        env["PATH"]              = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
-        env["PYTHONBREAKPOINT"]  = "IPython.terminal.debugger.set_trace"
-        cmd = _build_ipython_cmd(ipython_dir, prog, args, autocall=autocall,
-                                 frontend=frontend)
+        env["PYTHONPATH"] = _build_pythonpath(PYTHONPATH)
+        env["PYTHONSTARTUP"] = ""
+        env["MPLCONFIGDIR"] = mplconfigdir
+        env["PATH"] = str(PYFLYBY_BIN.real) + os.path.pathsep + os.environ["PATH"]
+        env["PYTHONBREAKPOINT"] = "IPython.terminal.debugger.set_trace"
+        if isinstance(ipython_dir, str):
+            ipython_dir = Filename(ipython_dir)
+        cmd = _build_ipython_cmd(
+            ipython_dir, prog, args, autocall=autocall, frontend=frontend
+        )
         # Spawn IPython.
         with EnvVarCtx(**env):
             print("# Spawning: %s" % (" ".join(cmd)))

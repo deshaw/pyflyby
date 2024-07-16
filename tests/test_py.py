@@ -14,10 +14,11 @@ import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 
-import pyflyby
 from   pyflyby._file            import Filename
 from   pyflyby._util            import cached_attribute
 
+
+from   tests.test_interactive   import _build_pythonpath
 
 PYFLYBY_HOME = Filename(__file__).real.dir.dir
 BIN_DIR = PYFLYBY_HOME / "bin"
@@ -89,28 +90,15 @@ class _TmpFixture(object):
         return Filename(d).real
 
 
-def _build_pythonpath(PYTHONPATH):
-    """
-    Build PYTHONPATH value to use.
-
-    :rtype:
-      ``str``
-    """
-    pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    if isinstance(PYTHONPATH, (Filename, str)):
-        PYTHONPATH = [PYTHONPATH]
-    PYTHONPATH = [str(Filename(d)) for d in PYTHONPATH]
-    pypath += PYTHONPATH
-    pypath += os.environ["PYTHONPATH"].split(":")
-    return ":".join(pypath)
-
 
 def _py_internal_1(args, stdin="",
                    PYTHONPATH=[],
                    PYFLYBY_PATH=PYFLYBY_PATH):
     env = dict(os.environ)
-    env["PYFLYBY_PATH" ] = str(Filename(PYFLYBY_PATH))
-    env["PYTHONPATH"   ] = _build_pythonpath(PYTHONPATH)
+    if isinstance(PYFLYBY_PATH, str):
+        PYFLYBY_PATH = Filename(PYFLYBY_PATH)
+    env["PYFLYBY_PATH"] = str(PYFLYBY_PATH)
+    env["PYTHONPATH"] = _build_pythonpath(PYTHONPATH)
     env["PYTHONSTARTUP"] = ""
     prog = str(BIN_DIR/"py")
     return pipe((prog,) + args, stdin=stdin, env=env)
@@ -127,7 +115,7 @@ def py(*args, **kwargs):
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
-    filename = Filename(filename)
+    assert isinstance(filename, Filename)
     with open(str(filename), mode) as f:
         f.write(text)
     return filename

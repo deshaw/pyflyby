@@ -35,7 +35,7 @@ def tpp(request):
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
-    filename = Filename(filename)
+    assert isinstance(filename, Filename)
     with open(str(filename), mode) as f:
         f.write(text)
     return filename
