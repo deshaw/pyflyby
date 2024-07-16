@@ -3,14 +3,19 @@
 # License: MIT http://opensource.org/licenses/MIT
 from __future__ import annotations
 
-from   functools                import total_ordering, cached_property
+from   functools                import cached_property, total_ordering
 import io
 import os
 import re
 import sys
-from   typing                   import Optional, Tuple, ClassVar
+from   typing                   import ClassVar, List, Optional, Tuple, Union
 
 from   pyflyby._util            import cmp, memoize
+
+if sys.version_info < (3,10):
+    NoneType = type(None)
+else:
+    from types import NoneType
 
 
 class UnsafeFilenameError(ValueError):
@@ -33,20 +38,23 @@ class Filename(object):
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
-            return arg
+            # TODO make this assert False
+            return cls._from_filename(arg._filename)
         if isinstance(arg, str):
             return cls._from_filename(arg)
         raise TypeError
 
     @classmethod
-    def _from_filename(cls, filename):
+    def _from_filename(cls, filename: str):
         if not isinstance(filename, str):
             raise TypeError
         filename = str(filename)
         if not filename:
             raise UnsafeFilenameError("(empty string)")
-        if re.search("[^a-zA-Z0-9_=+{}/.,~@-]", filename):
-            raise UnsafeFilenameError(filename)
+        # we only allow filename with given character set
+        match = re.search("[^a-zA-Z0-9_=+{}/.,~@-]", filename)
+        if match:
+            raise UnsafeFilenameError((filename, match))
         if re.search("(^|/)~", filename):
             raise UnsafeFilenameError(filename)
         self = object.__new__(cls)
@@ -373,6 +381,8 @@ class FileText:
         :rtype:
           ``FileText``
         """
+        if isinstance(filename, str):
+            filename = Filename(filename)
         if isinstance(arg, cls):
             if filename is startpos is None:
                 return arg
@@ -387,8 +397,8 @@ class FileText:
         else:
             raise TypeError("%s: unexpected %s"
                             % (cls.__name__, type(arg).__name__))
-        if filename is not None:
-            filename = Filename(filename)
+
+        assert isinstance(filename, (Filename, NoneType))
         startpos = FilePos(startpos)
         self.filename = filename
         self.startpos = startpos
@@ -439,9 +449,9 @@ class FileText:
     def from_filename(cls, filename):
         return cls.from_lines(Filename(filename))
 
-    def alter(self, filename=None, startpos=None):
+    def alter(self, filename: Optional[Filename] = None, startpos=None):
         if filename is not None:
-            filename = Filename(filename)
+            assert isinstance(filename, Filename)
         else:
             filename = self.filename
         if startpos is not None:
@@ -652,8 +662,8 @@ class FileText:
         return h
 
 
-def read_file(filename):
-    filename = Filename(filename)
+def read_file(filename: Filename) -> FileText:
+    assert isinstance(filename, Filename)
     if filename == Filename.STDIN:
         data = sys.stdin.read()
     else:
@@ -661,14 +671,15 @@ def read_file(filename):
             data = f.read()
     return FileText(data, filename=filename)
 
-def write_file(filename, data):
-    filename = Filename(filename)
+
+def write_file(filename: Filename, data):
+    assert isinstance(filename, Filename)
     data = FileText(data)
     with open(str(filename), 'w') as f:
         f.write(data.joined)
 
-def atomic_write_file(filename, data):
-    filename = Filename(filename)
+def atomic_write_file(filename: Filename, data):
+    assert isinstance(filename, Filename)
     data = FileText(data)
     temp_filename = Filename("%s.tmp.%s" % (filename, os.getpid(),))
     write_file(temp_filename, data)
@@ -680,7 +691,10 @@ def atomic_write_file(filename, data):
         pass
     os.rename(str(temp_filename), str(filename))
 
-def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
+
+def expand_py_files_from_args(
+    pathnames: Union[List[Filename], Filename], on_error=lambda filename: None
+):
     """
     Enumerate ``*.py`` files, recursively.
 
@@ -698,8 +712,11 @@ def expand_py_files_from_args(pathnames, on_error=lambda filename: None):
       ``list`` of `Filename` s
     """
     if not isinstance(pathnames, (tuple, list)):
+        # July 2024 DeprecationWarning
+        # this seem to be used only internally, maybe deprecate not passing a list.
         pathnames = [pathnames]
-    pathnames = [Filename(f) for f in pathnames]
+    for f in pathnames:
+        assert isinstance(f, Filename)
     result = []
     # Check for problematic arguments.  Note that we intentionally only do
     # this for directly specified arguments, not for recursively traversed

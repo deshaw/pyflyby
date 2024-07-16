@@ -17,9 +17,9 @@ from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
 from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
                                         scan_for_import_issues)
+from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
-from   pyflyby._flags           import CompilerFlags
 from   pyflyby._util            import CwdCtx
 
 
@@ -46,7 +46,7 @@ def tpp(request):
 
 def writetext(filename, text, mode='w'):
     text = dedent(text)
-    filename = Filename(filename)
+    assert isinstance(filename, Filename)
     with open(str(filename), mode) as f:
         f.write(text)
     return filename
@@ -2200,4 +2200,20 @@ def test_unsafe_filename_warning(tpp, capsys):
     expected = dedent("""
         [PYFLYBY] import pyflyby
     """).lstrip()
+    assert out.startswith(expected)
+
+
+def test_unsafe_filename_warning_II(tpp, capsys):
+    filepath = os.path.join(tpp._filename, "foo#bar")
+    os.mkdir(filepath)
+    filepath = os.path.join(filepath, "qux#baz")
+    os.mkdir(filepath)
+    with CwdCtx(filepath):
+        auto_import("pyflyby", [{}])
+    out, _ = capsys.readouterr()
+    expected = dedent(
+        """
+        [PYFLYBY] import pyflyby
+    """
+    ).lstrip()
     assert out.startswith(expected)

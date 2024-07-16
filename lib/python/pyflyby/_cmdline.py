@@ -4,10 +4,10 @@
 
 
 
+from   builtins                 import input
 import optparse
 import os
 import signal
-from   builtins                 import input
 import sys
 from   textwrap                 import dedent
 import traceback
@@ -285,7 +285,8 @@ def parse_args(
 def _default_on_error(filename):
     raise SystemExit("bad filename %s" % (filename,))
 
-def filename_args(args, on_error=_default_on_error):
+
+def filename_args(args: List[str], on_error=_default_on_error):
     """
     Return list of filenames given command-line arguments.
 
@@ -293,7 +294,9 @@ def filename_args(args, on_error=_default_on_error):
       ``list`` of `Filename`
     """
     if args:
-        return expand_py_files_from_args(args, on_error)
+        for a in args:
+            assert isinstance(a, str)
+        return expand_py_files_from_args([Filename(f) for f in args], on_error)
     elif not os.isatty(0):
         return [Filename.STDIN]
     else:

@@ -343,11 +343,11 @@ $ py                                       IPython shell
 # TODO: add --profile, --runsnake
 
 import ast
+import builtins
 from   contextlib               import contextmanager
 import inspect
 import os
 import re
-import builtins
 import sys
 import types
 from   types                    import FunctionType, MethodType
@@ -1303,7 +1303,7 @@ def _has_python_shebang(filename):
     Note that this test is only needed for scripts found via which(), since
     otherwise the shebang is not necessary.
     """
-    filename = Filename(filename)
+    assert isinstance(filename, Filename)
     with open(str(filename), 'rb') as f:
         line = f.readline(1024)
         return line.startswith(b"#!") and b"python" in line

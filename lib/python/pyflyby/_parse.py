@@ -23,9 +23,12 @@ import types
 from   typing                   import Any, List, Optional, Tuple, Union, cast
 import warnings
 
+
 _sentinel = object()
 
 if sys.version_info < (3, 10):
+
+    NoneType = type(None)
 
     class MatchAs:
         name: str
@@ -36,6 +39,7 @@ if sys.version_info < (3, 10):
         patterns: List[MatchAs]
 
 else:
+    from types import NoneType
     from ast import MatchAs, MatchMapping
 
 
@@ -963,6 +967,9 @@ class PythonBlock:
         :rtype:
           `PythonBlock`
         """
+        if isinstance(filename, str):
+            filename = Filename(filename)
+        assert isinstance(filename, (Filename, NoneType)), filename
         text = FileText(text, filename=filename, startpos=startpos)
         self = object.__new__(cls)
         self.text = text
