@@ -110,12 +110,10 @@ def test_unsafe_cwd():
 
         p = Path(d)
         unsafe = p / "foo#bar" / "foo#qux"
-        file = unsafe / "foo.py"
         unsafe.mkdir(parents=True)
-        file.write_text("np.sin")
-        result = pipe([BIN_DIR + "/py"], cwd=unsafe, stdin="np")
+        result = pipe([BIN_DIR + "/py"], cwd=unsafe, stdin="os")
         assert "Unsafe" not in result
-        assert result == "[PYFLYBY] import numpy as np"
+        assert result == "[PYFLYBY] import os"
 
 
 def test_tidy_imports_filename_action_replace_1():
