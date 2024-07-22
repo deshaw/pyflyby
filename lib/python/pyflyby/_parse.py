@@ -981,7 +981,7 @@ class PythonBlock:
     def __construct_from_annotated_ast(cls, annotated_ast_nodes, text:FileText, flags):
         # Constructor for internal use by _split_by_statement() or
         # concatenate().
-        ast_node = AnnotatedModule(annotated_ast_nodes)
+        ast_node = AnnotatedModule(annotated_ast_nodes, type_ignores=[])
         ast_node.text = text
         ast_node.flags = flags
         if not hasattr(ast_node, "source_flags"):
