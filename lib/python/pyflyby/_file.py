@@ -48,7 +48,7 @@ class Filename(object):
     def _from_filename(cls, filename: str):
         if not isinstance(filename, str):
             raise TypeError
-        filename = str(filename)
+        filename = os.path.abspath(filename)
         if not filename:
             raise UnsafeFilenameError("(empty string)")
         # we only allow filename with given character set
@@ -58,7 +58,7 @@ class Filename(object):
         if re.search("(^|/)~", filename):
             raise UnsafeFilenameError(filename)
         self = object.__new__(cls)
-        self._filename = os.path.abspath(filename)
+        self._filename =  filename
         return self
 
     def __str__(self):

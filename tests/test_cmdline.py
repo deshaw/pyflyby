@@ -60,26 +60,34 @@ def test_tidy_imports_quiet_1():
 
 def test_tidy_imports_log_level_1():
     with EnvVarCtx(PYFLYBY_LOG_LEVEL="WARNING"):
-        result = pipe([BIN_DIR+"/tidy-imports"], stdin="os, sys")
-        expected = dedent('''
+        result = pipe([BIN_DIR + "/tidy-imports"], stdin="os, sys")
+        expected = dedent(
+            """
             import os
             import sys
 
             os, sys
-        ''').strip()
+        """
+        ).strip()
         assert result == expected
 
 
 def test_tidy_imports_filename_action_print_1():
-    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
-        f.write(dedent('''
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as f:
+        f.write(
+            dedent(
+                """
             # hello
             def foo():
                 foo() + os + sys
-        ''').lstrip())
+        """
+            ).lstrip()
+        )
         f.flush()
-        result = pipe([BIN_DIR+"/tidy-imports", f.name])
-        expected = dedent('''
+        result = pipe([BIN_DIR + "/tidy-imports", f.name])
+        expected = (
+            dedent(
+                """
             [PYFLYBY] {f.name}: added 'import os'
             [PYFLYBY] {f.name}: added 'import sys'
             # hello
@@ -88,8 +96,24 @@ def test_tidy_imports_filename_action_print_1():
 
             def foo():
                 foo() + os + sys
-        ''').strip().format(f=f)
+        """
+            )
+            .strip()
+            .format(f=f)
+        )
         assert result == expected
+
+
+def test_unsafe_cwd():
+    with tempfile.TemporaryDirectory() as d:
+        from pathlib import Path
+
+        p = Path(d)
+        unsafe = p / "foo#bar" / "foo#qux"
+        unsafe.mkdir(parents=True)
+        result = pipe([BIN_DIR + "/py"], cwd=unsafe, stdin="os")
+        assert "Unsafe" not in result
+        assert result == "[PYFLYBY] import os"
 
 
 def test_tidy_imports_filename_action_replace_1():
@@ -763,24 +787,32 @@ def test_tidy_imports_forward_references():
     with tempfile.TemporaryDirectory() as temp_dir:
         foo = os.path.join(temp_dir, "foo.py")
         with open(foo, "w") as foo_fp:
-            foo_fp.write(dedent("""
+            foo_fp.write(
+                dedent(
+                    """
                 from __future__ import annotations
 
                 class A:
                     param1: str
                     param2: B
 
-
+                                
                 class B:
                     param1: str
-            """).lstrip())
+            """
+                ).lstrip()
+            )
             foo_fp.flush()
 
         dot_pyflyby = os.path.join(temp_dir, ".pyflyby")
         with open(dot_pyflyby, "w") as dot_pyflyby_fp:
-            dot_pyflyby_fp.write(dedent("""
+            dot_pyflyby_fp.write(
+                dedent(
+                    """
                 from foo import A, B
-            """).lstrip())
+            """
+                ).lstrip()
+            )
             dot_pyflyby_fp.flush()
         with CwdCtx(temp_dir):
             result = pipe(
