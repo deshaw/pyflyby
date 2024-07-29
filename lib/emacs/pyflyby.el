@@ -93,14 +93,15 @@ Tries to keep point in the same place."
       (error "%s failed with exit code %d.%s" command exit-value logtext))))
 
 
-(defun pyflyby-tidy-imports ()
-  (interactive "*")
-  (pyflyby-transform-region-with-command "tidy-imports"))
+(defun pyflyby-tidy-imports (arg)
+  (interactive "*sRun command tidy-imports with args: ")
+  (apply 'pyflyby-transform-region-with-command
+	 (cons "tidy-imports" (split-string arg))))
 
-(defun pyflyby-reformat-imports ()
-  (interactive "*")
-  (pyflyby-transform-region-with-command "reformat-imports"))
-
+(defun pyflyby-reformat-imports (arg)
+  (interactive "*sRun command reformat-imports with args: ")
+  (apply 'pyflyby-transform-region-with-command
+	 (cons "reformat-imports" (split-string arg))))
 
 (defalias 'tidy-imports 'pyflyby-tidy-imports)
 (defalias 'reformat-imports 'pyflyby-reformat-imports)
