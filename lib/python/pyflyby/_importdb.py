@@ -8,6 +8,7 @@ from   collections              import defaultdict
 import os
 import re
 import sys
+import warnings
 
 from   pathlib                  import Path
 
@@ -27,6 +28,7 @@ if sys.version_info <= (3, 12):
 else:
     from typing import Self
 
+SUPPORT_DEPRECATED_BEHAVIOR = True
 
 @memoize
 def _find_etc_dirs():
@@ -344,7 +346,7 @@ class ImportDB:
         filenames = _get_python_path("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH,
                                      target_dirname)
         mandatory_imports_filenames = ()
-        if "SUPPORT DEPRECATED BEHAVIOR":
+        if SUPPORT_DEPRECATED_BEHAVIOR:
             PYFLYBY_PATH = _get_env_var("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH)
             # If the old deprecated environment variables are set, then heed
             # them.
@@ -371,7 +373,15 @@ class ImportDB:
                 default_path = PYFLYBY_PATH
                 # Expand $PYFLYBY_KNOWN_IMPORTS_PATH.
                 filenames = _get_python_path(
-                    "PYFLYBY_KNOWN_IMPORTS_PATH", default_path, target_dirname)
+                    "PYFLYBY_KNOWN_IMPORTS_PATH", default_path, target_dirname
+                )
+                warnings.warn(
+                    "The environment variable PYFLYBY_KNOWN_IMPORTS_PATH was"
+                    " deprecated since 2014. But never emitted a warning,"
+                    " please use PYFLYBY_PATH or open an issue"
+                    " if you are still requiring PYFLYBY_KNOWN_IMPORTS_PATH",
+                    DeprecationWarning,
+                )
                 logger.debug(
                     "The environment variable PYFLYBY_KNOWN_IMPORTS_PATH is deprecated.  "
                     "Use PYFLYBY_PATH.")
@@ -384,8 +394,15 @@ class ImportDB:
                     os.path.join(d,"mandatory_imports") for d in PYFLYBY_PATH]
                 # Expand $PYFLYBY_MANDATORY_IMPORTS_PATH.
                 mandatory_imports_filenames = _get_python_path(
-                    "PYFLYBY_MANDATORY_IMPORTS_PATH",
-                    default_path, target_dirname)
+                    "PYFLYBY_MANDATORY_IMPORTS_PATH", default_path, target_dirname
+                )
+                warnings.warn(
+                    "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH was"
+                    " deprecated since 2014 but never emitted a warning."
+                    " Use PYFLYBY_PATH and write __mandatory_imports__=['...']"
+                    " in your files.",
+                    DeprecationWarning,
+                )
                 logger.debug(
                     "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH is deprecated.  "
                     "Use PYFLYBY_PATH and write __mandatory_imports__=['...'] in your files.")
@@ -530,6 +547,13 @@ class ImportDB:
         :rtype:
           `ImportDB`
         """
+        if _mandatory_filenames_deprecated:
+            warnings.warn(
+                "_mandatory_filenames_deprecated has been deprecated in Pyflyby"
+                " 1.9.4 and will removed in future versions",
+                DeprecationWarning,
+                stacklevel=1,
+            )
         if not isinstance(filenames, (tuple, list)):
             # TODO DeprecationWarning July 2024,
             # this is internal deprecate not passing a list;
@@ -539,7 +563,7 @@ class ImportDB:
         logger.debug("ImportDB: loading [%s], mandatory=[%s]",
                      ', '.join(map(str, filenames)),
                      ', '.join(map(str, _mandatory_filenames_deprecated)))
-        if "SUPPORT DEPRECATED BEHAVIOR":
+        if SUPPORT_DEPRECATED_BEHAVIOR:
             # Before 2014-10, pyflyby read the following:
             #   * known_imports from $PYFLYBY_PATH/known_imports/**/*.py or
             #     $PYFLYBY_KNOWN_IMPORTS_PATH/**/*.py,
