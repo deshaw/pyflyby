@@ -909,23 +909,24 @@ def enable_faulthandler():
         faulthandler.enable()
 
 
-def add_debug_functions_to_builtins():
-    '''
+def add_debug_functions_to_builtins(*, add_deprecated: bool):
+    """
     Install debugger(), etc. in the builtin global namespace.
-    '''
+    """
     functions_to_add = [
         'debugger',
         'debug_on_exception',
         'print_traceback',
     ]
-    # DEPRECATED: In the future, the following will not be added to builtins.
-    # Use debugger() instead.
-    functions_to_add += [
-        'breakpoint',
-        'debug_exception',
-        'debug_statement',
-        'waitpoint',
-    ]
+    if add_deprecated:
+        # DEPRECATED: In the future, the following will not be added to builtins.
+        # Use debugger() instead.
+        functions_to_add += [
+            "breakpoint",
+            "debug_exception",
+            "debug_statement",
+            "waitpoint",
+        ]
     for name in functions_to_add:
         setattr(builtins, name, globals()[name])
 
