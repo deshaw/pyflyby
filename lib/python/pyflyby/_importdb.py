@@ -28,7 +28,7 @@ if sys.version_info <= (3, 12):
 else:
     from typing import Self
 
-SUPPORT_DEPRECATED_BEHAVIOR = True
+SUPPORT_DEPRECATED_BEHAVIOR = False
 
 @memoize
 def _find_etc_dirs():
