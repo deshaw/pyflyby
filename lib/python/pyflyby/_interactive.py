@@ -2459,7 +2459,7 @@ def load_ipython_extension(arg=Ellipsis):
     enable_faulthandler()
     enable_signal_handler_debugger()
     enable_sigterm_handler(on_existing_handler='keep_existing')
-    add_debug_functions_to_builtins()
+    add_debug_functions_to_builtins(add_deprecated=False)
     inject_dynamic_import()
     initialize_comms()
 

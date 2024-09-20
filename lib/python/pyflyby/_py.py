@@ -30,6 +30,12 @@ Invocation summary
   py nb                                 Start IPython Notebook with autoimporter
 
 
+  py [--add-deprecated-builtins]        Inject "breakpoint", "debug_exception",
+                                        "debug_statement", "waitpoint" into
+                                        builtins. This is deprecated, and
+                                        present for backward compatibilty
+                                        but will be removed in the future.
+
 Features
 ========
 
@@ -1688,6 +1694,7 @@ class _PyMain(object):
 
     def _parse_global_opts(self):
         args = list(self.main_args)
+        self.add_deprecated_builtins = False
         self.debug       = False
         self.interactive = False
         self.verbosity   = 1
@@ -1791,6 +1798,10 @@ class _PyMain(object):
                 novalue()
                 postmortem = False
                 continue
+            if argname in ["add-deprecated-builtins", "add_deprecated_builtins"]:
+                del args[0]
+                self.add_deprecated_builtins = True
+                continue
             break
         self.args = args
         if postmortem == "auto":
@@ -1798,18 +1809,18 @@ class _PyMain(object):
         global _enable_postmortem_debugger
         _enable_postmortem_debugger = postmortem
 
-    def _enable_debug_tools(self):
+    def _enable_debug_tools(self, *, add_deprecated: bool):
         # Enable a bunch of debugging tools.
         enable_faulthandler()
         enable_signal_handler_debugger()
         enable_sigterm_handler()
-        add_debug_functions_to_builtins()
+        add_debug_functions_to_builtins(add_deprecated=add_deprecated)
 
     def run(self):
         # Parse global options.
         sys.orig_argv = list(sys.argv)
         self._parse_global_opts()
-        self._enable_debug_tools()
+        self._enable_debug_tools(add_deprecated=self.add_deprecated_builtins)
         self._run_action()
         self._pre_exit()
 
