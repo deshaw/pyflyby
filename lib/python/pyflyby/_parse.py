@@ -8,13 +8,13 @@ from   ast                      import AsyncFunctionDef, TypeIgnore
 
 from   collections              import namedtuple
 from   doctest                  import DocTestParser
-from   functools                import total_ordering
+from   functools                import cached_property, total_ordering
 from   itertools                import groupby
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute, cmp
+from   pyflyby._util            import cmp
 
 import re
 import sys
@@ -1044,7 +1044,7 @@ class PythonBlock:
     def endpos(self):
         return self.text.endpos
 
-    @cached_attribute
+    @cached_property
     def _ast_node_or_parse_exception(self):
         """
         Attempt to parse this block of code into an abstract syntax tree.
@@ -1069,7 +1069,7 @@ class PythonBlock:
             # Cache the exception to avoid re-attempting while debugging.
             return e
 
-    @cached_attribute
+    @cached_property
     def parsable(self):
         """
         Whether the contents of this ``PythonBlock`` are parsable as Python
@@ -1080,7 +1080,7 @@ class PythonBlock:
         """
         return isinstance(self._ast_node_or_parse_exception, ast.AST)
 
-    @cached_attribute
+    @cached_property
     def parsable_as_expression(self):
         """
         Whether the contents of this ``PythonBlock`` are parsable as a single
@@ -1091,7 +1091,7 @@ class PythonBlock:
         """
         return self.parsable and self.expression_ast_node is not None
 
-    @cached_attribute
+    @cached_property
     def ast_node(self):
         """
         Parse this block of code into an abstract syntax tree.
@@ -1112,7 +1112,7 @@ class PythonBlock:
         else:
             raise r
 
-    @cached_attribute
+    @cached_property
     def annotated_ast_node(self) -> AnnotatedAst:
         """
         Return ``self.ast_node``, annotated in place with positions.
@@ -1127,7 +1127,7 @@ class PythonBlock:
         # ! result is mutated and returned
         return _annotate_ast_nodes(result)
 
-    @cached_attribute
+    @cached_property
     def expression_ast_node(self) -> Optional[ast.Expression]:
         """
         Return an ``ast.Expression`` if ``self.ast_node`` can be converted into
@@ -1188,7 +1188,7 @@ class PythonBlock:
         filename = str(self.filename or "<unknown>")
         return compile(ast_node, filename, mode)
 
-    @cached_attribute
+    @cached_property
     def statements(self) -> Tuple[PythonStatement, ...]:
         r"""
         Partition of this ``PythonBlock`` into individual ``PythonStatement`` s.
@@ -1245,7 +1245,7 @@ class PythonBlock:
             statements.append(statement)
         return tuple(statements)
 
-    @cached_attribute
+    @cached_property
     def source_flags(self):
         """
         If the AST contains __future__ imports, then the compiler_flags
@@ -1261,7 +1261,7 @@ class PythonBlock:
         """
         return self.ast_node.source_flags
 
-    @cached_attribute
+    @cached_property
     def flags(self):
         """
         The compiler flags for this code block, including both the input flags
