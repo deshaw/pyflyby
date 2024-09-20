@@ -2,20 +2,18 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-
-
+from __future__ import print_function
 
 import ast
-from   functools                import total_ordering
+from   functools                import cached_property, total_ordering
 import itertools
 import os
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
-from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx,
-                                        cached_attribute, cmp, memoize,
-                                        prefixes)
+from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
+                                        memoize, prefixes)
 
 import re
 from   six                      import reraise
@@ -167,17 +165,17 @@ class ModuleHandle(object):
         raise NotImplementedError(
             "TODO: look at sys.path to guess module name")
 
-    @cached_attribute
+    @cached_property
     def parent(self):
         if not self.name.parent:
             return None
         return ModuleHandle(self.name.parent)
 
-    @cached_attribute
+    @cached_property
     def ancestors(self):
         return tuple(ModuleHandle(m) for m in self.name.prefixes)
 
-    @cached_attribute
+    @cached_property
     def module(self):
         """
         Return the module instance.
@@ -196,7 +194,7 @@ class ModuleHandle(object):
         # Import.
         return import_module(self.name)
 
-    @cached_attribute
+    @cached_property
     def exists(self):
         """
         Return whether the module exists, according to pkgutil.
@@ -221,7 +219,7 @@ class ModuleHandle(object):
             pkg = None
         return pkg is not None
 
-    @cached_attribute
+    @cached_property
     def filename(self):
         """
         Return the filename, if appropriate.
@@ -268,14 +266,14 @@ class ModuleHandle(object):
             return None
         return Filename(pyc_to_py(filename))
 
-    @cached_attribute
+    @cached_property
     def text(self):
         return FileText(self.filename)
 
     def __text__(self):
         return self.text
 
-    @cached_attribute
+    @cached_property
     def block(self):
         from pyflyby._parse import PythonBlock
         return PythonBlock(self.text)
@@ -309,7 +307,7 @@ class ModuleHandle(object):
         # Canonicalize.
         return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
 
-    @cached_attribute
+    @cached_property
     def submodules(self):
         """
         Enumerate the importable submodules of this module.
@@ -349,7 +347,7 @@ class ModuleHandle(object):
             return extractors[type(node)](node)
         return []
 
-    @cached_attribute
+    @cached_property
     def exports(self):
         """
         Get symbols exported by this module.
