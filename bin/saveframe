@@ -4,10 +4,10 @@ Utility to save information for debugging / reproducing an issue.
 
 Usage:
 If you have a script or command that is currently failing due to an issue
-originating from another team's code, and you cannot share your private code as
+originating from upstream code, and you cannot share your private code as
 a reproducer, use this utility to save relevant information to a file (e.g.,
-error frames specific to the other team's codebase). Share the generated file
-with the other team, enabling them to reproduce and diagnose the issue
+error frames specific to the upstream codebase). Share the generated file
+with the upstream team, enabling them to reproduce and diagnose the issue
 independently.
 
 Information saved in the file:
@@ -94,7 +94,10 @@ def getargs():
     )
     parser.add_argument(
         "--frames", default=None,
-        help="Error stack frames to save. A single frame follows the format "
+        help="Error stack frames to save.\n"
+             "Default behavior: If --frames is not passed, the first frame from "
+             "the bottom (the error frame) is saved.\n\n"
+             "A single frame follows the format "
              "'filename:line_no:function_name', where:\n"
              "    - filename: The file path or a regex pattern matching the file "
              "path (displayed in the stack trace) of that error frame.\n"
@@ -104,10 +107,10 @@ def getargs():
              "the stack trace) of that error frame.\n\n"
              "Partial frames are also supported where line_no and/or function_name "
              "can be omitted:\n"
-             "    - filename:: -> Includes all the frames that matches the filename\n"
-             "    - filename:line_no: -> Include all the frames that matches "
+             "    - 'filename::' -> Includes all the frames that matches the filename\n"
+             "    - 'filename:line_no:' -> Include all the frames that matches "
              "specific line in any function in the filename\n"
-             "    - filename::function_name -> Include all the frames that matches "
+             "    - 'filename::function_name' -> Include all the frames that matches "
              "any line in the specific function in the filename\n\n"
              "Following formats are supported to pass the frames:\n\n"
              "1. Single frame:\n"
@@ -129,9 +132,7 @@ def getargs():
              "5. Number of Frames from Bottom:\n"
              "   --frames=num\n"
              "   Example: --frames=5\n"
-             "   Includes the last 'num' frames from the bottom of the stack trace.\n\n"
-             "Default behavior: If --frames is not passed, the first frame from "
-             "the bottom is saved."
+             "   Includes the last 'num' frames from the bottom of the stack trace."
     )
     parser.add_argument(
         "--variables", default=None,
@@ -180,21 +181,19 @@ def which(program):
     return None
 
 
-def execfile(filepath, globals):
+def execfile(filepath):
     """
     Execute the script stored in ``filepath``.
 
     :param filepath:
       Path of the script to execute.
-    :param globals:
-      globals context to use while executing ``filepath``.
     """
-    globals.update({
+    globals_cpy.update({
         "__file__": filepath,
         "__name__": "__main__",
     })
     with open(filepath, 'rb') as file:
-        exec(compile(file.read(), filepath, 'exec'), globals)
+        exec(compile(file.read(), filepath, 'exec'), globals_cpy)
 
 
 def run_program(command):
@@ -224,7 +223,7 @@ def run_program(command):
         # Set sys.argv to mimic the command execution.
         sys.argv = command
         sys.path.insert(0, os.path.dirname(os.path.realpath(prog)))
-        execfile(prog, globals_cpy)
+        execfile(prog)
 
 
 def main():
@@ -245,11 +244,13 @@ def main():
             or command[0].endswith('/python3')):
         del command[0]
 
-    # Run the user script / command.
+    # Run the user script / command. Explicitly catch Exception and
+    # KeyboardInterrupt rather than BaseException, since we don't want to
+    # catch SystemExit.
     try:
         _SAVEFRAME_LOGGER.info(f"Executing the program: {command_string!a}")
         run_program(command)
-    except Exception as err:
+    except (Exception, KeyboardInterrupt) as err:
         _SAVEFRAME_LOGGER.info(
             f"Saving frames and metadata info for the exception: {err!a}")
         # Save the frames and metadata info to the file.

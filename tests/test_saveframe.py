@@ -106,7 +106,7 @@ def frames_metadata_checker(tmpdir, pkg_name, filename):
     assert data[3]["code"] == 'obj.func2()'
     assert data[3]["frame_index"] == 3
     assert data[3]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[3]["lineno"] == 7
+    assert data[3]["lineno"] == 9
     assert data[3]["function_name"] == "func2"
     assert data[3]["function_qualname"] == "func2"
     assert data[3]["module_name"] == f"{pkg_name}.mod1"
@@ -116,7 +116,7 @@ def frames_metadata_checker(tmpdir, pkg_name, filename):
     assert data[4]["code"] == 'func2()'
     assert data[4]["frame_index"] == 4
     assert data[4]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[4]["lineno"] == 12
+    assert data[4]["lineno"] == 14
     assert data[4]["function_name"] == "func1"
     assert data[4]["function_qualname"] == "func1"
     assert data[4]["module_name"] == f"{pkg_name}.mod1"
@@ -134,7 +134,37 @@ def frames_metadata_checker(tmpdir, pkg_name, filename):
         f"{data[5]['filename']},{data[5]['lineno']},{data[5]['function_name']}")
 
 
-def frames_local_variables_checker(tmpdir, pkg_name, filename):
+def frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename):
+    """
+    Check if the metadata of the frames is correctly written in the ``filename``,
+    when KeyboardInterrupt exception is raised.
+    """
+    data = load_pkl(filename)
+    assert set(data.keys()) == exception_info_keys | {1, 2}
+
+    assert data[1]["code"] == 'os.kill(os.getpid(), signal.SIGINT)'
+    assert data[1]["frame_index"] == 1
+    assert data[1]["filename"] == str(
+        tmpdir / pkg_name / "mod1.py")
+    assert data[1]["lineno"] == 19
+    assert data[1]["function_name"] == "interrupt_func"
+    assert data[1]["function_qualname"] == "interrupt_func"
+    assert data[1]["module_name"] == f"{pkg_name}.mod1"
+    assert data[1]["frame_identifier"] == (
+        f"{data[1]['filename']},{data[1]['lineno']},{data[1]['function_name']}")
+
+    assert data[2]["code"] == 'interrupt_func()'
+    assert data[2]["frame_index"] == 2
+    assert data[2]["filename"] == str(tmpdir / pkg_name / "__init__.py")
+    assert data[2]["lineno"] == 22
+    assert data[2]["function_name"] == "init_func4"
+    assert data[2]["function_qualname"] == "init_func4"
+    assert data[2]["module_name"] == f"{pkg_name}"
+    assert data[2]["frame_identifier"] == (
+        f"{data[2]['filename']},{data[2]['lineno']},{data[2]['function_name']}")
+
+
+def frames_local_variables_checker(pkg_name, filename):
     """
     Check if the local variables of the frames are correctly written in the
     ``filename``.
@@ -169,6 +199,22 @@ def frames_local_variables_checker(tmpdir, pkg_name, filename):
     assert pickle.loads(data[5]['variables']['var2']) == 'blah'
 
 
+def frames_local_variables_checker_for_keyboard_interrupt(filename):
+    """
+    Check if the local variables of the frames are correctly written in the
+    ``filename``, when KeyboardInterrupt exception is raised.
+    """
+    data = load_pkl(filename)
+    assert set(data.keys()) == exception_info_keys | {1, 2}
+
+    assert set(data[1]['variables'].keys()) == {'interrupt_var1', 'interrupt_var2'}
+    assert pickle.loads(data[1]['variables']['interrupt_var1']) == 'foo bar'
+
+    assert set(data[2]['variables'].keys()) == {'var1', 'var2'}
+    assert pickle.loads(data[2]['variables']['var1']) == 'init_func4'
+    assert pickle.loads(data[2]['variables']['var2']) == [3, 4]
+
+
 def exception_info_checker(filename):
     """
     Check if the exception info is correctly written in the ``filename``.
@@ -184,6 +230,22 @@ def exception_info_checker(filename):
     assert data['exception_string'] == 'Error is raised'
 
 
+def exception_info_checker_for_keyboard_interrupt(filename):
+    """
+    Check if the exception info is correctly written in the ``filename``,
+    when KeyboardInterrupt exception is raised.
+    """
+    data = load_pkl(filename)
+    assert set(data.keys()) == exception_info_keys
+    assert data['exception_class_name'] == 'KeyboardInterrupt'
+    assert data['exception_class_qualname'] == 'KeyboardInterrupt'
+    assert data['exception_full_string'] == 'KeyboardInterrupt: '
+    assert isinstance(data['exception_object'], KeyboardInterrupt)
+    # Traceback shouldn't be pickled for security reasons.
+    assert data['exception_object'].__traceback__ == None
+    assert data['exception_string'] == ''
+
+
 def create_pkg(tmpdir):
     """
     Create a pacakge with multiple nested sub-packages and modules in ``tmpdir``.
@@ -191,7 +253,7 @@ def create_pkg(tmpdir):
     pkg_name = f"saveframe_{int(random.random() * 10**9)}"
     os.mkdir(str(tmpdir / pkg_name))
     writetext(tmpdir / pkg_name / "__init__.py", f"""
-        from {pkg_name}.mod1 import func1
+        from {pkg_name}.mod1 import func1, interrupt_func
         def init_func1():
             var1 = 3
             var2 = 'blah'
@@ -207,8 +269,15 @@ def create_pkg(tmpdir):
                 func1()
             except ValueError as err:
                 raise TypeError("Chained exception") from err
+
+        def init_func4():
+            var1 = 'init_func4'
+            var2 = [3, 4]
+            interrupt_func()
     """)
     writetext(tmpdir / pkg_name / "mod1.py", f"""
+        import os
+        import signal
         from {pkg_name}.pkg1.mod2 import mod2_cls
         def func2():
             var1 = "func2"
@@ -220,6 +289,11 @@ def create_pkg(tmpdir):
             var1 = [4, 5, 2]
             func1_var2 = 4.56
             func2()
+
+        def interrupt_func():
+            interrupt_var1 = 'foo bar'
+            interrupt_var2 = 3.4
+            os.kill(os.getpid(), signal.SIGINT)
     """)
     os.mkdir(str(tmpdir / pkg_name / "pkg1"))
     writetext(tmpdir / pkg_name / "pkg1" / "__init__.py", "")
@@ -414,6 +488,21 @@ def test_saveframe_invalid_variables_2(tmpdir, caplog):
     delattr(sys, "last_value")
 
 
+def test_saveframe_invalid_variables_3(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    try:
+        exec(f"from {pkg_name} import init_func1; init_func1()")
+    except ValueError as err:
+        sys.last_value = err
+    with pytest.raises(TypeError) as err:
+        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                  variables=1)
+    err_msg = ("Variables '1' must be of type list, tuple or string (for a single "
+               "variable), not '<class 'int'>'")
+    assert str(err.value) == err_msg
+    delattr(sys, "last_value")
+
+
 def test_saveframe_invalid_exclude_variables_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
     try:
@@ -442,6 +531,21 @@ def test_saveframe_invalid_exclude_variables_2(tmpdir, caplog):
     warning_msg = ("Invalid variable names: ['1var2']. Skipping these variables "
                    "and continuing.")
     assert warning_msg in log_messages
+    delattr(sys, "last_value")
+
+
+def test_saveframe_invalid_exclude_variables_3(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    try:
+        exec(f"from {pkg_name} import init_func1; init_func1()")
+    except ValueError as err:
+        sys.last_value = err
+    with pytest.raises(TypeError) as err:
+        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                  exclude_variables=1)
+    err_msg = ("Variables '1' must be of type list, tuple or string (for a single "
+               "variable), not '<class 'int'>'")
+    assert str(err.value) == err_msg
     delattr(sys, "last_value")
 
 
@@ -656,7 +760,7 @@ def test_saveframe_local_variables_data(tmpdir):
     filename = saveframe(
         filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=5)
 
-    frames_local_variables_checker(tmpdir, pkg_name, filename)
+    frames_local_variables_checker(pkg_name, filename)
     delattr(sys, "last_value")
 
 
@@ -696,6 +800,46 @@ def test_saveframe_chained_exceptions(tmpdir):
     assert data[1]["frame_identifier"] == (
         f"{data[1]['filename']},{data[1]['lineno']},{data[1]['function_name']}")
     assert len(set(data.keys()) - exception_info_keys) == 5
+    delattr(sys, "last_value")
+
+
+def test_keyboard_interrupt_frame_metadata(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    try:
+        exec(f"from {pkg_name} import init_func4; init_func4()")
+    except KeyboardInterrupt as err:
+        sys.last_value = err
+    filename = saveframe(
+        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+        frames=2)
+    frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename)
+    delattr(sys, "last_value")
+
+
+def test_keyboard_interrupt_local_variables_data(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    try:
+        exec(f"from {pkg_name} import init_func4; init_func4()")
+    except KeyboardInterrupt as err:
+        sys.last_value = err
+    filename = saveframe(
+        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+        frames=2)
+    frames_local_variables_checker_for_keyboard_interrupt(filename)
+    delattr(sys, "last_value")
+
+
+def test_keyboard_interrupt_exception_info(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    try:
+        exec(f"from {pkg_name} import init_func4; init_func4()")
+    except KeyboardInterrupt as err:
+        sys.last_value = err
+    filename = saveframe(
+        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+        frames=0)
+    exception_info_checker_for_keyboard_interrupt(filename)
+    delattr(sys, "last_value")
 
 
 def test_saveframe_cmdline_no_exception():
@@ -788,7 +932,6 @@ def test_saveframe_cmdline_frame_metadata(tmpdir):
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func1; init_func1()"]
     run_command(command)
-
     frames_metadata_checker(tmpdir, pkg_name, filename)
 
 
@@ -805,8 +948,7 @@ def test_saveframe_cmdline_local_variables_data(tmpdir):
         BIN_DIR + "/saveframe", "--filename", filename, "--frames", "5",
         "python", str(tmp_mod)]
     run_command(command)
-
-    frames_local_variables_checker(tmpdir, pkg_name, filename)
+    frames_local_variables_checker(pkg_name, filename)
 
 
 def test_saveframe_cmdline_exception_info(tmpdir):
@@ -818,5 +960,44 @@ def test_saveframe_cmdline_exception_info(tmpdir):
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func1; init_func1()"]
     run_command(command)
-
     exception_info_checker(filename)
+
+
+def test_saveframe_cmdline_keyboard_interrupt_frame_metadata(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    command = [
+        BIN_DIR+"/saveframe", "--filename", filename, "--frames", "2",
+        "python", "-c",
+        f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
+        f"init_func4; init_func4()"]
+    run_command(command)
+    frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename)
+
+
+def test_saveframe_cmdline_keyboard_interrupt_local_variables_data(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    tmp_mod = writetext(tmpdir / f"tmp_mod_{get_random()}.py", f"""
+        import sys
+        sys.path.append('{tmpdir}')
+        from {pkg_name} import init_func4
+        init_func4()
+    """)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    command = [
+        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "2",
+        "python", str(tmp_mod)]
+    run_command(command)
+    frames_local_variables_checker_for_keyboard_interrupt(filename)
+
+
+def test_saveframe_cmdline_keyboard_interrupt_exception_info(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    command = [
+        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "0",
+        "python", "-c",
+        f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
+        f"init_func4; init_func4()"]
+    run_command(command)
+    exception_info_checker_for_keyboard_interrupt(filename)

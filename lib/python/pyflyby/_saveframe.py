@@ -8,6 +8,8 @@ Checkout the doc of the `saveframe` function for more info.
 from __future__ import annotations
 
 from   contextlib               import contextmanager
+from   dataclasses              import dataclass
+from   enum                     import StrEnum
 import inspect
 import keyword
 import linecache
@@ -35,6 +37,46 @@ The default filename used for storing the data when the user does not explicitly
 provide one.
 """
 DEFAULT_FILENAME = 'saveframe.pkl'
+
+
+@dataclass
+class ExceptionInfo:
+    """
+    A dataclass to store the exception info.
+    """
+    exception_string: str
+    exception_full_string: str
+    exception_class_name: str
+    exception_class_qualname: str
+    exception_object: object
+    traceback: list
+
+
+@dataclass
+class FrameMetadata:
+    """
+    A dataclass to store a frame's metadata.
+    """
+    frame_index: int
+    filename: str
+    lineno: int
+    function_name: str
+    function_qualname: str
+    function_object: bytes
+    module_name: str
+    code: str
+    frame_identifier: str
+
+
+class FrameFormat(StrEnum):
+    """
+    Enum class to store the different formats supported by the `frames` argument
+    in the `saveframe` utility. See the doc of `saveframe` for more info.
+    """
+    NUM = "NUM"
+    LIST = "LIST"
+    RANGE = "RANGE"
+
 
 def _get_saveframe_logger():
     """
@@ -91,25 +133,24 @@ def _get_exception_info(exception_obj):
     :param exception_obj:
       The exception raised by the user's code.
     :return:
-      A dict containing all the required information. It contains
-      'exception_full_string', 'exception_object', 'exception_string',
-      'exception_class_name', 'exception_class_qualname' and 'traceback'.
+      An `ExceptionInfo` object.
     """
-    exception_info = {}
-    exception_info['exception_full_string'] = (
-        f'{exception_obj.__class__.__name__}: {exception_obj}')
-    exception_info['exception_object'] = exception_obj
-    exception_info['exception_string'] = str(exception_obj)
-    exception_info['exception_class_name'] = exception_obj.__class__.__name__
-    exception_info['exception_class_qualname'] = exception_obj.__class__.__qualname__
     try:
-        exception_info['traceback'] = (
+        tb = (
             traceback.format_exception(
                 type(exception_obj), exception_obj, exception_obj.__traceback__))
     except Exception as err:
         _SAVEFRAME_LOGGER.warning(
             f"Error while formatting the traceback. Error: {err!a}")
-        exception_info['traceback'] = "Traceback couldn't be formatted"
+        tb = "Traceback couldn't be formatted"
+    exception_info = ExceptionInfo(
+        exception_string=str(exception_obj),
+        exception_full_string=f'{exception_obj.__class__.__name__}: {exception_obj}',
+        exception_class_name=exception_obj.__class__.__name__,
+        exception_class_qualname=exception_obj.__class__.__qualname__,
+        exception_object=exception_obj,
+        traceback=tb
+    )
     return exception_info
 
 
@@ -267,32 +308,35 @@ def _get_frame_metadata(frame_idx, frame_obj):
     :param frame_obj:
       The frame object for which to get the metadata.
     :return:
-      A dict containing all the required metadata. The metadata returned is:
-      'frame_index', 'filename', 'lineno', 'function_name', 'function_qualname',
-      'function_object', 'module_name', 'code' and 'frame_identifier'.
+      A `FrameMetadata` object.
     """
-    # Mapping that stores all the frame's metadata.
-    frame_metadata = {}
-    frame_metadata['frame_index'] = frame_idx
-    frame_metadata['filename'] = frame_obj.f_code.co_filename
-    frame_metadata['lineno'] = frame_obj.f_lineno
-    frame_metadata['function_name'] = frame_obj.f_code.co_name
-    frame_metadata['function_qualname'] = frame_obj.f_code.co_qualname
     frame_function_object = _get_frame_function_object(frame_obj)
     try:
-        pickled_function = pickle.dumps(frame_function_object, protocol=PICKLE_PROTOCOL)
+        if isinstance(frame_function_object, str):
+            # Function object couldn't be found.
+            pickled_function = frame_function_object
+        else:
+            pickled_function = pickle.dumps(
+                frame_function_object, protocol=PICKLE_PROTOCOL)
     except Exception as err:
         _SAVEFRAME_LOGGER.info(
             f"Cannot pickle the function object for the frame: "
             f"{_get_frame_repr(frame_obj)}. Error: {err!a}")
-        frame_metadata['function_object'] = "Function object not pickleable"
-    else:
-        frame_metadata['function_object'] = pickled_function
-    frame_metadata['module_name'] = _get_frame_module_name(frame_obj)
-    frame_metadata['code'] = _get_frame_code_line(frame_obj)
-    frame_metadata['frame_identifier'] = (
-        f"{frame_metadata['filename']},{frame_metadata['lineno']},"
-        f"{frame_metadata['function_name']}")
+        pickled_function = "Function object not pickleable"
+    # Object that stores all the frame's metadata.
+    frame_metadata = FrameMetadata(
+        frame_index=frame_idx,
+        filename=frame_obj.f_code.co_filename,
+        lineno=frame_obj.f_lineno,
+        function_name=frame_obj.f_code.co_name,
+        function_qualname=frame_obj.f_code.co_qualname,
+        function_object=pickled_function,
+        module_name=_get_frame_module_name(frame_obj),
+        code=_get_frame_code_line(frame_obj),
+        frame_identifier=(
+            f"{frame_obj.f_code.co_filename},{frame_obj.f_lineno},"
+            f"{frame_obj.f_code.co_name}")
+    )
     return frame_metadata
 
 def _get_all_matching_frames(frame, all_frames):
@@ -351,7 +395,7 @@ def _get_frames_to_save(frames, all_frames):
         # No frame passed by the user, return the first frame from the bottom
         # of the stack trace.
         return [(1, all_frames[0])]
-    elif frame_type == "num":
+    elif frame_type == FrameFormat.NUM:
         if len(all_frames) < frames:
             _SAVEFRAME_LOGGER.info(
                 f"Number of frames to dump are {frames}, but there are only "
@@ -359,10 +403,10 @@ def _get_frames_to_save(frames, all_frames):
                 f"all the frames.")
             frames = len(all_frames)
         return [(idx+1, all_frames[idx]) for idx in range(frames)]
-    elif frame_type == "list":
+    elif frame_type == FrameFormat.LIST:
         for frame in frames:
             filtered_frames.extend(_get_all_matching_frames(frame, all_frames))
-    elif frame_type == "range":
+    elif frame_type == FrameFormat.RANGE:
         # Handle 'first_frame..last_frame' and 'first_frame..' formats.
         # Find all the matching frames for the first_frame and last_frame.
         first_matching_frames = _get_all_matching_frames(frames[0], all_frames)
@@ -491,12 +535,12 @@ def _save_frames_and_exception_info_to_file(
         _SAVEFRAME_LOGGER.info(
             f"Getting required info for the frame: {_get_frame_repr(frame_obj)}")
         frames_and_exception_info[frame_idx] = _get_frame_metadata(
-            frame_idx, frame_obj)
+            frame_idx, frame_obj).__dict__
         frames_and_exception_info[frame_idx]['variables'] = (
             _get_frame_local_variables_data(frame_obj, variables, exclude_variables))
 
     _SAVEFRAME_LOGGER.info("Getting exception metadata info.")
-    frames_and_exception_info.update(_get_exception_info(exception_obj))
+    frames_and_exception_info.update(_get_exception_info(exception_obj).__dict__)
     _SAVEFRAME_LOGGER.info(f"Saving the complete data in the file: {filename!a}")
     with _open_file(filename, 'wb') as f:
         pickle.dump(frames_and_exception_info, f, protocol=PICKLE_PROTOCOL)
@@ -615,9 +659,9 @@ def _validate_frames(frames, utility):
 
       2. The format of the ``frames``:
            - None if ``frames`` is None.
-           - For cases 1 and 2, the format is 'list'.
-           - For cases 3 and 4, the format is 'range'.
-           - For case 5, the format is 'num'.
+           - For cases 1 and 2, the format is `FrameFormat.LIST`.
+           - For cases 3 and 4, the format is `FrameFormat.RANGE`.
+           - For case 5, the format is `FrameFormat.NUM`.
     """
     if frames is None:
         _SAVEFRAME_LOGGER.info(
@@ -628,7 +672,7 @@ def _validate_frames(frames, utility):
     _SAVEFRAME_LOGGER.info(f"Validating frames: {frames!a}")
     try:
         # Handle frames as an integer.
-        return int(frames), "num"
+        return int(frames), FrameFormat.NUM
     except (ValueError, TypeError):
         pass
     # Boolean to denote if the `frames` parameter is passed in the range format.
@@ -663,8 +707,7 @@ def _validate_frames(frames, utility):
     for idx, frame in enumerate(all_frames):
         frame_parts = frame.split(':')
         # Handle 'first_frame..' format (case 4.).
-        if (idx == 1 and len(frame_parts) == 1 and frame_parts[0] == '' and
-                is_range is True):
+        if idx == 1 and len(frame_parts) == 1 and frame_parts[0] == '' and is_range:
             parsed_frames.append(frame_parts)
             break
         if len(frame_parts) != 3:
@@ -686,7 +729,7 @@ def _validate_frames(frames, utility):
                                 f"converted to an integer.")
         parsed_frames.append(frame_parts)
 
-    return parsed_frames, "range" if is_range else "list"
+    return parsed_frames, FrameFormat.RANGE if is_range else FrameFormat.LIST
 
 
 def _is_variable_name_valid(name):
@@ -718,7 +761,7 @@ def _validate_variables(variables, utility):
       or the ``pyflyby/bin/saveframe`` script. See `_validate_saveframe_arguments`
       for more info.
     :return:
-      A list of filtered variables post validation.
+      A tuple of filtered variables post validation.
     """
     if variables is None:
         return
@@ -729,9 +772,13 @@ def _validate_variables(variables, utility):
             f"pass multiple variable names, pass a list/tuple of names like "
             f"{variables.split(',')} rather than a comma separated string of names.")
     if isinstance(variables, (list, tuple)):
-        all_variables = variables
+        all_variables = tuple(variables)
+    elif isinstance(variables, str):
+        all_variables = tuple(variable.strip() for variable in variables.split(','))
     else:
-        all_variables = [variable.strip() for variable in variables.split(',')]
+        raise TypeError(
+            f"Variables '{variables}' must be of type list, tuple or string (for a "
+            f"single variable), not '{type(variables)}'")
     invalid_variable_names = [variable for variable in all_variables
                               if not _is_variable_name_valid(variable)]
     if invalid_variable_names:
@@ -739,8 +786,8 @@ def _validate_variables(variables, utility):
             f"Invalid variable names: {invalid_variable_names}. Skipping these "
             f"variables and continuing.")
         # Filter out invalid variables.
-        all_variables = [variable for variable in all_variables
-                         if variable not in invalid_variable_names]
+        all_variables = tuple(variable for variable in all_variables
+                              if variable not in invalid_variable_names)
     return all_variables
 
 
@@ -798,13 +845,13 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     Usage:
     --------------------------------------------------------------------------
     If you have a piece of code that is currently failing due to an issue
-    originating from another team's code, and you cannot share your private
+    originating from upstream code, and you cannot share your private
     code as a reproducer, use this function to save relevant information to a file.
     While in an interactive session such as IPython, Jupyter Notebook, or a
     debugger (pdb/ipdb), you can call this function after your code raised
-    an error to capture and save error frames specific to the other team's
-    codebase. Share the generated file with the other team, enabling them to
-    reproduce and diagnose the issue independently.
+    an error to capture and save error frames specific to the upstream codebase
+    Share the generated file with the upstream team, enabling them to reproduce
+    and diagnose the issue independently.
 
     Information saved in the file:
     --------------------------------------------------------------------------
