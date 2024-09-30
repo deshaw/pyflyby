@@ -13,6 +13,7 @@ from   contextlib               import contextmanager
 
 from   pyflyby                  import Filename, saveframe
 
+VERSION_INFO = sys.version_info
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
 
@@ -98,7 +99,9 @@ def frames_metadata_checker(tmpdir, pkg_name, filename):
     assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
     assert data[2]["lineno"] == 10
     assert data[2]["function_name"] == "func2"
-    assert data[2]["function_qualname"] == "mod2_cls.func2"
+    assert (
+        data[2]["function_qualname"] ==
+        "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
     assert data[2]["module_name"] == f"{pkg_name}.pkg1.mod2"
     assert data[2]["frame_identifier"] == (
         f"{data[2]['filename']},{data[2]['lineno']},{data[2]['function_name']}")
@@ -570,7 +573,7 @@ def test_saveframe_frame_format_1(tmpdir):
         sys.last_value = err
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     # Format: 'filename:line_no:func_name'
-    saveframe(filename=filename, frames=f"pkg1/mod2.py:10:func2")
+    saveframe(filename=filename, frames="pkg1/mod2.py:10:func2")
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {2}
     assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
@@ -604,7 +607,9 @@ def test_saveframe_frame_format_2(tmpdir):
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {2, 5}
     assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
-    assert data[2]["function_qualname"] == "mod2_cls.func2"
+    assert (
+        data[2]["function_qualname"] ==
+        "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
 
     assert data[5]["filename"] == str(tmpdir / pkg_name / "__init__.py")
     assert data[5]["function_qualname"] == "init_func1"
@@ -702,13 +707,11 @@ def test_saveframe_exclude_variables(tmpdir, caplog):
     assert set(data[3]["variables"].keys()) == {"obj"}
     assert set(data[4]["variables"].keys()) == {"func1_var2"}
     assert set(data[5]["variables"].keys()) == set()
-
+    qualname = "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2"
     warning_msg = (
         f"Cannot pickle variable: 'var3' for frame: 'File: {str(tmpdir)}/{pkg_name}"
-        "/pkg1/mod2.py, Line: 10, Function: mod2_cls.func2'. Error: TypeError"
-        "(\"cannot pickle 'function' object\"). Skipping this variable and "
-        "continuing.")
-    assert warning_msg in log_messages
+        f"/pkg1/mod2.py, Line: 10, Function: {qualname}'.")
+    assert warning_msg in "\n".join(log_messages)
     delattr(sys, "last_value")
 
 

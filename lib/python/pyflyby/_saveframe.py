@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from   contextlib               import contextmanager
 from   dataclasses              import dataclass
-from   enum                     import StrEnum
+from   enum                     import Enum
 import inspect
 import keyword
 import linecache
@@ -68,7 +68,7 @@ class FrameMetadata:
     frame_identifier: str
 
 
-class FrameFormat(StrEnum):
+class FrameFormat(Enum):
     """
     Enum class to store the different formats supported by the `frames` argument
     in the `saveframe` utility. See the doc of `saveframe` for more info.
@@ -154,6 +154,15 @@ def _get_exception_info(exception_obj):
     return exception_info
 
 
+def _get_qualname(frame):
+    """
+    Get fully qualified name of the function for the ``frame``.
+
+    In python 3.10, ``co_qualname`` attribute is not present, so use ``co_name``.
+    """
+    return (frame.f_code.co_qualname if hasattr(frame.f_code, "co_qualname")
+            else frame.f_code.co_name)
+
 def _get_frame_repr(frame):
     """
     Construct repr for the ``frame``. This is used in the info messages.
@@ -164,7 +173,7 @@ def _get_frame_repr(frame):
       The string f'File: {filename}, Line: {lineno}, Function: {function_qualname}'
     """
     return (f"'File: {frame.f_code.co_filename}, Line: {frame.f_lineno}, "
-            f"Function: {frame.f_code.co_qualname}'")
+            f"Function: {_get_qualname(frame)}'")
 
 
 def _get_frame_local_variables_data(frame, variables, exclude_variables):
@@ -219,7 +228,7 @@ def _get_frame_function_object(frame):
       The function object from which the ``frame`` is originating.
     """
     func_name = frame.f_code.co_name
-    func_qualname = frame.f_code.co_qualname
+    func_qualname = _get_qualname(frame)
     info_msg = f"Can't get function object for frame: {_get_frame_repr(frame)}"
     return_msg = "Function object not found"
     # The function is most-likely either a local function or a class method.
@@ -329,7 +338,7 @@ def _get_frame_metadata(frame_idx, frame_obj):
         filename=frame_obj.f_code.co_filename,
         lineno=frame_obj.f_lineno,
         function_name=frame_obj.f_code.co_name,
-        function_qualname=frame_obj.f_code.co_qualname,
+        function_qualname=_get_qualname(frame_obj),
         function_object=pickled_function,
         module_name=_get_frame_module_name(frame_obj),
         code=_get_frame_code_line(frame_obj),
@@ -369,7 +378,7 @@ def _get_all_matching_frames(frame, all_frames):
         if lineno and frame_obj.f_lineno != lineno:
             continue
         if (func_name and
-                func_name not in (frame_obj.f_code.co_name, frame_obj.f_code.co_qualname)):
+                func_name not in (frame_obj.f_code.co_name, _get_qualname(frame_obj))):
             continue
         all_matching_frames.append((idx+1, frame_obj))
     return all_matching_frames
@@ -1012,7 +1021,7 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
         if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
             current_frame = interactive_session_obj.curframe
             frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
-                      f"{current_frame.f_code.co_qualname}")
+                      f"{_get_qualname(current_frame)}")
 
     _SAVEFRAME_LOGGER.info("Validating arguments passed.")
     filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
