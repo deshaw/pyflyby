@@ -141,7 +141,7 @@ def _get_exception_info(exception_obj):
                 type(exception_obj), exception_obj, exception_obj.__traceback__))
     except Exception as err:
         _SAVEFRAME_LOGGER.warning(
-            f"Error while formatting the traceback. Error: {err!a}")
+            "Error while formatting the traceback. Error: %a", err)
         tb = "Traceback couldn't be formatted"
     exception_info = ExceptionInfo(
         exception_string=str(exception_obj),
@@ -207,9 +207,9 @@ def _get_frame_local_variables_data(frame, variables, exclude_variables):
                 all_local_variables[variable], protocol=PICKLE_PROTOCOL)
         except Exception as err:
             _SAVEFRAME_LOGGER.warning(
-                f"Cannot pickle variable: {variable!a} for frame: "
-                f"{_get_frame_repr(frame)}. Error: {err!a}. Skipping this "
-                f"variable and continuing.")
+                "Cannot pickle variable: %a for frame: %s. Error: %a. Skipping "
+                "this variable and continuing.",
+                variable, _get_frame_repr(frame), err)
         else:
             local_variables_to_save[variable] = pickled_value
     return local_variables_to_save
@@ -280,13 +280,13 @@ def _get_frame_module_name(frame):
         frame_module = inspect.getmodule(frame)
         if frame_module is not None:
             return frame_module.__name__
-        _SAVEFRAME_LOGGER.info(f"No module found for the frame: "
-                              f"{_get_frame_repr(frame)}")
+        _SAVEFRAME_LOGGER.info(
+            "No module found for the frame: %s", _get_frame_repr(frame))
         return "Module name not found"
     except Exception as err:
         _SAVEFRAME_LOGGER.warning(
-            f"Module name couldn't be found for the frame: "
-            f"{_get_frame_repr(frame)}. Error: {err!a}")
+            "Module name couldn't be found for the frame: %s. Error: %a",
+            _get_frame_repr(frame), err)
         return "Module name not found"
 
 
@@ -329,8 +329,8 @@ def _get_frame_metadata(frame_idx, frame_obj):
                 frame_function_object, protocol=PICKLE_PROTOCOL)
     except Exception as err:
         _SAVEFRAME_LOGGER.info(
-            f"Cannot pickle the function object for the frame: "
-            f"{_get_frame_repr(frame_obj)}. Error: {err!a}")
+            "Cannot pickle the function object for the frame: %s. Error: %a",
+            _get_frame_repr(frame_obj), err)
         pickled_function = "Function object not pickleable"
     # Object that stores all the frame's metadata.
     frame_metadata = FrameMetadata(
@@ -407,9 +407,9 @@ def _get_frames_to_save(frames, all_frames):
     elif frame_type == FrameFormat.NUM:
         if len(all_frames) < frames:
             _SAVEFRAME_LOGGER.info(
-                f"Number of frames to dump are {frames}, but there are only "
-                f"{len(all_frames)} frames in the error stack. So dumping "
-                f"all the frames.")
+                "Number of frames to dump are %s, but there are only %s frames "
+                "in the error stack. So dumping all the frames.",
+                frames, len(all_frames))
             frames = len(all_frames)
         return [(idx+1, all_frames[idx]) for idx in range(frames)]
     elif frame_type == FrameFormat.LIST:
@@ -538,11 +538,12 @@ def _save_frames_and_exception_info_to_file(
     all_frames = _get_all_frames_from_exception_obj(exception_obj)
     # Take out the frame objects we want to save as per 'frames'.
     frames_to_save = _get_frames_to_save(frames, all_frames)
-    _SAVEFRAME_LOGGER.info(f"Number of frames that'll be saved: {len(frames_to_save)}")
+    _SAVEFRAME_LOGGER.info(
+        "Number of frames that'll be saved: %s", len(frames_to_save))
 
     for frame_idx, frame_obj in frames_to_save:
         _SAVEFRAME_LOGGER.info(
-            f"Getting required info for the frame: {_get_frame_repr(frame_obj)}")
+            "Getting required info for the frame: %s", _get_frame_repr(frame_obj))
         frames_and_exception_info[frame_idx] = _get_frame_metadata(
             frame_idx, frame_obj).__dict__
         frames_and_exception_info[frame_idx]['variables'] = (
@@ -550,7 +551,7 @@ def _save_frames_and_exception_info_to_file(
 
     _SAVEFRAME_LOGGER.info("Getting exception metadata info.")
     frames_and_exception_info.update(_get_exception_info(exception_obj).__dict__)
-    _SAVEFRAME_LOGGER.info(f"Saving the complete data in the file: {filename!a}")
+    _SAVEFRAME_LOGGER.info("Saving the complete data in the file: %a", filename)
     with _open_file(filename, 'wb') as f:
         pickle.dump(frames_and_exception_info, f, protocol=PICKLE_PROTOCOL)
     _SAVEFRAME_LOGGER.info("Done!!")
@@ -594,10 +595,11 @@ def _validate_filename(filename, utility):
     if filename is None:
         filename = os.path.abspath(DEFAULT_FILENAME)
         _SAVEFRAME_LOGGER.info(
-            f"Filename is not passed explicitly using the "
-            f"{'`filename` parameter' if utility == 'function' else '--filename argument'}. "
-            f"The frame info will be saved in the file: {filename!a}.")
-    _SAVEFRAME_LOGGER.info(f"Validating filename: {filename!a}")
+            "Filename is not passed explicitly using the %s. The frame info will "
+            "be saved in the file: %a.",
+            '`filename` parameter' if utility == 'function' else '--filename argument',
+            filename)
+    _SAVEFRAME_LOGGER.info("Validating filename: %a", filename)
     # Resolve any symlinks.
     filename = os.path.realpath(filename)
     if os.path.islink(filename):
@@ -607,13 +609,11 @@ def _validate_filename(filename, utility):
                          f"pass a different filename.")
     if os.path.exists(filename):
         _SAVEFRAME_LOGGER.info(
-            f"File {filename!a} already exists. This run will "
-            f"overwrite the file.")
+            "File %a already exists. This run will overwrite the file.", filename)
     parent_dir = os.path.dirname(filename)
     # Check if the parent directory and the ancestors are world traversable.
     # Log a warning if not. Raise an error if the parent or any ancestor
     # directory doesn't exist.
-    is_parent_and_ancestors_world_traversable = True
     try:
         is_parent_and_ancestors_world_traversable = (
             _is_dir_and_ancestors_world_traversable(directory=parent_dir))
@@ -624,15 +624,15 @@ def _validate_filename(filename, utility):
                f"{filename!a}. Error: {err!a}")
         raise type(err)(msg) from None
     except OSError as err:
+        is_parent_and_ancestors_world_traversable = False
         _SAVEFRAME_LOGGER.warning(
-            f"Error while trying to determine if the parent directory: "
-            f"{parent_dir!a} and the ancestors are world traversable. "
-            f"Error: {err!a}")
+            "Error while trying to determine if the parent directory: %a and "
+            "the ancestors are world traversable. Error: %a", parent_dir, err)
     if not is_parent_and_ancestors_world_traversable:
         _SAVEFRAME_LOGGER.warning(
-            f"The parent directory {parent_dir!a} or an ancestor is not world "
-            f"traversable (i.e., the execute bit of one of the ancestors is 0). "
-            f"The filename {filename!a} might not be accessible by others.")
+            "The parent directory %a or an ancestor is not world traversable "
+            "(i.e., the execute bit of one of the ancestors is 0). The filename "
+            "%a might not be accessible by others.", parent_dir, filename)
     return filename
 
 
@@ -674,11 +674,11 @@ def _validate_frames(frames, utility):
     """
     if frames is None:
         _SAVEFRAME_LOGGER.info(
-            f"{'`frames` parameter' if utility == 'function' else '--frames argument'} "
-            f"is not passed explicitly. The first frame from the bottom will be "
-            f"saved by default.")
+            "%s is not passed explicitly. The first frame from the bottom will be "
+            "saved by default.",
+            '`frames` parameter' if utility == 'function' else '--frames argument')
         return None, None
-    _SAVEFRAME_LOGGER.info(f"Validating frames: {frames!a}")
+    _SAVEFRAME_LOGGER.info("Validating frames: %a", frames)
     try:
         # Handle frames as an integer.
         return int(frames), FrameFormat.NUM
@@ -774,7 +774,7 @@ def _validate_variables(variables, utility):
     """
     if variables is None:
         return
-    _SAVEFRAME_LOGGER.info(f"Validating variables: {variables!a}")
+    _SAVEFRAME_LOGGER.info("Validating variables: %a", variables)
     if isinstance(variables, str) and ',' in variables and utility == 'function':
         raise ValueError(
             f"Error while validating variables: {variables!a}. If you want to "
@@ -792,8 +792,8 @@ def _validate_variables(variables, utility):
                               if not _is_variable_name_valid(variable)]
     if invalid_variable_names:
         _SAVEFRAME_LOGGER.warning(
-            f"Invalid variable names: {invalid_variable_names}. Skipping these "
-            f"variables and continuing.")
+            "Invalid variable names: %s. Skipping these variables and continuing.",
+            invalid_variable_names)
         # Filter out invalid variables.
         all_variables = tuple(variable for variable in all_variables
                               if variable not in invalid_variable_names)
@@ -839,10 +839,11 @@ def _validate_saveframe_arguments(
     exclude_variables = _validate_variables(exclude_variables, utility)
     if not (variables or exclude_variables):
         _SAVEFRAME_LOGGER.info(
-            f"Neither {'`variables`' if utility == 'function' else '--variables'} "
-            f"nor {'`exclude_variables`' if utility == 'function' else '--exclude_variables'} "
-            f"{'parameter' if utility == 'function' else 'argument'} is passed. "
-            f"All the local variables from the frames will be saved.")
+            "Neither %s nor %s %s is passed. All the local variables from the "
+            "frames will be saved.",
+            '`variables`' if utility == 'function' else '--variables',
+            '`exclude_variables`' if utility == 'function' else '--exclude_variables',
+            'parameter' if utility == 'function' else 'argument')
 
     return filename, frames, variables, exclude_variables
 
@@ -928,6 +929,44 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
       >> ipdb> saveframe(filename=/path/to/file, frames=frames_to_save,
       .. variables=local_variables_to_include, exclude_variables=local_variables_to_exclude)
 
+      # Let's say your code is raising an error with the following traceback:
+
+      File "dir/__init__.py", line 6, in init_func1
+          func1()
+      File "dir/mod1.py", line 14, in func1
+          func2()
+      File "dir/mod1.py", line 9, in func2
+          obj.func2()
+      File "dir/pkg1/mod2.py", line 10, in func2
+          func3()
+      File "dir/pkg1/pkg2/mod3.py", line 6, in func3
+          raise ValueError("Error is raised")
+      ValueError: Error is raised
+
+      # To save the last frame (the error frame) in file '/path/to/file', use:
+      >> saveframe(filename='/path/to/file')
+
+      # To save a specific frame like `File "dir/mod1.py", line 9, in func2`, use:
+      >> saveframe(filename='/path/to/file', frames='mod1.py:9:func2')
+
+      # To save the last 3 frames from the bottom, use:
+      >> saveframe(frames=3)
+
+      # To save all the frames from 'mod1.py' and 'mod2.py' files, use:
+      >> saveframe(filename='/path/to/file', frames=['mod1.py::', 'mod2.py::'])
+
+      # To save a range of frames from 'mod1.py' to 'mod3.py', use:
+      >> saveframe(frames='mod1.py::..mod3.py::')
+
+      # To save a range of frames from '__init__.py' till the last frame, use:
+      >> saveframe(frames='__init__.py::..')
+
+      # To only save local variables 'var1' and 'var2' from the frames, use:
+      >> saveframe(frames=<frames_to_save>, variables=['var1', 'var2'])
+
+      # To exclude local variables 'var1' and 'var2' from the frames, use:
+      >> saveframe(frames=<frames_to_save>, exclude_variables=['var1', 'var2'])
+
     For non-interactive use cases (e.g., a failing script or command), checkout
     `pyflyby/bin/saveframe` script.
 
@@ -1005,13 +1044,14 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     :return:
       The file path in which the frame info is saved.
     """
-    if not hasattr(sys, 'last_value'):
+    if not ((sys.version_info < (3, 12) and hasattr(sys, 'last_value')) or
+            (sys.version_info >= (3, 12) and hasattr(sys, 'last_exc'))):
         raise RuntimeError(
             "No exception is raised currently for which to save the frames. "
             "Make sure that an uncaught exception is raised before calling the "
             "`saveframe` function.")
     # Get the latest exception raised.
-    exception_obj = sys.last_value
+    exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
 
     if frames is None:
         # Get the instance of the interactive session the user is currently in.
@@ -1027,7 +1067,7 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
         filename, frames, variables, exclude_variables)
     _SAVEFRAME_LOGGER.info(
-        f"Saving frames and metadata for the exception: '{exception_obj!a}")
+        "Saving frames and metadata for the exception: %a", exception_obj)
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
         exclude_variables=exclude_variables, exception_obj=exception_obj)

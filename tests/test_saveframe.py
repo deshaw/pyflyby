@@ -76,6 +76,21 @@ def run_command(command):
     return result.stderr.decode('utf-8').strip().split('\n')
 
 
+@contextmanager
+def run_code_and_set_exception(code, exception):
+    try:
+        exec(code)
+    except exception as err:
+        if VERSION_INFO < (3, 12):
+            sys.last_value = err
+        else:
+            sys.last_exc = err
+    try:
+        yield
+    finally:
+        delattr(sys, "last_value" if VERSION_INFO < (3, 12) else "last_exc")
+
+
 def frames_metadata_checker(tmpdir, pkg_name, filename):
     """
     Check if the metadata of the frames is correctly written in the ``filename``.
@@ -325,236 +340,194 @@ def create_pkg(tmpdir):
 
 def test_saveframe_invalid_filename_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / pkg_name))
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / pkg_name))
     err_msg = (f"{str(tmpdir / pkg_name)!a} is an already existing directory. "
                f"Please pass a different filename.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_filename_2(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_dir_{get_random()}" / f"saveframe_{get_random()}.pkl")
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(FileNotFoundError) as err:
-        saveframe(filename=filename)
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(FileNotFoundError) as err:
+            saveframe(filename=filename)
     err_msg = (f"Error while saving the frames to the file: {filename!a}. Error: "
                f"FileNotFoundError(2, 'No such file or directory')")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames="foo.py:")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames="foo.py:")
     err_msg = ("Error while validating frame: 'foo.py:'. The correct syntax for "
                "a frame is 'file_regex:line_no:function_name' but frame 'foo.py:' "
                "contains 1 ':'.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_2(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames=":12:func1")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames=":12:func1")
     err_msg = ("Error while validating frame: ':12:func1'. The filename / file "
                "regex must be passed in a frame.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_3(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames="file.py:12:func1,file1.py::")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames="file.py:12:func1,file1.py::")
     err_msg = ("Error while validating frames: 'file.py:12:func1,file1.py::'. "
                "If you want to pass multiple frames, pass a list/tuple of frames "
                "like ['file.py:12:func1', 'file1.py::'] rather than a comma "
                "separated string of frames.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_4(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames=["file.py:12:func1", "file1.py::,file2.py:34:func2"])
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames=["file.py:12:func1", "file1.py::,file2.py:34:func2"])
     err_msg = (
         "Invalid frame: 'file1.py::,file2.py:34:func2' in frames: ['file.py:12:func1', "
         "'file1.py::,file2.py:34:func2'] as it contains character ','. If you are "
         "trying to pass multiple frames, pass them as separate items in the list.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_5(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames="file.py:12:func1..file2.py::..")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames="file.py:12:func1..file2.py::..")
     err_msg = ("Error while validating frames: 'file.py:12:func1..file2.py::..'. "
                "If you want to pass a range of frames, the correct syntax is "
                "'first_frame..last_frame'")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_frames_6(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  frames="file.py:foo:func1")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      frames="file.py:foo:func1")
     err_msg = ("Error while validating frame: 'file.py:foo:func1'. The line "
                "number 'foo' can't be converted to an integer.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_variables_and_exclude_variables(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(variables="foo", exclude_variables="bar")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(variables="foo", exclude_variables="bar")
     err_msg = "Cannot pass both `variables` and `exclude_variables` parameters."
     assert str(err.value) == err_msg
 
 
 def test_saveframe_invalid_variables_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  variables="var1,var2")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      variables="var1,var2")
     err_msg = ("Error while validating variables: 'var1,var2'. If you want to pass "
                "multiple variable names, pass a list/tuple of names like ['var1', "
                "'var2'] rather than a comma separated string of names.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_variables_2(tmpdir, caplog):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-              variables=["var1", "1var2"])
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                  variables=["var1", "1var2"])
     log_messages = [record.message for record in caplog.records]
     warning_msg = ("Invalid variable names: ['1var2']. Skipping these variables "
                    "and continuing.")
     assert warning_msg in log_messages
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_variables_3(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(TypeError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  variables=1)
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(TypeError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      variables=1)
     err_msg = ("Variables '1' must be of type list, tuple or string (for a single "
                "variable), not '<class 'int'>'")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_exclude_variables_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  exclude_variables="var1,var2")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      exclude_variables="var1,var2")
     err_msg = ("Error while validating variables: 'var1,var2'. If you want to pass "
                "multiple variable names, pass a list/tuple of names like ['var1', "
                "'var2'] rather than a comma separated string of names.")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_exclude_variables_2(tmpdir, caplog):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-              exclude_variables=["var1", "1var2"])
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                  exclude_variables=["var1", "1var2"])
     log_messages = [record.message for record in caplog.records]
     warning_msg = ("Invalid variable names: ['1var2']. Skipping these variables "
                    "and continuing.")
     assert warning_msg in log_messages
-    delattr(sys, "last_value")
 
 
 def test_saveframe_invalid_exclude_variables_3(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    with pytest.raises(TypeError) as err:
-        saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                  exclude_variables=1)
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with pytest.raises(TypeError) as err:
+            saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                      exclude_variables=1)
     err_msg = ("Variables '1' must be of type list, tuple or string (for a single "
                "variable), not '<class 'int'>'")
     assert str(err.value) == err_msg
-    delattr(sys, "last_value")
 
 
 def test_saveframe_no_error_raised(tmpdir):
     if hasattr(sys, "last_value"):
         delattr(sys, "last_value")
+    if hasattr(sys, "last_exc"):
+        delattr(sys, "last_exc")
     pkg_name = create_pkg(tmpdir)
     with pytest.raises(RuntimeError) as err:
         exec(f"from {pkg_name} import init_func2; init_func2()")
@@ -567,118 +540,101 @@ def test_saveframe_no_error_raised(tmpdir):
 
 def test_saveframe_frame_format_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
-    # Format: 'filename:line_no:func_name'
-    saveframe(filename=filename, frames="pkg1/mod2.py:10:func2")
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {2}
-    assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
-    assert data[2]["function_name"] == "func2"
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+        # Format: 'filename:line_no:func_name'
+        saveframe(filename=filename, frames="pkg1/mod2.py:10:func2")
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {2}
+        assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
+        assert data[2]["function_name"] == "func2"
 
-    # Format: 'filename::'
-    saveframe(filename=filename, frames="mod1.py::")
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {3, 4}
-    assert data[3]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[3]["function_name"] == "func2"
+        # Format: 'filename::'
+        saveframe(filename=filename, frames="mod1.py::")
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {3, 4}
+        assert data[3]["filename"] == str(tmpdir / pkg_name / "mod1.py")
+        assert data[3]["function_name"] == "func2"
 
-    # Format: 'filename::func_name'
-    saveframe(filename=filename, frames=f"{pkg_name}/mod1.py::func1")
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {4}
-    assert data[4]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[4]["function_name"] == "func1"
-    delattr(sys, "last_value")
+        # Format: 'filename::func_name'
+        saveframe(filename=filename, frames=f"{pkg_name}/mod1.py::func1")
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {4}
+        assert data[4]["filename"] == str(tmpdir / pkg_name / "mod1.py")
+        assert data[4]["function_name"] == "func1"
 
 
 def test_saveframe_frame_format_2(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
 
-    saveframe(filename=filename, frames=["__init__.py::", "pkg1/mod2.py:10:func2"])
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {2, 5}
-    assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
-    assert (
-        data[2]["function_qualname"] ==
-        "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
+        saveframe(filename=filename, frames=["__init__.py::", "pkg1/mod2.py:10:func2"])
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {2, 5}
+        assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
+        assert (
+            data[2]["function_qualname"] ==
+            "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
 
-    assert data[5]["filename"] == str(tmpdir / pkg_name / "__init__.py")
-    assert data[5]["function_qualname"] == "init_func1"
+        assert data[5]["filename"] == str(tmpdir / pkg_name / "__init__.py")
+        assert data[5]["function_qualname"] == "init_func1"
 
-    saveframe(filename=filename, frames=["pkg1/pkg2/mod3.py:6:", "mod1::"])
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {1, 3, 4}
-    assert data[1]["filename"] == str(tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py")
-    assert data[1]["function_qualname"] == "func3"
-    delattr(sys, "last_value")
+        saveframe(filename=filename, frames=["pkg1/pkg2/mod3.py:6:", "mod1::"])
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {1, 3, 4}
+        assert data[1]["filename"] == str(tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py")
+        assert data[1]["function_qualname"] == "func3"
 
 
 def test_saveframe_frame_format_3(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
-    saveframe(filename=filename, frames=3)
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {1, 2, 3}
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+        saveframe(filename=filename, frames=3)
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {1, 2, 3}
 
-    saveframe(filename=filename, frames=5)
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
-    delattr(sys, "last_value")
+        saveframe(filename=filename, frames=5)
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
 
 
 def test_saveframe_frame_format_4(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
-    saveframe(filename=filename, frames="pkg1/mod2.py::..__init__.py:6:init_func1")
-    data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {2, 3, 4, 5}
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+        saveframe(filename=filename, frames="pkg1/mod2.py::..__init__.py:6:init_func1")
+        data = load_pkl(filename)
+        assert set(data.keys()) == exception_info_keys | {2, 3, 4, 5}
 
-    with pytest.raises(ValueError) as err:
-        saveframe(filename=filename,
-                  frames="pkg1/mod3.py::..__init__.py:6:init_func1")
-    err_msg = "No frame in the traceback matched the frame: 'pkg1/mod3.py::'"
-    assert str(err.value) == err_msg
-    delattr(sys, "last_value")
+        with pytest.raises(ValueError) as err:
+            saveframe(filename=filename,
+                      frames="pkg1/mod3.py::..__init__.py:6:init_func1")
+        err_msg = "No frame in the traceback matched the frame: 'pkg1/mod3.py::'"
+        assert str(err.value) == err_msg
 
 
 def test_saveframe_frame_format_5(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                         frames=f"{str(tmpdir)}/{pkg_name}/mod1.py::..")
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                             frames=f"{str(tmpdir)}/{pkg_name}/mod1.py::..")
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4}
-    delattr(sys, "last_value")
 
 
 def test_saveframe_variables(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                         frames=5, variables=['var1', 'var2'])
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                             frames=5, variables=['var1', 'var2'])
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
 
@@ -687,17 +643,14 @@ def test_saveframe_variables(tmpdir):
     assert set(data[3]["variables"].keys()) == {"var1", "var2"}
     assert set(data[4]["variables"].keys()) == {"var1"}
     assert set(data[5]["variables"].keys()) == {"var1", "var2"}
-    delattr(sys, "last_value")
 
 
 def test_saveframe_exclude_variables(tmpdir, caplog):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-                         frames=5, exclude_variables=['var1', 'var2'])
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+                             frames=5, exclude_variables=['var1', 'var2'])
     log_messages = [record.message for record in caplog.records]
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
@@ -712,18 +665,15 @@ def test_saveframe_exclude_variables(tmpdir, caplog):
         f"Cannot pickle variable: 'var3' for frame: 'File: {str(tmpdir)}/{pkg_name}"
         f"/pkg1/mod2.py, Line: 10, Function: {qualname}'.")
     assert warning_msg in "\n".join(log_messages)
-    delattr(sys, "last_value")
 
 
 def test_saveframe_defaults(tmpdir, caplog):
     pkg_name = create_pkg(tmpdir)
-    with chdir(tmpdir):
-        try:
-            exec(f"from {pkg_name} import init_func1; init_func1()")
-        except ValueError as err:
-            sys.last_value = err
-        filename  = saveframe()
-        log_messages = [record.message for record in caplog.records]
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        with chdir(tmpdir):
+            filename  = saveframe()
+            log_messages = [record.message for record in caplog.records]
     # Test that saveframe.pkl file in the current working directory is used by
     # default.
     info_message = (f"Filename is not passed explicitly using the `filename` "
@@ -738,57 +688,42 @@ def test_saveframe_defaults(tmpdir, caplog):
     # Test that only first frame from the bottom (index = 1) is stored in the
     # data by default.
     assert set(data.keys()) == exception_info_keys | {1}
-    delattr(sys, "last_value")
 
 
 def test_saveframe_frame_metadata(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=5)
-
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(
+            filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=5)
     frames_metadata_checker(tmpdir, pkg_name, filename)
-    delattr(sys, "last_value")
 
 
 def test_saveframe_local_variables_data(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=5)
-
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(
+            filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=5)
     frames_local_variables_checker(pkg_name, filename)
-    delattr(sys, "last_value")
 
 
 def test_saveframe_exception_info(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func1; init_func1()")
-    except ValueError as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=0)
-
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = saveframe(
+            filename=str(tmpdir / f"saveframe_{get_random()}.pkl"), frames=0)
     exception_info_checker(filename)
-    delattr(sys, "last_value")
 
 
 def test_saveframe_chained_exceptions(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func3; init_func3()")
-    except TypeError as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-        frames=['__init__.py::init_func3', f'.*/{pkg_name}/.*::'])
+    code = f"from {pkg_name} import init_func3; init_func3()"
+    with run_code_and_set_exception(code, TypeError):
+        filename = saveframe(
+            filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
+            frames=['__init__.py::init_func3', f'.*/{pkg_name}/.*::'])
     data = load_pkl(filename)
 
     assert 1 in set(data.keys())
@@ -803,46 +738,69 @@ def test_saveframe_chained_exceptions(tmpdir):
     assert data[1]["frame_identifier"] == (
         f"{data[1]['filename']},{data[1]['lineno']},{data[1]['function_name']}")
     assert len(set(data.keys()) - exception_info_keys) == 5
-    delattr(sys, "last_value")
 
 
 def test_keyboard_interrupt_frame_metadata(tmpdir):
     pkg_name = create_pkg(tmpdir)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    code = dedent(f"""
+    import sys
+    from pyflyby import saveframe
+    sys.path.append('{tmpdir}')
+    from {pkg_name} import init_func4
     try:
-        exec(f"from {pkg_name} import init_func4; init_func4()")
+        init_func4()
     except KeyboardInterrupt as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-        frames=2)
+        if {VERSION_INFO[:2]} < (3, 12):
+            sys.last_value = err
+        else:
+            sys.last_exc = err
+    saveframe(filename='{filename}', frames=2)
+    """)
+    run_command(["python", "-c", code])
     frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename)
-    delattr(sys, "last_value")
 
 
 def test_keyboard_interrupt_local_variables_data(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func4; init_func4()")
-    except KeyboardInterrupt as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-        frames=2)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    code = dedent(f"""
+        import sys
+        from pyflyby import saveframe
+        sys.path.append('{tmpdir}')
+        from {pkg_name} import init_func4
+        try:
+            init_func4()
+        except KeyboardInterrupt as err:
+            if {VERSION_INFO[:2]} < (3, 12):
+                sys.last_value = err
+            else:
+                sys.last_exc = err
+        saveframe(filename='{filename}', frames=2)
+        """)
+    run_command(["python", "-c", code])
     frames_local_variables_checker_for_keyboard_interrupt(filename)
-    delattr(sys, "last_value")
 
 
 def test_keyboard_interrupt_exception_info(tmpdir):
     pkg_name = create_pkg(tmpdir)
-    try:
-        exec(f"from {pkg_name} import init_func4; init_func4()")
-    except KeyboardInterrupt as err:
-        sys.last_value = err
-    filename = saveframe(
-        filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
-        frames=0)
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    code = dedent(f"""
+        import sys
+        from pyflyby import saveframe
+        sys.path.append('{tmpdir}')
+        from {pkg_name} import init_func4
+        try:
+            init_func4()
+        except KeyboardInterrupt as err:
+            if {VERSION_INFO[:2]} < (3, 12):
+                sys.last_value = err
+            else:
+                sys.last_exc = err
+        saveframe(filename='{filename}', frames=0)
+        """)
+    run_command(["python", "-c", code])
     exception_info_checker_for_keyboard_interrupt(filename)
-    delattr(sys, "last_value")
 
 
 def test_saveframe_cmdline_no_exception():
