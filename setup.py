@@ -200,6 +200,7 @@ setup(
         'bin/pyflyby-diff',
         'bin/reformat-imports',
         'bin/replace-star-imports',
+        'bin/saveframe',
         'bin/tidy-imports',
         'bin/transform-imports',
     ],

@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""
+Utility to save information for debugging / reproducing an issue.
+
+Usage:
+If you have a script or command that is currently failing due to an issue
+originating from upstream code, and you cannot share your private code as
+a reproducer, use this utility to save relevant information to a file (e.g.,
+error frames specific to the upstream codebase). Share the generated file
+with the upstream team, enabling them to reproduce and diagnose the issue
+independently.
+
+Information saved in the file:
+This utility captures and saves error stack frames to a file. It includes the
+values of local variables from each stack frame, as well as metadata about each
+frame and the exception raised by the user's script or command. Following is the
+sample structure of the info saved in the file:
+
+{
+    # 5th frame from the bottom
+    5: {
+            'frame_index': 5,
+            'filename': '/path/to/file.py',
+            'lineno': 3423,
+            'function_name': 'func1',
+            'function_qualname': 'FooClass.func1',
+            'function_object': <pickled object>,
+            'module_name': '<frame_module>'
+            'frame_identifier': '/path/to/file.py,3423,func1',
+            'code': '... python code line ...'
+            'variables': {'local_variable1': <pickled value>, 'local_variable2': <pickled value>, ...}
+        },
+    # 17th frame from the bottom
+    17: {
+            'frame_index': 17,
+            ...
+        },
+    ...
+    'exception_full_string': f'{exc.__class.__name__}: {exc}'
+    'exception_object': exc,
+    'exception_string': str(exc),
+    'exception_class_name': exc.__class__.__name__,
+    'exception_class_qualname': exc.__class__.__qualname__,
+    'traceback': '(multiline traceback)
+}
+
+NOTE:
+    - The above data gets saved in the file in pickled form.
+    - In the above data, the key of each frame's entry is the index of that frame
+      from the bottom of the error stack trace. So the first frame from the bottom
+      (the error frame) has index 1, and so on.
+    - 'variables' key in each frame's entry stores the local variables of that frame.
+    - The 'exception_object' key stores the actual exception object but without
+      the __traceback__ info (for security reasons).
+
+Example Usage:
+
+    Let's say your script / command is raising an error with the following traceback:
+
+    File "dir/__init__.py", line 6, in init_func1
+        func1()
+    File "dir/mod1.py", line 14, in func1
+        func2()
+    File "dir/mod1.py", line 9, in func2
+        obj.func2()
+    File "dir/pkg1/mod2.py", line 10, in func2
+        func3()
+    File "dir/pkg1/pkg2/mod3.py", line 6, in func3
+        raise ValueError("Error is raised")
+    ValueError: Error is raised
+
+    => To save the last frame (the error frame) in file '/path/to/file', use:
+    $ saveframe --filename=/path/to/file <script_or_command_to_run>
+
+    => To save a specific frame like `File "dir/mod1.py", line 9, in func2`, use:
+    $ saveframe --filename=/path/to/file --frames=mod1.py:9:func2 <script_or_command_to_run>
+
+    => To save the last 3 frames from the bottom, use:
+    $ saveframe --frames=3 <script_or_command_to_run>
+
+    => To save all the frames from 'mod1.py' and 'mod2.py' files, use:
+    $ saveframe --filename=/path/to/file --frames=mod1.py::,mod2.py:: <script_or_command_to_run>
+
+    => To save a range of frames from 'mod1.py' to 'mod3.py', use:
+    $ saveframe --frames=mod1.py::..mod3.py:: <script_or_command_to_run>
+
+    => To save a range of frames from '__init__.py' till the last frame, use:
+    $ saveframe --frames=__init__.py::.. <script_or_command_to_run>
+
+    => To only save local variables 'var1' and 'var2' from the frames, use:
+    $ saveframe --frames=frames_to_save --variables=var1,var2 <script_or_command_to_run>
+
+    => To exclude local variables 'var1' and 'var2' from the frames, use:
+    $ saveframe --frames=frames_to_save --exclude_variables=var1,var2 <script_or_command_to_run>
+
+For interactive use cases, checkout pyflyby.saveframe function.
+"""
+from __future__ import annotations
+
+# Save an unspoiled copy of globals for running the user program.
+globals_cpy = globals().copy()
+
+import argparse
+import os
+import sys
+
+from   pyflyby._saveframe       import (_SAVEFRAME_LOGGER,
+                                        _save_frames_and_exception_info_to_file,
+                                        _validate_saveframe_arguments)
+
+
+def getargs():
+    """
+    Parse the command-line arguments.
+    """
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
+                                     description=__doc__,
+                                     prog=os.path.basename(sys.argv[0]))
+    parser.add_argument(
+        "--filename", default=None,
+        help="File path in which to save the frame information. If this file "
+             "already exists, it will be overwritten; otherwise, a new file will "
+             "be created with permission mode '0o644'\nDefault behavior: "
+             "If --filename is not passed, the info gets saved in the "
+             "'saveframe.pkl' file in the current working directory."
+    )
+    parser.add_argument(
+        "--frames", default=None,
+        help="Error stack frames to save.\n"
+             "Default behavior: If --frames is not passed, the first frame from "
+             "the bottom (the error frame) is saved.\n\n"
+             "A single frame follows the format "
+             "'filename:line_no:function_name', where:\n"
+             "    - filename: The file path or a regex pattern matching the file "
+             "path (displayed in the stack trace) of that error frame.\n"
+             "    - line_no (Optional): The code line number (displayed in the "
+             "stack trace) of that error frame.\n"
+             "    - function_name (Optional): The function name (displayed in "
+             "the stack trace) of that error frame.\n\n"
+             "Partial frames are also supported where line_no and/or function_name "
+             "can be omitted:\n"
+             "    - 'filename::' -> Includes all the frames that matches the filename\n"
+             "    - 'filename:line_no:' -> Include all the frames that matches "
+             "specific line in any function in the filename\n"
+             "    - 'filename::function_name' -> Include all the frames that matches "
+             "any line in the specific function in the filename\n\n"
+             "Following formats are supported to pass the frames:\n\n"
+             "1. Single frame:\n"
+             "   --frames=frame\n"
+             "   Example: --frames=/path/to/file.py:24:some_func\n"
+             "   Includes only the specified frame.\n\n"
+             "2. Multiple frames:\n"
+             "   --frames=frame1,frame2,...\n"
+             "   Example: --frames=/dir/foo.py:45:,.*/dir2/bar.py:89:caller\n"
+             "   Includes all specified frames.\n\n"
+             "3. Range of frames:\n"
+             "   --frames=first_frame..last_frame\n"
+             "   Example: --frames=/dir/foo.py:45:get_foo../dir3/blah.py:23:myfunc\n"
+             "   Includes all the frames from first_frame to last_frame (both inclusive).\n\n"
+             "4. Range from first_frame to bottom:\n"
+             "   --frames=first_frame..\n"
+             "   Example: --frames=/dir/foo.py:45:get_foo..\n"
+             "   Includes all the frames from first_frame to the bottom of the stack trace.\n\n"
+             "5. Number of Frames from Bottom:\n"
+             "   --frames=num\n"
+             "   Example: --frames=5\n"
+             "   Includes the last 'num' frames from the bottom of the stack trace."
+    )
+    parser.add_argument(
+        "--variables", default=None,
+        help="Local variables to include in each frame. Allowed format:\n"
+             "--variables=var1,var2,var3...\nExample: --variables=foo,bar\n\n"
+             "Default behavior: If --variables is not passed, save all the local "
+             "variables of the included frames."
+    )
+    parser.add_argument(
+        "--exclude_variables", default=None,
+        help="Local variables to exclude from each frame. Allowed format:\n"
+             "--exclude_variables=var1,var2,var3...\nExample: "
+             "--exclude_variables=foo,bar\n\n"
+             "Default behavior: If --exclude_variables is not passed, save all "
+             "the local variables of the included frames as per --variables."
+    )
+    parser.add_argument(
+        "command", default=argparse.SUPPRESS, nargs=argparse.REMAINDER,
+        help="User's script / command to execute.")
+    args = parser.parse_args()
+    return args
+
+
+def which(program):
+    """
+    Find the complete path of the ``program``.
+
+    :param program:
+      Program for which to find the complete path.
+    :return:
+      Complete path of the program.
+    """
+    if os.access(program, os.R_OK):
+        return program
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if os.access(fpath, os.R_OK):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if os.access(exe_file, os.X_OK):
+                return exe_file
+
+    return None
+
+
+def execfile(filepath):
+    """
+    Execute the script stored in ``filepath``.
+
+    :param filepath:
+      Path of the script to execute.
+    """
+    globals_cpy.update({
+        "__file__": filepath,
+        "__name__": "__main__",
+    })
+    with open(filepath, 'rb') as file:
+        exec(compile(file.read(), filepath, 'exec'), globals_cpy)
+
+
+def run_program(command):
+    """
+    Run a program.
+
+    :param command:
+      List containing the command to run.
+    """
+    if len(command) == 0:
+        raise SystemExit("Error: Please pass a valid script / command to run!")
+    if command[0] == '-c':
+        if len(command) == 1:
+            raise SystemExit("Error: Please pass a valid script / command to run!")
+        # Set sys.argv.  Mimic regular python -c by dropping the code but
+        # keeping the rest.
+        sys.argv = ['-c'] + command[2:]
+        globals_cpy['__file__'] = None
+        # Evaluate the command line code.
+        code = compile(command[1], "<stdin>", "exec")
+        eval(code)
+    else:
+        prog = which(command[0])
+        if not prog:
+            raise SystemExit(f"Error: Can't find the script / command: {command[0]!r}")
+
+        # Set sys.argv to mimic the command execution.
+        sys.argv = command
+        sys.path.insert(0, os.path.dirname(os.path.realpath(prog)))
+        execfile(prog)
+
+
+def main():
+    """
+    Main body of the script.
+    """
+    args = getargs()
+    # Validate the arguments.
+    filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
+        filename=args.filename, frames=args.frames, variables=args.variables,
+        exclude_variables=args.exclude_variables, utility='script')
+    command = args.command
+    command_string = ' '.join(command)
+
+    if len(command) == 0:
+        raise SystemExit("Error: Please pass a valid script / command to run!")
+    if (command[0] in ['python', 'python3'] or command[0].endswith('/python')
+            or command[0].endswith('/python3')):
+        del command[0]
+
+    # Run the user script / command. Explicitly catch Exception and
+    # KeyboardInterrupt rather than BaseException, since we don't want to
+    # catch SystemExit.
+    try:
+        _SAVEFRAME_LOGGER.info("Executing the program: %a", command_string)
+        run_program(command)
+    except (Exception, KeyboardInterrupt) as err:
+        _SAVEFRAME_LOGGER.info(
+            "Saving frames and metadata info for the exception: %a", err)
+        # Save the frames and metadata info to the file.
+        _save_frames_and_exception_info_to_file(
+            filename=filename, frames=frames, variables=variables,
+            exclude_variables=exclude_variables, exception_obj=err)
+    else:
+        raise SystemExit(
+            f"Error: No exception is raised by the program: {command_string!a}")
+
+
+if __name__ == '__main__':
+    main()
