@@ -460,6 +460,32 @@ Emacs support
 - Pyflyby.el doesn't yet work with XEmacs; patches welcome.
 
 
+saveframe: A utility for debugging / reproducing an issue
+=========================================================
+
+PyFlyBy provides a utility named **saveframe** which can be used to save 
+information for debugging / reproducing an issue.
+
+**Usage**: If you have a piece of code or a script that is failing due an issue 
+originating from upstream code, and you cannot share your private code as a reproducer, 
+use this utility to save relevant information to a file. Share the generated file with 
+the upstream team, enabling them to reproduce and diagnose the issue independently.
+
+**Information saved in the file**: This utility captures and saves *error stack frames* 
+to a file. It includes the values of local variables from each stack frame, as well 
+as metadata about each frame and the exception raised by your code.
+
+This utility comes with 2 interfaces:
+
+1. **A function**: For interactive usages such as IPython, Jupyter Notebook, or a
+   debugger (pdb/ipdb), use **pyflyby.saveframe** function. To know how to use this 
+   function, checkout it's documentation::
+     In [1]: saveframe?
+
+2. **A script**: For cli usages (like a failing script), use **pyflyby/bin/saveframe** 
+   script. To know how to use this script, checkout its documentation::
+     $ saveframe --help
+
 Authorship
 ==========
 
