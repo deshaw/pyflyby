@@ -6,6 +6,7 @@
 
 
 import os
+import sys
 from   shutil                   import rmtree
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
@@ -15,7 +16,30 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._util            import EnvVarCtx
 
+from contextlib import contextmanager
 
+
+if sys.version_info > (3, 11):
+    from contextlib import chdir
+
+else:
+
+    @contextmanager
+    def chdir(path):
+        old = os.getcwd()
+        try:
+            os.chdir(path)
+            yield
+        finally:
+            os.chdir(old)
+
+
+def test_importDB_root():
+    """
+    See #362
+    """
+    with chdir("/"):
+        ImportDB.get_default(None)
 
 def test_ImportDB_from_code_1():
     db = ImportDB('from aa.bb import cc as dd, ee')

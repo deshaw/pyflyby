@@ -284,7 +284,7 @@ class ImportDB:
         target_path = Path(target_filename).resolve()
 
         parents: List[Path]
-        if not target_path.is_dir():
+        if target_path.is_dir():
             parents = [target_path]
         else:
             parents = []
