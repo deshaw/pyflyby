@@ -341,16 +341,23 @@ def symbol_needs_import(fullname, namespaces):
     return True
 
 
-class _UseChecker(object):
+class _UseChecker:
     """
     An object that can check whether it was used.
     """
-    used = False
 
-    def __init__(self, name, source, lineno):
+    used: bool = False
+    name: str
+    source: str
+    lineno: int
+
+    def __init__(self, name: str, source: str, lineno: int):
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
+
+    def __repr__(self):
+        return f"<{type(self).__name__}: name:{self.name} source:{self.source!r} lineno:{self.lineno} used:{self.used}>"
 
 
 class _MissingImportFinder:
@@ -923,9 +930,8 @@ class _MissingImportFinder:
 
     def _visit_StoreImport(self, node, modulename):
         name = node.asname or node.name
-        logger.debug("_visit_StoreImport(asname=%r,name=%r)",
-                     node.asname, node.name)
-        is_star = node.name == '*'
+        logger.debug("_visit_StoreImport(asname=%r, name=%r)", node.asname, node.name)
+        is_star = node.name == "*"
         if is_star:
             logger.debug("Got star import: line %s: 'from %s import *'",
                          self._lineno, modulename)
