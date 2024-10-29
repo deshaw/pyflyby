@@ -96,7 +96,7 @@ If <module_name> is ``None``, then there is no "from" clause; instead just::
 """
 
 @total_ordering
-class Import(object):
+class Import:
     """
     Representation of the desire to import a single name into the current
     namespace.
