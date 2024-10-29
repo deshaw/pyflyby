@@ -560,9 +560,11 @@ class ImportDB:
             filenames = [filenames]
         for f in filenames:
             assert isinstance(f, Filename)
-        logger.debug("ImportDB: loading [%s], mandatory=[%s]",
-                     ', '.join(map(str, filenames)),
-                     ', '.join(map(str, _mandatory_filenames_deprecated)))
+        logger.debug(
+            "ImportDB: loading %r, mandatory=%r",
+            [str(f) for f in filenames],
+            [str(f) for f in _mandatory_filenames_deprecated],
+        )
         if SUPPORT_DEPRECATED_BEHAVIOR:
             # Before 2014-10, pyflyby read the following:
             #   * known_imports from $PYFLYBY_PATH/known_imports/**/*.py or
