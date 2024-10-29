@@ -228,7 +228,7 @@ setup(
             "black",
             "typing_extensions>=4.6; python_version<'3.12'"
     ],
-    python_requires=">3.8, <4",
+    python_requires=">3.9, <4",
     tests_require=['pexpect>=3.3', 'pytest', 'epydoc', 'rlipython', 'requests'],
     cmdclass = {
         'test'           : PyTest,

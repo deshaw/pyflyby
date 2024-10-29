@@ -24,7 +24,7 @@ from   pyflyby._parse           import (PythonBlock, _is_ast_str,
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Set
+from   typing                   import Any, Set, Optional, List, Tuple
 
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
@@ -353,7 +353,7 @@ class _UseChecker(object):
         self.lineno = lineno
 
 
-class _MissingImportFinder(object):
+class _MissingImportFinder:
     """
     A helper class to be used only by `_find_missing_imports_in_ast`.
 
@@ -371,8 +371,14 @@ class _MissingImportFinder(object):
 
     """
 
-    def __init__(self, scopestack, find_unused_imports=False,
-                 parse_docstrings=False):
+    scopestack: ScopeStack
+    _lineno: Optional[int]
+    missing_imports: List[Tuple[Optional[int], DottedIdentifier]]
+    parse_docstrings: bool
+    unused_imports: Optional[List[Tuple[int, str]]]
+    _deferred_load_checks: list[tuple[str, ScopeStack, Optional[int]]]
+
+    def __init__(self, scopestack, *, find_unused_imports:bool, parse_docstrings:bool):
         """
         Construct the AST visitor.
 
@@ -385,19 +391,26 @@ class _MissingImportFinder(object):
         # includes the globals dictionary.  ScopeStack() will make sure this
         # includes builtins.
         scopestack = ScopeStack(scopestack)
+
         # Add an empty namespace to the stack.  This facilitates adding stuff
         # to scopestack[-1] without ever modifying user globals.
         scopestack = scopestack.with_new_scope()
+
         self.scopestack = scopestack
+
         # Create data structure to hold the result.
         # missing_imports is a list of (lineno, DottedIdentifier) tuples.
         self.missing_imports = []
+
         # unused_imports is a list of (lineno, Import) tuples, if enabled.
         self.unused_imports = [] if find_unused_imports else None
+
         self.parse_docstrings = parse_docstrings
+
         # Function bodies that we need to check after defining names in this
         # function scope.
         self._deferred_load_checks = []
+
         # Whether we're currently in a FunctionDef.
         self._in_FunctionDef = False
         # Current lineno.
@@ -419,7 +432,8 @@ class _MissingImportFinder(object):
         finally:
             self.scopestack = oldscopestack
 
-    def scan_for_import_issues(self, codeblock):
+    def scan_for_import_issues(self, codeblock: PythonBlock):
+        assert isinstance(codeblock, PythonBlock)
         # See global `scan_for_import_issues`
         if not isinstance(codeblock, PythonBlock):
             codeblock = PythonBlock(codeblock)
@@ -998,10 +1012,11 @@ class _MissingImportFinder(object):
         # Don't call generic_visit(node) here.  Reason: We already visit the
         # parts above, if relevant.
 
-    def _visit_Load_defered_global(self, fullname):
+    def _visit_Load_defered_global(self, fullname:str):
         """
         Some things will be resolved in global scope later.
         """
+        assert isinstance(fullname, str), fullname
         logger.debug("_visit_Load_defered_global(%r)", fullname)
         if symbol_needs_import(fullname, self.scopestack):
             data = (fullname, self.scopestack, self._lineno)
@@ -1090,7 +1105,11 @@ class _MissingImportFinder(object):
         unused_imports.sort()
 
 
-def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings=False):
+def scan_for_import_issues(
+    codeblock: PythonBlock,
+    find_unused_imports: bool = True,
+    parse_docstrings: bool = False,
+):
     """
     Find missing and unused imports, by lineno.
 
@@ -1117,7 +1136,7 @@ def scan_for_import_issues(codeblock, find_unused_imports=True, parse_docstrings
         ([], [(1, Import('import baz'))])
 
     """
-    logger.debug("scan_for_import_issues()")
+    logger.debug("global scan_for_import_issues()")
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
     namespaces = ScopeStack([{}])
@@ -1148,7 +1167,10 @@ def _find_missing_imports_in_ast(node, namespaces):
     # Traverse the abstract syntax tree.
     if logger.debug_enabled:
         logger.debug("ast=%s", ast.dump(node))
-    return _MissingImportFinder(namespaces).find_missing_imports(node)
+    return _MissingImportFinder(
+                 namespaces,
+                 find_unused_imports=False,
+                 parse_docstrings=False).find_missing_imports(node)
 
 # TODO: maybe we should replace _find_missing_imports_in_ast with
 # _find_missing_imports_in_code(compile(node)).  The method of parsing opcodes
