@@ -469,7 +469,16 @@ def _annotate_ast_startpos(
         # Not a multiline string literal.  (I.e., it could be a non-string or
         # a single-line string.)
         # Easy.
-        startpos = text.startpos + delta
+        if sys.version_info < (3, 12):
+            """There is an issue for f-strings at the begining of a file in 3.11 and
+            before
+
+            https://github.com/deshaw/pyflyby/issues/361,
+            here we ensure a child node min pos, can't be before it's parent.
+            """
+            startpos = max(text.startpos + delta, minpos)
+        else:
+            startpos = text.startpos + delta
 
         # Special case for 'with' statements.  Consider the code:
         #    with X: pass

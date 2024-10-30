@@ -32,10 +32,32 @@ def test_PythonBlock_FileText_1():
         startpos=(101, 55),
     )
     block = PythonBlock(text)
+    assert block.annotated_ast_node
     assert text == block.text
     assert text == FileText(block)
     assert block.filename == Filename("/foo/test_PythonBlock_1.py")
     assert block.startpos == FilePos(101, 55)
+
+
+def test_PythonBlock_firt_fstring():
+    """
+    Make sure fstring parsing work on Python 3.11 and before
+
+    """
+    block = PythonBlock(
+        dedent(
+            """
+        some_fstring = f\"""abc
+                    {', '.join(['''foo
+                                   bar
+                                   ''' for a in range(10)])}
+\"""
+
+    """
+        ).strip()
+    )
+    assert block.annotated_ast_node
+
 
 def test_PythonBlock_StatementComment():
     """
@@ -62,6 +84,7 @@ def test_PythonBlock_attrs_1():
         foo()
         bar()
     ''').lstrip(), filename="/foo/test_PythonBlock_1.py", startpos=(101,99))
+    assert block.annotated_ast_node
     assert block.text.lines == ("foo()", "bar()", "")
     assert block.filename   == Filename("/foo/test_PythonBlock_1.py")
     assert block.startpos   == FilePos(101, 99)
@@ -69,12 +92,14 @@ def test_PythonBlock_attrs_1():
 
 def test_PythonBlock_idempotent_1():
     block = PythonBlock("foo()\n")
+    assert block.annotated_ast_node
     assert PythonBlock(block) is block
 
 
 def test_PythonBlock_from_statement_1():
     stmt = PythonStatement("foo()\n", startpos=(101,202))
     block = PythonBlock(stmt)
+    assert block.annotated_ast_node
     assert stmt.block is block
     assert block.statements == (stmt,)
 
@@ -103,6 +128,7 @@ def test_PythonBlock_lineno_1():
         ]
         5
     ''').lstrip(), startpos=(101,1))
+    assert block.annotated_ast_node
     expected = (
         PythonStatement("1\n"            , startpos=(101,1)),
         PythonStatement("[ 2,\n  3,\n]\n", startpos=(102,1)),
@@ -130,6 +156,7 @@ def test_PythonBlock_statements_comments_1():
         PythonStatement('x=[6,\n 7]\n', startpos=(6,1)),
         PythonStatement('# 8\n',        startpos=(8,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -145,6 +172,7 @@ def test_PythonBlock_statements_continuation_1():
         PythonStatement('b,\\\nc\n', startpos=(102,1)),
         PythonStatement('d\n' , startpos=(104,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -158,6 +186,7 @@ def test_PythonBlock_statements_last_line_comment_continuation_1():
         PythonStatement('a\n'       , startpos=(101,1)),
         PythonStatement('b\\\n# c\n', startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -171,6 +200,7 @@ def test_PythonBlock_statements_comment_no_continuation_1():
         PythonStatement("x\n"                       ),
         PythonStatement("# y\n# z\n", startpos=(2,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -184,6 +214,7 @@ def test_PythonBlock_statements_comment_continuation_to_comment_1():
         PythonStatement("x\n"                          ),
         PythonStatement("# y \\\n# z\n", startpos=(2,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -195,6 +226,7 @@ def test_PythonBlock_statements_last_line_no_newline_1():
         PythonStatement('a\n', startpos=(101,1)),
         PythonStatement('b'  , startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -206,6 +238,7 @@ def test_PythonBlock_statements_last_line_comment_no_newline_1():
         PythonStatement('a\n', startpos=(101,1)),
         PythonStatement('#b'  , startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -218,6 +251,7 @@ def test_PythonBlock_statements_last_line_comment_continuation_no_newline_1():
         PythonStatement('a\n' , startpos=(101,1)),
         PythonStatement('b\\\n# c', startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -231,6 +265,7 @@ def test_PythonBlock_statements_last_line_nested_continuation_1():
         PythonStatement('a\n' , startpos=(101,1)),
         PythonStatement('if b:\n    "c\\\n# d"', startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
@@ -242,6 +277,7 @@ def test_PythonBlock_statements_comment_backslash_1():
         PythonStatement('#a\\\n', startpos=(101,1)),
         PythonStatement('b'     , startpos=(102,1)),
     )
+    assert block.annotated_ast_node
     assert block.statements == expected
 
 
