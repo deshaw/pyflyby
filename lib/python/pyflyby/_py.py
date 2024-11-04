@@ -409,7 +409,7 @@ def _get_argspec(arg:Any) -> inspect.FullArgSpec:
         "_get_argspec: unexpected %s" % (type(arg).__name__,))
 
 
-def _requires_parens_as_function(function_name:str):
+def _requires_parens_as_function(function_name:str) -> bool:
     """
     Returns whether the given string of a callable would require parentheses
     around it to call it.
@@ -552,7 +552,7 @@ class _ParseInterruptedWantSource(Exception):
     pass
 
 
-class UserExpr(object):
+class UserExpr:
     """
     An expression from user input, and its evaluated value.
 
@@ -647,7 +647,7 @@ class UserExpr(object):
         else:
             raise ValueError("UserExpr(): bad arg_mode=%r" % (arg_mode,))
 
-    def _infer_and_evaluate(self):
+    def _infer_and_evaluate(self) -> None:
         if self._original_arg_mode == "raw_value":
             pass
         elif self._original_arg_mode == "eval":
@@ -891,7 +891,7 @@ class NotAFunctionError(Exception):
     pass
 
 
-def _get_help(expr, verbosity=1):
+def _get_help(expr:UserExpr, verbosity:int=1) -> str:
     """
     Construct a help string.
 
@@ -1053,7 +1053,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
 
 
 @total_ordering
-class LoggedList(object):
+class LoggedList:
     """
     List that logs which members have not yet been accessed (nor removed).
     """
