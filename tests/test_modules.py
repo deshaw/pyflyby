@@ -64,7 +64,9 @@ def test_module_1():
     assert m.module is logging
 
 
-@pytest.mark.parametrize('modname', ['statistics', 'decimal', 'netrc'])
+# decimal used to be in there, but pytest + coverage seem to inject decimal
+# in sys.modules
+@pytest.mark.parametrize('modname', ['statistics', 'netrc'])
 def test_filename_noload_1(modname):
 
     # PRE_TEST
