@@ -346,9 +346,6 @@ def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
     flags = aast_node.flags
     startpos = text.startpos
     _annotate_ast_startpos(aast_node, None, startpos, text, flags)
-    # Not used for now:
-    #   ast_node.context = AstNodeContext(None, None, None)
-    #   _annotate_ast_context(ast_node)
     return aast_node
 
 
@@ -526,29 +523,6 @@ def _annotate_ast_startpos(
     raise ValueError("Couldn't find exact position of %s" % (ast.dump(ast_node)))
 
 
-def _annotate_ast_context(ast_node):
-    """
-    Recursively annotate ``context`` on ast nodes, setting ``context`` to
-    a `AstNodeContext` named tuple with values
-    ``(parent, field, index)``.
-    Each aast_node satisfies ``parent.<field>[<index>] is ast_node``.
-
-    For non-list fields, the index part is ``None``.
-    """
-    assert isinstance(ast_node, ast.AST)
-    for field_name, field_value in ast.iter_fields(ast_node):
-        if isinstance(field_value, ast.AST):
-            child_node = field_value
-            child_node.context = AstNodeContext(ast_node, field_name, None)
-            _annotate_ast_context(child_node)
-        elif isinstance(field_value, list):
-            for i, item in enumerate(field_value):
-                if isinstance(item, ast.AST):
-                    child_node = item
-                    child_node.context = AstNodeContext(ast_node, field_name, i)
-                    _annotate_ast_context(child_node)
-
-
 def _split_code_lines(ast_nodes, text):
     """
     Split the given ``ast_nodes`` and corresponding ``text`` by code/noncode
@@ -630,51 +604,6 @@ def _split_code_lines(ast_nodes, text):
         yield ([node], text[startpos:endpos])
         if endpos != next_startpos:
             yield ([], text[endpos:next_startpos])
-
-
-def _ast_node_is_in_docstring_position(ast_node):
-    """
-    Given a ``Str`` AST node, return whether its position within the AST makes
-    it eligible as a docstring.
-
-    The main way a ``Str`` can be a docstring is if it is a standalone string
-    at the beginning of a ``Module``, ``FunctionDef``, ``AsyncFucntionDef``
-    or ``ClassDef``.
-
-    We also support variable docstrings per Epydoc:
-
-      - If a variable assignment statement is immediately followed by a bare
-        string literal, then that assignment is treated as a docstring for
-        that variable.
-
-    :type ast_node:
-      ``ast.Str``
-    :param ast_node:
-      AST node that has been annotated by ``_annotate_ast_nodes``.
-    :rtype:
-      ``bool``
-    :return:
-      Whether this string ast node is in docstring position.
-    """
-    if not _is_ast_str_or_byte(ast_node):
-        raise TypeError
-    expr_node = ast_node.context.parent
-    if not isinstance(expr_node, ast.Expr):
-        return False
-    assert ast_node.context.field == 'value'
-    assert ast_node.context.index is None
-    expr_ctx = expr_node.context
-    if expr_ctx.field != 'body':
-        return False
-    parent_node = expr_ctx.parent
-    if not isinstance(parent_node, (ast.FunctionDef, ast.ClassDef, ast.Module, AsyncFunctionDef)):
-        return False
-    if expr_ctx.index == 0:
-        return True
-    prev_sibling_node = parent_node.body[expr_ctx.index-1]
-    if isinstance(prev_sibling_node, ast.Assign):
-        return True
-    return False
 
 
 def infer_compile_mode(arg:ast.AST) -> Literal['exec','eval','single']:
@@ -1334,11 +1263,6 @@ class PythonBlock:
         #   - This function yields multiple docstrings (even per ast node)
         #   - This function doesn't raise TypeError on other AST types
         #   - This function doesn't cleandoc
-        # A previous implementation did
-        #   [n for n in self.string_literals()
-        #    if _ast_node_is_in_docstring_position(n)]
-        # However, the method we now use is more straightforward, and doesn't
-        # require first annotating each node with context information.
         docstring_containers = (ast.FunctionDef, ast.ClassDef, ast.Module, AsyncFunctionDef)
         for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
             if not isinstance(node, docstring_containers):
