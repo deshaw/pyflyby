@@ -286,19 +286,6 @@ from   typing                   import Any
 from   pyflyby._util            import cmp
 from   shlex                    import quote as shquote
 
-usage = """
-py --- command-line python multitool with automatic importing
-
-$ py [--file]   filename.py arg1 arg2      Execute file
-$ py [--apply]  function arg1 arg2         Call function
-$ py [--eval]  'function(arg1, arg2)'      Evaluate code
-$ py [--module] modname arg1 arg2          Run a module
-
-$ py --debug    file/code... args...       Debug code
-$ py --debug    PID                        Attach debugger to PID
-
-$ py                                       IPython shell
-""".strip()
 
 # TODO: add --tidy-imports, etc
 
@@ -377,6 +364,19 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import indent, prefixes
 
+usage = """
+py --- command-line python multitool with automatic importing
+
+$ py [--file]   filename.py arg1 arg2      Execute file
+$ py [--apply]  function arg1 arg2         Call function
+$ py [--eval]  'function(arg1, arg2)'      Evaluate code
+$ py [--module] modname arg1 arg2          Run a module
+
+$ py --debug    file/code... args...       Debug code
+$ py --debug    PID                        Attach debugger to PID
+
+$ py                                       IPython shell
+""".strip()
 
 # Default compiler flags (feature flags) used for all user code.  We include
 # "print_function" here, but we also use auto_flags=True, which means

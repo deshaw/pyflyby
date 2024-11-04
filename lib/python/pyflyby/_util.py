@@ -4,7 +4,7 @@
 
 
 
-from   contextlib               import contextmanager
+from   contextlib               import contextmanager, ExitStack
 import inspect
 import os
 import sys
@@ -451,7 +451,6 @@ def cmp(a, b):
 
 
 # Create a context manager with an arbitrary number of contexts.
-from contextlib import ExitStack
 @contextmanager
 def nested(*mgrs):
     with ExitStack() as stack:

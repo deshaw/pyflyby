@@ -20,7 +20,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Any, List, Optional, Tuple, Union, cast
+from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal
 import warnings
 
 
@@ -353,7 +353,7 @@ def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
 
 
 def _annotate_ast_startpos(
-    ast_node: ast.AST, parent_ast_node, minpos, text, flags
+    ast_node: ast.AST, parent_ast_node, minpos: FilePos, text: FileText, flags
 ) -> bool:
     r"""
     Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
@@ -410,8 +410,8 @@ def _annotate_ast_startpos(
     # Walk all nodes/fields of the AST.  We implement this as a custom
     # depth-first search instead of using ast.walk() or ast.NodeVisitor
     # so that we can easily keep track of the preceding node's lineno.
-    child_minpos = minpos
-    is_first_child = True
+    child_minpos: FilePos = minpos
+    is_first_child: bool = True
     leftstr_node = None
     for child_node in _iter_child_nodes_in_order(aast_node):
         leftstr = _annotate_ast_startpos(
@@ -677,7 +677,7 @@ def _ast_node_is_in_docstring_position(ast_node):
     return False
 
 
-def infer_compile_mode(arg):
+def infer_compile_mode(arg:ast.AST) -> Literal['exec','eval','single']:
     """
     Infer the mode needed to compile ``arg``.
 
@@ -688,19 +688,18 @@ def infer_compile_mode(arg):
     """
     # Infer mode from ast object.
     if isinstance(arg, ast.Module):
-        mode = "exec"
+        return "exec"
     elif isinstance(arg, ast.Expression):
-        mode = "eval"
+        return "eval"
     elif isinstance(arg, ast.Interactive):
-        mode = "single"
+        return "single"
     else:
         raise TypeError(
             "Expected Module/Expression/Interactive ast node; got %s"
             % (type(arg).__name__))
-    return mode
 
 
-class _DummyAst_Node(object):
+class _DummyAst_Node:
     pass
 
 
@@ -954,8 +953,9 @@ class PythonBlock:
         return cls.from_text(Filename(filename))
 
     @classmethod
-    def from_text(cls, text, filename=None, startpos=None, flags=None,
-                  auto_flags=False):
+    def from_text(
+        cls, text, filename=None, startpos=None, flags=None, auto_flags: bool = False
+    ):
         """
         :type text:
           `FileText` or convertible
@@ -1153,7 +1153,7 @@ class PythonBlock:
         else:
             return None
 
-    def parse(self, mode=None) -> Union[ast.Expression, ast.Module]:
+    def parse(self, mode: Optional[str] = None) -> Union[ast.Expression, ast.Module]:
         """
         Parse the source text into an AST.
 
@@ -1174,7 +1174,7 @@ class PythonBlock:
                 return self.expression_ast_node
             else:
                 raise SyntaxError
-        elif mode == None:
+        elif mode is None:
             if self.expression_ast_node:
                 return self.expression_ast_node
             else:
@@ -1185,7 +1185,7 @@ class PythonBlock:
         else:
             raise ValueError("parse(): invalid mode=%r" % (mode,))
 
-    def compile(self, mode=None):
+    def compile(self, mode: Optional[str] = None):
         """
         Parse into AST and compile AST into code.
 
@@ -1193,9 +1193,9 @@ class PythonBlock:
           ``CodeType``
         """
         ast_node = self.parse(mode=mode)
-        mode = infer_compile_mode(ast_node)
+        c_mode = infer_compile_mode(ast_node)
         filename = str(self.filename or "<unknown>")
-        return compile(ast_node, filename, mode)
+        return compile(ast_node, filename, c_mode)
 
     @cached_property
     def statements(self) -> Tuple[PythonStatement, ...]:
