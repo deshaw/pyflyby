@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Union, Literal
 
 
 from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
@@ -2269,7 +2269,9 @@ class AutoImporter:
 
     def _safe_call(self, function, *args, **kwargs):
         on_error = kwargs.pop("on_error", None)
-        raise_on_error = kwargs.pop("raise_on_error", "if_debug")
+        raise_on_error: Union[bool, Literal["if_debug"]] = kwargs.pop(
+            "raise_on_error", "if_debug"
+        )
         if self._errored:
             # If we previously errored, then we should already have
             # unregistered the hook that led to here.  However, in some corner
@@ -2295,7 +2297,7 @@ class AutoImporter:
                     logger.error("Error trying to disable: %s: %s",
                                  type(e2).__name__, e2)
                 # Raise or print traceback in debug mode.
-                if raise_on_error == True:
+                if raise_on_error is True:
                     raise
                 elif raise_on_error == 'if_debug':
                     if logger.debug_enabled:
@@ -2305,7 +2307,7 @@ class AutoImporter:
                             import traceback
                             traceback.print_exc()
                         raise
-                elif raise_on_error == False:
+                elif raise_on_error is False:
                     if logger.debug_enabled:
                         import traceback
                         traceback.print_exc()
@@ -2328,8 +2330,13 @@ class AutoImporter:
                          sorted([k for k,v in autoimported.items() if not v]))
         self._autoimported_this_cell = {}
 
-    def auto_import(self, arg, namespaces=None,
-                    raise_on_error='if_debug', on_error=None):
+    def auto_import(
+        self,
+        arg,
+        namespaces=None,
+        raise_on_error: Union[bool, Literal["if_debug"]] = "if_debug",
+        on_error=None,
+    ):
         if namespaces is None:
             namespaces = get_global_namespaces(self._ip)
 
