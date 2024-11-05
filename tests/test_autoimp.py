@@ -272,7 +272,7 @@ def test_find_missing_imports_function_defaults_kwargs_1():
     result   = _dilist2strlist(result)
     expected = ['args', 'kwargs', 'y']
     assert expected == result
-    
+
 
 def test_find_missing_imports_kwarg_annotate():
     """
@@ -1789,6 +1789,16 @@ def test_all_exports_1():
     """)
     missing, unused = scan_for_import_issues(code)
     # path and walk should not be unused
+    assert missing == [(3, DottedIdentifier('rmdir'))]
+    assert unused == [(2, Import('from os import read'))]
+
+
+def test_all_exports_tuple_1():
+    code = dedent("""
+        from os import path, walk, read
+        __all__ = ('path', 'rmdir', 'walk')
+    """)
+    missing, unused = scan_for_import_issues(code)
     assert missing == [(3, DottedIdentifier('rmdir'))]
     assert unused == [(2, Import('from os import read'))]
 

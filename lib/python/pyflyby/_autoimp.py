@@ -1,5 +1,5 @@
 # pyflyby/_autoimp.py.
-# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018, 2019 Karl Chen.
+# Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018, 2019, 2024 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 
@@ -609,7 +609,7 @@ class _MissingImportFinder:
             return
         if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
             and node.targets[0].id == '__all__'):
-            if not isinstance(node.value, ast.List):
+            if not isinstance(node.value, (ast.List, ast.Tuple)):
                 logger.warning("Don't know how to handle __all__ as (%s)" % node.value)
                 return
             if not all(_is_ast_str(e) for e in node.value.elts):
