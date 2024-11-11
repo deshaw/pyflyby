@@ -4,6 +4,8 @@
 
 
 
+from __future__ import annotations, print_function
+
 import ast
 import builtins
 from   collections.abc          import Sequence
@@ -18,13 +20,14 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import (PythonBlock, _is_ast_str,
-                                        infer_compile_mode, MatchAs)
+from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
+                                        infer_compile_mode)
 
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Set, Optional, List, Tuple
+from   typing                   import (Any, Dict, List, Optional, Set, Tuple,
+                                        Union)
 
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
@@ -130,9 +133,13 @@ class ScopeStack(Sequence):
     def __len__(self):
         return len(self._tup)
 
-    def with_new_scope(
-        self, include_class_scopes=False, new_class_scope=False, unhide_classdef=False
-    ):
+    def _with_new_scope(
+        self,
+        *,
+        include_class_scopes: bool,
+        new_class_scope: bool,
+        unhide_classdef: bool,
+    ) -> ScopeStack:
         """
         Return a new ``ScopeStack`` with an additional empty scope.
 
@@ -148,8 +155,8 @@ class ScopeStack(Sequence):
         if include_class_scopes:
             scopes = tuple(self)
         else:
-            scopes = tuple(s for s in self
-                           if not isinstance(s, _ClassScope))
+            scopes = tuple(s for s in self if not isinstance(s, _ClassScope))
+        new_scope: Union[_ClassScope, Dict[str, Any]]
         if new_class_scope:
             new_scope = _ClassScope()
         else:
@@ -199,7 +206,7 @@ class ScopeStack(Sequence):
         return (d, self[-1])
 
 
-    def has_star_import(self):
+    def has_star_import(self) -> bool:
         """
         Return whether there are any star-imports in this ScopeStack.
         Only relevant in AST-based static analysis mode.
@@ -355,9 +362,10 @@ class _UseChecker:
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
+        logger.debug("Create _UseChecker : %r", self)
 
     def __repr__(self):
-        return f"<{type(self).__name__}: name:{self.name} source:{self.source!r} lineno:{self.lineno} used:{self.used}>"
+        return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used}>"
 
 
 class _MissingImportFinder:
@@ -397,13 +405,13 @@ class _MissingImportFinder:
         # Create a stack of namespaces.  The caller should pass in a list that
         # includes the globals dictionary.  ScopeStack() will make sure this
         # includes builtins.
-        scopestack = ScopeStack(scopestack)
+        _scopestack = ScopeStack(scopestack)
 
         # Add an empty namespace to the stack.  This facilitates adding stuff
         # to scopestack[-1] without ever modifying user globals.
-        scopestack = scopestack.with_new_scope()
-
-        self.scopestack = scopestack
+        self.scopestack = _scopestack._with_new_scope(
+            include_class_scopes=False, new_class_scope=False, unhide_classdef=False
+        )
 
         # Create data structure to hold the result.
         # missing_imports is a list of (lineno, DottedIdentifier) tuples.
@@ -450,6 +458,7 @@ class _MissingImportFinder:
         # references in doctests to be noted as missing-imports.  For now we
         # just let the code accumulate into self.missing_imports and ignore
         # the result.
+        logger.debug("unused: %r", self.unused_imports)
         missing_imports = sorted(self.missing_imports)
         if self.parse_docstrings and self.unused_imports is not None:
             doctest_blocks = codeblock.get_doctests()
@@ -467,10 +476,8 @@ class _MissingImportFinder:
                 # Currently we don't support the 'global' keyword anyway so
                 # this doesn't matter yet, and it's uncommon to use 'global'
                 # in a doctest, so this is low priority to fix.
-                oldstack = self.scopestack
-                self.scopestack = self.scopestack.with_new_scope()
-                self._scan_node(block.ast_node)
-                self.scopestack = oldstack
+                with self._NewScopeCtx(check_unused_imports=False):
+                    self._scan_node(block.ast_node)
             # Find literal brace identifiers like "... `Foo` ...".
             # TODO: Do this inline: (1) faster; (2) can use proper scope of vars
             # Once we do that, use _check_load() with new args
@@ -553,17 +560,36 @@ class _MissingImportFinder:
 
 
     @contextlib.contextmanager
-    def _NewScopeCtx(self, **kwargs):
+    def _NewScopeCtx(
+        self,
+        include_class_scopes=False,
+        new_class_scope=False,
+        unhide_classdef=False,
+        check_unused_imports=True,
+    ):
         """
         Context manager that temporarily pushes a new empty namespace onto the
         stack of namespaces.
         """
         prev_scopestack = self.scopestack
-        new_scopestack = prev_scopestack.with_new_scope(**kwargs)
+        new_scopestack = prev_scopestack._with_new_scope(
+            include_class_scopes=include_class_scopes,
+            new_class_scope=new_class_scope,
+            unhide_classdef=unhide_classdef,
+        )
         self.scopestack = new_scopestack
         try:
             yield
         finally:
+            logger.debug("throwing last scope from scopestack: %r", new_scopestack[-1])
+            for name, use_checker in new_scopestack[-1].items():
+                if use_checker and use_checker.used == False and check_unused_imports:
+                    logger.debug(
+                        "unused checker %r scopestack_depth %r",
+                        use_checker,
+                        len(self.scopestack),
+                    )
+                    self.unused_imports.append((use_checker.lineno, use_checker.source))
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
@@ -693,7 +719,7 @@ class _MissingImportFinder:
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
 
-    def _visit_typecomment(self, typecomment):
+    def _visit_typecomment(self, typecomment: str) -> None:
         """
         Warning, when a type comment the node is a string, not an ast node.
         We also get two types of type comments:
@@ -716,6 +742,7 @@ class _MissingImportFinder:
         """
         if typecomment is None:
             return
+        node: Union[ast.Module, ast.FunctionType]
         if '->' in typecomment:
             node = ast.parse(typecomment, mode='func_type')
         else:
@@ -723,7 +750,7 @@ class _MissingImportFinder:
 
         self.visit(node)
 
-    def visit_arguments(self, node):
+    def visit_arguments(self, node) -> None:
         assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Note that the defaults should be
         # considered "Load"s from the upper scope, and the argument names are
@@ -754,7 +781,7 @@ class _MissingImportFinder:
         else:
             self._visit_Store(node.kwarg)
 
-    def visit_ExceptHandler(self, node):
+    def visit_ExceptHandler(self, node) -> None:
         assert node._fields == ('type', 'name', 'body')
         if node.type:
             self.visit(node.type)
@@ -948,7 +975,12 @@ class _MissingImportFinder:
             value = _UseChecker(name, imp, self._lineno)
         self._visit_Store(name, value)
 
-    def _visit_Store(self, fullname:str, value=None):
+    def _visit_Store(self, fullname: str, value: Optional[_UseChecker] = None):
+        """
+        Visit a Store action, check for unused import
+        and add current value to the last scope.
+        """
+        assert isinstance(value, (_UseChecker, type(None)))
         logger.debug("_visit_Store(%r)", fullname)
         if fullname is None:
             return

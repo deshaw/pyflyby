@@ -13,12 +13,12 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
 import re
 
-from typing import Union
+from typing import Union, Optional, Literal
 
 from textwrap import indent
 
 
-class SourceToSourceTransformationBase(object):
+class SourceToSourceTransformationBase:
 
     input: PythonBlock
 
@@ -121,7 +121,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         result = [block.pretty_print(params=params) for block in self.blocks]
         return FileText.concatenate(result)
 
-    def find_import_block_by_lineno(self, lineno):
+    def find_import_block_by_lineno(self, lineno: int):
         """
         Find the import block containing the given line number.
 
@@ -312,11 +312,11 @@ def ImportPathForRelativeImportsCtx(codeblock):
 
 
 def fix_unused_and_missing_imports(
-    codeblock: Union[PythonBlock, str],
-    add_missing=True,
-    remove_unused="AUTOMATIC",
-    add_mandatory=True,
-    db=None,
+    codeblock: Union[PythonBlock, str, Filename],
+    add_missing: bool = True,
+    remove_unused: Union[Literal["AUTOMATIC"], bool] = "AUTOMATIC",
+    add_mandatory: bool = True,
+    db: Optional[ImportDB] = None,
     params=None,
 ) -> PythonBlock:
     r"""
@@ -345,6 +345,7 @@ def fix_unused_and_missing_imports(
     :rtype:
       `PythonBlock`
     """
+    _codeblock: PythonBlock
     if isinstance(codeblock, Filename):
         _codeblock = PythonBlock(codeblock)
     if not isinstance(codeblock, PythonBlock):
@@ -393,7 +394,7 @@ def fix_unused_and_missing_imports(
                 logger.error(
                     "%s: couldn't remove import %r", filename, imp,)
             except LineNumberNotFoundError as e:
-                logger.error(
+                logger.debug(
                     "%s: unused import %r on line %d not global",
                     filename, str(imp), e.args[0])
             else:
