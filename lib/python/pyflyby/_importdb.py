@@ -2,6 +2,8 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
+
 
 
 from   collections              import defaultdict
@@ -417,7 +419,7 @@ class ImportDB:
         return result
 
     @classmethod
-    def interpret_arg(cls, arg, target_filename):
+    def interpret_arg(cls, arg, target_filename) -> ImportDB:
         if arg is None:
             return cls.get_default(target_filename)
         else:
