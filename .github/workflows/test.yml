@@ -55,7 +55,7 @@ jobs:
                --json-report\
                --json-report-file=report-${ENVNAME}.json\
                lib tests
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       name: upload pytest timing reports as json
       with:
         path: |
