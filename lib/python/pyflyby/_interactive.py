@@ -36,6 +36,8 @@ from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         indent)
 
 
+PYFLYBY_LAZY_LOAD_PREFIX = "from pyflyby_autoimport_"
+
 if False:
     __original__ = None # for pyflakes
 
@@ -2151,7 +2153,8 @@ class AutoImporter:
             namespaces = get_global_namespaces(self._ip)
 
         def post_import_hook(imp):
-            send_comm_message(MISSING_IMPORTS, {"missing_imports": str(imp)})
+            if not str(imp).startswith(PYFLYBY_LAZY_LOAD_PREFIX):
+                send_comm_message(MISSING_IMPORTS, {"missing_imports": str(imp)})
 
         return self._safe_call(
             auto_import, arg=arg, namespaces=namespaces,
