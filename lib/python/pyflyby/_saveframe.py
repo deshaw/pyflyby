@@ -1019,7 +1019,7 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
         5. Number of Frames from Bottom:
            frames=num
            Example: frames=5
-           Includes the last 'num' frames from the bottom of the stack trace.
+           Includes the first 'num' frames from the bottom of the stack trace.
 
       Default behavior if this parameter is not passed:
         - When user is in a debugger (ipdb/pdb): Save the frame the user is

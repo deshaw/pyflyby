@@ -75,7 +75,7 @@ Example Usage:
     => To save a specific frame like `File "dir/mod1.py", line 9, in func2`, use:
     $ saveframe --filename=/path/to/file --frames=mod1.py:9:func2 <script_or_command_to_run>
 
-    => To save the last 3 frames from the bottom, use:
+    => To save the first 3 frames from the bottom, use:
     $ saveframe --frames=3 <script_or_command_to_run>
 
     => To save all the frames from 'mod1.py' and 'mod2.py' files, use:
@@ -164,7 +164,7 @@ def getargs():
              "5. Number of Frames from Bottom:\n"
              "   --frames=num\n"
              "   Example: --frames=5\n"
-             "   Includes the last 'num' frames from the bottom of the stack trace."
+             "   Includes the first 'num' frames from the bottom of the stack trace."
     )
     parser.add_argument(
         "--variables", default=None,
