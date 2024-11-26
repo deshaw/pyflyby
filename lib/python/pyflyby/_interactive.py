@@ -22,7 +22,8 @@ from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
                                         auto_import,
                                         clear_failed_imports_cache,
                                         load_symbol)
-from   pyflyby._dynimp          import inject as inject_dynamic_import
+from   pyflyby._dynimp          import (inject as inject_dynamic_import, 
+                                        PYFLYBY_LAZY_LOAD_PREFIX)
 from   pyflyby._comms           import (initialize_comms, remove_comms,
                                         send_comm_message, MISSING_IMPORTS)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
@@ -34,9 +35,6 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         FunctionWithGlobals, NullCtx, advise,
                                         indent)
-
-
-PYFLYBY_LAZY_LOAD_PREFIX = "from pyflyby_autoimport_"
 
 if False:
     __original__ = None # for pyflakes
