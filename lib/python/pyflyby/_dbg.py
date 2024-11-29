@@ -316,6 +316,14 @@ def _debug_exception(*exc_info, **kwargs):
         # will cause print_verbose_tb to include a line with just a colon.
         # TODO: avoid that line.
         exc_info = ("", "", exc_info)
+    if exc_info[1]:
+        # Explicitly set sys.last_value / sys.last_exc to ensure they are available
+        # in the debugger. One use case is that this allows users to call 
+        # pyflyby.saveframe() within the debugger.
+        if sys.version_info < (3, 12):
+            sys.last_value = exc_info[1]
+        else:
+            sys.last_exc = exc_info[1]
 
     with _DebuggerCtx(tty=tty) as pdb:
         if debugger_attached:
