@@ -1156,11 +1156,6 @@ def UpdateIPythonStdioCtx():
         module = sys.modules["IPython.utils.io"]
         container = module
         IOStream = module.IOStream
-    elif "IPython.genutils" in sys.modules:
-        # Tested with IPython 0.10.
-        module = sys.modules["IPython.genutils"]
-        container = module.Term
-        IOStream = module.IOStream
     else:
         # IPython version too old or too new?
         # For now just silently do nothing.
