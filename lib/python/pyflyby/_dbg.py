@@ -335,12 +335,12 @@ def _debug_exception(*exc_info, **kwargs):
             # Check if the instance is of IPython's Pdb and its version.
             try:
                 import IPython
-                if IPython.__version__ >= '8.16':
+                if IPython.version_info >= (8, 16):
                     from IPython.core.debugger import Pdb as IPdb
                     # This is expected to be True, hence just a safe check.
                     if isinstance(pdb, IPdb):
                         tb_or_exc = exc_info[1]
-            except ImportError:
+            except ModuleNotFoundError:
                 pass
         else:
             tb_or_exc = exc_info[1]
