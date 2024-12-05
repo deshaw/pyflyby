@@ -332,7 +332,27 @@ def _debug_exception(*exc_info, **kwargs):
             # keep the process waiting for debugger to attach.
             pdb.postloop = _prompt_continue_waiting_for_debugger
         print_verbose_tb(*exc_info)
-        pdb.interaction(None, exc_info[2])
+        # Starting Py3.13, pdb.interaction() supports chained exceptions in case
+        # exception (and not traceback) is specified. This support is backported
+        # to IPython8.16 for earlier Python versions. So the conditions where
+        # chained exceptions won't be supported from here would be with the
+        # Python version < 3.13 and ipython not installed, or IPython's version
+        # is lesser than 8.16.
+        tb_or_exc = exc_info[2]
+        if sys.version_info < (3, 13):
+            # Check if the instance is of IPython's Pdb and its version.
+            try:
+                import IPython
+                if IPython.version_info >= (8, 16):
+                    from IPython.core.debugger import Pdb as IPdb
+                    # This is expected to be True, hence just a safe check.
+                    if isinstance(pdb, IPdb):
+                        tb_or_exc = exc_info[1]
+            except ModuleNotFoundError:
+                pass
+        else:
+            tb_or_exc = exc_info[1]
+        pdb.interaction(None, tb_or_exc)
 
 
 def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"):
