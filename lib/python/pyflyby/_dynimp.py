@@ -111,7 +111,7 @@ def _add_import(ip, names: str, code: str) -> None:
     private version of add_import
     """
     assert ip is not None
-    module = PYFLYBY_LAZY_LOAD_PREFIX.split(" ")[1]
+    module = PYFLYBY_LAZY_LOAD_PREFIX.split()[1]
     mang = module + names.replace(",", "_").replace(" ", "_")
     a: FrozenSet[Import] = ImportSet(f"from {mang} import {names}")._importset
     b: FrozenSet[Import] = ip._auto_importer.db.known_imports._importset
