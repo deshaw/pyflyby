@@ -33,6 +33,8 @@ from   pyflyby._livepatch       import livepatch, xreload
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._saveframe       import saveframe
+from   pyflyby._saveframe_reader \
+                                import SaveframeReader
 from   pyflyby._version         import __version__
 
 # Deprecated:
