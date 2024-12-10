@@ -245,11 +245,14 @@ class SaveframeReader:
                 # Unpickle the 'function_object' metadata value.
                 if metadata == "function_object":
                     try:
-                        metadata_value = pickle.loads(metadata_value)
-                    except Exception:
+                        if not isinstance(metadata_value, str):
+                            metadata_value = pickle.loads(metadata_value)
+                    except Exception as err:
                         logging.warning("Can't unpickle the 'function_object' "
-                                        "value for frame: %a", frame_idx)
-                        metadata_value = "Can't unpickle the 'function_object'"
+                                        "value for frame: %a. Error: %s",
+                                        key_item, err)
+                        metadata_value = (
+                            f"Can't unpickle the 'function_object'. Error: {err}")
                 frame_idx_to_metadata_value_map[key_item] = metadata_value
             return frame_idx_to_metadata_value_map
 
@@ -262,10 +265,12 @@ class SaveframeReader:
             metadata_value = self._data[frame_idx][metadata]
             if metadata == "function_object":
                 try:
-                    metadata_value = pickle.loads(metadata_value)
-                except Exception:
+                    if not isinstance(metadata_value, str):
+                        metadata_value = pickle.loads(metadata_value)
+                except Exception as err:
                     logging.warning("Can't unpickle the 'function_object' "
-                                    "value for frame: %a", frame_idx)
+                                    "value for frame: %a. Error: %s",
+                                    frame_idx, err)
             return metadata_value
         except KeyError:
             allowed_frame_idx = list(
@@ -353,11 +358,12 @@ class SaveframeReader:
                         continue
                     try:
                         variable_value = pickle.loads(variable_value)
-                    except Exception:
+                    except Exception as err:
                         logging.warning(
                             "Can't un-pickle the value of variable %a for frame "
-                            "%a", variable, frame_idx)
-                        variable_value = "Can't un-pickle the variable."
+                            "%a. Error: %s", variable, key_item, err)
+                        variable_value = (
+                            f"Can't un-pickle the variable. Error: {err}")
                     if len(variables) == 1:
                         # Single variable is queried.
                         frame_idx_to_variables_map[key_item] = variable_value
@@ -398,12 +404,12 @@ class SaveframeReader:
                 continue
             try:
                 variable_value = pickle.loads(variable_value)
-            except Exception:
+            except Exception as err:
                 logging.warning(
                     "Can't un-pickle the value of variable %a for frame "
-                    "%a", variable, frame_idx)
+                    "%a. Error: %s", variable, frame_idx, err)
                 if len(variables) > 1:
-                    variable_value = "Can't un-pickle the variable."
+                    variable_value = f"Can't un-pickle the variable. Error: {err}"
             if len(variables) == 1:
                 # Single variable is queried. Directly return the value.
                 return variable_value

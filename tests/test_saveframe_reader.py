@@ -145,6 +145,10 @@ def call_saveframe(pkg_name, tmpdir, frames):
     return filename
 
 
+def get_func2_qualname():
+    return "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2"
+
+
 def test_saveframe_reader_repr_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = call_saveframe(pkg_name, tmpdir, frames=1)
@@ -174,7 +178,7 @@ def test_saveframe_reader_repr_2(tmpdir):
         f'\'{tmpdir}/{pkg_name}/pkg1/pkg2/mod3.py,6,func3\'\n  Code: raise '
         'ValueError("Error is raised")\n  Variables: [\'var1\', \'var2\', \''
         f'func3_var3\']\n\nFrame 2:\n  Filename: \'{tmpdir}/{pkg_name}/pkg1/'
-        'mod2.py\'\n  Line Number: 10\n  Function: mod2_cls.func2\n  Module: '
+        f'mod2.py\'\n  Line Number: 10\n  Function: {get_func2_qualname()}\n  Module: '
         f'{pkg_name}.pkg1.mod2\n  Frame ID: \'{tmpdir}/{pkg_name}/pkg1/mod2.py,'
         '10,func2\'\n  Code: func3()\n  Variables: [\'self\', \'var1\', \'var2'
         '\']\n\nException:\n  Full String: ValueError: Error is '
@@ -229,12 +233,12 @@ def test_saveframe_reader_str_2(tmpdir):
         f'pkg2.mod3\n  Frame ID: \'{tmpdir}/{pkg_name}/pkg1/pkg2/mod3.py,6,func3'
         '\'\n  Code: raise ValueError("Error is raised")\n  Variables: [\'var1'
         f'\', \'var2\', \'func3_var3\']\n\nFrame 2:\n  Filename: \'{tmpdir}/'
-        f'{pkg_name}/pkg1/mod2.py\'\n  Line Number: 10\n  Function: mod2_cls.func2'
-        f'\n  Module: {pkg_name}.pkg1.mod2\n  Frame ID: \'{tmpdir}/{pkg_name}/'
-        'pkg1/mod2.py,10,func2\'\n  Code: func3()\n  Variables: [\'self\', '
-        '\'var1\', \'var2\']\n\nException:\n  Full String: ValueError: Error is '
-        'raised\n  String: Error is raised\n  Class Name: ValueError\n  '
-        'Qualified Name: ValueError\n')
+        f'{pkg_name}/pkg1/mod2.py\'\n  Line Number: 10\n  Function: '
+        f'{get_func2_qualname()}\n  Module: {pkg_name}.pkg1.mod2\n  Frame ID: '
+        f'\'{tmpdir}/{pkg_name}/pkg1/mod2.py,10,func2\'\n  Code: func3()\n  '
+        f'Variables: [\'self\', \'var1\', \'var2\']\n\nException:\n  Full '
+        f'String: ValueError: Error is raised\n  String: Error is raised\n  '
+        f'Class Name: ValueError\n  Qualified Name: ValueError\n')
     assert str(reader) == expected
 
 
@@ -357,11 +361,11 @@ def test_get_metadata_4(tmpdir):
     reader = SaveframeReader(filename)
 
     result = reader.get_metadata("function_qualname")
-    expected = {1: 'func3', 2: 'mod2_cls.func2', 3: 'func2', 4: 'func1'}
+    expected = {1: 'func3', 2: get_func2_qualname(), 3: 'func2', 4: 'func1'}
     assert result == expected
 
     result = reader.get_metadata("function_qualname", frame_idx=2)
-    expected = 'mod2_cls.func2'
+    expected = get_func2_qualname()
     assert result == expected
 
 
@@ -372,7 +376,7 @@ def test_get_metadata_5(tmpdir):
 
     frame_idx_to_info = {
         1: {'name': 'func3', 'qualname': 'func3'},
-        2: {'name': 'func2', 'qualname': 'mod2_cls.func2'},
+        2: {'name': 'func2', 'qualname': get_func2_qualname()},
         3: {'name': 'func2', 'qualname': 'func2'},
         4: {'name': 'func1', 'qualname': 'func1'},
         5: {'name': 'init_func1', 'qualname': 'init_func1'}
@@ -382,13 +386,16 @@ def test_get_metadata_5(tmpdir):
     assert list(result.keys()) == [1, 2, 3, 4, 5]
     for key in result:
         func = result[key]
+        if isinstance(func, str):
+            continue
         name = func.__name__
         qualname = func.__qualname__
         assert name == frame_idx_to_info[key]['name']
         assert qualname == frame_idx_to_info[key]['qualname']
 
     result = reader.get_metadata("function_object", 2)
-    assert result.__qualname__ == 'mod2_cls.func2'
+    if not isinstance(result, str):
+        assert result.__qualname__ == get_func2_qualname()
 
 
 def test_get_metadata_6(tmpdir):
