@@ -336,7 +336,7 @@ def test_get_metadata_2(tmpdir):
     expected = {3: 9, 4: 14}
     assert result == expected
 
-    result = reader.get_metadata("lineno", 4)
+    result = reader.get_metadata("lineno", frame_idx=4)
     expected = 14
     assert result == expected
 
@@ -350,7 +350,7 @@ def test_get_metadata_3(tmpdir):
     expected = {1: 'func3', 2: 'func2', 3: 'func2', 4: 'func1', 5: 'init_func1'}
     assert result == expected
 
-    result = reader.get_metadata("function_name", 5)
+    result = reader.get_metadata("function_name", frame_idx=5)
     expected = 'init_func1'
     assert result == expected
 
@@ -393,7 +393,7 @@ def test_get_metadata_5(tmpdir):
         assert name == frame_idx_to_info[key]['name']
         assert qualname == frame_idx_to_info[key]['qualname']
 
-    result = reader.get_metadata("function_object", 2)
+    result = reader.get_metadata("function_object", frame_idx=2)
     if not isinstance(result, str):
         assert result.__qualname__ == get_func2_qualname()
 
@@ -408,7 +408,7 @@ def test_get_metadata_6(tmpdir):
                  3: f'{pkg_name}.mod1', 4: f'{pkg_name}.mod1', 5: pkg_name}
     assert result == expected
 
-    result = reader.get_metadata("module_name", 4)
+    result = reader.get_metadata("module_name", frame_idx=4)
     assert result == f'{pkg_name}.mod1'
 
 
@@ -422,10 +422,10 @@ def test_get_metadata_7(tmpdir):
                 3: 'obj.func2()', 4: 'func2()', 5: 'func1()'}
     assert result == expected
 
-    result = reader.get_metadata("code", 1)
+    result = reader.get_metadata("code", frame_idx=1)
     assert result == 'raise ValueError("Error is raised")'
 
-    result = reader.get_metadata("code", 3)
+    result = reader.get_metadata("code", frame_idx=3)
     assert result == 'obj.func2()'
 
 
@@ -660,6 +660,49 @@ def test_get_variables_9(tmpdir):
     assert result == expected
 
 
+def test_get_variables_10(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames=5)
+    reader = SaveframeReader(filename)
+
+    result = reader.get_variables('var1', 'var2')
+    expected = {1: {'var1': [4, 'foo', 2.4], 'var2': 'blah'},
+                2: {'var1': 'foo', 'var2': (4, 9, 10)},
+                3: {'var1': 'func2', 'var2': 34}, 4: {'var1': [4, 5, 2]},
+                5: {'var1': 3, 'var2': 'blah'}}
+    assert result == expected
+
+
+def test_get_variables_11(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames=5)
+    reader = SaveframeReader(filename)
+
+    result = reader.get_variables('func1_var2', 'func3_var3', 'var3')
+    expected = {1: {'func3_var3': True}, 4: {'func1_var2': 4.56}}
+    assert result == expected
+
+
+def test_get_variables_12(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames='mod1.py::')
+    reader = SaveframeReader(filename)
+
+    result = reader.get_variables('func1_var2', 'func3_var3', 'var3')
+    expected = {'func1_var2': 4.56}
+    assert result == expected
+
+
+def test_get_variables_13(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames=5)
+    reader = SaveframeReader(filename)
+
+    result = reader.get_variables('var1', 'var2', 'func1_var2', frame_idx=3)
+    expected = {'var1': 'func2', 'var2': 34}
+    assert result == expected
+
+
 def test_get_variables_invalid_variable_1(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = call_saveframe(pkg_name, tmpdir, frames=5)
@@ -668,7 +711,7 @@ def test_get_variables_invalid_variable_1(tmpdir):
     with pytest.raises(ValueError) as err:
         reader.get_variables('foo')
 
-    expected = "Local variable(s) ['foo'] not found in any of the saved frames."
+    expected = "Local variable(s) ('foo',) not found in any of the saved frames."
     assert str(err.value) == expected
 
 
@@ -680,7 +723,7 @@ def test_get_variables_invalid_variable_2(tmpdir):
     with pytest.raises(ValueError) as err:
         reader.get_variables('var2', frame_idx=4)
 
-    expected = "Local variable(s) ['var2'] not found in the frame 4"
+    expected = "Local variable(s) ('var2',) not found in the frame 4"
     assert str(err.value) == expected
 
 
@@ -692,7 +735,32 @@ def test_get_variables_invalid_variable_3(tmpdir):
     with pytest.raises(ValueError) as err:
         reader.get_variables(['var2', 'var5'], frame_idx=4)
 
-    expected = "Local variable(s) ['var2', 'var5'] not found in the frame 4"
+    expected = "Local variable(s) ('var2', 'var5') not found in the frame 4"
+    assert str(err.value) == expected
+
+
+def test_get_variables_invalid_variable_4(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames=5)
+    reader = SaveframeReader(filename)
+
+    with pytest.raises(ValueError) as err:
+        reader.get_variables()
+
+    expected = "No 'variables' passed."
+    assert str(err.value) == expected
+
+
+def test_get_variables_invalid_variable_5(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    filename = call_saveframe(pkg_name, tmpdir, frames=5)
+    reader = SaveframeReader(filename)
+
+    with pytest.raises(TypeError) as err:
+        reader.get_variables('var1', 2)
+
+    expected = ("Invalid variable name: 2. Each variable name must be of type "
+                "string, not int.")
     assert str(err.value) == expected
 
 

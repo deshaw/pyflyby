@@ -96,6 +96,13 @@ class SaveframeReader:
       >> reader.get_variables('var2')
       var2_value3
 
+      >> reader.get_variables('var1', 'var3')
+      {2: {'var1': var1_value2, 'var3': var3_value2},
+      4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
+
+      >> reader.get_variables('var1', 'var3', frame_idx=2)
+      {'var1': var1_value2, 'var3': var3_value2}
+
       >> reader.get_variables(['var1', 'var3'])
       {2: {'var1': var1_value2, 'var3': var3_value2},
       4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
@@ -185,7 +192,7 @@ class SaveframeReader:
         return frame_idx_to_variables_map
 
 
-    def get_metadata(self, metadata, frame_idx=None):
+    def get_metadata(self, metadata, *, frame_idx=None):
         """
         Retrieve the value of a specific metadata field.
 
@@ -280,7 +287,7 @@ class SaveframeReader:
                 f"are: {allowed_frame_idx}.")
 
 
-    def get_variables(self, variables, frame_idx=None):
+    def get_variables(self, *variables, frame_idx=None):
         """
         Retrieve the value of local variable(s) from specific frames.
 
@@ -299,15 +306,24 @@ class SaveframeReader:
           >> reader.get_variables('var2')
           var2_value3 # 'var2' is only present in frame 3
 
-          >> reader.get_variables(['var1', 'var3'])
+          >> reader.get_variables('var1', 'var3')
           {2: {'var1': var1_value2, 'var3': var3_value2},
            4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
+
+          >> reader.get_variables('var1', 'var3', frame_idx=2)
+          {'var1': var1_value2, 'var3': var3_value2}
 
           >> reader.get_variables(['var1', 'var3'], frame_idx=2)
           {'var1': var1_value2, 'var3': var3_value2}
 
         :param variables:
-          A string or a list of variable names for which to retrieve the values.
+          One or more variable names for which to retrieve the values. You can 
+          pass a single variable name as a string, a list of variable names, or
+          multiple variable names as separate argument. Example:
+            - get_variables('var1')
+            - get_variables(['var1', 'var2', 'var3', ...])
+            - get_variables('var1', 'var2', 'var3', ...)
+
         :param frame_idx:
           The index of the frame from which to retrieve the value(s) of the
           variable(s). Default is None, which means values from all frames are
@@ -336,14 +352,22 @@ class SaveframeReader:
                     an error is raised.
         """
         # Sanity checks.
-        if not isinstance(variables, (str, list, tuple)):
-            raise TypeError(
-                f"'variables' must either be a string or a list/tuple. "
-                f"Got '{type(variables).__name__}'.")
-        if isinstance(variables, (list, tuple)) and len(variables) == 0:
+        if len(variables) == 1 and isinstance(variables[0], (list, tuple)):
+            variables = tuple(variables[0])
+        if len(variables) == 0:
             raise ValueError("No 'variables' passed.")
-        if isinstance(variables, str):
-            variables = [variables]
+        for variable in variables:
+            if not isinstance(variable, str):
+                raise TypeError(
+                    f"Invalid variable name: {variable}. Each variable name "
+                    f"must be of type string, not {type(variable).__name__}.")
+
+        def _get_variable_value_on_unpickle_error(err):
+            """
+            Get variable's value when it fails to unpickle due to error ``err``.
+            """
+            return f"Can't un-pickle the variable. Error: {err}"
+
         # frame_idx is not passed.
         if frame_idx is None:
             frame_idx_to_variables_map = {}
@@ -362,8 +386,7 @@ class SaveframeReader:
                         logging.warning(
                             "Can't un-pickle the value of variable %a for frame "
                             "%a. Error: %s", variable, key_item, err)
-                        variable_value = (
-                            f"Can't un-pickle the variable. Error: {err}")
+                        variable_value = _get_variable_value_on_unpickle_error(err)
                     if len(variables) == 1:
                         # Single variable is queried.
                         frame_idx_to_variables_map[key_item] = variable_value
@@ -409,7 +432,7 @@ class SaveframeReader:
                     "Can't un-pickle the value of variable %a for frame "
                     "%a. Error: %s", variable, frame_idx, err)
                 if len(variables) > 1:
-                    variable_value = f"Can't un-pickle the variable. Error: {err}"
+                    variable_value = _get_variable_value_on_unpickle_error(err)
             if len(variables) == 1:
                 # Single variable is queried. Directly return the value.
                 return variable_value
