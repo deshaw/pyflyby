@@ -303,6 +303,9 @@ class SaveframeReader:
           >>  reader.get_variables('var1', frame_idx=4)
           var1_value4
 
+          >>  reader.get_variables(('var1',), frame_idx=4)
+          {'var1': var1_value4}
+
           >> reader.get_variables('var2')
           var2_value3 # 'var2' is only present in frame 3
 
@@ -335,7 +338,7 @@ class SaveframeReader:
                     as values.
                   - If the variable is present in only one frame, the value is
                     returned directly.
-              - For multiple variables:
+              - For multiple variables or a single variable passed as a list/tuple:
                   - A dictionary with frame indices as keys and dictionaries as
                     values, where each inner dictionary contains the queried
                     variables and their values for that frame.
@@ -345,15 +348,18 @@ class SaveframeReader:
               - For a single variable:
                   - The value of the variable in the specified frame.
                   - If the variable is not present in that frame, an error is raised.
-              - For multiple variables:
+              - For multiple variables or a single variable passed as a list/tuple:
                   - A dictionary with the variable names as keys and their values
                     as values, for the specified frame.
                   - If none of the queried variables are present in that frame,
                     an error is raised.
         """
+        # Boolean to denote if variables are passed as a list or tuple.
+        variables_passed_as_list_or_tuple = False
         # Sanity checks.
         if len(variables) == 1 and isinstance(variables[0], (list, tuple)):
             variables = tuple(variables[0])
+            variables_passed_as_list_or_tuple = True
         if len(variables) == 0:
             raise ValueError("No 'variables' passed.")
         for variable in variables:
@@ -387,7 +393,7 @@ class SaveframeReader:
                             "Can't un-pickle the value of variable %a for frame "
                             "%a. Error: %s", variable, key_item, err)
                         variable_value = _get_variable_value_on_unpickle_error(err)
-                    if len(variables) == 1:
+                    if len(variables) == 1 and not variables_passed_as_list_or_tuple:
                         # Single variable is queried.
                         frame_idx_to_variables_map[key_item] = variable_value
                     else:
@@ -433,7 +439,7 @@ class SaveframeReader:
                     "%a. Error: %s", variable, frame_idx, err)
                 if len(variables) > 1:
                     variable_value = _get_variable_value_on_unpickle_error(err)
-            if len(variables) == 1:
+            if len(variables) == 1 and not variables_passed_as_list_or_tuple:
                 # Single variable is queried. Directly return the value.
                 return variable_value
             variable_key_to_value_map[variable] = variable_value

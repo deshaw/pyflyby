@@ -575,6 +575,18 @@ def test_get_variables_1(tmpdir):
     expected = {1: 'blah', 2: (4, 9, 10), 3: 34, 5: 'blah'}
     assert result == expected
 
+    # Single variable passed as a list.
+    result = reader.get_variables(['var2'])
+    expected = {1: {'var2': 'blah'}, 2: {'var2': (4, 9, 10)}, 3: {'var2': 34},
+                5: {'var2': 'blah'}}
+    assert result == expected
+
+    # Single variable passed as a tuple.
+    result = reader.get_variables(('var2',))
+    expected = {1: {'var2': 'blah'}, 2: {'var2': (4, 9, 10)}, 3: {'var2': 34},
+                5: {'var2': 'blah'}}
+    assert result == expected
+
 
 def test_get_variables_2(tmpdir):
     pkg_name = create_pkg(tmpdir)
@@ -612,8 +624,18 @@ def test_get_variables_5(tmpdir):
     filename = call_saveframe(pkg_name, tmpdir, frames=5)
     reader = SaveframeReader(filename)
 
-    result = reader.get_variables(['var1'], frame_idx=5)
+    result = reader.get_variables('var1', frame_idx=5)
     expected = 3
+    assert result == expected
+
+    # Single variable passed as a list.
+    result = reader.get_variables(['var1'], frame_idx=5)
+    expected = {'var1': 3}
+    assert result == expected
+
+    # Single variable passed as a tuple.
+    result = reader.get_variables(('var1',), frame_idx=5)
+    expected = {'var1': 3}
     assert result == expected
 
 
