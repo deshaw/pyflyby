@@ -96,13 +96,6 @@ class SaveframeReader:
       >> reader.get_variables('var2')
       var2_value3
 
-      >> reader.get_variables('var1', 'var3')
-      {2: {'var1': var1_value2, 'var3': var3_value2},
-      4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
-
-      >> reader.get_variables('var1', 'var3', frame_idx=2)
-      {'var1': var1_value2, 'var3': var3_value2}
-
       >> reader.get_variables(['var1', 'var3'])
       {2: {'var1': var1_value2, 'var3': var3_value2},
       4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
@@ -287,7 +280,7 @@ class SaveframeReader:
                 f"are: {allowed_frame_idx}.")
 
 
-    def get_variables(self, *variables, frame_idx=None):
+    def get_variables(self, variables, *, frame_idx=None):
         """
         Retrieve the value of local variable(s) from specific frames.
 
@@ -309,23 +302,17 @@ class SaveframeReader:
           >> reader.get_variables('var2')
           var2_value3 # 'var2' is only present in frame 3
 
-          >> reader.get_variables('var1', 'var3')
+          >> reader.get_variables(['var1', 'var3'])
           {2: {'var1': var1_value2, 'var3': var3_value2},
            4: {'var1': var1_value4}, 5: {'var3': var3_value5}}
-
-          >> reader.get_variables('var1', 'var3', frame_idx=2)
-          {'var1': var1_value2, 'var3': var3_value2}
 
           >> reader.get_variables(['var1', 'var3'], frame_idx=2)
           {'var1': var1_value2, 'var3': var3_value2}
 
         :param variables:
           One or more variable names for which to retrieve the values. You can 
-          pass a single variable name as a string, a list of variable names, or
-          multiple variable names as separate argument. Example:
-            - get_variables('var1')
-            - get_variables(['var1', 'var2', 'var3', ...])
-            - get_variables('var1', 'var2', 'var3', ...)
+          pass a single variable name as a string or a list / tuple of variable
+          names.
 
         :param frame_idx:
           The index of the frame from which to retrieve the value(s) of the
@@ -333,12 +320,12 @@ class SaveframeReader:
           returned.
         :return:
           - If ``frame_idx`` is None (default):
-              - For single variable:
+              - For a single variable:
                   - A dictionary with frame indices as keys and variable values
                     as values.
                   - If the variable is present in only one frame, the value is
                     returned directly.
-              - For multiple variables or a single variable passed as a list/tuple:
+              - For a list / tuple of variables:
                   - A dictionary with frame indices as keys and dictionaries as
                     values, where each inner dictionary contains the queried
                     variables and their values for that frame.
@@ -348,7 +335,7 @@ class SaveframeReader:
               - For a single variable:
                   - The value of the variable in the specified frame.
                   - If the variable is not present in that frame, an error is raised.
-              - For multiple variables or a single variable passed as a list/tuple:
+              - For a list / tuple of variables:
                   - A dictionary with the variable names as keys and their values
                     as values, for the specified frame.
                   - If none of the queried variables are present in that frame,
@@ -357,16 +344,21 @@ class SaveframeReader:
         # Boolean to denote if variables are passed as a list or tuple.
         variables_passed_as_list_or_tuple = False
         # Sanity checks.
-        if len(variables) == 1 and isinstance(variables[0], (list, tuple)):
-            variables = tuple(variables[0])
+        if isinstance(variables, (list, tuple)):
             variables_passed_as_list_or_tuple = True
+            for variable in variables:
+                if not isinstance(variable, str):
+                    raise TypeError(
+                        f"Invalid variable name: {variable}. Each variable name "
+                        f"must be of type string, not {type(variable).__name__}.")
+        elif isinstance(variables, str):
+            variables = (variables,)
+        else:
+            raise TypeError(
+                f"'variables' must either be a string or a list/tuple. "
+                f"Got '{type(variables).__name__}'.")
         if len(variables) == 0:
             raise ValueError("No 'variables' passed.")
-        for variable in variables:
-            if not isinstance(variable, str):
-                raise TypeError(
-                    f"Invalid variable name: {variable}. Each variable name "
-                    f"must be of type string, not {type(variable).__name__}.")
 
         def _get_variable_value_on_unpickle_error(err):
             """
