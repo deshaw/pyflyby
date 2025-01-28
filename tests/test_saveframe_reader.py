@@ -702,7 +702,7 @@ def test_get_variables_invalid_variable_2(tmpdir):
     with pytest.raises(ValueError) as err:
         reader.get_variables('var2', frame_idx=4)
 
-    expected = "Local variable(s) ('var2',) not found in the frame 4"
+    expected = "Local variable(s) ('var2',) not found in frame 4"
     assert str(err.value) == expected
 
 
@@ -714,7 +714,7 @@ def test_get_variables_invalid_variable_3(tmpdir):
     with pytest.raises(ValueError) as err:
         reader.get_variables(['var2', 'var5'], frame_idx=4)
 
-    expected = "Local variable(s) ['var2', 'var5'] not found in the frame 4"
+    expected = "Local variable(s) ['var2', 'var5'] not found in frame 4"
     assert str(err.value) == expected
 
 
@@ -738,8 +738,8 @@ def test_get_variables_invalid_variable_5(tmpdir):
     with pytest.raises(TypeError) as err:
         reader.get_variables(['var1', 2])
 
-    expected = ("Invalid variable name: 2. Each variable name must be of type "
-                "string, not int.")
+    expected = ("Invalid type for variable name: int. Expected string type "
+                "instead.")
     assert str(err.value) == expected
 
 

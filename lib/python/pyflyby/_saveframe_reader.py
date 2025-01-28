@@ -349,8 +349,8 @@ class SaveframeReader:
             for variable in variables:
                 if not isinstance(variable, str):
                     raise TypeError(
-                        f"Invalid variable name: {variable}. Each variable name "
-                        f"must be of type string, not {type(variable).__name__}.")
+                        f"Invalid type for variable name: {type(variable).__name__}. "
+                        "Expected string type instead.")
         elif isinstance(variables, str):
             variables = (variables,)
         else:
@@ -436,7 +436,7 @@ class SaveframeReader:
                 return variable_value
             variable_key_to_value_map[variable] = variable_value
         if not variable_key_to_value_map:
-            raise ValueError(f"Local variable(s) {variables} not found in the "
+            raise ValueError(f"Local variable(s) {variables} not found in "
                              f"frame {frame_idx}")
         return variable_key_to_value_map
 
