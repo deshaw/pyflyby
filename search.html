@@ -1,0 +1,774 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search &mdash; pyflyby 1.9.11 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+    
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=17f12e63"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="#" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pyflyby
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="#" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">pyflyby API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/autoimp.html">_autoimp module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.LoadSymbolError"><code class="docutils literal notranslate"><span class="pre">LoadSymbolError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack"><code class="docutils literal notranslate"><span class="pre">ScopeStack</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack._abc_impl"><code class="docutils literal notranslate"><span class="pre">ScopeStack._abc_impl</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack._cached_has_star_import"><code class="docutils literal notranslate"><span class="pre">ScopeStack._cached_has_star_import</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack._with_new_scope"><code class="docutils literal notranslate"><span class="pre">ScopeStack._with_new_scope()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack.clone_top"><code class="docutils literal notranslate"><span class="pre">ScopeStack.clone_top()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack.has_star_import"><code class="docutils literal notranslate"><span class="pre">ScopeStack.has_star_import()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.ScopeStack.merged_to_two"><code class="docutils literal notranslate"><span class="pre">ScopeStack.merged_to_two()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._ClassScope"><code class="docutils literal notranslate"><span class="pre">_ClassScope</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._IMPORT_FAILED"><code class="docutils literal notranslate"><span class="pre">_IMPORT_FAILED</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._NewScopeCtx"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._NewScopeCtx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._UpScopeCtx"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._UpScopeCtx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._check_load"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._check_load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._deferred_load_checks"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._deferred_load_checks</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._finish_deferred_load_checks"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._finish_deferred_load_checks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._get_scope_info"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._get_scope_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._lineno"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._lineno</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._remove_from_missing_imports"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._remove_from_missing_imports()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._scan_node"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._scan_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._scan_unused_imports"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._scan_unused_imports()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_Load"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_Load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_Load_defered"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_Load_defered()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_Load_defered_global"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_Load_defered_global()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_Load_immediate"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_Load_immediate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_Store"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_Store()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_StoreImport"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_StoreImport()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit__all__"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit__all__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_fullname"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_fullname()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder._visit_typecomment"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder._visit_typecomment()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.find_missing_imports"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.find_missing_imports()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.generic_visit"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.generic_visit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.missing_imports"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.missing_imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.parse_docstrings"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.parse_docstrings</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.scan_for_import_issues"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.scan_for_import_issues()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.scopestack"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.scopestack</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.unused_imports"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.unused_imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Assign"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Assign()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_AsyncFunctionDef"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_AsyncFunctionDef()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Attribute"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Attribute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Call"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Call()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_ClassDef"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_ClassDef()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Constant"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Constant()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Delete"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Delete()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Dict"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_DictComp"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_DictComp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_ExceptHandler"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_ExceptHandler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Expr"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Expr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_FunctionDef"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_FunctionDef()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_GeneratorExp"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_GeneratorExp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_ImportFrom"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_ImportFrom()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Lambda"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Lambda()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_ListComp"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_ListComp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Match"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Match()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_MatchAs"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_MatchAs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_MatchMapping"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_MatchMapping()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Module"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Name"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_Pass"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_Pass()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_SetComp"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_SetComp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_alias"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_alias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_arg"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_arg()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_arguments"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_arguments()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_comprehension"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_comprehension()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._MissingImportFinder.visit_match_case"><code class="docutils literal notranslate"><span class="pre">_MissingImportFinder.visit_match_case()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._UseChecker"><code class="docutils literal notranslate"><span class="pre">_UseChecker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._UseChecker.lineno"><code class="docutils literal notranslate"><span class="pre">_UseChecker.lineno</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._UseChecker.name"><code class="docutils literal notranslate"><span class="pre">_UseChecker.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._UseChecker.source"><code class="docutils literal notranslate"><span class="pre">_UseChecker.source</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._UseChecker.used"><code class="docutils literal notranslate"><span class="pre">_UseChecker.used</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._find_earliest_backjump_label"><code class="docutils literal notranslate"><span class="pre">_find_earliest_backjump_label()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._find_loads_without_stores_in_code"><code class="docutils literal notranslate"><span class="pre">_find_loads_without_stores_in_code()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._find_missing_imports_in_ast"><code class="docutils literal notranslate"><span class="pre">_find_missing_imports_in_ast()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._find_missing_imports_in_code"><code class="docutils literal notranslate"><span class="pre">_find_missing_imports_in_code()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp._try_import"><code class="docutils literal notranslate"><span class="pre">_try_import()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.auto_import_symbol"><code class="docutils literal notranslate"><span class="pre">auto_import_symbol()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.clear_failed_imports_cache"><code class="docutils literal notranslate"><span class="pre">clear_failed_imports_cache()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.get_known_import"><code class="docutils literal notranslate"><span class="pre">get_known_import()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.load_symbol"><code class="docutils literal notranslate"><span class="pre">load_symbol()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.scan_for_import_issues"><code class="docutils literal notranslate"><span class="pre">scan_for_import_issues()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.symbol_needs_import"><code class="docutils literal notranslate"><span class="pre">symbol_needs_import()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/autoimp.html#pyflyby._autoimp.take_arg"><code class="docutils literal notranslate"><span class="pre">take_arg()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/cmdline.html">_cmdline module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.AbortActions"><code class="docutils literal notranslate"><span class="pre">AbortActions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Exit1"><code class="docutils literal notranslate"><span class="pre">Exit1</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier"><code class="docutils literal notranslate"><span class="pre">Modifier</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier._tempfile"><code class="docutils literal notranslate"><span class="pre">Modifier._tempfile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier.input_content"><code class="docutils literal notranslate"><span class="pre">Modifier.input_content</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier.input_content_filename"><code class="docutils literal notranslate"><span class="pre">Modifier.input_content_filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier.output_content"><code class="docutils literal notranslate"><span class="pre">Modifier.output_content</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.Modifier.output_content_filename"><code class="docutils literal notranslate"><span class="pre">Modifier.output_content_filename</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline._default_on_error"><code class="docutils literal notranslate"><span class="pre">_default_on_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline._sigpipe_handler"><code class="docutils literal notranslate"><span class="pre">_sigpipe_handler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_exit1"><code class="docutils literal notranslate"><span class="pre">action_exit1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_external_command"><code class="docutils literal notranslate"><span class="pre">action_external_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_ifchanged"><code class="docutils literal notranslate"><span class="pre">action_ifchanged()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_print"><code class="docutils literal notranslate"><span class="pre">action_print()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_query"><code class="docutils literal notranslate"><span class="pre">action_query()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.action_replace"><code class="docutils literal notranslate"><span class="pre">action_replace()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.filename_args"><code class="docutils literal notranslate"><span class="pre">filename_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.hfmt"><code class="docutils literal notranslate"><span class="pre">hfmt()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.maindoc"><code class="docutils literal notranslate"><span class="pre">maindoc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.parse_args"><code class="docutils literal notranslate"><span class="pre">parse_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.print_version_and_exit"><code class="docutils literal notranslate"><span class="pre">print_version_and_exit()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.process_actions"><code class="docutils literal notranslate"><span class="pre">process_actions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.symlink_callback"><code class="docutils literal notranslate"><span class="pre">symlink_callback()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.symlink_error"><code class="docutils literal notranslate"><span class="pre">symlink_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.symlink_follow"><code class="docutils literal notranslate"><span class="pre">symlink_follow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.symlink_replace"><code class="docutils literal notranslate"><span class="pre">symlink_replace()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.symlink_skip"><code class="docutils literal notranslate"><span class="pre">symlink_skip()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/cmdline.html#pyflyby._cmdline.syntax"><code class="docutils literal notranslate"><span class="pre">syntax()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/comms.html">_comms module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms._reformat_helper"><code class="docutils literal notranslate"><span class="pre">_reformat_helper()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms._register_target"><code class="docutils literal notranslate"><span class="pre">_register_target()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.collect_code_with_imports_on_top"><code class="docutils literal notranslate"><span class="pre">collect_code_with_imports_on_top()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.comm_close_handler"><code class="docutils literal notranslate"><span class="pre">comm_close_handler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.comm_open_handler"><code class="docutils literal notranslate"><span class="pre">comm_open_handler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.extract_import_statements"><code class="docutils literal notranslate"><span class="pre">extract_import_statements()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.in_jupyter"><code class="docutils literal notranslate"><span class="pre">in_jupyter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.initialize_comms"><code class="docutils literal notranslate"><span class="pre">initialize_comms()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.remove_comms"><code class="docutils literal notranslate"><span class="pre">remove_comms()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.run_tidy_imports"><code class="docutils literal notranslate"><span class="pre">run_tidy_imports()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/comms.html#pyflyby._comms.send_comm_message"><code class="docutils literal notranslate"><span class="pre">send_comm_message()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/dbg.html">_dbg module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.DebuggerAttachTimeoutError"><code class="docutils literal notranslate"><span class="pre">DebuggerAttachTimeoutError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.Pty"><code class="docutils literal notranslate"><span class="pre">Pty</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.Pty.communicate"><code class="docutils literal notranslate"><span class="pre">Pty.communicate()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._DebuggerCtx"><code class="docutils literal notranslate"><span class="pre">_DebuggerCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._DisplayHookCtx"><code class="docutils literal notranslate"><span class="pre">_DisplayHookCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._ExceptHookCtx"><code class="docutils literal notranslate"><span class="pre">_ExceptHookCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._FdCtx"><code class="docutils literal notranslate"><span class="pre">_FdCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._NoTtyError"><code class="docutils literal notranslate"><span class="pre">_NoTtyError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._StdioCtx"><code class="docutils literal notranslate"><span class="pre">_StdioCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._abbrev_filename"><code class="docutils literal notranslate"><span class="pre">_abbrev_filename()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._debug_code"><code class="docutils literal notranslate"><span class="pre">_debug_code()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._debug_exception"><code class="docutils literal notranslate"><span class="pre">_debug_exception()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._dev_null"><code class="docutils literal notranslate"><span class="pre">_dev_null()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._dev_tty_fd"><code class="docutils literal notranslate"><span class="pre">_dev_tty_fd()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._escape_for_gdb"><code class="docutils literal notranslate"><span class="pre">_escape_for_gdb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._find_py_commandline"><code class="docutils literal notranslate"><span class="pre">_find_py_commandline()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._get_caller_frame"><code class="docutils literal notranslate"><span class="pre">_get_caller_frame()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._override_excepthook"><code class="docutils literal notranslate"><span class="pre">_override_excepthook()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._prompt_continue_waiting_for_debugger"><code class="docutils literal notranslate"><span class="pre">_prompt_continue_waiting_for_debugger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._remote_print_stack_to_file"><code class="docutils literal notranslate"><span class="pre">_remote_print_stack_to_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._reset_excepthook"><code class="docutils literal notranslate"><span class="pre">_reset_excepthook()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._send_email_with_attach_instructions"><code class="docutils literal notranslate"><span class="pre">_send_email_with_attach_instructions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._signal_handler_debugger"><code class="docutils literal notranslate"><span class="pre">_signal_handler_debugger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._sigterm_handler"><code class="docutils literal notranslate"><span class="pre">_sigterm_handler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg._sleep_until_debugger_attaches"><code class="docutils literal notranslate"><span class="pre">_sleep_until_debugger_attaches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.enable_sigterm_handler"><code class="docutils literal notranslate"><span class="pre">enable_sigterm_handler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.get_executable"><code class="docutils literal notranslate"><span class="pre">get_executable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.inject"><code class="docutils literal notranslate"><span class="pre">inject()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.kill_process"><code class="docutils literal notranslate"><span class="pre">kill_process()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.process_exists"><code class="docutils literal notranslate"><span class="pre">process_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.setraw_but_sigint"><code class="docutils literal notranslate"><span class="pre">setraw_but_sigint()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.syscall_marker"><code class="docutils literal notranslate"><span class="pre">syscall_marker()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.tty_is_usable"><code class="docutils literal notranslate"><span class="pre">tty_is_usable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/dbg.html#pyflyby._dbg.wait_for_debugger_to_attach"><code class="docutils literal notranslate"><span class="pre">wait_for_debugger_to_attach()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/file.html">_file module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos"><code class="docutils literal notranslate"><span class="pre">FilePos</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos._ONE_ONE"><code class="docutils literal notranslate"><span class="pre">FilePos._ONE_ONE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos._data"><code class="docutils literal notranslate"><span class="pre">FilePos._data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos._from_lc"><code class="docutils literal notranslate"><span class="pre">FilePos._from_lc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos._intint"><code class="docutils literal notranslate"><span class="pre">FilePos._intint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos.colno"><code class="docutils literal notranslate"><span class="pre">FilePos.colno</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FilePos.lineno"><code class="docutils literal notranslate"><span class="pre">FilePos.lineno</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.FileText"><code class="docutils literal notranslate"><span class="pre">FileText</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText._colno_to_index"><code class="docutils literal notranslate"><span class="pre">FileText._colno_to_index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText._from_lines"><code class="docutils literal notranslate"><span class="pre">FileText._from_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText._lineno_to_index"><code class="docutils literal notranslate"><span class="pre">FileText._lineno_to_index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText._lines"><code class="docutils literal notranslate"><span class="pre">FileText._lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.alter"><code class="docutils literal notranslate"><span class="pre">FileText.alter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.concatenate"><code class="docutils literal notranslate"><span class="pre">FileText.concatenate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.endpos"><code class="docutils literal notranslate"><span class="pre">FileText.endpos</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.filename"><code class="docutils literal notranslate"><span class="pre">FileText.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.from_filename"><code class="docutils literal notranslate"><span class="pre">FileText.from_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.joined"><code class="docutils literal notranslate"><span class="pre">FileText.joined</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.lines"><code class="docutils literal notranslate"><span class="pre">FileText.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/file.html#pyflyby._file.FileText.startpos"><code class="docutils literal notranslate"><span class="pre">FileText.startpos</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.UnsafeFilenameError"><code class="docutils literal notranslate"><span class="pre">UnsafeFilenameError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file._get_PATH"><code class="docutils literal notranslate"><span class="pre">_get_PATH()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.atomic_write_file"><code class="docutils literal notranslate"><span class="pre">atomic_write_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.expand_py_files_from_args"><code class="docutils literal notranslate"><span class="pre">expand_py_files_from_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.read_file"><code class="docutils literal notranslate"><span class="pre">read_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.which"><code class="docutils literal notranslate"><span class="pre">which()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/file.html#pyflyby._file.write_file"><code class="docutils literal notranslate"><span class="pre">write_file()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/flags.html">_flags module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/flags.html#pyflyby._flags.CompilerFlags"><code class="docutils literal notranslate"><span class="pre">CompilerFlags()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/format.html">_format module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams"><code class="docutils literal notranslate"><span class="pre">FormatParams</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams._max_line_lenght_default"><code class="docutils literal notranslate"><span class="pre">FormatParams._max_line_lenght_default</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams.hanging_indent"><code class="docutils literal notranslate"><span class="pre">FormatParams.hanging_indent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams.indent"><code class="docutils literal notranslate"><span class="pre">FormatParams.indent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams.max_line_length"><code class="docutils literal notranslate"><span class="pre">FormatParams.max_line_length</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams.use_black"><code class="docutils literal notranslate"><span class="pre">FormatParams.use_black</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/format.html#pyflyby._format.FormatParams.wrap_paren"><code class="docutils literal notranslate"><span class="pre">FormatParams.wrap_paren</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/format.html#pyflyby._format.fill"><code class="docutils literal notranslate"><span class="pre">fill()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/format.html#pyflyby._format.pyfill"><code class="docutils literal notranslate"><span class="pre">pyfill()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/idents.html">_idents module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/idents.html#pyflyby._idents.BadDottedIdentifierError"><code class="docutils literal notranslate"><span class="pre">BadDottedIdentifierError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier._from_name"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier._from_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.name"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.parent"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.parent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.parts"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.parts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.prefixes"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.prefixes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.scope_info"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.scope_info</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/idents.html#pyflyby._idents.DottedIdentifier.startswith"><code class="docutils literal notranslate"><span class="pre">DottedIdentifier.startswith()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/idents.html#pyflyby._idents.brace_identifiers"><code class="docutils literal notranslate"><span class="pre">brace_identifiers()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/idents.html#pyflyby._idents.dotted_prefixes"><code class="docutils literal notranslate"><span class="pre">dotted_prefixes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/idents.html#pyflyby._idents.is_identifier"><code class="docutils literal notranslate"><span class="pre">is_identifier()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/importclns.html">_importclns module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ConflictingImportsError"><code class="docutils literal notranslate"><span class="pre">ConflictingImportsError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap"><code class="docutils literal notranslate"><span class="pre">ImportMap</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap._EMPTY"><code class="docutils literal notranslate"><span class="pre">ImportMap._EMPTY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap._data"><code class="docutils literal notranslate"><span class="pre">ImportMap._data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap._from_map"><code class="docutils literal notranslate"><span class="pre">ImportMap._from_map()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap._merge"><code class="docutils literal notranslate"><span class="pre">ImportMap._merge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.items"><code class="docutils literal notranslate"><span class="pre">ImportMap.items()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.iteritems"><code class="docutils literal notranslate"><span class="pre">ImportMap.iteritems()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.iterkeys"><code class="docutils literal notranslate"><span class="pre">ImportMap.iterkeys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.keys"><code class="docutils literal notranslate"><span class="pre">ImportMap.keys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.values"><code class="docutils literal notranslate"><span class="pre">ImportMap.values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportMap.without_imports"><code class="docutils literal notranslate"><span class="pre">ImportMap.without_imports()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet"><code class="docutils literal notranslate"><span class="pre">ImportSet</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet._EMPTY"><code class="docutils literal notranslate"><span class="pre">ImportSet._EMPTY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet._by_module_name"><code class="docutils literal notranslate"><span class="pre">ImportSet._by_module_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet._from_args"><code class="docutils literal notranslate"><span class="pre">ImportSet._from_args()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet._from_imports"><code class="docutils literal notranslate"><span class="pre">ImportSet._from_imports()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet._importset"><code class="docutils literal notranslate"><span class="pre">ImportSet._importset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.by_import_as"><code class="docutils literal notranslate"><span class="pre">ImportSet.by_import_as</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.conflicting_imports"><code class="docutils literal notranslate"><span class="pre">ImportSet.conflicting_imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.flags"><code class="docutils literal notranslate"><span class="pre">ImportSet.flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.get_statements"><code class="docutils literal notranslate"><span class="pre">ImportSet.get_statements()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.imports"><code class="docutils literal notranslate"><span class="pre">ImportSet.imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.member_names"><code class="docutils literal notranslate"><span class="pre">ImportSet.member_names</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.pretty_print"><code class="docutils literal notranslate"><span class="pre">ImportSet.pretty_print()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.statements"><code class="docutils literal notranslate"><span class="pre">ImportSet.statements</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.with_imports"><code class="docutils literal notranslate"><span class="pre">ImportSet.with_imports()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.ImportSet.without_imports"><code class="docutils literal notranslate"><span class="pre">ImportSet.without_imports()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/importclns.html#pyflyby._importclns.NoSuchImportError"><code class="docutils literal notranslate"><span class="pre">NoSuchImportError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/importdb.html">_importdb module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._ancestors_on_same_partition"><code class="docutils literal notranslate"><span class="pre">_ancestors_on_same_partition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._expand_tripledots"><code class="docutils literal notranslate"><span class="pre">_expand_tripledots()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._find_etc_dirs"><code class="docutils literal notranslate"><span class="pre">_find_etc_dirs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._get_env_var"><code class="docutils literal notranslate"><span class="pre">_get_env_var()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._get_python_path"><code class="docutils literal notranslate"><span class="pre">_get_python_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importdb.html#pyflyby._importdb._get_st_dev"><code class="docutils literal notranslate"><span class="pre">_get_st_dev()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/imports2s.html">_imports2s module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.ImportAlreadyExistsError"><code class="docutils literal notranslate"><span class="pre">ImportAlreadyExistsError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.ImportPathForRelativeImportsCtx"><code class="docutils literal notranslate"><span class="pre">ImportPathForRelativeImportsCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.LineNumberAmbiguousError"><code class="docutils literal notranslate"><span class="pre">LineNumberAmbiguousError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.LineNumberNotFoundError"><code class="docutils literal notranslate"><span class="pre">LineNumberNotFoundError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.NoImportBlockError"><code class="docutils literal notranslate"><span class="pre">NoImportBlockError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.add_import"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.add_import()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.find_import_block_by_lineno"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.find_import_block_by_lineno()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.insert_new_blocks_after_comments"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.insert_new_blocks_after_comments()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.insert_new_import_block"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.insert_new_import_block()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.preprocess"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.preprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.pretty_print"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.pretty_print()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.remove_import"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.remove_import()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceFileImportsTransformation.select_import_block_by_closest_prefix_match"><code class="docutils literal notranslate"><span class="pre">SourceToSourceFileImportsTransformation.select_import_block_by_closest_prefix_match()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceImportBlockTransformation"><code class="docutils literal notranslate"><span class="pre">SourceToSourceImportBlockTransformation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceImportBlockTransformation.preprocess"><code class="docutils literal notranslate"><span class="pre">SourceToSourceImportBlockTransformation.preprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceImportBlockTransformation.pretty_print"><code class="docutils literal notranslate"><span class="pre">SourceToSourceImportBlockTransformation.pretty_print()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformation"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformation._output"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformation._output</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformation.preprocess"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformation.preprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformation.pretty_print"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformation.pretty_print()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase._from_source_code"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase._from_source_code()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase.input"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase.input</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase.output"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase.output()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase.preprocess"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase.preprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.SourceToSourceTransformationBase.pretty_print"><code class="docutils literal notranslate"><span class="pre">SourceToSourceTransformationBase.pretty_print()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/imports2s.html#pyflyby._imports2s.fix_unused_and_missing_imports"><code class="docutils literal notranslate"><span class="pre">fix_unused_and_missing_imports()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/importstmt.html">_importstmt module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportFormatParams"><code class="docutils literal notranslate"><span class="pre">ImportFormatParams</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportFormatParams.align_future"><code class="docutils literal notranslate"><span class="pre">ImportFormatParams.align_future</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportFormatParams.align_imports"><code class="docutils literal notranslate"><span class="pre">ImportFormatParams.align_imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportFormatParams.from_spaces"><code class="docutils literal notranslate"><span class="pre">ImportFormatParams.from_spaces</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportFormatParams.separate_from_imports"><code class="docutils literal notranslate"><span class="pre">ImportFormatParams.separate_from_imports</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit"><code class="docutils literal notranslate"><span class="pre">ImportSplit</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit._asdict"><code class="docutils literal notranslate"><span class="pre">ImportSplit._asdict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit._field_defaults"><code class="docutils literal notranslate"><span class="pre">ImportSplit._field_defaults</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit._fields"><code class="docutils literal notranslate"><span class="pre">ImportSplit._fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit._make"><code class="docutils literal notranslate"><span class="pre">ImportSplit._make()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit._replace"><code class="docutils literal notranslate"><span class="pre">ImportSplit._replace()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit.import_as"><code class="docutils literal notranslate"><span class="pre">ImportSplit.import_as</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit.member_name"><code class="docutils literal notranslate"><span class="pre">ImportSplit.member_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.ImportSplit.module_name"><code class="docutils literal notranslate"><span class="pre">ImportSplit.module_name</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt._validate_alias"><code class="docutils literal notranslate"><span class="pre">_validate_alias()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/importstmt.html#pyflyby._importstmt.read_black_config"><code class="docutils literal notranslate"><span class="pre">read_black_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/interactive.html">_interactive module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter"><code class="docutils literal notranslate"><span class="pre">AutoImporter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._advise"><code class="docutils literal notranslate"><span class="pre">AutoImporter._advise()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._ast_transformer"><code class="docutils literal notranslate"><span class="pre">AutoImporter._ast_transformer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._autoimported_this_cell"><code class="docutils literal notranslate"><span class="pre">AutoImporter._autoimported_this_cell</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._construct"><code class="docutils literal notranslate"><span class="pre">AutoImporter._construct()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._continue_enable"><code class="docutils literal notranslate"><span class="pre">AutoImporter._continue_enable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._disablers"><code class="docutils literal notranslate"><span class="pre">AutoImporter._disablers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_ast_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_ast_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_completer_hooks"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_completer_hooks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_completion_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_completion_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_debugger_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_debugger_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_initializer_hooks"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_initializer_hooks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_internal"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_internal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_ipython_shell_bugfixes"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_ipython_shell_bugfixes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_kernel_manager_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_kernel_manager_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_ofind_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_ofind_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_prun_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_prun_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_reset_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_reset_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_run_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_run_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_shell_hooks"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_shell_hooks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_start_kernel_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_start_kernel_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_time_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_time_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._enable_timeit_hook"><code class="docutils literal notranslate"><span class="pre">AutoImporter._enable_timeit_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._errored"><code class="docutils literal notranslate"><span class="pre">AutoImporter._errored</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._from_app"><code class="docutils literal notranslate"><span class="pre">AutoImporter._from_app()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._ip"><code class="docutils literal notranslate"><span class="pre">AutoImporter._ip</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._safe_call"><code class="docutils literal notranslate"><span class="pre">AutoImporter._safe_call()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter._state"><code class="docutils literal notranslate"><span class="pre">AutoImporter._state</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.app"><code class="docutils literal notranslate"><span class="pre">AutoImporter.app</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.auto_import"><code class="docutils literal notranslate"><span class="pre">AutoImporter.auto_import()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.compile_with_autoimport"><code class="docutils literal notranslate"><span class="pre">AutoImporter.compile_with_autoimport()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.complete_symbol"><code class="docutils literal notranslate"><span class="pre">AutoImporter.complete_symbol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.db"><code class="docutils literal notranslate"><span class="pre">AutoImporter.db</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.disable"><code class="docutils literal notranslate"><span class="pre">AutoImporter.disable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.enable"><code class="docutils literal notranslate"><span class="pre">AutoImporter.enable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.AutoImporter.reset_state_new_cell"><code class="docutils literal notranslate"><span class="pre">AutoImporter.reset_state_new_cell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.InterceptPrintsDuringPromptCtx"><code class="docutils literal notranslate"><span class="pre">InterceptPrintsDuringPromptCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.NoActiveIPythonAppError"><code class="docutils literal notranslate"><span class="pre">NoActiveIPythonAppError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.NoIPythonPackageError"><code class="docutils literal notranslate"><span class="pre">NoIPythonPackageError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.UpdateIPythonStdioCtx"><code class="docutils literal notranslate"><span class="pre">UpdateIPythonStdioCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._DummyIPythonEmbeddedApp"><code class="docutils literal notranslate"><span class="pre">_DummyIPythonEmbeddedApp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._EnableState"><code class="docutils literal notranslate"><span class="pre">_EnableState</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._EnableState.DISABLED"><code class="docutils literal notranslate"><span class="pre">_EnableState.DISABLED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._EnableState.DISABLING"><code class="docutils literal notranslate"><span class="pre">_EnableState.DISABLING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._EnableState.ENABLED"><code class="docutils literal notranslate"><span class="pre">_EnableState.ENABLED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._EnableState.ENABLING"><code class="docutils literal notranslate"><span class="pre">_EnableState.ENABLING</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._app_is_initialized"><code class="docutils literal notranslate"><span class="pre">_app_is_initialized()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._auto_import_in_pdb_frame"><code class="docutils literal notranslate"><span class="pre">_auto_import_in_pdb_frame()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._enable_pdb_hooks"><code class="docutils literal notranslate"><span class="pre">_enable_pdb_hooks()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._enable_terminal_pdb_hooks"><code class="docutils literal notranslate"><span class="pre">_enable_terminal_pdb_hooks()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._generate_enabler_code"><code class="docutils literal notranslate"><span class="pre">_generate_enabler_code()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_IPdb_class"><code class="docutils literal notranslate"><span class="pre">_get_IPdb_class()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_TerminalPdb_class"><code class="docutils literal notranslate"><span class="pre">_get_TerminalPdb_class()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_ipython_app"><code class="docutils literal notranslate"><span class="pre">_get_ipython_app()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_ipython_color_scheme"><code class="docutils literal notranslate"><span class="pre">_get_ipython_color_scheme()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_or_create_ipython_kernel_app"><code class="docutils literal notranslate"><span class="pre">_get_or_create_ipython_kernel_app()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_or_create_ipython_terminal_app"><code class="docutils literal notranslate"><span class="pre">_get_or_create_ipython_terminal_app()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._get_pdb_if_is_in_pdb"><code class="docutils literal notranslate"><span class="pre">_get_pdb_if_is_in_pdb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._initialize_and_start_app_with_autoimporter"><code class="docutils literal notranslate"><span class="pre">_initialize_and_start_app_with_autoimporter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._install_in_ipython_config_file_40"><code class="docutils literal notranslate"><span class="pre">_install_in_ipython_config_file_40()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._ipython_in_multiline"><code class="docutils literal notranslate"><span class="pre">_ipython_in_multiline()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._ipython_namespaces"><code class="docutils literal notranslate"><span class="pre">_ipython_namespaces()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._list_members_for_completion"><code class="docutils literal notranslate"><span class="pre">_list_members_for_completion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._python_can_import_pyflyby"><code class="docutils literal notranslate"><span class="pre">_python_can_import_pyflyby()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive._skip_frames"><code class="docutils literal notranslate"><span class="pre">_skip_frames()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.complete_symbol"><code class="docutils literal notranslate"><span class="pre">complete_symbol()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.get_global_namespaces"><code class="docutils literal notranslate"><span class="pre">get_global_namespaces()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.get_ipython_terminal_app_with_autoimporter"><code class="docutils literal notranslate"><span class="pre">get_ipython_terminal_app_with_autoimporter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.new_IPdb_instance"><code class="docutils literal notranslate"><span class="pre">new_IPdb_instance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.print_verbose_tb"><code class="docutils literal notranslate"><span class="pre">print_verbose_tb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.run_ipython_line_magic"><code class="docutils literal notranslate"><span class="pre">run_ipython_line_magic()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.start_ipython_kernel_with_autoimporter"><code class="docutils literal notranslate"><span class="pre">start_ipython_kernel_with_autoimporter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/interactive.html#pyflyby._interactive.start_ipython_with_autoimporter"><code class="docutils literal notranslate"><span class="pre">start_ipython_with_autoimporter()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/livepatch.html">_livepatch module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#customizing-behavior">Customizing behavior</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch.UnknownModuleError"><code class="docutils literal notranslate"><span class="pre">UnknownModuleError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._format_age"><code class="docutils literal notranslate"><span class="pre">_format_age()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._get_definition_module"><code class="docutils literal notranslate"><span class="pre">_get_definition_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._get_module_py_file"><code class="docutils literal notranslate"><span class="pre">_get_module_py_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._interpret_module"><code class="docutils literal notranslate"><span class="pre">_interpret_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__class"><code class="docutils literal notranslate"><span class="pre">_livepatch__class()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__dict"><code class="docutils literal notranslate"><span class="pre">_livepatch__dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__function"><code class="docutils literal notranslate"><span class="pre">_livepatch__function()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__method"><code class="docutils literal notranslate"><span class="pre">_livepatch__method()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__module"><code class="docutils literal notranslate"><span class="pre">_livepatch__module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__object"><code class="docutils literal notranslate"><span class="pre">_livepatch__object()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._livepatch__setattr"><code class="docutils literal notranslate"><span class="pre">_livepatch__setattr()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/livepatch.html#pyflyby._livepatch._xreload_module"><code class="docutils literal notranslate"><span class="pre">_xreload_module()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/log.html">_log module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger.HookCtx"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger.HookCtx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger._LEVELS"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger._LEVELS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger.debug_enabled"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger.debug_enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger.info_enabled"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger.info_enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log.PyflybyLogger.set_level"><code class="docutils literal notranslate"><span class="pre">PyflybyLogger.set_level()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/log.html#pyflyby._log._PromptToolkitStdoutProxyRawCtx"><code class="docutils literal notranslate"><span class="pre">_PromptToolkitStdoutProxyRawCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler.HookCtx"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler.HookCtx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler._interactive_prefix"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler._interactive_prefix</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler._logged_anything_during_context"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler._logged_anything_during_context</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler._noninteractive_prefix"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler._noninteractive_prefix</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler._pre_log_function"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler._pre_log_function</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/log.html#pyflyby._log._PyflybyHandler.emit"><code class="docutils literal notranslate"><span class="pre">_PyflybyHandler.emit()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/log.html#pyflyby._log._is_interactive"><code class="docutils literal notranslate"><span class="pre">_is_interactive()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/log.html#pyflyby._log._is_ipython"><code class="docutils literal notranslate"><span class="pre">_is_ipython()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/modules.html">_modules module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/modules.html#pyflyby._modules.ErrorDuringImportError"><code class="docutils literal notranslate"><span class="pre">ErrorDuringImportError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle"><code class="docutils literal notranslate"><span class="pre">ModuleHandle</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle._cls_cache"><code class="docutils literal notranslate"><span class="pre">ModuleHandle._cls_cache</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle._from_filename"><code class="docutils literal notranslate"><span class="pre">ModuleHandle._from_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle._from_module"><code class="docutils literal notranslate"><span class="pre">ModuleHandle._from_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle._from_modulename"><code class="docutils literal notranslate"><span class="pre">ModuleHandle._from_modulename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle._member_from_node"><code class="docutils literal notranslate"><span class="pre">ModuleHandle._member_from_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.ancestors"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.ancestors</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.block"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.block</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.containing"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.containing()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.exists"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.exists</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.exports"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.exports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.filename"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.list"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.list()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.module"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.module</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.name"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.parent"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.parent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.submodules"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.submodules</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/modules.html#pyflyby._modules.ModuleHandle.text"><code class="docutils literal notranslate"><span class="pre">ModuleHandle.text</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/modules.html#pyflyby._modules._my_iter_modules"><code class="docutils literal notranslate"><span class="pre">_my_iter_modules()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/modules.html#pyflyby._modules.import_module"><code class="docutils literal notranslate"><span class="pre">import_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/modules.html#pyflyby._modules.pyc_to_py"><code class="docutils literal notranslate"><span class="pre">pyc_to_py()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/parse.html">_parse module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.col_offset"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.col_offset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.endpos"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.endpos</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.flags"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.lieneno"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.lieneno</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.s"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.s</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.source_flags"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.source_flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.startpos"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.startpos</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.text"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.text</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedAst.value"><code class="docutils literal notranslate"><span class="pre">AnnotatedAst.value</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedModule"><code class="docutils literal notranslate"><span class="pre">AnnotatedModule</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AnnotatedModule.source_flags"><code class="docutils literal notranslate"><span class="pre">AnnotatedModule.source_flags</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext"><code class="docutils literal notranslate"><span class="pre">AstNodeContext</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext._asdict"><code class="docutils literal notranslate"><span class="pre">AstNodeContext._asdict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext._field_defaults"><code class="docutils literal notranslate"><span class="pre">AstNodeContext._field_defaults</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext._fields"><code class="docutils literal notranslate"><span class="pre">AstNodeContext._fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext._make"><code class="docutils literal notranslate"><span class="pre">AstNodeContext._make()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext._replace"><code class="docutils literal notranslate"><span class="pre">AstNodeContext._replace()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext.field"><code class="docutils literal notranslate"><span class="pre">AstNodeContext.field</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext.index"><code class="docutils literal notranslate"><span class="pre">AstNodeContext.index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.AstNodeContext.parent"><code class="docutils literal notranslate"><span class="pre">AstNodeContext.parent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse.IgnoreOptionsDocTestParser"><code class="docutils literal notranslate"><span class="pre">IgnoreOptionsDocTestParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/parse.html#pyflyby._parse.IgnoreOptionsDocTestParser._find_options"><code class="docutils literal notranslate"><span class="pre">IgnoreOptionsDocTestParser._find_options()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._DummyAst_Node"><code class="docutils literal notranslate"><span class="pre">_DummyAst_Node</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._annotate_ast_nodes"><code class="docutils literal notranslate"><span class="pre">_annotate_ast_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._annotate_ast_startpos"><code class="docutils literal notranslate"><span class="pre">_annotate_ast_startpos()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._ast_str_literal_value"><code class="docutils literal notranslate"><span class="pre">_ast_str_literal_value()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._flags_to_try"><code class="docutils literal notranslate"><span class="pre">_flags_to_try()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._flatten_ast_nodes"><code class="docutils literal notranslate"><span class="pre">_flatten_ast_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._is_ast_bytes"><code class="docutils literal notranslate"><span class="pre">_is_ast_bytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._is_ast_str"><code class="docutils literal notranslate"><span class="pre">_is_ast_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._is_ast_str_or_byte"><code class="docutils literal notranslate"><span class="pre">_is_ast_str_or_byte()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._is_comment_or_blank"><code class="docutils literal notranslate"><span class="pre">_is_comment_or_blank()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._iter_child_nodes_in_order"><code class="docutils literal notranslate"><span class="pre">_iter_child_nodes_in_order()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._iter_child_nodes_in_order_internal_1"><code class="docutils literal notranslate"><span class="pre">_iter_child_nodes_in_order_internal_1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._parse_ast_nodes"><code class="docutils literal notranslate"><span class="pre">_parse_ast_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._split_code_lines"><code class="docutils literal notranslate"><span class="pre">_split_code_lines()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._test_parse_string_literal"><code class="docutils literal notranslate"><span class="pre">_test_parse_string_literal()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse._walk_ast_nodes_in_order"><code class="docutils literal notranslate"><span class="pre">_walk_ast_nodes_in_order()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parse.html#pyflyby._parse.infer_compile_mode"><code class="docutils literal notranslate"><span class="pre">infer_compile_mode()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/py.html">_py module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#invocation-summary">Invocation summary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#features">Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#options">Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList"><code class="docutils literal notranslate"><span class="pre">LoggedList</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList._ACCESSED"><code class="docutils literal notranslate"><span class="pre">LoggedList._ACCESSED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.append"><code class="docutils literal notranslate"><span class="pre">LoggedList.append()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.count"><code class="docutils literal notranslate"><span class="pre">LoggedList.count()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.extend"><code class="docutils literal notranslate"><span class="pre">LoggedList.extend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.index"><code class="docutils literal notranslate"><span class="pre">LoggedList.index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.insert"><code class="docutils literal notranslate"><span class="pre">LoggedList.insert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.pop"><code class="docutils literal notranslate"><span class="pre">LoggedList.pop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.remove"><code class="docutils literal notranslate"><span class="pre">LoggedList.remove()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.reverse"><code class="docutils literal notranslate"><span class="pre">LoggedList.reverse()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.sort"><code class="docutils literal notranslate"><span class="pre">LoggedList.sort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.LoggedList.unaccessed"><code class="docutils literal notranslate"><span class="pre">LoggedList.unaccessed</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.NotAFunctionError"><code class="docutils literal notranslate"><span class="pre">NotAFunctionError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.ParseError"><code class="docutils literal notranslate"><span class="pre">ParseError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.SysArgvCtx"><code class="docutils literal notranslate"><span class="pre">SysArgvCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.UnimportableNameError"><code class="docutils literal notranslate"><span class="pre">UnimportableNameError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.UserExpr"><code class="docutils literal notranslate"><span class="pre">UserExpr</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py.UserExpr._infer_and_evaluate"><code class="docutils literal notranslate"><span class="pre">UserExpr._infer_and_evaluate()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._Namespace"><code class="docutils literal notranslate"><span class="pre">_Namespace</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._Namespace.auto_eval"><code class="docutils literal notranslate"><span class="pre">_Namespace.auto_eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._Namespace.auto_import"><code class="docutils literal notranslate"><span class="pre">_Namespace.auto_import()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._ParseInterruptedWantHelp"><code class="docutils literal notranslate"><span class="pre">_ParseInterruptedWantHelp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._ParseInterruptedWantSource"><code class="docutils literal notranslate"><span class="pre">_ParseInterruptedWantSource</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain"><code class="docutils literal notranslate"><span class="pre">_PyMain</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._enable_debug_tools"><code class="docutils literal notranslate"><span class="pre">_PyMain._enable_debug_tools()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._parse_global_opts"><code class="docutils literal notranslate"><span class="pre">_PyMain._parse_global_opts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._pre_exit"><code class="docutils literal notranslate"><span class="pre">_PyMain._pre_exit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._pre_exit_interactive_shell"><code class="docutils literal notranslate"><span class="pre">_PyMain._pre_exit_interactive_shell()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._pre_exit_matplotlib_show"><code class="docutils literal notranslate"><span class="pre">_PyMain._pre_exit_matplotlib_show()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._run_action"><code class="docutils literal notranslate"><span class="pre">_PyMain._run_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain._seems_like_runnable_module"><code class="docutils literal notranslate"><span class="pre">_PyMain._seems_like_runnable_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.apply"><code class="docutils literal notranslate"><span class="pre">_PyMain.apply()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.create_ipython_app"><code class="docutils literal notranslate"><span class="pre">_PyMain.create_ipython_app()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.eval"><code class="docutils literal notranslate"><span class="pre">_PyMain.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.exec_stdin"><code class="docutils literal notranslate"><span class="pre">_PyMain.exec_stdin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.execfile"><code class="docutils literal notranslate"><span class="pre">_PyMain.execfile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.heuristic_cmd"><code class="docutils literal notranslate"><span class="pre">_PyMain.heuristic_cmd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.heuristic_run_module"><code class="docutils literal notranslate"><span class="pre">_PyMain.heuristic_run_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.print_help"><code class="docutils literal notranslate"><span class="pre">_PyMain.print_help()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.print_version"><code class="docutils literal notranslate"><span class="pre">_PyMain.print_version()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.run"><code class="docutils literal notranslate"><span class="pre">_PyMain.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.run_module"><code class="docutils literal notranslate"><span class="pre">_PyMain.run_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/py.html#pyflyby._py._PyMain.start_ipython"><code class="docutils literal notranslate"><span class="pre">_PyMain.start_ipython()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._as_filename_if_seems_like_filename"><code class="docutils literal notranslate"><span class="pre">_as_filename_if_seems_like_filename()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._build_function_usage_string"><code class="docutils literal notranslate"><span class="pre">_build_function_usage_string()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._format_call"><code class="docutils literal notranslate"><span class="pre">_format_call()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._format_call_spec"><code class="docutils literal notranslate"><span class="pre">_format_call_spec()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._get_argspec"><code class="docutils literal notranslate"><span class="pre">_get_argspec()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._get_help"><code class="docutils literal notranslate"><span class="pre">_get_help()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._handle_user_exception"><code class="docutils literal notranslate"><span class="pre">_handle_user_exception()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._has_python_shebang"><code class="docutils literal notranslate"><span class="pre">_has_python_shebang()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._interpret_arg_mode"><code class="docutils literal notranslate"><span class="pre">_interpret_arg_mode()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._interpret_output_mode"><code class="docutils literal notranslate"><span class="pre">_interpret_output_mode()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._parse_auto_apply_args"><code class="docutils literal notranslate"><span class="pre">_parse_auto_apply_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py._requires_parens_as_function"><code class="docutils literal notranslate"><span class="pre">_requires_parens_as_function()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.auto_apply"><code class="docutils literal notranslate"><span class="pre">auto_apply()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.print_result"><code class="docutils literal notranslate"><span class="pre">print_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/py.html#pyflyby._py.py_main"><code class="docutils literal notranslate"><span class="pre">py_main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/util.html">_util module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.AdviceCtx"><code class="docutils literal notranslate"><span class="pre">AdviceCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.Aspect"><code class="docutils literal notranslate"><span class="pre">Aspect</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/util.html#pyflyby._util.Aspect._wrapper"><code class="docutils literal notranslate"><span class="pre">Aspect._wrapper</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/util.html#pyflyby._util.Aspect.advise"><code class="docutils literal notranslate"><span class="pre">Aspect.advise()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/util.html#pyflyby._util.Aspect.unadvise"><code class="docutils literal notranslate"><span class="pre">Aspect.unadvise()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.CwdCtx"><code class="docutils literal notranslate"><span class="pre">CwdCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.EnvVarCtx"><code class="docutils literal notranslate"><span class="pre">EnvVarCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.ExcludeImplicitCwdFromPathCtx"><code class="docutils literal notranslate"><span class="pre">ExcludeImplicitCwdFromPathCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.FunctionWithGlobals"><code class="docutils literal notranslate"><span class="pre">FunctionWithGlobals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.ImportPathCtx"><code class="docutils literal notranslate"><span class="pre">ImportPathCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.NullCtx"><code class="docutils literal notranslate"><span class="pre">NullCtx()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.WrappedAttributeError"><code class="docutils literal notranslate"><span class="pre">WrappedAttributeError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util._WritableDictProxy"><code class="docutils literal notranslate"><span class="pre">_WritableDictProxy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/util.html#pyflyby._util._WritableDictProxy.get"><code class="docutils literal notranslate"><span class="pre">_WritableDictProxy.get()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.advise"><code class="docutils literal notranslate"><span class="pre">advise()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.cmp"><code class="docutils literal notranslate"><span class="pre">cmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.indent"><code class="docutils literal notranslate"><span class="pre">indent()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.longest_common_prefix"><code class="docutils literal notranslate"><span class="pre">longest_common_prefix()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.nested"><code class="docutils literal notranslate"><span class="pre">nested()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.partition"><code class="docutils literal notranslate"><span class="pre">partition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.prefixes"><code class="docutils literal notranslate"><span class="pre">prefixes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/util.html#pyflyby._util.stable_unique"><code class="docutils literal notranslate"><span class="pre">stable_unique()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pyflyby</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Search</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <noscript>
+  <div id="fallback" class="admonition warning">
+    <p class="last">
+      Please activate JavaScript to enable the search functionality.
+    </p>
+  </div>
+  </noscript>
+
+  
+  <div id="search-results">
+  
+  </div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Karl Chen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+  <script>
+    jQuery(function() { Search.loadIndex("searchindex.js"); });
+  </script>
+  
+  <script id="searchindexloader"></script>
+   
+
+
+</body>
+</html>
