@@ -11,7 +11,7 @@ import perl
 import pexpect
 import pstats
 import pyflyby
-from   pyflyby                  import saveframe, xreload
+from   pyflyby                  import SaveframeReader, saveframe, xreload
 import pylab
 import pyodbc
 import pysvn
