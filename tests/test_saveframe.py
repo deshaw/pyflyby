@@ -532,9 +532,8 @@ def test_saveframe_no_error_raised(tmpdir):
     with pytest.raises(RuntimeError) as err:
         exec(f"from {pkg_name} import init_func2; init_func2()")
         saveframe()
-    err_msg = ("No exception is raised currently for which to save the frames. "
-               "Make sure that an uncaught exception is raised before calling "
-               "the `saveframe` function.")
+    err_msg = ("No exception has been raised, and the session is not currently "
+               "within a debugger. Unable to save frames.")
     assert str(err.value) == err_msg
 
 
