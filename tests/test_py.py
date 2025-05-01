@@ -2750,3 +2750,24 @@ def test_apply_not_a_function():
 # TODO: test py -i 'code ...'
 # TODO: test 'py -i' == 'py' (no double shell)
 # TODO: exiting debugger with EOF (control-D)
+
+def test_virtualenv_site_packages_1():
+    # Verify that virtualenv site-packages are added to sys.path
+    result = py('-q', '--print', 'import sys; print([p for p in sys.path if "site-packages" in p])')
+    site_packages = [p for p in sys.path if "site-packages" in p]
+    assert any(p in result for p in site_packages)
+
+def test_virtualenv_import_1():
+    # Verify that we can import packages from virtualenv
+    result = py('-q', '--print', 'import sys; print(sys.prefix in sys.path)')
+    assert result.strip() == "True"
+
+def test_virtualenv_prefix_unchanged_1():
+    # Verify that sys.prefix and sys.exec_prefix are unchanged
+    result = py('-q', '--print', 'import sys; print(sys.prefix == sys.exec_prefix)')
+    assert result.strip() == "True"
+
+def test_virtualenv_ipython_1():
+    # Verify that virtualenv support works in IPython mode
+    result = py('-i', '-q', '--print', 'import sys; print(sys.prefix in sys.path)')
+    assert result.strip() == "True"
