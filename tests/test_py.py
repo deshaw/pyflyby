@@ -13,6 +13,7 @@ import sys
 import tempfile
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
+import venv
 
 from   pyflyby._file            import Filename
 from   pyflyby._util            import cached_attribute
@@ -2751,23 +2752,60 @@ def test_apply_not_a_function():
 # TODO: test 'py -i' == 'py' (no double shell)
 # TODO: exiting debugger with EOF (control-D)
 
-def test_virtualenv_site_packages_1():
-    # Verify that virtualenv site-packages are added to sys.path
-    result = py('-q', '--print', 'import sys; print([p for p in sys.path if "site-packages" in p])')
-    site_packages = [p for p in sys.path if "site-packages" in p]
-    assert any(p in result for p in site_packages)
+def test_virtualenv_recognized(tmpdir, monkeypatch):
+    """Verify that virtualenv sys.path is set correctly, and that warnings are emitted."""
+    if os.environ.get("VIRTUAL_ENV") is not None:
+        old_path = os.environ["PATH"].split(os.pathsep)
+        new_path = os.pathsep.join(old_path[1:])
 
-def test_virtualenv_import_1():
-    # Verify that we can import packages from virtualenv
-    result = py('-q', '--print', 'import sys; print(sys.prefix in sys.path)')
-    assert result.strip() == "True"
+        monkeypatch.delenv("VIRTUAL_ENV")
+        monkeypatch.setenv("PATH", new_path)
 
-def test_virtualenv_prefix_unchanged_1():
-    # Verify that sys.prefix and sys.exec_prefix are unchanged
-    result = py('-q', '--print', 'import sys; print(sys.prefix == sys.exec_prefix)')
-    assert result.strip() == "True"
+    no_venv_stdout = py('print(sys.path)')
 
-def test_virtualenv_ipython_1():
-    # Verify that virtualenv support works in IPython mode
-    result = py('-i', '-q', '--print', 'import sys; print(sys.prefix in sys.path)')
-    assert result.strip() == "True"
+    env_dir = os.path.join(tmpdir, "venv")
+    env_bin = os.path.join(env_dir, "Scripts" if os.name == "nt" else "bin")
+    venv.create(env_dir)
+
+    # Simulate activation
+    monkeypatch.setenv("VIRTUAL_ENV", env_dir)
+    monkeypatch.setenv("PATH", env_bin + os.pathsep + os.environ["PATH"])
+
+    venv_stdout = py('print(sys.path)')
+
+    # Check that the appropriate warning is in place when using the venv,
+    # and missing if not.
+    warning =  (
+        "UserWarning: Attempting to work in a virtualenv. "
+        "If you encounter problems, please install IPython inside the virtualenv."
+    )
+    assert warning not in no_venv_stdout
+    assert warning in venv_stdout
+
+    # Check that sys.path printed from the subprocess contains the same
+    # paths as what we have in the test process
+    for path in sys.path:
+
+        # If a path if missing from one, it must be missing from the other
+        # (because both are called in subprocesses, which means that e.g.
+        # the pyenv bin path won't be included in the subprocess call but
+        # will be in the pytest call that runs this test)
+        if path not in no_venv_stdout:
+            assert path not in venv_stdout
+        else:
+            assert path in venv_stdout
+            assert path in no_venv_stdout
+
+    # Check that sys.path of the non-virtualenv appears
+    # in the sys.path of the virtualenv
+    #
+    # Get the last line (which contains the printed sys.path); remove the
+    # square brackets at beginning and end which are printed because
+    # sys.path is a list
+    no_venv_stdout_path = no_venv_stdout.split('\n')[-1][1:-1]
+    assert no_venv_stdout_path in venv_stdout.split('\n')[-1]
+
+    # Check that the virtualenv directory appears in the sys.path of
+    # the virtualenv, but not in the sys.path of the non-virtualenv
+    assert env_dir not in no_venv_stdout
+    assert env_dir in venv_stdout

@@ -1412,30 +1412,6 @@ def print_result(result, output_mode):
         raise AssertionError("unexpected output_mode=%r" % (output_mode,))
 
 
-def _get_virtualenv_site_packages():
-    """
-    Get the site-packages directory of the current virtualenv if we're in one.
-    Returns None if we're not in a virtualenv.
-    """
-    # Check if we're in a virtualenv
-    if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        return None
-
-    # Get the site-packages directory
-    for path in sys.path:
-        if path.endswith('site-packages') and sys.prefix in path:
-            return path
-    return None
-
-def _add_virtualenv_site_packages():
-    """
-    Add the virtualenv's site-packages to sys.path if we're in a virtualenv.
-    This is similar to IPython's virtualenv support.
-    """
-    site_packages = _get_virtualenv_site_packages()
-    if site_packages and site_packages not in sys.path:
-        sys.path.insert(0, site_packages)
-
 def _get_path_links(p: Path):
     """Gets path links including all symlinks.
 
@@ -1517,7 +1493,6 @@ class _Namespace(object):
         self.globals      = {"__name__": "__main__",
                              "__builtin__": builtins,
                              "__builtins__": builtins}
-        self.locals       = {}
         self.autoimported = {}
 
     def auto_import(self, arg):
@@ -1558,8 +1533,8 @@ class _Namespace(object):
             _handle_user_exception()
 
     def __repr__(self):
-        return "<{} object at 0x{:0x} \nglobals:{} \nlocals:{} \nautoimported:{}>".format(
-            type(self).__name__, id(self), self.globals, self.locals, self.autoimported
+        return "<{} object at 0x{:0x} \nglobals:{} \nautoimported:{}>".format(
+            type(self).__name__, id(self), self.globals, self.autoimported
         )
 
 
@@ -1789,7 +1764,7 @@ class _PyMain(object):
     def start_ipython(self, args=[]):
         user_ns = self.namespace.globals
         start_ipython_with_autoimporter(args, _user_ns=user_ns,
-                                      app=self.ipython_app)
+                                        app=self.ipython_app)
         # Don't need to do another interactive session after this one
         # (i.e. make 'py --interactive' the same as 'py').
         self.interactive = False
