@@ -2787,8 +2787,6 @@ def test_virtualenv_recognized(tmpdir, monkeypatch):
     #
     # Get the last line (which contains the printed sys.path); convert
     # back into a list
-    # for path in no_venv_sys_path:
-    #     assert path in
     assert all(path in venv_sys_path for path in no_venv_sys_path)
 
     # Check that the virtualenv directory appears in the sys.path of
