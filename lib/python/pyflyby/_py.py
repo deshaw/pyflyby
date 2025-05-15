@@ -280,10 +280,10 @@ Examples
 
 
 
-import warnings
-from pathlib import Path
 from   functools                import total_ordering
+from   pathlib                  import Path
 from   typing                   import Any
+import warnings
 
 from   pyflyby._util            import cmp
 from   shlex                    import quote as shquote
@@ -1479,7 +1479,7 @@ def _init_virtualenv():
 
     warnings.warn(
         "Attempting to work in a virtualenv. If you encounter problems, "
-        "please install IPython inside the virtualenv."
+        "please install pyflyby inside the virtualenv."
     )
     import site
     sys.path.insert(0, virtual_env)

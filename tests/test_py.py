@@ -5,6 +5,7 @@
 
 
 
+import ast
 import os
 import pytest
 from   shutil                   import rmtree
@@ -2735,6 +2736,67 @@ def test_apply_not_a_function():
     assert "NotAFunctionError: ('Not a function', 75650517)" in result
 
 
+def test_virtualenv_recognized(tmpdir, monkeypatch):
+    """Verify that virtualenv sys.path is set correctly, and that warnings are emitted."""
+    if os.environ.get("VIRTUAL_ENV") is not None:
+        old_path = os.environ["PATH"].split(os.pathsep)
+        new_path = os.pathsep.join(old_path[1:])
+
+        monkeypatch.delenv("VIRTUAL_ENV")
+        monkeypatch.setenv("PATH", new_path)
+
+    no_venv_stdout = py('print(sys.path)')
+    no_venv_sys_path = ast.literal_eval(no_venv_stdout.split('\n')[-1])
+
+    env_dir = os.path.join(tmpdir, "venv")
+    env_bin = os.path.join(env_dir, "Scripts" if os.name == "nt" else "bin")
+    venv.create(env_dir)
+
+    # Simulate activation
+    monkeypatch.setenv("VIRTUAL_ENV", env_dir)
+    monkeypatch.setenv("PATH", env_bin + os.pathsep + os.environ["PATH"])
+
+    venv_stdout = py('print(sys.path)')
+    venv_sys_path = ast.literal_eval(venv_stdout.split('\n')[-1])
+
+    # Check that the appropriate warning is in place when using the venv,
+    # and missing if not.
+    warning =  (
+        "UserWarning: Attempting to work in a virtualenv. "
+        "If you encounter problems, please install pyflyby inside the virtualenv."
+    )
+    assert warning not in no_venv_stdout
+    assert warning in venv_stdout
+
+    # Check that sys.path printed from the subprocess contains the same
+    # paths as what we have in the test process
+    for path in sys.path:
+
+        # If a path is missing from one, it must be missing from the other
+        # (because both are called in subprocesses, which means that e.g.
+        # the pyenv bin path won't be included in the subprocess call but
+        # will be in the pytest call that runs this test)
+        if path not in no_venv_stdout:
+            assert path not in venv_stdout
+        else:
+            assert path in venv_stdout
+            assert path in no_venv_stdout
+
+    # Check that sys.path of the non-virtualenv appears
+    # in the sys.path of the virtualenv
+    #
+    # Get the last line (which contains the printed sys.path); convert
+    # back into a list
+    # for path in no_venv_sys_path:
+    #     assert path in
+    assert all(path in venv_sys_path for path in no_venv_sys_path)
+
+    # Check that the virtualenv directory appears in the sys.path of
+    # the virtualenv, but not in the sys.path of the non-virtualenv
+    assert not any(env_dir in path for path in no_venv_sys_path)
+    assert any(env_dir in path for path in venv_sys_path)
+
+
 # TODO: test timeit, time
 # TODO: test --attach
 # TODO: test postmortem debugging
@@ -2751,61 +2813,3 @@ def test_apply_not_a_function():
 # TODO: test py -i 'code ...'
 # TODO: test 'py -i' == 'py' (no double shell)
 # TODO: exiting debugger with EOF (control-D)
-
-def test_virtualenv_recognized(tmpdir, monkeypatch):
-    """Verify that virtualenv sys.path is set correctly, and that warnings are emitted."""
-    if os.environ.get("VIRTUAL_ENV") is not None:
-        old_path = os.environ["PATH"].split(os.pathsep)
-        new_path = os.pathsep.join(old_path[1:])
-
-        monkeypatch.delenv("VIRTUAL_ENV")
-        monkeypatch.setenv("PATH", new_path)
-
-    no_venv_stdout = py('print(sys.path)')
-
-    env_dir = os.path.join(tmpdir, "venv")
-    env_bin = os.path.join(env_dir, "Scripts" if os.name == "nt" else "bin")
-    venv.create(env_dir)
-
-    # Simulate activation
-    monkeypatch.setenv("VIRTUAL_ENV", env_dir)
-    monkeypatch.setenv("PATH", env_bin + os.pathsep + os.environ["PATH"])
-
-    venv_stdout = py('print(sys.path)')
-
-    # Check that the appropriate warning is in place when using the venv,
-    # and missing if not.
-    warning =  (
-        "UserWarning: Attempting to work in a virtualenv. "
-        "If you encounter problems, please install IPython inside the virtualenv."
-    )
-    assert warning not in no_venv_stdout
-    assert warning in venv_stdout
-
-    # Check that sys.path printed from the subprocess contains the same
-    # paths as what we have in the test process
-    for path in sys.path:
-
-        # If a path if missing from one, it must be missing from the other
-        # (because both are called in subprocesses, which means that e.g.
-        # the pyenv bin path won't be included in the subprocess call but
-        # will be in the pytest call that runs this test)
-        if path not in no_venv_stdout:
-            assert path not in venv_stdout
-        else:
-            assert path in venv_stdout
-            assert path in no_venv_stdout
-
-    # Check that sys.path of the non-virtualenv appears
-    # in the sys.path of the virtualenv
-    #
-    # Get the last line (which contains the printed sys.path); remove the
-    # square brackets at beginning and end which are printed because
-    # sys.path is a list
-    no_venv_stdout_path = no_venv_stdout.split('\n')[-1][1:-1]
-    assert no_venv_stdout_path in venv_stdout.split('\n')[-1]
-
-    # Check that the virtualenv directory appears in the sys.path of
-    # the virtualenv, but not in the sys.path of the non-virtualenv
-    assert env_dir not in no_venv_stdout
-    assert env_dir in venv_stdout
