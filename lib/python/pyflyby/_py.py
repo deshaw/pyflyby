@@ -281,7 +281,9 @@ Examples
 
 
 from   functools                import total_ordering
+from   pathlib                  import Path
 from   typing                   import Any
+import warnings
 
 from   pyflyby._util            import cmp
 from   shlex                    import quote as shquote
@@ -1410,9 +1412,84 @@ def print_result(result, output_mode):
         raise AssertionError("unexpected output_mode=%r" % (output_mode,))
 
 
+def _get_path_links(p: Path):
+    """Gets path links including all symlinks.
+
+    Adapted from `IPython.core.interactiveshell.InteractiveShell.get_path_links`.
+    """
+    paths = [p]
+    while p.is_symlink():
+        new_path = Path(os.readlink(p))
+        if not new_path.is_absolute():
+            new_path = p.parent / new_path
+        p = new_path
+        paths.append(p)
+    return paths
+
+
+def _init_virtualenv():
+    """Add the current virtualenv to sys.path so the user can import modules from it.
+
+    A warning will appear suggesting the user installs IPython in the
+    virtualenv, but for many cases, it probably works well enough.
+
+    Adapted `IPython.core.interactiveshell.InteractiveShell.init_virtualenv`.
+    """
+    if 'VIRTUAL_ENV' not in os.environ:
+        # Not in a virtualenv
+        return
+    elif os.environ["VIRTUAL_ENV"] == "":
+        warnings.warn("Virtual env path set to '', please check if this is intended.")
+        return
+
+    p = Path(sys.executable)
+    p_venv = Path(os.environ["VIRTUAL_ENV"]).resolve()
+
+    # fallback venv detection:
+    # stdlib venv may symlink sys.executable, so we can't use realpath.
+    # but others can symlink *to* the venv Python, so we can't just use sys.executable.
+    # So we just check every item in the symlink tree (generally <= 3)
+    paths = _get_path_links(p)
+
+    # In Cygwin paths like "c:\..." and '\cygdrive\c\...' are possible
+    if len(p_venv.parts) > 2 and p_venv.parts[1] == "cygdrive":
+        drive_name = p_venv.parts[2]
+        p_venv = (drive_name + ":/") / Path(*p_venv.parts[3:])
+
+    if any(p_venv == p.parents[1].resolve() for p in paths):
+        # Our exe is inside or has access to the virtualenv, don't need to do anything.
+        return
+
+    if sys.platform == "win32":
+        virtual_env = str(Path(os.environ["VIRTUAL_ENV"], "Lib", "site-packages"))
+    else:
+        virtual_env_path = Path(
+            os.environ["VIRTUAL_ENV"], "lib", "python{}.{}", "site-packages"
+        )
+        p_ver = sys.version_info[:2]
+
+        # Predict version from py[thon]-x.x in the $VIRTUAL_ENV
+        re_m = re.search(r"\bpy(?:thon)?([23])\.(\d+)\b", os.environ["VIRTUAL_ENV"])
+        if re_m:
+            predicted_path = Path(str(virtual_env_path).format(*re_m.groups()))
+            if predicted_path.exists():
+                p_ver = re_m.groups()
+
+        virtual_env = str(virtual_env_path).format(*p_ver)
+
+    warnings.warn(
+        "Attempting to work in a virtualenv. If you encounter problems, "
+        "please install pyflyby inside the virtualenv."
+    )
+    import site
+    sys.path.insert(0, virtual_env)
+    site.addsitedir(virtual_env)
+
+
 class _Namespace(object):
 
     def __init__(self):
+        _init_virtualenv()
         self.globals      = {"__name__": "__main__",
                              "__builtin__": builtins,
                              "__builtins__": builtins}
