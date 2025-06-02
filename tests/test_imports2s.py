@@ -11,6 +11,7 @@ import sys
 from   textwrap                 import dedent
 import types
 
+from   pyflyby._format          import FormatParams
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -1111,3 +1112,34 @@ def test_fix_unused_imports_submodule_importas_1():
         m2.x + m2y + m3.x
     '''))
     assert expected == output
+
+
+def test_reformat_import_statements_respect_width_1(tmp_path):
+    """Test that tidy-imports with a max line length correctly wraps imports."""
+    filename = str(tmp_path / "test_reformat_import_statements_respect_width_1")
+    input = PythonBlock(dedent('''
+        from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
+        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+    ''').lstrip(), filename=filename)
+    output = reformat_import_statements(input, FormatParams(max_line_length=100))
+    expected = PythonBlock(dedent('''
+        from math import (cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh,
+                          tan, tanh)
+        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+    ''').lstrip(), filename=filename)
+    assert output == expected
+
+
+def test_reformat_import_statements_respect_width_2(tmp_path):
+    """Test that tidy-imports with a max line length correctly wraps imports."""
+    filename = str(tmp_path / "test_reformat_import_statements_respect_width_2")
+    input = PythonBlock(dedent('''
+        from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
+        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+    ''').lstrip(), filename=filename)
+    output = reformat_import_statements(input, FormatParams(max_line_length=200))
+    expected = PythonBlock(dedent('''
+        from math import cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh, tan, tanh
+        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+    ''').lstrip(), filename=filename)
+    assert output == expected
