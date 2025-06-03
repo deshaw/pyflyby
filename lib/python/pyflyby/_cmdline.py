@@ -207,7 +207,7 @@ def parse_args(
                          help=hfmt('''
                              (Default) Don't align the 'from __future__ import
                              ...' statement.'''))
-        group.add_option('--width', type='int', default=None, metavar='N',
+        group.add_option('--width', type='int', default=79, metavar='N',
                          help=hfmt('''
                              Maximum line length (default: 79).'''))
         group.add_option('--black', action='store_true', default=False,
