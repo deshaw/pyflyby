@@ -587,15 +587,8 @@ class ImportStatement:
 
         black_config = read_black_config()
         mode = dict()
-        if "line_length" in black_config:
-            mode["line_length"] = (
-                params.max_line_length
-                if params.max_line_length
-                else black_config["line_length"]
-            )
-        else:
-            mode["line_length"] = params.max_line_length
 
+        mode["line_length"] = black_config.get("line_length", params.max_line_length)
         if "target_version" in black_config:
             if isinstance(black_config["target_version"], set):
                 target_versions_in = black_config["target_version"]
