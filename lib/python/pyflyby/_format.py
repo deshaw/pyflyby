@@ -5,7 +5,8 @@
 
 
 class FormatParams(object):
-    max_line_length = 79
+    max_line_length = None
+    max_line_length_default = 79
     wrap_paren = True
     indent = 4
     hanging_indent = 'never'
@@ -127,10 +128,15 @@ def pyfill(prefix, tokens, params=FormatParams()):
     :rtype:
       ``str``
     """
+    if params.max_line_length is None:
+        max_line_length = params.max_line_length_default
+    else:
+        max_line_length = params.max_line_length
+
     if params.wrap_paren:
         # Check how we will break up the tokens.
         len_full = sum(len(tok) for tok in tokens) + 2 * (len(tokens)-1)
-        if len(prefix) + len_full <= params.max_line_length:
+        if len(prefix) + len_full <= max_line_length:
             # The entire thing fits on one line; no parens needed.  We check
             # this first because breaking into lines adds paren overhead.
             #
@@ -151,7 +157,7 @@ def pyfill(prefix, tokens, params=FormatParams()):
             # longest token since even if the first token fits, we still want
             # to avoid later tokens running over N.
             maxtoklen = max(len(token) for token in tokens)
-            hanging_indent = (len(prefix) + maxtoklen + 2 > params.max_line_length)
+            hanging_indent = (len(prefix) + maxtoklen + 2 > max_line_length)
         else:
             raise ValueError("bad params.hanging_indent=%r"
                              % (params.hanging_indent,))
@@ -164,7 +170,7 @@ def pyfill(prefix, tokens, params=FormatParams()):
             #       abc, defgh, ijkl,
             #       mnopq, rst)
             return (prefix + "(\n"
-                    + fill(tokens, max_line_length=params.max_line_length,
+                    + fill(tokens, max_line_length=max_line_length,
                            prefix=(" " * params.indent), suffix=("", ")")))
         else:
             # Non-hanging-indent mode.
@@ -174,7 +180,7 @@ def pyfill(prefix, tokens, params=FormatParams()):
             #                    ijkl, mnopq,
             #                    rst)
             pprefix = prefix + "("
-            return fill(tokens, max_line_length=params.max_line_length,
+            return fill(tokens, max_line_length=max_line_length,
                         prefix=(pprefix, " " * len(pprefix)), suffix=("", ")"))
     else:
         raise NotImplementedError

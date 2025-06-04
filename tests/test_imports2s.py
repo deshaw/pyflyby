@@ -1143,3 +1143,19 @@ def test_reformat_import_statements_respect_width_2(tmp_path):
         assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
     ''').lstrip(), filename=filename)
     assert output == expected
+
+
+def test_reformat_import_statements_respect_width_3(tmp_path):
+    """Test that tidy-imports with no specified width matches the default width."""
+    filename = str(tmp_path / "test_reformat_import_statements_respect_width_3")
+    input = PythonBlock(dedent('''
+        from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
+        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+    ''').lstrip(), filename=filename)
+    assert reformat_import_statements(
+        input,
+        FormatParams(max_line_length=None),
+    ) == reformat_import_statements(
+        input,
+        FormatParams(max_line_length=FormatParams.max_line_length_default),
+    )
