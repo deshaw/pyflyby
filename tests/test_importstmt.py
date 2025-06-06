@@ -123,8 +123,31 @@ def test_Import_replace_2():
 
 @patch("pyflyby._importstmt.read_black_config", lambda: {"line_length": 20})
 def test_Import_black_line_length():
+    """Test that a black config takes precedence over the default line length."""
     stmt = Import("from a123456789 import b123456789")
     result = stmt.pretty_print(params=FormatParams(use_black=True))
+    assert result == "from a123456789 import (\n    b123456789,\n)\n"
+
+
+@patch("pyflyby._importstmt.read_black_config", lambda: {})
+def test_Import_black_line_length2():
+    """Test that the default line length is used if no black config is present."""
+    stmt = Import("from math import sincostansinhcoshtanhlogfloorlog10remainderfactorialnextafter")
+    result = stmt.pretty_print(params=FormatParams(use_black=True))
+    assert result == "from math import sincostansinhcoshtanhlogfloorlog10remainderfactorialnextafter\n"
+
+@patch("pyflyby._importstmt.read_black_config", lambda: {})
+def test_Import_black_line_length3():
+    """Test that the default line length is used if no black config is present."""
+    stmt = Import("from math import sincostansinhcoshtanhlogfloorlog10remainderfactorialnextafterradians")
+    result = stmt.pretty_print(params=FormatParams(use_black=True))
+    assert result == "from math import (\n    sincostansinhcoshtanhlogfloorlog10remainderfactorialnextafterradians,\n)\n"
+
+@patch("pyflyby._importstmt.read_black_config", lambda: {"line_length": 200})
+def test_Import_black_line_length4():
+    """Test that a command line --width takes precedence over a black config."""
+    stmt = Import("from a123456789 import b123456789")
+    result = stmt.pretty_print(params=FormatParams(use_black=True, max_line_length=20))
     assert result == "from a123456789 import (\n    b123456789,\n)\n"
 
 
