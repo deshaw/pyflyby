@@ -1923,11 +1923,22 @@ class AutoImporter:
                 logger.debug("global_matches_with_autoimport(%r)", fullname)
                 namespaces = get_completer_namespaces()
                 return self.complete_symbol(fullname, namespaces, on_error=__original__)
-            @self._advise(completer.attr_matches)
-            def attr_matches_with_autoimport(fullname):
+            @self._advise(completer._attr_matches)
+            def attr_matches_with_autoimport(fullname, include_prefix= True):
                 logger.debug("attr_matches_with_autoimport(%r)", fullname)
                 namespaces = get_completer_namespaces()
-                return self.complete_symbol(fullname, namespaces, on_error=__original__)
+                matches = self.complete_symbol(fullname, namespaces, on_error=__original__)
+                if "." in fullname:
+                    attr = fullname.split(".")[-1]
+                    fragment = "." + attr
+                else:
+                    fragment = ""
+                if not include_prefix:
+                    # Remove prefixes from matches if they exist
+                    matches = [match.split('.')[-1] for match in matches if '.' in match]
+                    # Ensure all matches begin with '.' for compatibility with ipython
+                    matches = ['.' + m if not m.startswith('.') else m for m in matches]
+                return matches, fragment
 
             return True
         elif hasattr(completer, "complete_request"):
