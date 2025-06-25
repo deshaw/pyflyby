@@ -26,6 +26,8 @@ For editing python source code:
     in the form of import statements.
   * ``transform-imports``: renames imported modules/functions.
 
+`Learn more about PyflyBy <https://www.deshaw.com/library/desco-quansight-improving-jupyter-efficiency>`_ in this blog post.
+
 Installation
 ============
 
