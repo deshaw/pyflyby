@@ -503,8 +503,8 @@ def _get_all_frames_from_current_frame(current_frame):
 
 
 def _save_frames_and_exception_info_to_file(
-        filename, frames, variables, exclude_variables,
-        exception_obj_or_current_frame):
+        filename, frames, variables, exclude_variables, *,
+        exception_obj=None, current_frame=None):
     """
     Save the frames and exception information in the file ``filename``.
 
@@ -542,7 +542,7 @@ def _save_frames_and_exception_info_to_file(
       }
 
     NOTE: Exception info (such as 'exception_*') will not be stored if
-    ``exception_obj_or_current_frame`` is a frame instead of an exception object.
+    ``exception_obj`` is None.
 
     :param filename:
       The file path in which to save the information.
@@ -553,23 +553,23 @@ def _save_frames_and_exception_info_to_file(
       The local variables to include in each frame.
     :param exclude_variables:
       The local variables to exclude from each frame.
-    :param exception_obj_or_current_frame:
-      The ``Exception`` raised by the user's code, or the current frame if the
-      user is in a debugger. This is used to extract all the required info;
-      the traceback, all the frame objects, etc.
+    :param exception_obj:
+      The ``Exception`` raised by the user's code. This is used to extract all
+      the required info; the traceback, all the frame objects, etc.
+    :param current_frame:
+      The current frame if the user is in a debugger. This is used to extract all
+      the required info; the traceback, all the frame objects, etc.
     """
-    is_frame = False
-    if inspect.isframe(exception_obj_or_current_frame):
-        is_frame = True
     # Mapping that stores all the information to save.
     frames_and_exception_info = {}
-    if is_frame:
-        all_frames = _get_all_frames_from_current_frame(
-            exception_obj_or_current_frame)
-    else:
+    if exception_obj:
         # Get the list of frame objects from the exception object.
         all_frames = _get_all_frames_from_exception_obj(
-            exception_obj_or_current_frame)
+            exception_obj=exception_obj)
+    else:
+        all_frames = _get_all_frames_from_current_frame(
+            current_frame=current_frame)
+
     # Take out the frame objects we want to save as per 'frames'.
     frames_to_save = _get_frames_to_save(frames, all_frames)
     _SAVEFRAME_LOGGER.info(
@@ -583,10 +583,10 @@ def _save_frames_and_exception_info_to_file(
         frames_and_exception_info[frame_idx]['variables'] = (
             _get_frame_local_variables_data(frame_obj, variables, exclude_variables))
 
-    if not is_frame:
+    if exception_obj:
         _SAVEFRAME_LOGGER.info("Getting exception metadata info.")
         frames_and_exception_info.update(_get_exception_info(
-            exception_obj_or_current_frame).__dict__)
+            exception_obj).__dict__)
     _SAVEFRAME_LOGGER.info("Saving the complete data in the file: %a", filename)
     with _open_file(filename, 'wb') as f:
         pickle.dump(frames_and_exception_info, f, protocol=PICKLE_PROTOCOL)
@@ -1105,21 +1105,32 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     if exception_raised:
         # Get the latest exception raised.
         exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
-    else:
-        # Get the instance of the interactive session the user is currently in.
-        interactive_session_obj = sys._getframe().f_back.f_back.f_locals.get('self')
-        # If the user is currently in a debugger (ipdb/pdb), save the frame the
-        # user is currently at in the debugger.
-        if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
-            current_frame = interactive_session_obj.curframe
-        else:
-            raise RuntimeError(
-                "No exception has been raised, and the session is not currently "
-                "within a debugger. Unable to save frames.")
 
-    if frames is None and current_frame is not None:
-        frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
-                  f"{_get_qualname(current_frame)}")
+    if not (exception_raised and frames):
+        try:
+            # Get the instance of the interactive session the user is currently in.
+            interactive_session_obj = sys._getframe(2).f_locals.get('self')
+            # If the user is currently in a debugger (ipdb/pdb), save the frame the
+            # user is currently at in the debugger.
+            if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
+                current_frame = interactive_session_obj.curframe
+        except Exception as err:
+            _SAVEFRAME_LOGGER.warning(
+                f"Error while extracting the interactive session object: {err}")
+        # This logic handles two scenarios:
+        # 1. No exception is raised and the debugger is started.
+        # 2. An exception is raised, and the user then starts a debugger manually
+        #    (e.g., via ipdb.pm()).
+        # In both cases, we set the frame to the current frame as the default
+        # behavior.
+        if frames is None and current_frame:
+            frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
+                      f"{_get_qualname(current_frame)}")
+
+    if not (exception_obj or current_frame):
+        raise RuntimeError(
+            "No exception has been raised, and the session is not currently "
+            "within a debugger. Unable to save frames.")
 
     _SAVEFRAME_LOGGER.info("Validating arguments passed.")
     filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
@@ -1130,5 +1141,5 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
         exclude_variables=exclude_variables,
-        exception_obj_or_current_frame=exception_obj or current_frame)
+        exception_obj=exception_obj, current_frame=current_frame)
     return filename
