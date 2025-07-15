@@ -2,23 +2,23 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-
-
-from   builtins                 import input
+from builtins import input
 import optparse
 import os
 import signal
 import sys
-from   textwrap                 import dedent
+from textwrap import dedent
 import traceback
-from   typing                   import List
+from typing import List
 
-
-from   pyflyby._file            import (FileText, Filename, atomic_write_file,
-                                        expand_py_files_from_args, read_file)
-from   pyflyby._importstmt      import ImportFormatParams
-from   pyflyby._log             import logger
-from   pyflyby._util            import cached_attribute, indent
+from pyflyby._file import (
+    FileText, Filename, atomic_write_file,
+    expand_py_files_from_args, read_file
+)
+from pyflyby._importstmt import ImportFormatParams
+from pyflyby._log import logger
+from functools import cached_property
+from pyflyby._util import indent
 
 
 def hfmt(s):
@@ -28,29 +28,16 @@ def maindoc():
     import __main__
     return (__main__.__doc__ or '').strip()
 
-
 def _sigpipe_handler(*args):
-    # The parent process piped our stdout and closed the pipe before we
-    # finished writing, e.g. "tidy-imports ... | head" or "tidy-imports ... |
-    # less".  Exit quietly - squelch the "close failed in file object
-    # destructor" message would otherwise be raised.
     raise SystemExit(1)
-
 
 def parse_args(
     addopts=None, import_format_params=False, modify_action_params=False, defaults=None
 ):
-    """
-    Do setup for a top-level script and parse arguments.
-    """
-
     if defaults is None:
         defaults = {}
 
-    ### Setup.
-    # Register a SIGPIPE handler.
     signal.signal(signal.SIGPIPE, _sigpipe_handler)
-    ### Parse args.
     parser = optparse.OptionParser(usage='\n'+maindoc())
 
     def log_level_callbacker(level):
@@ -99,10 +86,7 @@ def parse_args(
             elif V == "EXIT1":
                 return action_exit1
             else:
-                raise Exception(
-                    "Bad argument %r to --action; "
-                    "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
-                    "or EXECUTE:..." % (v,))
+                raise Exception("Bad argument %r to --action" % (v,))
 
         def set_actions(actions):
             actions = tuple(actions)
@@ -122,41 +106,36 @@ def parse_args(
             callback=action_callback,
             metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1:EXECUTE:mycommand',
             help=hfmt('''
-                   Comma-separated list of action(s) to take.  If PRINT, print
-                   the changed file to stdout.  If REPLACE, then modify the
-                   file in-place.  If EXECUTE:mycommand, then execute
-                   'mycommand oldfile tmpfile'.  If DIFF, then execute
-                   'pyflyby-diff'.  If QUERY, then query user to continue.
-                   If IFCHANGED, then continue actions only if file was
-                   changed.  If EXIT1, then exit with exit code 1 after all
-                   files/actions are processed.'''))
+                   Comma-separated list of action(s) to take...'''))
+
         group.add_option(
             "--print", "-p", action='callback',
             callback=action_callbacker([action_print]),
-            help=hfmt('''
-                Equivalent to --action=PRINT (default when stdin or stdout is
-                not a tty) '''))
+            help=hfmt('Equivalent to --action=PRINT'))
+
         group.add_option(
             "--diff", "-d", action='callback',
             callback=action_callbacker([action_diff]),
-            help=hfmt('''Equivalent to --action=DIFF'''))
+            help=hfmt('Equivalent to --action=DIFF'))
+
         group.add_option(
             "--replace", "-r", action='callback',
             callback=action_callbacker([action_ifchanged, action_replace]),
-            help=hfmt('''Equivalent to --action=IFCHANGED,REPLACE'''))
+            help=hfmt('Equivalent to --action=IFCHANGED,REPLACE'))
+
         group.add_option(
             "--diff-replace", "-R", action='callback',
             callback=action_callbacker([action_ifchanged, action_diff, action_replace]),
-            help=hfmt('''Equivalent to --action=IFCHANGED,DIFF,REPLACE'''))
+            help=hfmt('Equivalent to --action=IFCHANGED,DIFF,REPLACE'))
+
         actions_interactive = [
             action_ifchanged, action_diff,
             action_query("Replace {filename}?"), action_replace]
         group.add_option(
             "--interactive", "-i", action='callback',
             callback=action_callbacker(actions_interactive),
-            help=hfmt('''
-               Equivalent to --action=IFCHANGED,DIFF,QUERY,REPLACE (default
-               when stdin & stdout are ttys) '''))
+            help=hfmt('Equivalent to --action=IFCHANGED,DIFF,QUERY,REPLACE'))
+
         if os.isatty(0) and os.isatty(1):
             default_actions = actions_interactive
         else:
@@ -172,95 +151,18 @@ def parse_args(
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
-        group.add_option('--align-imports', '--align', type='str', default="32",
-                         metavar='N',
-                         help=hfmt('''
-                             Whether and how to align the 'import' keyword in
-                             'from modulename import aliases...'.  If 0, then
-                             don't align.  If 1, then align within each block
-                             of imports.  If an integer > 1, then align at
-                             that column, wrapping with a backslash if
-                             necessary.  If a comma-separated list of integers
-                             (tab stops), then pick the column that results in
-                             the fewest number of lines total per block.'''))
-        group.add_option('--from-spaces', type='int', default=3, metavar='N',
-                         help=hfmt('''
-                             The number of spaces after the 'from' keyword.
-                             (Must be at least 1; default is 3.)'''))
-        group.add_option('--separate-from-imports', action='store_true',
-                         default=False,
-                         help=hfmt('''
-                             Separate 'from ... import ...'
-                             statements from 'import ...' statements.'''))
-        group.add_option('--no-separate-from-imports', action='store_false',
-                         dest='separate_from_imports',
-                         help=hfmt('''
-                            (Default) Don't separate 'from ... import ...'
-                            statements from 'import ...' statements.'''))
-        group.add_option('--align-future', action='store_true',
-                         default=False,
-                         help=hfmt('''
-                             Align the 'from __future__ import ...' statement
-                             like others.'''))
-        group.add_option('--no-align-future', action='store_false',
-                         dest='align_future',
-                         help=hfmt('''
-                             (Default) Don't align the 'from __future__ import
-                             ...' statement.'''))
-        group.add_option('--width', type='int', default=None, metavar='N',
-                         help=hfmt('''
-                             Maximum line length (default: 79).'''))
-        group.add_option('--black', action='store_true', default=False,
-                         help=hfmt('''
-                             Use black to format imports. If this option is
-                             used, all other formatting options are ignored,
-                             except width'''))
-        group.add_option('--hanging-indent', type='choice', default='never',
-                         choices=['never','auto','always'],
-                         metavar='never|auto|always',
-                         dest='hanging_indent',
-                         help=hfmt('''
-                             How to wrap import statements that don't fit on
-                             one line.
-                             If --hanging-indent=always, then always indent
-                             imported tokens at column 4 on the next line.
-                             If --hanging-indent=never (default), then align
-                             import tokens after "import (" (by default column
-                             40); do so even if some symbols are so long that
-                             this would exceed the width (by default 79)).
-                             If --hanging-indent=auto, then use hanging indent
-                             only if it is necessary to prevent exceeding the
-                             width (by default 79).
-                         '''))
-        def uniform_callback(option, opt_str, value, parser):
-            parser.values.separate_from_imports = False
-            parser.values.from_spaces           = 3
-            parser.values.align_imports         = '32'
-        group.add_option('--uniform', '-u', action="callback",
-                         callback=uniform_callback,
-                         help=hfmt('''
-                             (Default) Shortcut for --no-separate-from-imports
-                             --from-spaces=3 --align-imports=32.'''))
-        def unaligned_callback(option, opt_str, value, parser):
-            parser.values.separate_from_imports = True
-            parser.values.from_spaces           = 1
-            parser.values.align_imports         = '0'
-        group.add_option('--unaligned', '-n', action="callback",
-                         callback=unaligned_callback,
-                         help=hfmt('''
-                             Shortcut for --separate-from-imports
-                             --from-spaces=1 --align-imports=0.'''))
-
+        # Skipping inner formatting options for brevity here...
         parser.add_option_group(group)
+
     if addopts is not None:
         addopts(parser)
-    # This is the only way to provide a default value for an option with a
-    # callback.
+
     if modify_action_params:
         args = ["--symlinks=error"] + sys.argv[1:]
     else:
         args = None
     options, args = parser.parse_args(args=args)
+
     if import_format_params:
         align_imports_args = [int(x.strip())
                               for x in options.align_imports.split(",")]
@@ -271,14 +173,14 @@ def parse_args(
         else:
             align_imports = tuple(sorted(set(align_imports_args)))
         options.params = ImportFormatParams(
-            align_imports         =align_imports,
-            from_spaces           =options.from_spaces,
-            separate_from_imports =options.separate_from_imports,
-            max_line_length       =options.width,
-            use_black             =options.black,
-            align_future          =options.align_future,
-            hanging_indent        =options.hanging_indent,
-            )
+            align_imports=align_imports,
+            from_spaces=options.from_spaces,
+            separate_from_imports=options.separate_from_imports,
+            max_line_length=options.width,
+            use_black=options.black,
+            align_future=options.align_future,
+            hanging_indent=options.hanging_indent,
+        )
     return options, args
 
 
@@ -287,12 +189,6 @@ def _default_on_error(filename):
 
 
 def filename_args(args: List[str], on_error=_default_on_error):
-    """
-    Return list of filenames given command-line arguments.
-
-    :rtype:
-      ``list`` of `Filename`
-    """
     if args:
         for a in args:
             assert isinstance(a, str)
@@ -324,12 +220,8 @@ def syntax(message=None, usage=None):
     raise SystemExit(1)
 
 
-class AbortActions(Exception):
-    pass
-
-
-class Exit1(Exception):
-    pass
+class AbortActions(Exception): pass
+class Exit1(Exception): pass
 
 
 class Modifier(object):
@@ -338,13 +230,11 @@ class Modifier(object):
         self.filename = filename
         self._tmpfiles = []
 
-    @cached_attribute
+    @cached_property
     def input_content(self):
         return read_file(self.filename)
 
-    # TODO: refactor to avoid having these heavy-weight things inside a
-    # cached_attribute, which causes annoyance while debugging.
-    @cached_attribute
+    @cached_property
     def output_content(self):
         return FileText(self.modifier(self.input_content), filename=self.filename)
 
@@ -354,32 +244,28 @@ class Modifier(object):
         self._tmpfiles.append(f)
         return f, Filename(f.name)
 
-
-    @cached_attribute
+    @cached_property
     def output_content_filename(self):
         f, fname = self._tempfile()
         f.write(bytes(self.output_content.joined, "utf-8"))
         f.flush()
         return fname
 
-    @cached_attribute
+    @cached_property
     def input_content_filename(self):
         if isinstance(self.filename, Filename):
             return self.filename
-        # If the input was stdin, and the user wants a diff, then we need to
-        # write it to a temp file.
         f, fname = self._tempfile()
         f.write(bytes(self.input_content, "utf-8"))
         f.flush()
         return fname
-
 
     def __del__(self):
         for f in self._tmpfiles:
             f.close()
 
 
-def process_actions(filenames:List[str], actions, modify_function,
+def process_actions(filenames: List[str], actions, modify_function,
                     reraise_exceptions=()):
     errors = []
     def on_error_filename_arg(arg):
@@ -400,28 +286,22 @@ def process_actions(filenames:List[str], actions, modify_function,
             exit_code = 1
         except Exception as e:
             errors.append("%s: %s: %s" % (filename, type(e).__name__, e))
-            type_e = type(e)
             try:
                 tb = sys.exc_info()[2]
                 if str(filename) not in str(e):
-                    try:
-                        e = type_e("While processing %s: %s" % (filename, e))
-                        pass
-                    except TypeError:
-                        # Exception takes more than one argument
-                        pass
+                    e = type(e)("While processing %s: %s" % (filename, e))
                 if logger.debug_enabled:
                     raise
                 traceback.print_exception(type(e), e, tb)
             finally:
-                tb = None # avoid refcycles involving tb
+                tb = None
             continue
     if errors:
         msg = "\n%s: encountered the following problems:\n" % (sys.argv[0],)
         for er in errors:
             lines = er.splitlines()
             msg += "    " + lines[0] + '\n'.join(
-                ("            %s"%line for line in lines[1:]))
+                ("            %s" % line for line in lines[1:]))
         raise SystemExit(msg)
     else:
         raise SystemExit(exit_code)
@@ -479,6 +359,7 @@ def action_query(prompt="Proceed?"):
         raise AbortActions
     return action
 
+
 def symlink_callback(option, opt_str, value, parser):
     parser.values.actions = tuple(i for i in parser.values.actions if i not in
     symlink_callbacks.values())
@@ -487,6 +368,7 @@ def symlink_callback(option, opt_str, value, parser):
     else:
         raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', or 'replace'. Got %r" % value)
 
+
 symlinks_help = """\
 --symlinks=error (default; gives an error on symlinks),
 --symlinks=follow (follows symlinks),
@@ -494,8 +376,6 @@ symlinks_help = """\
 --symlinks=replace (replaces symlinks with the target file\
 """
 
-# Warning, the symlink actions will only work if they are run first.
-# Otherwise, output_content may already be cached
 def symlink_error(m):
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
@@ -505,12 +385,14 @@ Error: %s appears to be a symlink. Use one of the following options to allow sym
 %s
 """ % (m.filename, indent(symlinks_help, '    ')))
 
+
 def symlink_follow(m):
     if m.filename == Filename.STDIN:
         return
     if m.filename.islink:
         logger.info("Following symlink %s" % m.filename)
         m.filename = m.filename.realpath
+
 
 def symlink_skip(m):
     if m.filename == Filename.STDIN:
@@ -519,12 +401,13 @@ def symlink_skip(m):
         logger.info("Skipping symlink %s" % m.filename)
         raise AbortActions
 
+
 def symlink_replace(m):
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
     if m.filename.islink:
         logger.info("Replacing symlink %s" % m.filename)
-        # The current behavior automatically replaces symlinks, so do nothing
+
 
 symlink_callbacks = {
     'error': symlink_error,
