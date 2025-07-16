@@ -1624,7 +1624,6 @@ def test_autoimport_1():
     """)
 
 
-# @pytest.mark.skipif(_IPYTHON_VERSION > (8, 0), reason="Strange output missparsing")
 @retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
@@ -1824,7 +1823,6 @@ def test_autoimport_multiline_statement_1():
 
 @retry
 def test_autoimport_multiline_continued_statement_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -1844,7 +1842,6 @@ def test_autoimport_multiline_continued_statement_1(frontend):
 
 @retry
 def test_autoimport_multiline_continued_statement_fake_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -2147,7 +2144,6 @@ def test_complete_symbol_basic_1():
 
 @retry
 def test_complete_symbol_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b64\t
@@ -2160,7 +2156,6 @@ def test_complete_symbol_multiple_1(frontend):
 
 @retry
 def test_complete_symbol_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b6\t
@@ -2225,8 +2220,6 @@ def test_complete_symbol_member_1(frontend):
 
 @retry
 def test_complete_symbol_member_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2246,8 +2239,6 @@ def test_complete_symbol_member_multiple_1(frontend):
 
 @retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2308,7 +2299,6 @@ def test_complete_symbol_multiline_statement_1():
 
 @retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -2423,8 +2413,6 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
 
 
 def test_complete_symbol_getitem_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: apples = ['McIntosh', 'PinkLady']
@@ -2447,8 +2435,6 @@ def test_complete_symbol_greedy_eval_1():
 
 
 def test_complete_symbol_greedy_eval_autoimport_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: %config IPCompleter.greedy=True
@@ -2624,7 +2610,6 @@ def test_error_during_auto_import_expression_1(tmp):
 
 @retry
 def test_error_during_completion_1(frontend, tmp):
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "3+")
     ipython(
         """
@@ -2941,7 +2926,6 @@ def test_timeit_complete_1(frontend):
 @retry
 def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 b64\t
@@ -2954,7 +2938,6 @@ def test_timeit_complete_menu_1(frontend):
 
 @retry
 def test_timeit_complete_autoimport_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 base64.b6\t
@@ -3030,7 +3013,6 @@ def test_time_complete_1(frontend):
 @retry
 def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time b64\t
@@ -3045,7 +3027,6 @@ def test_time_complete_menu_1(frontend):
 
 @retry
 def test_time_complete_autoimport_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time base64.b6\t
@@ -3837,7 +3818,6 @@ def test_debug_tab_completion_module_1(frontend, tmp):
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"sturbridge9088333.py", """
         nebula_41695458 = 1
         nebula_10983840 = 2
