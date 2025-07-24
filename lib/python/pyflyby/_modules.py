@@ -307,6 +307,14 @@ class ModuleHandle(object):
         # Canonicalize.
         return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
 
+        # with ExcludeImplicitCwdFromPathCtx():
+        #     modules = []
+        #     for mod in sorted(set(pkgutil.iter_modules(None)), key=lambda x: x[1]):
+        #         name = mod[0]
+        #         if is_identifier(name):
+        #             modules.append(ModuleHandle(name))
+        #     return modules
+
     @cached_property
     def submodules(self):
         """
