@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import print_function
+from __future__ import annotations
 
 import ast
 from   functools                import cached_property, total_ordering
