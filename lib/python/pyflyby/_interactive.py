@@ -837,10 +837,7 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
                 if '.' not in name:
                     results.add(name)
         results.update(known.member_names.get("", []))
-
         results.update(ModuleHandle.list())
-        # results.update([str(m) for m in ModuleHandle.list()])
-        # assert all('.' not in r for r in results)
         results = sorted([r for r in results if r.startswith(attrname)])
 
     elif len(splt) == 2:

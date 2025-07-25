@@ -6,8 +6,10 @@ from __future__ import print_function
 
 import ast
 from   functools                import cached_property, total_ordering
+import importlib
 import itertools
 import os
+import pkgutil
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
@@ -19,7 +21,7 @@ import re
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Dict
+from   typing                   import Any, Dict, Generator
 
 class ErrorDuringImportError(ImportError):
     """
@@ -280,36 +282,20 @@ class ModuleHandle(object):
 
     @staticmethod
     @memoize
-    def list():
+    def list() -> list[str]:
+        """Enumerate all top-level packages/modules.
+
+        The current working directory is excluded for autoimporting; if we autoimported
+        random python scripts in the current directory, we could accidentally execute
+        code with side effects.
+
+        Also exclude any module names that are not legal python module names (e.g.
+        "try.py" or "123.py").
+
+        :return: A list of all importable module names
         """
-        Enumerate all top-level packages/modules.
-
-        :rtype:
-          ``tuple`` of `ModuleHandle` s
-        """
-        import pkgutil
-
-        # Get the list of top-level packages/modules using pkgutil.
-        # We exclude "." from sys.path while doing so.  Python includes "." in
-        # sys.path by default, but this is undesirable for autoimporting.  If
-        # we autoimported random python scripts in the current directory, we
-        # could accidentally execute code with side effects.  If the current
-        # working directory is /tmp, trying to enumerate modules there also
-        # causes problems, because there are typically directories there not
-        # readable by the current user.
-        # with ExcludeImplicitCwdFromPathCtx():
-        #     modlist = pkgutil.iter_modules(None)
-        #     module_names = [t[1] for t in modlist]
-        # # pkgutil includes all *.py even if the name isn't a legal python
-        # # module name, e.g. if a directory in $PYTHONPATH has files named
-        # # "try.py" or "123.py", pkgutil will return entries named "try" or
-        # # "123".  Filter those out.
-        # module_names = [m for m in module_names if is_identifier(m)]
-        # # Canonicalize.
-        # return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
-
         with ExcludeImplicitCwdFromPathCtx():
-            return [mod.name for mod in pkgutil.iter_modules() if is_identifier(mod.name)]
+            return [mod.name for mod in fast_iter_modules() if is_identifier(mod.name)]
 
     @cached_property
     def submodules(self):
@@ -515,3 +501,96 @@ class ModuleHandle(object):
                     module = cls(result)
         logger.debug("Imported %r to get %r", module, identifier)
         return module
+
+
+def _fast_iter_finder_modules(importer: Any, prefix: str = '') -> Generator[tuple[str, bool], None, None]:
+    """Return an iterator over the modules for an importer.
+
+    See pkgutil._iter_file_finder_modules for original implementation. Changes from
+    the original:
+
+    - Use `os.scandir` instead of `os.listdir`, as the DirEntry objects returned
+      include the original path and the filename already, avoiding the need to
+      get this later
+    - Remove `inspect` import since it isn't being used
+    - Call out to `fast_getmodulename` rather than `inspect.getmodulename` for
+      speed
+
+    :param prefix: A string prefix to append to the module names returned by this function
+    :param importer: Finder which targets a path to packages which can be imported
+    :return: The modules found by the importer, and whether they are packages or not
+    """
+    if importer.path is None or not os.path.isdir(importer.path):
+        return
+
+    yielded = {}
+    try:
+        direntries = sorted(os.scandir(importer.path), key=lambda de: de.name)
+    except OSError:
+        # ignore unreadable directories like import does
+        direntries = []
+
+    for entry in direntries:
+        modname = fast_getmodulename(entry.name)
+        if modname == '__init__' or modname in yielded:
+            continue
+
+        path = os.path.join(importer.path, entry.path)
+        ispkg = False
+
+        if not modname and os.path.isdir(path) and '.' not in entry.name:
+            modname = entry.name
+            try:
+                dircontents = os.scandir(path)
+            except OSError:
+                # ignore unreadable directories like import does
+                dircontents = []  # type: ignore[assignment]
+            for subentry in dircontents:
+                subname = fast_getmodulename(subentry.name)
+                if subname == '__init__':
+                    ispkg = True
+                    break
+            else:
+                continue    # not a package
+
+        if modname and '.' not in modname:
+            yielded[modname] = 1
+            yield prefix + modname, ispkg
+
+
+SUFFIXES = sorted((-len(suffix), suffix) for suffix in importlib.machinery.all_suffixes())
+def fast_getmodulename(fname: str) -> str | None:
+    """Get the module name for the given file path, or None.
+
+    See `inspect.getmodulename` for original implementation. Changes from the original:
+
+    - Importlib's suffixes have been generated and sorted at module initialization, rather
+      than on each call
+
+    :param fname: Filename for which the module name is to be retrieved
+    :return: The module name, if this is a module; otherwise None
+    """
+    for neglen, suffix in SUFFIXES:
+        if fname.endswith(suffix):
+            return fname[:neglen]
+    return None
+
+
+def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
+    """Return an iterator over all importable python modules.
+
+    This function patches `pkgutil.iter_importer_modules` for
+    `importlib.machinery.FileFinder` types, causing `pkgutil.iter_importer_modules` to
+    call our own custom _fast_iter_finder_modules instead of
+    pkgutil._iter_file_finder_modules.
+
+    :return: The modules that are importable by python
+    """
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder, _fast_iter_finder_modules
+    )
+    yield from pkgutil.iter_modules()
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder,
+        pkgutil._iter_file_finder_modules,  # type: ignore[attr-defined]
+    )
