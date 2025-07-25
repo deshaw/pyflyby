@@ -288,6 +288,7 @@ class ModuleHandle(object):
           ``tuple`` of `ModuleHandle` s
         """
         import pkgutil
+
         # Get the list of top-level packages/modules using pkgutil.
         # We exclude "." from sys.path while doing so.  Python includes "." in
         # sys.path by default, but this is undesirable for autoimporting.  If
@@ -296,24 +297,19 @@ class ModuleHandle(object):
         # working directory is /tmp, trying to enumerate modules there also
         # causes problems, because there are typically directories there not
         # readable by the current user.
-        with ExcludeImplicitCwdFromPathCtx():
-            modlist = pkgutil.iter_modules(None)
-            module_names = [t[1] for t in modlist]
-        # pkgutil includes all *.py even if the name isn't a legal python
-        # module name, e.g. if a directory in $PYTHONPATH has files named
-        # "try.py" or "123.py", pkgutil will return entries named "try" or
-        # "123".  Filter those out.
-        module_names = [m for m in module_names if is_identifier(m)]
-        # Canonicalize.
-        return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
-
         # with ExcludeImplicitCwdFromPathCtx():
-        #     modules = []
-        #     for mod in sorted(set(pkgutil.iter_modules(None)), key=lambda x: x[1]):
-        #         name = mod[0]
-        #         if is_identifier(name):
-        #             modules.append(ModuleHandle(name))
-        #     return modules
+        #     modlist = pkgutil.iter_modules(None)
+        #     module_names = [t[1] for t in modlist]
+        # # pkgutil includes all *.py even if the name isn't a legal python
+        # # module name, e.g. if a directory in $PYTHONPATH has files named
+        # # "try.py" or "123.py", pkgutil will return entries named "try" or
+        # # "123".  Filter those out.
+        # module_names = [m for m in module_names if is_identifier(m)]
+        # # Canonicalize.
+        # return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
+
+        with ExcludeImplicitCwdFromPathCtx():
+            return [mod.name for mod in pkgutil.iter_modules() if is_identifier(mod.name)]
 
     @cached_property
     def submodules(self):
