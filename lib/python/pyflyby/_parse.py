@@ -20,7 +20,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal
+from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal, Generator
 import warnings
 
 
@@ -660,6 +660,16 @@ class PythonStatement:
         assert isinstance(statement, cls), (statement, cls)
         return statement
 
+    def get_comments(self) -> Generator[str, None, None]:
+        """Return the comment string for each line (if any).
+
+        Generator[str, None, None]
+            The comment string for each line in the statement. If no
+            comment is present, an empty string is returned for that line
+        """
+        for line in self.text.lines:
+            yield "".join(line.split("#")[1:])
+
     @classmethod
     def from_block(cls, block:PythonBlock) -> PythonStatement:
         """
@@ -908,9 +918,8 @@ class PythonBlock:
         if isinstance(filename, str):
             filename = Filename(filename)
         assert isinstance(filename, (Filename, NoneType)), filename
-        text = FileText(text, filename=filename, startpos=startpos)
         self = object.__new__(cls)
-        self.text = text
+        self.text = FileText(text, filename=filename, startpos=startpos)
         self._input_flags = CompilerFlags(flags)
         self._auto_flags = auto_flags
         return self

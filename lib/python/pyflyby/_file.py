@@ -614,8 +614,8 @@ class FileText:
             return args[0]
         return FileText(
             ''.join([l.joined for l in args]),
-            filename=args[0].filename,
-            startpos=args[0].startpos)
+            filename=args[0].filename if args else None,
+            startpos=args[0].startpos if args else None)
 
     def __repr__(self):
         r = "%s(%r" % (type(self).__name__, self.joined,)

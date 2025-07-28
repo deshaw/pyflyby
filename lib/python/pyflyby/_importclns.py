@@ -140,6 +140,8 @@ class ImportSet:
         :rtype:
           `ImportSet`
         """
+        if "Comment" in str(args):
+            breakpoint()
         if not isinstance(args, (tuple, list)):
             args = [args]
         # Filter empty arguments to allow the subsequent optimizations to work

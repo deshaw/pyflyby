@@ -371,6 +371,7 @@ class ImportStatement:
 
     aliases : Tuple[Tuple[str, Optional[str]],...]
     fromname : Optional[str]
+    comments : list[str] = []
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -389,13 +390,14 @@ class ImportStatement:
         raise TypeError
 
     @classmethod
-    def from_parts(cls, fromname:Optional[str], aliases:Tuple[Tuple[str, Optional[str]],...]):
+    def from_parts(cls, fromname:Optional[str], aliases:Tuple[Tuple[str, Optional[str]],...], comments: list[str] | None = None):
         assert isinstance(aliases, tuple)
         assert len(aliases) > 0
 
         self = object.__new__(cls)
         self.fromname = fromname
         self.aliases = tuple(_validate_alias(a) for a in aliases)
+        self.comments = comments if comments else []
         return self
 
     @classmethod
@@ -431,16 +433,21 @@ class ImportStatement:
     @classmethod
     def _from_statement(cls, statement):
         statement = PythonStatement.from_statement(statement)
+        comments = statement.get_comments()
+        if any(list(comments)):
+            breakpoint()
         return cls._from_ast_node(statement.ast_node)
 
     @classmethod
-    def _from_ast_node(cls, node):
+    def _from_ast_node(cls, node, comments=None):
         """
         Construct an `ImportStatement` from an `ast` node.
 
         :rtype:
           `ImportStatement`
         """
+        if comments is None:
+            comments = []
         if isinstance(node, ast.ImportFrom):
             if node.module is None:
                 module = ''
