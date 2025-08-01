@@ -5,18 +5,12 @@
 
 
 from   functools                import total_ordering
-from   keyword                  import kwlist
+from   keyword                  import iskeyword
 import re
 
 from   pyflyby._util            import cached_attribute, cmp
 
 from typing import Optional, Tuple, Dict
-
-
-# Don't consider "print" a keyword, in order to be compatible with user code
-# that uses "from __future__ import print_function".
-_my_kwlist = list(kwlist)
-_my_iskeyword = frozenset(_my_kwlist).__contains__
 
 
 # TODO: use DottedIdentifier.prefixes
@@ -114,7 +108,7 @@ def is_identifier(s: str, dotted: bool = False, prefix: bool = False):
         return is_identifier(s + '_', dotted=dotted, prefix=False)
     if dotted:
         return all(is_identifier(w, dotted=False) for w in s.split('.'))
-    return s.isidentifier() and not _my_iskeyword(s)
+    return s.isidentifier() and not iskeyword(s)
 
 
 def brace_identifiers(text):
