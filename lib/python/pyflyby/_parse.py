@@ -660,16 +660,6 @@ class PythonStatement:
         assert isinstance(statement, cls), (statement, cls)
         return statement
 
-    def get_comments(self) -> Generator[str, None, None]:
-        """Return the comment string for each line (if any).
-
-        Generator[str, None, None]
-            The comment string for each line in the statement. If no
-            comment is present, an empty string is returned for that line
-        """
-        for line in self.text.lines:
-            yield "".join(line.split("#")[1:])
-
     @classmethod
     def from_block(cls, block:PythonBlock) -> PythonStatement:
         """
@@ -846,7 +836,7 @@ class AnnotatedModule(ast.Module, AnnotatedAst):
 class PythonBlock:
     r"""
     Representation of a sequence of consecutive top-level
-    `PythonStatement` (s).
+    statements containing at most one AST node.
 
       >>> source_code = '# 1\nprint(2)\n# 3\n# 4\nprint(5)\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)

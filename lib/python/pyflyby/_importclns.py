@@ -140,8 +140,6 @@ class ImportSet:
         :rtype:
           `ImportSet`
         """
-        if "Comment" in str(args):
-            breakpoint()
         if not isinstance(args, (tuple, list)):
             args = [args]
         # Filter empty arguments to allow the subsequent optimizations to work
@@ -173,12 +171,15 @@ class ImportSet:
                     if statement.is_comment_or_blank:
                         pass
                     elif statement.is_import:
-                        imports.extend(ImportStatement(statement).imports)
+                        stmt = ImportStatement(statement)
+                        breakpoint()
+                        imports.extend(stmt.imports)
                     elif ignore_nonimports:
                         pass
                     else:
                         raise NonImportStatementError(
                             "Got non-import statement %r" % (statement,))
+
         return cls._from_imports(imports, ignore_shadowed=ignore_shadowed)
 
     def with_imports(self, other):
@@ -437,8 +438,10 @@ class ImportSet:
             else:
                 return statement.pretty_print(
                     params=params, import_column=None, from_spaces=1)
+
         statements = self.get_statements(
             separate_from_imports=params.separate_from_imports)
+
         def isint(x): return isinstance(x, int) and not isinstance(x, bool)
         if not statements:
             import_column = None

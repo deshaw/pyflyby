@@ -404,6 +404,22 @@ class FileText:
         self.startpos = startpos
         return self
 
+    def get_comments(self) -> list[str | None]:
+        """Return the comment string for each line (if any).
+
+        :return:
+            The comment string for each line in the statement. If no
+            comment is present, None is returned for that line
+        """
+        comments = []
+        for line in self._lines:
+            split = line.split("#")[1:]
+            if split:
+                comments.append("".join(split))
+            else:
+                comments.append(None)
+        return comments
+
     @classmethod
     def _from_lines(cls, lines, filename: Optional[Filename], startpos: FilePos):
         assert type(lines) is tuple
@@ -443,7 +459,6 @@ class FileText:
     @cached_property
     def joined(self) -> str:
         return '\n'.join(self.lines)
-
 
     @classmethod
     def from_filename(cls, filename):
