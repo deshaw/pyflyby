@@ -498,6 +498,10 @@ class ImportStatement:
         """
         Return a sequence of `Import` s.
 
+        If the returned sequence of imports has only one entry, any single line
+        comment will be included with it. Otherwise, line comments are not included
+        because there's too much ambiguity about where they should be placed otherwise.
+
         :rtype:
           ``tuple`` of `Import` s
         """
@@ -512,7 +516,7 @@ class ImportStatement:
             result.append(
                 Import.from_split(
                     (self.fromname, alias[0], alias[1]),
-                    comment=comment if i == 0 else None
+                    comment=comment if len(self.aliases) == 0 else None
                 )
             )
         return tuple(result)
@@ -610,15 +614,15 @@ class ImportStatement:
         if params.use_black:
             res = self.run_black(res, params)
 
-        breakpoint()
         # Append single comment, if any
-        nonempty_comments = [item for item in self.comments if item]
-        lines = res.split('\n')
+        if self.comments and self.comments[0]:
+            comment = self.comments[0]
 
-        # Only append to text consisting of a single line with \n at end
-        if len(nonempty_comments) == 1 and len(lines) == 2:
-            lines[0] += f" #{nonempty_comments[0]}"
-            res = "\n".join(lines)
+            # Only append to text consisting of a single line with \n at end
+            lines = res.split('\n')
+            if len(lines) == 2:
+                lines[0] += f" #{comment}"
+                res = "\n".join(lines)
 
         return res
 

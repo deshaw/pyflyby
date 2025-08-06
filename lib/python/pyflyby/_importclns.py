@@ -171,9 +171,7 @@ class ImportSet:
                     if statement.is_comment_or_blank:
                         pass
                     elif statement.is_import:
-                        stmt = ImportStatement(statement)
-                        breakpoint()
-                        imports.extend(stmt.imports)
+                        imports.extend(ImportStatement(statement).imports)
                     elif ignore_nonimports:
                         pass
                     else:

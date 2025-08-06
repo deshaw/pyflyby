@@ -20,7 +20,7 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal, Generator
+from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal
 import warnings
 
 
