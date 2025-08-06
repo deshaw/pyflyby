@@ -502,7 +502,6 @@ def debugger(*args, **kwargs):
     if arg is None and tty is not None and wait_for_attach != True:
         # If _waiting_for_debugger is not None, then attach to that
         # (whether it's a frame, traceback, etc).
-        global _waiting_for_debugger
         arg = _waiting_for_debugger
         _debugger_attached = True
     if arg is None:
