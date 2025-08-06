@@ -505,18 +505,19 @@ class ImportStatement:
         :rtype:
           ``tuple`` of `Import` s
         """
-        comment = None
-        if self.comments:
-            nonempty_comments = [item for item in self.comments if item]
-            if len(nonempty_comments) == 1:
-                comment = nonempty_comments[0]
+        # Only include a comment if there's only one alias (one item imported from a
+        # module)
+        if self.comments and self.comments[0] and len(self.aliases) == 1:
+            comment = self.comments[0]
+        else:
+            comment = None
 
         result = []
         for i, alias in enumerate(self.aliases):
             result.append(
                 Import.from_split(
                     (self.fromname, alias[0], alias[1]),
-                    comment=comment if len(self.aliases) == 0 else None
+                    comment=comment,
                 )
             )
         return tuple(result)
