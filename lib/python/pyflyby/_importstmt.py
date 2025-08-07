@@ -126,7 +126,7 @@ class Import:
 
     fullname:str
     import_as:str
-    comment: str | None = None
+    comment: Optional[str] = None
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -372,7 +372,7 @@ class ImportStatement:
 
     aliases : Tuple[Tuple[str, Optional[str]],...]
     fromname : Optional[str]
-    comments : list[str | None] | None = None
+    comments : Optional[list[Optional[str]]] = None
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -395,7 +395,7 @@ class ImportStatement:
         cls,
         fromname: Optional[str],
         aliases: Tuple[Tuple[str, Optional[str]], ...],
-        comments: list[str | None] | None = None,
+        comments: Optional[list[Optional[str]]] = None,
     ):
         assert isinstance(aliases, tuple)
         assert len(aliases) > 0
@@ -445,7 +445,7 @@ class ImportStatement:
         )
 
     @classmethod
-    def _from_ast_node(cls, node, comments: list[str | None] | None = None):
+    def _from_ast_node(cls, node, comments: Optional[list[Optional[str]]] = None):
         """
         Construct an `ImportStatement` from an `ast` node.
 

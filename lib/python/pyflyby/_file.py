@@ -404,20 +404,21 @@ class FileText:
         self.startpos = startpos
         return self
 
-    def get_comments(self) -> list[str | None]:
+    def get_comments(self) -> list[Optional[str]]:
         """Return the comment string for each line (if any).
 
         :return:
             The comment string for each line in the statement. If no
             comment is present, None is returned for that line
         """
-        comments = []
-        for line in self._lines:
-            split = line.split("#")[1:]
-            if split:
-                comments.append("".join(split))
-            else:
-                comments.append(None)
+        comments: list[Optional[str]] = []
+        if self._lines:
+            for line in self._lines:
+                split = line.split("#")[1:]
+                if split:
+                    comments.append("".join(split))
+                else:
+                    comments.append(None)
         return comments
 
     @classmethod
