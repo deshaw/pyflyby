@@ -166,13 +166,13 @@ def main() -> None:
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
 
-        # here we get a (single?) PythonBlock, we can access each statement with
+        # here we get a (single?) PythonBlock, we can access each statement with 
         # >>> block.statements
         # and each statement can have a:
         # is_import
         # or
         # is_comment or blank
-
+        
         # TODO: we do Python(str(...)) in order to unparse-reparse and get proper ast node numbers.
         if options.experimental_sort_imports:
             sorted_imports = PythonBlock(str(sort_imports(block)))

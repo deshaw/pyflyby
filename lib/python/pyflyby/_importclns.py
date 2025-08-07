@@ -177,7 +177,6 @@ class ImportSet:
                     else:
                         raise NonImportStatementError(
                             "Got non-import statement %r" % (statement,))
-
         return cls._from_imports(imports, ignore_shadowed=ignore_shadowed)
 
     def with_imports(self, other):
@@ -436,10 +435,8 @@ class ImportSet:
             else:
                 return statement.pretty_print(
                     params=params, import_column=None, from_spaces=1)
-
         statements = self.get_statements(
             separate_from_imports=params.separate_from_imports)
-
         def isint(x): return isinstance(x, int) and not isinstance(x, bool)
         if not statements:
             import_column = None

@@ -513,7 +513,7 @@ class ImportStatement:
             comment = None
 
         result = []
-        for i, alias in enumerate(self.aliases):
+        for alias in self.aliases:
             result.append(
                 Import.from_split(
                     (self.fromname, alias[0], alias[1]),
@@ -603,7 +603,7 @@ class ImportStatement:
                     s = s.ljust(import_column)
         s += "import "
         tokens = []
-        for i, (importname, asname) in enumerate(self.aliases):
+        for importname, asname in self.aliases:
             if asname is not None:
                 t = "%s as %s" % (importname, asname)
             else:
@@ -612,8 +612,6 @@ class ImportStatement:
             tokens.append(t)
         res = s0 + pyfill(s, tokens, params=params)
 
-        if params.use_black:
-            res = self.run_black(res, params)
 
         # Append single comment, if any
         if self.comments and self.comments[0]:
@@ -624,6 +622,9 @@ class ImportStatement:
             if len(lines) == 2:
                 lines[0] += f" #{comment}"
                 res = "\n".join(lines)
+
+        if params.use_black:
+            res = self.run_black(res, params)
 
         return res
 
