@@ -318,7 +318,7 @@ def _debug_exception(*exc_info, **kwargs):
         exc_info = ("", "", exc_info)
     if exc_info[1]:
         # Explicitly set sys.last_value / sys.last_exc to ensure they are available
-        # in the debugger. One use case is that this allows users to call 
+        # in the debugger. One use case is that this allows users to call
         # pyflyby.saveframe() within the debugger.
         if sys.version_info < (3, 12):
             sys.last_value = exc_info[1]
@@ -502,7 +502,6 @@ def debugger(*args, **kwargs):
     if arg is None and tty is not None and wait_for_attach != True:
         # If _waiting_for_debugger is not None, then attach to that
         # (whether it's a frame, traceback, etc).
-        global _waiting_for_debugger
         arg = _waiting_for_debugger
         _debugger_attached = True
     if arg is None:
