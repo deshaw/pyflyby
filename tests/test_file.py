@@ -5,10 +5,37 @@
 
 
 
+from __future__ import print_function
+
+from   hypothesis               import given, strategies as st
 import pytest
+import string
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._util            import CwdCtx
+
+
+@st.composite
+def maybe_comments(draw):
+    """A strategy which generates lists of printable text which maybe contains '#'."""
+    texts = draw(
+        st.lists(
+            st.tuples(
+                st.text(alphabet=string.printable),
+                st.text(alphabet=string.printable) | st.none(),
+            )
+        )
+    )
+
+    result = []
+    for code, more_code in texts:
+        if more_code is None:
+            result.append(code)
+        else:
+            result.append(f"{code} # {more_code}")
+
+    return result
+
 
 def test_Filename_1():
     f = Filename('/etc/passwd')
@@ -383,3 +410,21 @@ def test_FileText_ne_other_1():
     assert not (text == object())
     assert     (text != "hello\n")
     assert not (text == "hello\n")
+
+
+
+@given(maybe_comments())
+def test_get_comments(texts):
+    joined = "\n".join(texts)
+    lines = joined.split("\n")  # Texts might contain more '#' characters
+    comments = FileText(joined).get_comments()
+
+    assert len(lines) == len(comments)
+    for line, comment in zip(lines, comments):
+        split = line.split("#")
+
+        if len(split) > 1:
+            raw_comment = "".join(split[1:])
+            assert raw_comment == comment
+        else:
+            assert comment is None

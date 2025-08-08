@@ -4,6 +4,7 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 
+import pytest
 from   pytest                   import raises
 from   unittest.mock            import patch
 
@@ -294,3 +295,52 @@ def test_read_black_config_target_version_str():
 def test_read_black_config_target_version_other():
     with raises(ValueError, match="Invalid config for black"):
         read_black_config()
+
+@pytest.mark.parametrize(
+    "comment",
+    [
+        None,
+        "comment",
+    ]
+)
+def test_Import_with_comments(comment):
+    imp = Import.from_split(("foo", "bar", "baz"), comment=comment)
+    assert imp.comment == comment
+
+
+@pytest.mark.parametrize(
+    ("text", "comment", "should_keep"),
+    [
+        ("from foo import bar, bar2 # test comment", "test comment", True),
+        ("from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl # test comment", "test comment", True),
+        ("from foo import (\n    bar, # test comment\n    bar2\n)", "test comment", False),
+        ("from foo import (\n    bar,\n    bar2 # test comment\n)", "test comment", False),
+        ("import foo # test comment", "test comment", True),
+        ("from foo import bar # test comment", "test comment", True),
+        ("import foo", None, False),
+        ("import foo as bar", None, False),
+    ]
+)
+def test_ImportStatement_with_comments(text, comment, should_keep):
+    """Test that the ImportStatement._from_str correctly handles comments."""
+    imp_stmt = ImportStatement._from_str(text)
+    pretty = imp_stmt.pretty_print().split("\n")
+
+    if comment is None:
+        assert all(line_comment is None for line_comment in imp_stmt.comments)
+
+    else:
+        assert comment in text
+        assert any(comment in line for line in imp_stmt.comments if line)
+
+        if should_keep:
+            # Should only be kept if it's on the first line
+            assert comment in pretty[0]
+            assert not any(comment in line for line in pretty[1:])
+
+            # Should only appear in the first import statement
+            assert comment in imp_stmt.comments[0]
+            assert not any(comment in line for line in imp_stmt.comments[1:])
+
+        else:
+            assert not any(comment in line for line in pretty)
