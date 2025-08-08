@@ -1198,7 +1198,7 @@ def test_fumi(text):
     # so they don't get removed
     fake_code_block = (
         "\n\nif __name__ == '__main__':\n    "
-        f"{'\n    '.join(imp.import_as for imp in imp_stmt.imports)}"
+        + '\n    '.join(imp.import_as for imp in imp_stmt.imports)
     )
     fixed = fix_unused_and_missing_imports(
 
