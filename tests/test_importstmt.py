@@ -319,6 +319,7 @@ def test_Import_with_comments(comment):
         ("from foo import bar # test comment", "test comment", True),
         ("import foo", None, False),
         ("import foo as bar", None, False),
+        ("import foo # test comment # more text", "test comment # more text", True),
     ]
 )
 def test_ImportStatement_with_comments(text, comment, should_keep):

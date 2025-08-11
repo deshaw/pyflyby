@@ -1165,6 +1165,7 @@ def test_reformat_import_statements_respect_width_3(tmp_path):
 @pytest.mark.parametrize(
     ("text"),
     [
+        "import foo # test comment # more text",
         "from foo import bar, bar2 # test comment",
         "from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl # test comment",
         "from foo import (\n    bar, # test comment\n    bar2\n)",
@@ -1207,7 +1208,7 @@ def test_fumi(text):
     )
 
     if "#" in text and ',' not in text:
-        assert "test comment" in str(fixed)
+        assert "test comment" in str(fixed) or "test comment # more text" in str(fixed)
     else:
         assert '#' not in str(fixed)
         assert 'test_comment' not in str(fixed)
