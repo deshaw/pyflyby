@@ -1827,8 +1827,8 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
            ...:     (sys.
-           ...:         stdout.
-           ...:             buffer.
+           ...:         stdout
+           ...:             .buffer
            ...:                 .write(
            ...:                     b64decode(
            ...:                         'bWljcm9waG9uZQ==')))
