@@ -3043,7 +3043,8 @@ def test_time_complete_menu_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time b64\t
-        b64decode  b64encode
+        In [2]: time b64
+        b64decode b64encode
         In [2]: time b64\x06d\tecode('cGFudHM=')
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
@@ -3056,10 +3057,10 @@ def test_time_complete_menu_1(frontend):
 def test_time_complete_autoimport_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: time base64.b6\t
+        In [2]: time base64.b64\t
+        In [2]: time base64.b64
+        .b64decode .b64encode
         [PYFLYBY] import base64
-        In [2]: time base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: time base64.b64\x06dec\tode('amFja2V0')
         CPU times: ...
         Wall time: ...
@@ -3804,7 +3805,7 @@ def test_debug_postmortem_auto_import_1(frontend):
     """, frontend=frontend)
 
 
-@retry
+@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
