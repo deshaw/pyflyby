@@ -2946,6 +2946,7 @@ def test_timeit_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
@@ -2957,6 +2958,7 @@ def test_timeit_complete_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
@@ -3033,6 +3035,7 @@ def test_time_repeat_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
@@ -3046,6 +3049,7 @@ def test_time_complete_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
@@ -3815,6 +3819,7 @@ def test_debug_postmortem_auto_import_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
@@ -3831,6 +3836,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
@@ -3852,6 +3858,7 @@ def test_debug_tab_completion_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
@@ -3876,6 +3883,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
@@ -3901,6 +3909,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
@@ -3933,6 +3942,7 @@ def test_debug_namespace_1_py3(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
