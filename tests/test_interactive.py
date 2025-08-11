@@ -180,11 +180,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
     if _IPYTHON_VERSION < (1, 0):
         assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (0, 11):
-        assert False, "we don't support IPython pre  1.0 anymore"
     if _IPYTHON_VERSION < (0, 12):
-        assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (1, 0):
         assert False, "we don't support IPython pre  1.0 anymore"
         # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
@@ -644,6 +640,7 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 
 class AnsiFilterDecoder(object):
+    # TODO: replace this with `pyte`?
 
     def __init__(self):
         self._buffer = b""
@@ -654,6 +651,7 @@ class AnsiFilterDecoder(object):
         arg = re.sub(b"\r+\n", b"\n", arg)
         arg = arg.replace(b"\x1b[J", b"")             # clear to end of display
         arg = re.sub(br"\x1b\[[0-9]+(?:;[0-9]+)*m", b"", arg) # color
+        arg = re.sub(br"([^\n])(\[PYFLYBY\])", br"\1\n\2", arg) # ensure [PYFLYBY] goes on its own line
         arg = arg.replace(b"\x1b[6n", b"")            # query cursor position
         arg = arg.replace(b"\x1b[?1l", b"")           # normal cursor keys
         arg = arg.replace(b"\x1b[?7l", b"")           # no wraparound mode
@@ -669,10 +667,9 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
         arg = arg.replace(b'\x1b[A', b'')             # move the cursor up one line
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
-        arg = arg.replace(b'?[33m', b'')              # (???)
-        arg = arg.replace(b'?[0m', b'')              # (???)
+        arg = arg.replace(b'?[33m', b'')              # yellow text
+        arg = arg.replace(b'?[0m', b'')              # reset (no more yellow)
 
-        
         # cursor movement on PTK 3.0.6+ compute the number of back and forth and
         # insert that many spaces.
         pat = br"\x1b\[(\d+)D\x1b\[(\d+)C"
@@ -780,8 +777,6 @@ class AnsiFilterDecoder(object):
             else:
                 print("AnsiFilterDecoder: %r [no change]" % (arg,))
         return arg
-
-
 
 class MySpawn(pexpect.spawn):
 
@@ -1539,36 +1534,38 @@ def test_ipython_tab_fail_1(frontend):
     )
 
 
-#@retry
+@retry
 def test_ipython_tab_multi_1(frontend):
-    # TODO
-    if frontend == "prompt_toolkit": pytest.skip()
     # Test that our test harness works for tab when there are multiple matches
-    # for tab completion.
+    # for tab completion. This test checks whether the common prefix gets added.
     ipython("""
         In [1]: def foo(): pass
         In [2]: foo.xyz1 = 111
         In [3]: foo.xyz2 = 222
         In [4]: foo.xy\t
-        In [4]: foo.xyz\x062
-        Out[4]: 222
+        In [4]: foo.xyz\x06
+        ...
+        ...
+        ...
+        AttributeError: 'function' object has no attribute 'xyz'
     """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
 #@retry
 def test_ipython_tab_multi_2(frontend):
-    # TODO
-    if frontend == "prompt_toolkit": pytest.skip()
     # Test that our test harness works for tab when there are multiple matches
-    # for tab completion.
+    # for tab completion. This test checks if multiple suggestions are shown.
     ipython("""
         In [1]: def foo(): pass
         In [2]: foo.xyz1 = 111
         In [3]: foo.xyz2 = 222
         In [4]: foo.xyz\t
-        .xyz1  .xyz2
         In [4]: foo.xyz
-        In [4]: foo.xyz\x062
-        Out[4]: 222
+        .xyz1 .xyz2
+        ...
+        ...
+        ...
+        ...
+        AttributeError: 'function' object has no attribute 'xyz'
     """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
 
@@ -2467,8 +2464,8 @@ def test_complete_symbol_greedy_eval_autoimport_1(frontend):
         In [2]: %config IPCompleter.greedy=True
         In [3]: os.sep.strip().lst\t
         [PYFLYBY] import os
-        In [3]: os.sep.strip().lst\trip()
-        Out[3]: '/'
+        In [3]: os.sep.strip().lst\trip
+        Out[3]: <function str.lstrip(chars=None, /)>
     """, frontend=frontend)
 
 
@@ -2956,10 +2953,11 @@ def test_timeit_complete_menu_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 b64\t
-        b64decode  b64encode
-        In [2]: timeit -n 2 -r 1 b64\x06d\tecode('YmxhbmtldA==')
+        In [2]: timeit -n 2 -r 1 b64
+        b64decode b64encode
+        In [2]: timeit -n 2 -r 1 b64\x06de\tcode('YmxhbmtldA==')
         [PYFLYBY] from base64 import b64decode
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """, frontend=frontend)
 
 
@@ -2967,12 +2965,12 @@ def test_timeit_complete_menu_1(frontend):
 def test_timeit_complete_autoimport_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: timeit -n 2 -r 1 base64.b6\t
+        In [2]: timeit -n 2 -r 1 base64.b64\t
+        In [2]: timeit -n 2 -r 1 base64.b64
+        .b64decode .b64encode
         [PYFLYBY] import base64
-        In [2]: timeit -n 2 -r 1 base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: timeit -n 2 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """, frontend=frontend)
 
 
@@ -3805,7 +3803,6 @@ def test_debug_postmortem_auto_import_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
@@ -3822,7 +3819,6 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
@@ -3835,9 +3831,10 @@ def test_debug_tab_completion_module_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(thornton60097\t181.rando\t
+        ipdb> thornton60097\t181.rando\t
+        ipdb> thornton60097181.rando\x06
         [PYFLYBY] import thornton60097181
-        ipdb> print(thornton60097181.randolph)
+        lph
         14164598
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3857,17 +3854,16 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(sturbridge9088333.neb\t
+        ipdb> sturbridge9088333.nebula_\t
+        ipdb> sturbridge9088333.nebula_
+        .nebula_10983840 .nebula_41695458
+        ipdb> sturbridge9088333.nebula_
         [PYFLYBY] import sturbridge9088333
-        ipdb> print(sturbridge9088333.neb
-        sturbridge9088333.nebula_10983840  sturbridge9088333.nebula_41695458
-        ipdb> print(sturbridge9088333.nebula_)
-        *** AttributeError: sturbridge9088333 has no attribute 'nebula_'
+        *** AttributeError: module 'sturbridge9088333' has no attribute 'nebula_'
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     ipython("""
@@ -3882,14 +3878,16 @@ def test_debug_postmortem_tab_completion_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print(x + base64.b64d\t
+        ipdb> func = base64.b64d\t
+        ipdb> func = base64.b64d\x06
         [PYFLYBY] import base64
-        ipdb> print(x + base64.b64decode("Lw==").decode('utf-8') + y)
+        ecode
+        ipdb> print(x + func("Lw==").decode('utf-8') + y)
         Camden/Hopkinson
         ipdb> q
     """, frontend=frontend)
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
+
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3913,6 +3911,7 @@ def test_debug_namespace_1_py3(frontend):
         ipdb> p b64deco\tde("Q29udGluZW50YWw=")
         b'Continental'
         ipdb> q
+        [PYFLYBY] import base64
         In [5]: base64.b64de\t
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode

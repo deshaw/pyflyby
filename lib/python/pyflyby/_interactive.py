@@ -8,7 +8,6 @@ import ast
 import builtins
 from   contextlib               import contextmanager
 import errno
-import functools
 import inspect
 import os
 import operator
@@ -759,10 +758,13 @@ class NamespaceWithPotentialImports(dict):
         dict.__init__(values)
         self._ip = ip
 
-    @functools.cached_property
+    @property
     def _potential_imports_list(self):
-        """Collect symbols that could be imported into the namespace."""
-        # TODO: should it run on each invocation, or can it run just once?
+        """Collect symbols that could be imported into the namespace.
+
+        This needs to be executed each time because the context can change,
+        e.g. when in pdb the frames and their namespaces will change."""
+
         db = None
         db = ImportDB.interpret_arg(db, target_filename=".")
         known = db.known_imports
@@ -1765,15 +1767,15 @@ class AutoImporter:
         # manages, is not useful because that only works for specific commands.
         # (A "command" refers to the first word on a line, such as "cd".)
         #
-        # We choose NOT to advise global_matches() and attr_matches(),
-        # which are called to enumerate global and non-global attribute
-        # symbols respectively, because these are not public API hooks,
+        # We avoid advising attr_matches() and minimise inference with
+        # global_matches(), because these are not public API hooks,
         # and contain a lot of logic which would need to be reproduced
         # here for high quality completions in edge cases.
         #
         # Instead, we hook into three public APIs:
         #   * generics.complete_object - for attribute completion
         #   * global_namespace - for completion of modules before they get imported
+        #     (in the `global_matches` context only)
         #   * auto_import_method - for auto-import
         logger.debug("_enable_completer_hooks(%r)", completer)
 
@@ -1790,6 +1792,18 @@ class AutoImporter:
                 @self._advise(type(completer).matchers)
                 def matchers_with_python_matches(completer):
                     return __original__.fget(completer) + [completer.python_matcher]
+
+        @self._advise(completer.global_matches)
+        def global_matches_with_autoimport(name):
+            old_global_namespace = completer.global_namespace
+            completer.global_namespace = NamespaceWithPotentialImports(
+                old_global_namespace,
+                ip=self._ip
+            )
+            try:
+                return self._safe_call(__original__, name)
+            finally:
+                completer.global_namespace = old_global_namespace
 
         from IPython.utils import generics
 
@@ -1820,18 +1834,7 @@ class AutoImporter:
                 results = sorted([r for r in results])
                 return results
 
-        if hasattr(completer, "global_namespace"):
-            completer.global_namespace = NamespaceWithPotentialImports(
-                completer.global_namespace,
-                ip=self._ip
-            )
-            return True
-        elif hasattr(completer, "complete_request"):
-            # This is a ZMQCompleter, so nothing to do.
-            return True
-        else:
-            logger.debug("Couldn't enable completion hook")
-            return False
+        return True
 
     def _enable_completion_hook(self, ip):
         """
