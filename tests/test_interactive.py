@@ -1838,7 +1838,7 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] import sys
         microphone
-        In [3]: if 1: sys.stdout.write(b64decode('bG91ZHNwZWFrZXI='))
+        In [3]: if 1: sys.stdout.buffer.write(b64decode('bG91ZHNwZWFrZXI='))
         loudspeaker
     """, frontend=frontend)
 
