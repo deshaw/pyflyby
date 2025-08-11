@@ -667,6 +667,7 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
+        arg = arg.replace(b'\x1b[A', b'')             # move the cursor up one line
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
         arg = arg.replace(b'?[33m', b'')              # (???)
         arg = arg.replace(b'?[0m', b'')              # (???)
@@ -952,23 +953,6 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                     # is there a better way?
                     _wait_for_output(child, timeout=0.05)
                 break
-        if line.startswith(b" ") and is_prompt_toolkit and _IPYTHON_VERSION < (7,):
-            # Clear the line via ^U. This is needed with prompt_toolkit
-            # (IPython 5 and 6) because it is no longer possible to turn off
-            # autoindent. (IPython now relies on bracketed paste mode; they
-            # assumed that was the only reason to turn off autoindent. Another
-            # idea is to use bracket paste mode, i.e. ESC[200~blahESC[201~.
-            # But that causes IPython to not print a "...:" prompt that it
-            # would be nice to see. This was fixed in IPython 7.0) We also
-            # sleep afterwards to make sure that IPython doesn't optimize the
-            # output.
-            # For example, without the sleep, if IPython defaulted 4 spaces and
-            # we wanted 1 space, we would send "^U blah"; after IPython printed
-            # out the 4 spaces it would backspace 3 of them and ultimately do
-            # "    ESC[3D   ESC[3Dblah".  That's hard for us to match.  It's
-            # better if it sends out "     ESC[4D    ESC[4D blah".
-            child.send(b"\x15") # ^U
-            time.sleep(0.02)
         while line:
             left, tab, right = line.partition(b"\t")
             # if DEBUG:
@@ -981,7 +965,6 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 # Send the tab.
                 child.send(tab)
                 # Wait for response to tab.
-                # if _IPYTHON_VERSION >= (5,):
                 if is_prompt_toolkit:
                     # When using prompt_toolkit (default for IPython 5+), we
                     # need to wait for output.
@@ -1398,9 +1381,6 @@ def _clean_ipython_output(result):
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(br"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), b"<ipython-input>", result)
     result = re.sub(re.compile(br"^----> .*?\n", re.M), b"", result)
-    # Remove cruft resulting from flakiness in 'ipython console'
-    if _IPYTHON_VERSION < (2,):
-        result = re.sub(re.compile(br"Exception in thread Thread-[0-9]+ [(]most likely raised during interpreter shutdown[)]:.*", re.S), b"", result)
     # Remove trailing post-exit message.
     if _IPYTHON_VERSION >= (3,):
         result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
@@ -1559,21 +1539,37 @@ def test_ipython_tab_fail_1(frontend):
     )
 
 
-@retry
+#@retry
 def test_ipython_tab_multi_1(frontend):
+    # TODO
+    if frontend == "prompt_toolkit": pytest.skip()
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion.
-    if frontend == "prompt_toolkit": pytest.skip()
-    # Currently our test harness is only able to test this using rlipython.
     ipython("""
         In [1]: def foo(): pass
         In [2]: foo.xyz1 = 111
         In [3]: foo.xyz2 = 222
         In [4]: foo.xy\t
-        foo.xyz1  foo.xyz2
         In [4]: foo.xyz\x062
         Out[4]: 222
-    """, frontend=frontend)
+    """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
+
+#@retry
+def test_ipython_tab_multi_2(frontend):
+    # TODO
+    if frontend == "prompt_toolkit": pytest.skip()
+    # Test that our test harness works for tab when there are multiple matches
+    # for tab completion.
+    ipython("""
+        In [1]: def foo(): pass
+        In [2]: foo.xyz1 = 111
+        In [3]: foo.xyz2 = 222
+        In [4]: foo.xyz\t
+        .xyz1  .xyz2
+        In [4]: foo.xyz
+        In [4]: foo.xyz\x062
+        Out[4]: 222
+    """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
 
 @retry
@@ -1831,10 +1827,11 @@ def test_autoimport_multiline_continued_statement_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
            ...:     (sys.
-           ...:         stdout
-           ...:             .write(
-           ...:                 b64decode(
-           ...:                     'bWljcm9waG9uZQ==')))
+           ...:         stdout.
+           ...:             buffer.
+           ...:                 .write(
+           ...:                     b64decode(
+           ...:                         'bWljcm9waG9uZQ==')))
            ...:
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] import sys
@@ -2153,7 +2150,8 @@ def test_complete_symbol_multiple_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b64\t
-        b64decode  b64encode
+        In [2]: print(b64
+        b64decode b64encode
         In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
@@ -2166,8 +2164,7 @@ def test_complete_symbol_partial_multiple_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b6\t
-        b64decode  b64encode
-        In [2]: print(b64\x06d\tecode)
+        In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
     """, frontend=frontend)
@@ -2235,9 +2232,9 @@ def test_complete_symbol_member_multiple_1(frontend):
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b64\t
-        [PYFLYBY] import base64
         In [2]: print(base64.b64
-        base64.b64decode  base64.b64encode
+        .b64decode .b64encode
+        [PYFLYBY] import base64
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
@@ -2256,8 +2253,6 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b6\t
         [PYFLYBY] import base64
-        In [2]: print(base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
@@ -2320,14 +2315,15 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
         In [2]: if 1:
            ...:     print(base64.b64d\t
         [PYFLYBY] import base64
+        In [2]: if 1:
            ...:     print(base64.b64decode('Z2lyYWZmZQ=='))
            ...:     print(42)
            ...:
-        giraffe
+        b'giraffe'
         42
         In [3]: print(b64d\tecode('bGlvbg=='))
         [PYFLYBY] from base64 import b64decode
-        lion
+        b'lion'
     """, frontend=frontend)
 
 
@@ -2433,10 +2429,25 @@ def test_complete_symbol_getitem_1(frontend):
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: apples = ['McIntosh', 'PinkLady']
         In [3]: apples[1].l\t
-        apples[1].ljust   apples[1].lower   apples[1].lstrip
+        In [3]: apples[1].l
+        ljust()  lower()  lstrip()
         In [3]: apples[1].l\x06ow\ter()
         Out[3]: 'pinklady'
-    """, args=['--InteractiveShell.readline_remove_delims=-/~[]'],
+    """,
+            frontend=frontend)
+
+
+def test_complete_symbol_getitem_no_jedi_1(frontend):
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: apples = ['McIntosh', 'PinkLady']
+        In [3]: apples[1].l\t
+        In [3]: apples[1].l
+        .ljust  .lower  .lstrip
+        In [3]: apples[1].l\x06ow\ter()
+        Out[3]: 'pinklady'
+    """,
+            args=['--IPCompleter.use_jedi=False'],
             frontend=frontend)
 
 
