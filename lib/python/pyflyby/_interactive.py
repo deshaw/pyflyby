@@ -8,6 +8,7 @@ import ast
 import builtins
 from   contextlib               import contextmanager
 import errno
+import functools
 import inspect
 import os
 import operator
@@ -757,9 +758,9 @@ class NamespaceWithPotentialImports(dict):
     def __init__(self, values, ip):
         dict.__init__(values)
         self._ip = ip
-        self._potential_imports_list = self._generate_potential_imports_list()
 
-    def _generate_potential_imports_list(self):
+    @functools.cached_property
+    def _potential_imports_list(self):
         """Collect symbols that could be imported into the namespace."""
         # TODO: should it run on each invocation, or can it run just once?
         db = None
