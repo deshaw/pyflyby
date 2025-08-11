@@ -416,7 +416,7 @@ class FileText:
             for line in self._lines:
                 split = line.split("#")[1:]
                 if split:
-                    comments.append("".join(split))
+                    comments.append("#".join(split))
                 else:
                     comments.append(None)
         return comments
