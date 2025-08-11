@@ -1534,6 +1534,7 @@ def test_ipython_tab_fail_1(frontend):
     )
 
 
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_ipython_tab_multi_1(frontend):
     # Test that our test harness works for tab when there are multiple matches
@@ -1550,7 +1551,9 @@ def test_ipython_tab_multi_1(frontend):
         AttributeError: 'function' object has no attribute 'xyz'
     """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
-#@retry
+
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
+@retry
 def test_ipython_tab_multi_2(frontend):
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion. This test checks if multiple suggestions are shown.
@@ -2339,7 +2342,7 @@ def test_complete_symbol_autocall_arg_1():
             Out[2]: b'CHEWBACCA'
         """, autocall=True)
     else:
-        # IPython 7.17+ shoudl have fixed double autocall
+        # IPython 7.17+ should have fixed double autocall
         ipython("""
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
@@ -2349,6 +2352,7 @@ def test_complete_symbol_autocall_arg_1():
         """, autocall=True)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_any_module_1(frontend, tmp):
     # Verify that completion and autoimport works for an arbitrary module in
@@ -2364,6 +2368,7 @@ def test_complete_symbol_any_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
@@ -2380,6 +2385,7 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
@@ -2401,6 +2407,7 @@ def test_complete_symbol_bad_1(frontend, tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
@@ -2458,6 +2465,7 @@ def test_complete_symbol_greedy_eval_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_complete_symbol_greedy_eval_autoimport_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2469,6 +2477,7 @@ def test_complete_symbol_greedy_eval_autoimport_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
@@ -2536,6 +2545,7 @@ def test_disable_reenable_autoimport_1():
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_disable_reenable_completion_1():
     ipython(
@@ -2961,6 +2971,7 @@ def test_timeit_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_timeit_complete_autoimport_member_1(frontend):
     ipython("""
@@ -3051,6 +3062,7 @@ def test_time_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_time_complete_autoimport_member_1(frontend):
     ipython("""
@@ -3864,6 +3876,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     ipython("""
@@ -3888,6 +3901,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3919,6 +3933,7 @@ def test_debug_namespace_1_py3(frontend):
     """, frontend=frontend)
 
 
+@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.

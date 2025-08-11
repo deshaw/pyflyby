@@ -1784,7 +1784,7 @@ class AutoImporter:
             completer.policy_overrides.update({"allow_auto_import": True})
             completer.auto_import_method = "pyflyby._interactive._auto_import_hook"
 
-        if getattr(completer, 'use_jedi', False):
+        if getattr(completer, 'use_jedi', False) and hasattr(completer, 'python_matcher'):
             # IPython 6.0+ uses jedi completion by default, which bypasses
             # the global and attr matchers. For now we manually reenable
             # them. A TODO would be to hook the Jedi completer itself.
