@@ -437,6 +437,10 @@ try:
 except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
+
+# `policy_overrides` and `auto_import_method` were added in IPython 9.3
+_SUPPORTS_TAB_AUTO_IMPORT = _IPYTHON_VERSION < (9, 3)
+
 # Prompts that we expect for.
 _IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
 _IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
@@ -1616,9 +1620,6 @@ def test_ipython_version_1():
 
 @retry
 def test_autoimport_1():
-    if _IPYTHON_VERSION < (9, 3):
-        # `policy_overrides` and `auto_import_method` were added in IPython 9.3
-        pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: b'@'+b64decode('SGVsbG8=')+b'@'
@@ -2134,6 +2135,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_basic_1():
     # Verify that tab completion works.
@@ -2145,6 +2147,7 @@ def test_complete_symbol_basic_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiple_1(frontend):
     ipython("""
@@ -2157,6 +2160,7 @@ def test_complete_symbol_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_partial_multiple_1(frontend):
     ipython("""
@@ -2169,6 +2173,7 @@ def test_complete_symbol_partial_multiple_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
@@ -2190,6 +2195,7 @@ def test_complete_symbol_import_check_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_instance_identity_1():
     # Verify that automatic symbols give the same instance (i.e., no proxy
@@ -2203,6 +2209,7 @@ def test_complete_symbol_instance_identity_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_1(frontend):
     # Verify that tab completion in members works.
@@ -2221,6 +2228,7 @@ def test_complete_symbol_member_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_multiple_1(frontend):
     ipython(
@@ -2240,6 +2248,7 @@ def test_complete_symbol_member_multiple_1(frontend):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
     ipython(
@@ -2259,6 +2268,7 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_import_module_as_1(frontend, tmp):
     writetext(tmp.file, "import base64 as b64\n")
@@ -2271,6 +2281,7 @@ def test_complete_symbol_import_module_as_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_statement_1():
     # Verify that tab completion in statements works.  This requires a more
@@ -2284,6 +2295,7 @@ def test_complete_symbol_statement_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiline_statement_1():
     ipython("""
@@ -2300,6 +2312,7 @@ def test_complete_symbol_multiline_statement_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
     ipython("""
