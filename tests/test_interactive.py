@@ -1616,6 +1616,9 @@ def test_ipython_version_1():
 
 @retry
 def test_autoimport_1():
+    if _IPYTHON_VERSION < (9, 3):
+        # `policy_overrides` and `auto_import_method` were added in IPython 9.3
+        pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: b'@'+b64decode('SGVsbG8=')+b'@'

@@ -1776,8 +1776,10 @@ class AutoImporter:
         #   * auto_import_method - for auto-import
         logger.debug("_enable_completer_hooks(%r)", completer)
 
-        completer.policy_overrides.update({"allow_auto_import": True})
-        completer.auto_import_method = "pyflyby._interactive._auto_import_hook"
+        if hasattr(completer, "policy_overrides"):
+            # `policy_overrides` and `auto_import_method` were added in IPython 9.3
+            completer.policy_overrides.update({"allow_auto_import": True})
+            completer.auto_import_method = "pyflyby._interactive._auto_import_hook"
 
         from IPython.utils import generics
 
