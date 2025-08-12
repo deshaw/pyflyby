@@ -13,7 +13,7 @@ namespace fs = std::filesystem;
  * @brief Get the list of python modules.
  *
  */
-std::optional<std::vector<std::string>> _iter_file_finder_modules(py::object importer, std::string prefix) {
+std::vector<std::string> _iter_file_finder_modules(py::object importer, std::string prefix) {
 
     std::vector<std::string> ret;
 
@@ -30,7 +30,7 @@ std::optional<std::vector<std::string>> _iter_file_finder_modules(py::object imp
     // bool filesystem
 
     py::object importer_path = importer.attr("path");
-    return py::make_tuple();
+    return ret;
 }
 
 PYBIND11_MODULE(_fast_iter_modules, m) {
