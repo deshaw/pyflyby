@@ -539,19 +539,24 @@ def _fast_iter_finder_modules(importer: Any, prefix: str = '') -> Generator[tupl
         ispkg = False
 
         if not modname and os.path.isdir(path) and '.' not in entry.name:
-            modname = entry.name
-            try:
-                dircontents = os.scandir(path)
-            except OSError:
-                # ignore unreadable directories like import does
-                dircontents = []  # type: ignore[assignment]
-            for subentry in dircontents:
-                subname = fast_getmodulename(subentry.name)
-                if subname == '__init__':
-                    ispkg = True
-                    break
+            if os.path.join(path, '__init__.py'):
+                ispkg = True
             else:
-                continue    # not a package
+                continue # not a package
+
+            # modname = entry.name
+            # try:
+            #     dircontents = os.scandir(path)
+            # except OSError:
+            #     # ignore unreadable directories like import does
+            #     dircontents = []  # type: ignore[assignment]
+            # for subentry in dircontents:
+            #     subname = fast_getmodulename(subentry.name)
+            #     if subname == '__init__':
+            #         ispkg = True
+            #         break
+            # else:
+            #     continue    # not a package
 
         if modname and '.' not in modname:
             yielded[modname] = 1
