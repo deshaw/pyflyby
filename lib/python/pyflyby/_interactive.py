@@ -1781,8 +1781,17 @@ class AutoImporter:
 
         if hasattr(completer, "policy_overrides"):
             # `policy_overrides` and `auto_import_method` were added in IPython 9.3
+            old_policy = completer.policy_overrides.copy()
+            old_auto_import_method = completer.auto_import_method
+
             completer.policy_overrides.update({"allow_auto_import": True})
             completer.auto_import_method = "pyflyby._interactive._auto_import_hook"
+
+            def disable_custom_completer_policies():
+                completer.policy_overrides = old_policy
+                completer.auto_import_method = old_auto_import_method
+
+            self._disablers.append(disable_custom_completer_policies)
 
         if getattr(completer, 'use_jedi', False) and hasattr(completer, 'python_matcher'):
             # IPython 6.0+ uses jedi completion by default, which bypasses
@@ -1806,9 +1815,12 @@ class AutoImporter:
                 completer.global_namespace = old_global_namespace
 
         from IPython.utils import generics
+        object_hook_enabled = True
 
         @generics.complete_object.register(object)
         def complete_object_hook(obj, words):
+            if not object_hook_enabled:
+                return words
             with InterceptPrintsDuringPromptCtx(self._ip):
                 logger.debug("complete_object_hook(%r)", obj)
                 namespaces = get_global_namespaces(self._ip)
@@ -1833,6 +1845,12 @@ class AutoImporter:
                     results.update([m.name.parts[-1] for m in pmodule.submodules])
                 results = sorted([r for r in results])
                 return results
+
+        def disable_custom_completer_object_hook():
+            nonlocal object_hook_enabled
+            object_hook_enabled = False
+
+        self._disablers.append(disable_custom_completer_object_hook)
 
         return True
 
