@@ -1,25 +1,23 @@
 project(
   'pyflyby',
   'cpp',
-  version: '0.0.1'
+  version: run_command(
+    [
+      'python',
+      '-c',
+      'from pyflyby._version import __version__; print(__version__)'
+    ],
+    check: true,
+    env: {'PYTHONPATH': join_paths(meson.current_source_dir(), 'lib/python')}
+  ).stdout().strip()
 )
 
 py_mod = import('python')
-py = py_mod.find_installation()
-
+py = py_mod.find_installation(pure: false)
 pybind11_dep = dependency('pybind11', version: '>=2.10.4')
+includes = include_directories([ 'src' ])
 
-includes = include_directories(
-  [
-    'src'
-  ]
-)
-
-message('Installation directory:           ', py.get_install_dir(subdir: 'pyflyby'))
-message('Installation directory (not pure):           ', py.get_install_dir(pure: false))
-message('Installation directory (pure):           ', py.get_install_dir(pure: true))
-
-# subdir('lib')
+subdir('lib/python/pyflyby')
 
 install_data(
   ['libexec/pyflyby/colordiff', 'libexec/pyflyby/diff-colorize'],
@@ -50,4 +48,30 @@ install_data(
     subdir: 'share/emacs/site-lisp',
     pure: true,
   )
+)
+
+install_data(
+  [
+    'bin/collect-exports',
+    'bin/collect-imports',
+    'bin/find-import',
+    'bin/list-bad-xrefs',
+    'bin/prune-broken-imports',
+    'bin/pyflyby-diff',
+    'bin/reformat-imports',
+    'bin/replace-star-imports',
+    'bin/saveframe',
+    'bin/tidy-imports',
+    'bin/transform-imports',
+  ],
+  install_dir: get_option('bindir')
+)
+
+py.extension_module(
+  '_fast_iter_modules',
+  'src/_fast_iter_modules.cpp',
+  install: true,
+  subdir: 'pyflyby',
+  dependencies: [pybind11_dep],
+  include_directories: includes
 )

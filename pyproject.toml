@@ -5,6 +5,69 @@ requires = [
 ]
 build-backend = "mesonpy"
 
+[project]
+name = "pyflyby"
+dynamic = ["version"]
+authors = [
+  { name = "Karl Chen", email = "quarl@8166.clguba.z.quarl.org" },
+]
+description = "pyflyby - Python development productivity tools, in particular automatic import management"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+readme = "README.rst"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Interpreters",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "six",
+    "toml",
+    "black",
+    "typing_extensions>=4.6; python_version<'3.12'"
+]
+[project.urls]
+Homepage = "https://pypi.org/project/pyflyby/"
+Documentation = "https://deshaw.github.io/pyflyby/"
+Source = "https://github.com/deshaw/pyflyby"
+
+[project.scripts]
+py = "pyflyby._py:py_main"
+py3 = "pyflyby._py:py_main"
+
+[project.optional-dependencies]
+test = [
+    'coverage',
+    'epydoc',
+    'flaky',
+    'ipykernel>=5.4.3',
+    'ipython',
+    'jupyter',
+    'jupyter_console>=6.2',
+    'notebook<6.1',
+    'pexpect>=3.3',
+    'pytest-cov',
+    'pytest-json-report',
+    'pytest<=8',
+    'requests',
+    'rlipython',
+]
+lint = [
+    'flake8',
+    'mypy',
+    'pyflakes',
+    'types-six'
+]
+docs = [
+    'sphinx',
+    'sphinx_rtd_theme',
+    'sphinx-autodoc-typehints',
+]
+
 [tool.mypy]
 files = ['lib']
 #warn_incomplete_stub = false
