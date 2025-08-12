@@ -319,6 +319,7 @@ def test_Import_with_comments(comment):
         ("from foo import ( # test comment\n    bar\n)", "test comment", True),
         ("from foo import ( # test comment\n    bar,\n)", "test comment", True),
         ("from foo import (\n    bar, # test comment\n)", "test comment", True),
+        ("from foo import (\n    bar,\n) # test comment\n", "test comment", True),
         ("from foo import (\n    bar, # test comment\n    bar2\n)", "test comment", False),
         ("from foo import (\n    bar,\n    bar2 # test comment\n)", "test comment", False),
         ("import foo # test comment", "test comment", True),
