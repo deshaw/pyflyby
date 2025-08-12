@@ -414,9 +414,9 @@ class FileText:
         comments: list[Optional[str]] = []
         if self._lines:
             for line in self._lines:
-                split = line.split("#")[1:]
+                split = line.split("#", maxsplit=1)[1:]
                 if split:
-                    comments.append("#".join(split))
+                    comments.append(split[0])
                 else:
                     comments.append(None)
         return comments
