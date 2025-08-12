@@ -2428,6 +2428,7 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     )
 
 
+@retry
 def test_complete_symbol_getitem_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2973,6 +2974,7 @@ def test_timeit_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_timeit_complete_autoimport_member_1(frontend):
@@ -3066,6 +3068,7 @@ def test_time_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_time_complete_autoimport_member_1(frontend):
@@ -3928,7 +3931,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
         [PYFLYBY] import base64"""
     try:
         ipython(template.format(scenario_a), frontend=frontend)
-    except Exception:
+    except pytest.fail.Exception:
         ipython(template.format(scenario_b), frontend=frontend)
 
 

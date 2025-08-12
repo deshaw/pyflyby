@@ -8,7 +8,7 @@
 .. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
    :target: https://travis-ci.org/deshaw/pyflyby
 
-Pyflyby is a set of Python programming productivity tools for Python 3.8+.
+Pyflyby is a set of Python programming productivity tools for Python 3.9+.
 
 For command-line interaction:
   * ``py``: command-line multitool
@@ -248,6 +248,10 @@ Other IPython magic commands work as well::
   [PYFLYBY] from numpy import arange
   [0 1 2 3]
 
+.. warning::
+
+    Auto-import on :kbd:`Tab` completion require IPython 9.3 or newer.
+
 
 Implementation details
 ----------------------
@@ -258,7 +262,7 @@ namespace never contains entries for names that are not yet imported.
 This method of importing at parse time contrasts with previous implementations
 of automatic importing that use proxy objects.  Those implementations using
 proxy objects don't work as well, because it is impossible to make proxy
-objects behave perfectly.  For example, instance(x, T) will return the wrong
+objects behave perfectly.  For example, ``instance(x, T)`` will return the wrong
 answer if either x or T is a proxy object.
 
 
@@ -266,9 +270,8 @@ Compatibility
 -------------
 
 Tested with:
-  - Python 3.8, 3.9, 3.10
-  - IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0,
-    3.1, 3.2, 4.0., 7.11 (latest)
+  - Python 3.9, 3.10, 3.11, 3.12
+  - IPython 8.18, 8.37.0, 9.4.0 (latest)
   - IPython (text console), IPython Notebook, Spyder
 
 
