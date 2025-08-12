@@ -3927,8 +3927,9 @@ def test_debug_postmortem_tab_completion_1(frontend):
         [PYFLYBY] import base64
         ecode"""
     scenario_b = """
-        ipdb> func = base64.b64d\x06ecode
-        [PYFLYBY] import base64"""
+        ipdb> func = base64.b64d\x06;
+        [PYFLYBY] import base64
+        ;"""
     try:
         ipython(template.format(scenario_a), frontend=frontend)
     except pytest.fail.Exception:
