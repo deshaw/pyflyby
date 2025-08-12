@@ -311,15 +311,22 @@ def test_Import_with_comments(comment):
 @pytest.mark.parametrize(
     ("text", "comment", "should_keep"),
     [
-        ("from foo import bar, bar2 # test comment", "test comment", True),
-        ("from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl # test comment", "test comment", True),
+        ("import foo # test comment # more text", "test comment # more text", True),
+        ("from foo import bar, bar2 # test comment", "test comment", False),
+        ("from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl # test comment", "test comment", False),
+        ("from foo import (\n    bar # test comment\n)", "test comment", True),
+        ("from foo import (\n\n    bar # test comment\n)", "test comment", True),
+        ("from foo import ( # test comment\n    bar\n)", "test comment", True),
+        ("from foo import ( # test comment\n    bar,\n)", "test comment", True),
+        ("from foo import (\n    bar, # test comment\n)", "test comment", True),
         ("from foo import (\n    bar, # test comment\n    bar2\n)", "test comment", False),
         ("from foo import (\n    bar,\n    bar2 # test comment\n)", "test comment", False),
         ("import foo # test comment", "test comment", True),
         ("from foo import bar # test comment", "test comment", True),
         ("import foo", None, False),
         ("import foo as bar", None, False),
-        ("import foo # test comment # more text", "test comment # more text", True),
+        ("from foo import bar, bar2", None, False),
+        ("from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl", None, False),
     ]
 )
 def test_ImportStatement_with_comments(text, comment, should_keep):
@@ -339,9 +346,9 @@ def test_ImportStatement_with_comments(text, comment, should_keep):
             assert comment in pretty[0]
             assert not any(comment in line for line in pretty[1:])
 
-            # Should only appear in the first import statement
-            assert comment in imp_stmt.comments[0]
-            assert not any(comment in line for line in imp_stmt.comments[1:])
-
+            # Should only appear in 1 import statement comment; others comments are None
+            comments = [item for item in imp_stmt.comments if item is not None]
+            assert len(comments) == 1
+            assert comment in comments[0]
         else:
             assert not any(comment in line for line in pretty)

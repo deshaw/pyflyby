@@ -487,6 +487,7 @@ class ImportStatement:
         if len(module_names) > 1:
             raise ValueError(
                 "Inconsistent module names %r" % (sorted(module_names),))
+
         return cls.from_parts(
             fromname=list(module_names)[0],
             aliases=tuple(imp.split[1:] for imp in imports),
@@ -505,22 +506,32 @@ class ImportStatement:
         :rtype:
           ``tuple`` of `Import` s
         """
-        # Only include a comment if there's only one alias (one item imported from a
-        # module)
-        if self.comments and self.comments[0] and len(self.aliases) == 1:
-            comment = self.comments[0]
-        else:
-            comment = None
-
         result = []
         for alias in self.aliases:
             result.append(
                 Import.from_split(
                     (self.fromname, alias[0], alias[1]),
-                    comment=comment,
+                    comment=self.get_valid_comment(),
                 )
             )
         return tuple(result)
+
+    def get_valid_comment(self):
+        """Get the comment for the ImportStatment, if possible.
+
+        A comment is only valid if there is a single comment.
+
+        # 1. The ImportStatement has a single alias
+        # 2. There is a single string comment in self.comments
+
+        :rtype:
+            ``Optional[str]`` containing the valid comment, if any
+        """
+        if self.comments and len(self.aliases) == 1:
+            valid = [comment for comment in self.comments if comment is not None]
+            if len(valid) == 1:
+                return valid[0]
+        return None
 
     @property
     def module(self) -> Tuple[str, ...]:
@@ -569,7 +580,7 @@ class ImportStatement:
         Pretty-print into a single string.
 
         ImportStatement objects represent python import statements, which can span
-        multiple lines or multiple aliases. Here we append comments but open(
+        multiple lines or multiple aliases. Here we append comments
 
         - If the output is one line
         - If there is only one comment
@@ -612,12 +623,9 @@ class ImportStatement:
             tokens.append(t)
         res = s0 + pyfill(s, tokens, params=params)
 
-
-        # Append single comment, if any
-        if self.comments and self.comments[0]:
-            comment = self.comments[0]
-
-            # Only append to text consisting of a single line with \n at end
+        comment = self.get_valid_comment()
+        if comment is not None:
+            # Only append to text on the first line
             lines = res.split('\n')
             if len(lines) == 2:
                 lines[0] += f" #{comment}"
