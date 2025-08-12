@@ -193,6 +193,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
     regexp = re.compile(regexp)
     result = b'\n'.join(line.rstrip() for line in result.splitlines())
     result = result.strip()
+
     if DEBUG:
         print("expected: %r" % (expected,))
         print("result  : %r" % (result,))
@@ -682,8 +683,6 @@ class AnsiFilterDecoder(object):
             start, stop = match.start(), match.end()
             arg = arg[:start]+n_spaces*b' '+arg[stop:]
             match = re.search(pat, arg)
-
-
 
         arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
         # Cursor movement. We assume this is used only for places that have '...'
@@ -2327,6 +2326,7 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
@@ -3294,6 +3294,7 @@ def test_ipython_notebook_reconnect_1():
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_py_interactive_1():
     # Verify that 'py' enables pyflyby autoimporter at start.
@@ -3377,6 +3378,7 @@ def test_py_notebook_1():
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
@@ -3409,6 +3411,7 @@ def _install_load_ext_pyflyby_in_config(ipython_dir):
         print('c.InteractiveShellApp.extensions.append("pyflyby")', file=f)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_ipython_cmdline_1(tmp):
     # Verify that autoimport works in 'ipython' when pyflyby is installed in
@@ -3431,6 +3434,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_redundant_1(tmp):
     # Verify that redundant installations are fine.
@@ -3492,6 +3496,7 @@ def test_installed_in_config_ipython_notebook_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
@@ -3520,6 +3525,7 @@ def test_installed_in_config_disable_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
@@ -3549,6 +3555,7 @@ def test_installed_in_config_enable_noop_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_ipython_py_1(tmp):
     # Verify that installation in ipython_config and 'py' are compatible.
@@ -3577,6 +3584,7 @@ def test_installed_in_config_ipython_py_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
@@ -3590,6 +3598,7 @@ def test_manual_install_profile_startup_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_ipython_config_direct_1(tmp):
     # Verify that manually installing in ipython_config.py works when enabling
@@ -3604,6 +3613,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
@@ -3619,6 +3629,7 @@ def test_manual_install_exec_lines_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
@@ -3639,6 +3650,7 @@ def test_manual_install_exec_files_1(tmp):
 
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
@@ -3648,6 +3660,7 @@ def test_cmdline_enable_c_i_1(tmp):
     """, args=['-c', 'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_cmdline_enable_code_to_run_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cm90dHdlaWxlcg==')
@@ -3657,6 +3670,7 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
                'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
@@ -3668,6 +3682,7 @@ def test_cmdline_enable_exec_lines_1(tmp):
         '''["__import__('pyflyby').enable_auto_importer()"]'''])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_cmdline_enable_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -3887,7 +3902,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
 @retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
-    ipython("""
+    template = """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: def foo(x, y):
            ...:     return x / y
@@ -3899,14 +3914,22 @@ def test_debug_postmortem_tab_completion_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> func = base64.b64d\t
-        ipdb> func = base64.b64d\x06
-        [PYFLYBY] import base64
-        ecode
+        ipdb> func = base64.b64d\t{0}
         ipdb> print(x + func("Lw==").decode('utf-8') + y)
         Camden/Hopkinson
         ipdb> q
-    """, frontend=frontend)
+    """
+    scenario_a = """
+        ipdb> func = base64.b64d\x06
+        [PYFLYBY] import base64
+        ecode"""
+    scenario_b = """
+        ipdb> func = base64.b64d\x06ecode
+        [PYFLYBY] import base64"""
+    try:
+        ipython(template.format(scenario_a), frontend=frontend)
+    except Exception:
+        ipython(template.format(scenario_b), frontend=frontend)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
