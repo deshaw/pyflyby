@@ -421,10 +421,10 @@ def test_get_comments(texts):
 
     assert len(lines) == len(comments)
     for line, comment in zip(lines, comments):
-        split = line.split("#")
+        split = line.split("#", maxsplit=1)
 
         if len(split) > 1:
-            raw_comment = "".join(split[1:])
+            raw_comment = split[1]
             assert raw_comment == comment
         else:
             assert comment is None
