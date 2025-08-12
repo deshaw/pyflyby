@@ -318,7 +318,7 @@ def _debug_exception(*exc_info, **kwargs):
         exc_info = ("", "", exc_info)
     if exc_info[1]:
         # Explicitly set sys.last_value / sys.last_exc to ensure they are available
-        # in the debugger. One use case is that this allows users to call 
+        # in the debugger. One use case is that this allows users to call
         # pyflyby.saveframe() within the debugger.
         if sys.version_info < (3, 12):
             sys.last_value = exc_info[1]
