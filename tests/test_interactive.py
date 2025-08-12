@@ -34,6 +34,7 @@ from   typing                   import Union
 
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
+_TESTED_EVALUATION_SETTINGS = ['greedy=True', "evaluation='limited'"]
 
 _env_timeout = os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", None)
 if _env_timeout is not None:
@@ -2456,21 +2457,24 @@ def test_complete_symbol_getitem_no_jedi_1(frontend):
             frontend=frontend)
 
 
-def test_complete_symbol_greedy_eval_1():
-    ipython("""
+@pytest.mark.parametrize('evaluation', _TESTED_EVALUATION_SETTINGS)
+def test_complete_symbol_eval_1(evaluation):
+    ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %config IPCompleter.greedy=True
+        In [2]: %config IPCompleter.{evaluation}
         In [3]: apple = 'Fuji'
         In [4]: apple.lower()[0].stri\tp()
         Out[4]: 'f'
     """)
 
 
+
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-def test_complete_symbol_greedy_eval_autoimport_1(frontend):
-    ipython("""
+@pytest.mark.parametrize('evaluation', _TESTED_EVALUATION_SETTINGS)
+def test_complete_symbol_eval_autoimport_1(frontend, evaluation):
+    ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %config IPCompleter.greedy=True
+        In [2]: %config IPCompleter.{evaluation}
         In [3]: os.sep.strip().lst\t
         [PYFLYBY] import os
         In [3]: os.sep.strip().lst\trip
