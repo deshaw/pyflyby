@@ -31,12 +31,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install and update Python dependencies on Python 3
       run: |
-        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install --upgrade pip setuptools wheel build
         python -m pip install --upgrade "pexpect>=3.3" 'pytest<=8' rlipython 'ipykernel>=5.4.3' requests jupyter flaky 'notebook<6.1' wheel 'jupyter_console>=6.2' pytest-cov ipython coverage pytest-json-report
         pip install -e .
     - name: test release build
       run: |
-        python setup.py sdist bdist_wheel
+        python -m build
     - name: compileall
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
