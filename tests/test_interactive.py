@@ -2500,7 +2500,7 @@ def test_complete_symbol_error_in_getattr_1(frontend):
         In [5]: sys.settra\t
         [PYFLYBY] import sys
         In [5]: sys.settrace
-        Out[5]: <...settrace>
+        Out[5]: <...settrace...>
     """, frontend=frontend)
 
 
