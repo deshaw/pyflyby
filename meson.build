@@ -1,15 +1,7 @@
 project(
   'pyflyby',
   'cpp',
-  version: run_command(
-    [
-      'python',
-      '-c',
-      'from pyflyby._version import __version__; print(__version__)'
-    ],
-    check: true,
-    env: {'PYTHONPATH': join_paths(meson.current_source_dir(), 'lib/python')}
-  ).stdout().strip()
+  version: '1.9.13',
 )
 
 py_mod = import('python')
