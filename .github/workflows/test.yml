@@ -33,7 +33,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel build meson-python
         python -m pip install --upgrade "pexpect>=3.3" 'pytest<=8' rlipython 'ipykernel>=5.4.3' requests jupyter flaky 'notebook<6.1' wheel 'jupyter_console>=6.2' pytest-cov ipython coverage pytest-json-report
-        pip install -ve --no-build-isolation .
+        pip install --no-build-isolation -ve .
     - name: test release build
       run: |
         python -m build
