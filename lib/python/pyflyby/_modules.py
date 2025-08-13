@@ -16,7 +16,7 @@ from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
-from   ._fast_iter_modules import _iter_file_finder_modules
+from   pyflyby._fast_iter_modules import _iter_file_finder_modules
 
 import re
 from   six                      import reraise

@@ -22,8 +22,10 @@ namespace fs = std::filesystem;
 std::string getmodulename(fs::path path, std::vector<std::string> suffixes) {
     fs::path ext = path.extension();
     for (auto const& suffix : suffixes) {
-        if (ext == suffix) {
-            return path.stem();
+        std::string path_str = path.string();
+        std::string::size_type pos = path_str.rfind(suffix);
+        if (pos != std::string::npos) {
+            return path_str.substr(0, pos);
         }
     }
     return "";
@@ -45,7 +47,6 @@ std::string getmodulename(fs::path path, std::vector<std::string> suffixes) {
 std::vector<std::tuple<std::string, bool>> _iter_file_finder_modules(
     py::object importer, std::string prefix, std::vector<std::string> suffixes
 ) {
-
     std::vector<std::tuple<std::string, bool>> ret;
 
     // The importer doesn't have a path
@@ -62,19 +63,16 @@ std::vector<std::tuple<std::string, bool>> _iter_file_finder_modules(
 
     for (auto const& entry : fs::directory_iterator(path)) {
         fs::path entry_path = entry.path();
-        std::string modname = getmodulename(entry_path, suffixes);
+        fs::path filename = entry_path.filename();
+        std::string modname = getmodulename(filename, suffixes);
 
         if (
             modname == ""
             && fs::is_directory(entry_path)
-            && entry_path.string().find(".") == std::string::npos
+            && filename.string().find(".") == std::string::npos
+            && fs::is_regular_file(entry_path / "__init__.py") // Is this a package?
         ) {
-            ret.push_back(
-                std::make_tuple(
-                    prefix + entry_path.string(),
-                    fs::is_regular_file(entry_path / "__init__.py") // Is this a package?
-                )
-            );
+            ret.push_back(std::make_tuple(prefix + filename.string(), true));
         } else if (modname == "__init__") {
             continue;
         } else if (modname != "" && modname.find(".") == std::string::npos){

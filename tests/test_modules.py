@@ -9,7 +9,8 @@
 import logging.handlers
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
-from   pyflyby._modules         import ModuleHandle
+from   pyflyby._modules         import ModuleHandle, fast_iter_modules
+from   pkgutil                  import iter_modules
 import re
 import subprocess
 import sys
@@ -110,3 +111,10 @@ def test_filename_noload_1(modname):
     assert ret.returncode != 121, f"{modname} imported by pyflyby import"
     assert ret.returncode != 120, f"{modname} in sys.modules at startup"
     assert ret.returncode == 0, (ret, ret.stdout, ret.stderr)
+
+def test_fast_iter_modules():
+    """Test that the cpp extension finds the same modules as pkgutil.iter_modules."""
+    fast = sorted(list(fast_iter_modules()), key=lambda x: x.name)
+    slow = sorted(list(iter_modules()), key=lambda x: x.name)
+
+    assert fast == slow
