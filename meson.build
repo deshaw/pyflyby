@@ -2,6 +2,7 @@ project(
   'pyflyby',
   'cpp',
   version: '1.9.13',
+  default_options: 'cpp_std=c++17'
 )
 
 py_mod = import('python')
