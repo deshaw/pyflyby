@@ -1763,8 +1763,8 @@ class AutoImporter:
         # manages, is not useful because that only works for specific commands.
         # (A "command" refers to the first word on a line, such as "cd".)
         #
-        # We avoid advising attr_matches() and minimise inference with
-        # global_matches(), because these are not public API hooks,
+        # We avoid advising attr_matcher() and minimise inference with
+        # global_matcher(), because these are not public API hooks,
         # and contain a lot of logic which would need to be reproduced
         # here for high quality completions in edge cases.
         #
@@ -1795,7 +1795,7 @@ class AutoImporter:
             # them. A TODO would be to hook the Jedi completer itself.
             if completer.python_matcher not in completer.matchers:
                 @self._advise(type(completer).matchers)
-                def matchers_with_python_matches(completer):
+                def matchers_with_python_matcher(completer):
                     return __original__.fget(completer) + [completer.python_matcher]
 
         @self._advise(completer.global_matches)
@@ -1819,7 +1819,6 @@ class AutoImporter:
                 return words
             with InterceptPrintsDuringPromptCtx(self._ip):
                 logger.debug("complete_object_hook(%r)", obj)
-                namespaces = ScopeStack(get_global_namespaces(self._ip))
                 # Get the database of known imports.
                 db = ImportDB.interpret_arg(None, target_filename=".")
                 known = db.known_imports

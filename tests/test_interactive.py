@@ -181,8 +181,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
     if _IPYTHON_VERSION < (1, 0):
         assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (0, 12):
-        assert False, "we don't support IPython pre  1.0 anymore"
         # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
     regexp = re.sub(re.compile(br"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),

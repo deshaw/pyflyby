@@ -252,7 +252,7 @@ Other IPython magic commands work as well::
 
 .. warning::
 
-    Auto-import on :kbd:`Tab` completion require IPython 9.3 or newer.
+    Auto-import on :kbd:`Tab` completion requires IPython 9.3 or newer.
 
 
 Implementation details
