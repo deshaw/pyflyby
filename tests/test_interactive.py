@@ -4096,17 +4096,27 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 @retry
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
-    ipython(
-        '''
-        In [1]: breakpoint()
-        --Call--
-        > ...
-            ...
-            ...
-        --> ...     def __call__(self, result=None):
-            ...         """Printing with history cache management.
-            ...
-        ipdb> c
-    ''',
-        frontend='prompt_toolkit',
-    )
+    if sys.version_info >= (3, 13):
+        ipython(
+            '''
+            In [1]: breakpoint()
+            > <ipython-input>(1)<module>()
+            ipdb> c
+        ''',
+            frontend='prompt_toolkit',
+        )
+    else:
+        ipython(
+            '''
+            In [1]: breakpoint()
+            --Call--
+            > ...
+                ...
+                ...
+            --> ...     def __call__(self, result=None):
+                ...         """Printing with history cache management.
+                ...
+            ipdb> c
+        ''',
+            frontend='prompt_toolkit',
+        )
