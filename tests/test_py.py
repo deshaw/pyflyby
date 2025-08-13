@@ -833,7 +833,12 @@ def test_apply_builtin_too_many_args_1():
 def test_apply_builtin_bad_kwarg_1():
     result, retcode = py("round", "2.7182", "--foo=5")
     assert retcode == 1
-    assert "TypeError: 'foo' is an invalid keyword argument" in result
+    if sys.version_info >= (3, 13):
+        # Python 3.13 improved the wording
+        msg = "TypeError: round() got an unexpected keyword argument 'foo'"
+    else:
+        msg = "TypeError: 'foo' is an invalid keyword argument"
+    assert msg in result
 
 if sys.version_info >= (3, 12):
     MONDAY = 'calendar.MONDA'
