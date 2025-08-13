@@ -87,7 +87,9 @@ class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
         return self.importset.pretty_print(params)
 
     def __repr__(self):
-        return f"<SourceToSourceImportBlockTransformation {self.importset!r} @{hex(id(self))}>"
+        # Guard against partially initialized object...
+        import_set = getattr(self, "importset", None)
+        return f"<SourceToSourceImportBlockTransformation {import_set!r} @{hex(id(self))}>"
 
 
 class LineNumberNotFoundError(Exception):
@@ -108,6 +110,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         # imports for the transformers to operate on.
         self.blocks = []
         self.import_blocks = []
+
         for is_imports, subblock in self.input.groupby(lambda ps: ps.is_import):
             if is_imports:
                 trans = SourceToSourceImportBlockTransformation(subblock)

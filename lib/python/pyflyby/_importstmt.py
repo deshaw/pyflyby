@@ -126,6 +126,7 @@ class Import:
 
     fullname:str
     import_as:str
+    comment: Optional[str] = None
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -139,12 +140,13 @@ class Import:
         raise TypeError
 
     @classmethod
-    def from_parts(cls, fullname, import_as):
+    def from_parts(cls, fullname, import_as, comment=None):
         assert isinstance(fullname, str)
         assert isinstance(import_as, str)
         self = object.__new__(cls)
         self.fullname = fullname
         self.import_as = import_as
+        self.comment = comment
         return self
 
     @classmethod
@@ -227,7 +229,7 @@ class Import:
         return ImportSplit(module_name or None, member_name, import_as)
 
     @classmethod
-    def from_split(cls, impsplit):
+    def from_split(cls, impsplit, comment=None):
         """
         Construct an `Import` instance from ``module_name``, ``member_name``,
         ``import_as``.
@@ -235,18 +237,17 @@ class Import:
         :rtype:
           `Import`
         """
-        impsplit = ImportSplit(*impsplit)
-        module_name, member_name, import_as = impsplit
+        module_name, member_name, import_as = ImportSplit(*impsplit)
         if import_as is None:
             import_as = member_name
         if module_name is None:
-            result = cls.from_parts(member_name, import_as)
+            result = cls.from_parts(member_name, import_as, comment)
         else:
             fullname = "%s%s%s" % (
                 module_name,
                 "" if module_name.endswith(".") else ".",
                 member_name)
-            result = cls.from_parts(fullname, import_as)
+            result = cls.from_parts(fullname, import_as, comment)
         # result.split will usually be the same as impsplit, but could be
         # different if the input was 'import foo.bar as baz', which we
         # canonicalize to 'from foo import bar as baz'.
@@ -371,6 +372,7 @@ class ImportStatement:
 
     aliases : Tuple[Tuple[str, Optional[str]],...]
     fromname : Optional[str]
+    comments : Optional[list[Optional[str]]] = None
 
     def __new__(cls, arg):
         if isinstance(arg, cls):
@@ -389,13 +391,19 @@ class ImportStatement:
         raise TypeError
 
     @classmethod
-    def from_parts(cls, fromname:Optional[str], aliases:Tuple[Tuple[str, Optional[str]],...]):
+    def from_parts(
+        cls,
+        fromname: Optional[str],
+        aliases: Tuple[Tuple[str, Optional[str]], ...],
+        comments: Optional[list[Optional[str]]] = None,
+    ):
         assert isinstance(aliases, tuple)
         assert len(aliases) > 0
 
         self = object.__new__(cls)
         self.fromname = fromname
         self.aliases = tuple(_validate_alias(a) for a in aliases)
+        self.comments = comments
         return self
 
     @classmethod
@@ -424,17 +432,20 @@ class ImportStatement:
         :rtype:
           `ImportStatement`
         """
-
-        statement = PythonStatement(code)
-        return cls._from_ast_node(statement.ast_node)
+        return cls._from_statement(
+            PythonStatement(code)
+        )
 
     @classmethod
     def _from_statement(cls, statement):
-        statement = PythonStatement.from_statement(statement)
-        return cls._from_ast_node(statement.ast_node)
+        stmt = PythonStatement.from_statement(statement)
+        return cls._from_ast_node(
+            stmt.ast_node,
+            comments=stmt.text.get_comments()
+        )
 
     @classmethod
-    def _from_ast_node(cls, node):
+    def _from_ast_node(cls, node, comments: Optional[list[Optional[str]]] = None):
         """
         Construct an `ImportStatement` from an `ast` node.
 
@@ -455,7 +466,7 @@ class ImportStatement:
                     'Expected ImportStatement, got {node}'.format(node=node)
                     )
         aliases = tuple( (alias.name, alias.asname) for alias in node.names )
-        return cls.from_parts(fromname, aliases)
+        return cls.from_parts(fromname, aliases, comments)
 
     @classmethod
     def _from_imports(cls, imports):
@@ -476,21 +487,51 @@ class ImportStatement:
         if len(module_names) > 1:
             raise ValueError(
                 "Inconsistent module names %r" % (sorted(module_names),))
-        fromname = list(module_names)[0]
-        aliases = tuple(imp.split[1:] for imp in imports)
-        return cls.from_parts(fromname, aliases)
+
+        return cls.from_parts(
+            fromname=list(module_names)[0],
+            aliases=tuple(imp.split[1:] for imp in imports),
+            comments=[imp.comment for imp in imports]
+        )
 
     @cached_attribute
     def imports(self):
         """
         Return a sequence of `Import` s.
 
+        If the returned sequence of imports has only one entry, any single line
+        comment will be included with it. Otherwise, line comments are not included
+        because there's too much ambiguity about where they should be placed otherwise.
+
         :rtype:
           ``tuple`` of `Import` s
         """
-        return tuple(
-            Import.from_split((self.fromname, alias[0], alias[1]))
-            for alias in self.aliases)
+        result = []
+        for alias in self.aliases:
+            result.append(
+                Import.from_split(
+                    (self.fromname, alias[0], alias[1]),
+                    comment=self.get_valid_comment(),
+                )
+            )
+        return tuple(result)
+
+    def get_valid_comment(self):
+        """Get the comment for the ImportStatment, if possible.
+
+        A comment is only valid if there is a single comment.
+
+        # 1. The ImportStatement has a single alias
+        # 2. There is a single string comment in self.comments
+
+        :rtype:
+            ``Optional[str]`` containing the valid comment, if any
+        """
+        if self.comments and len(self.aliases) == 1:
+            valid = [comment for comment in self.comments if comment is not None]
+            if len(valid) == 1:
+                return valid[0]
+        return None
 
     @property
     def module(self) -> Tuple[str, ...]:
@@ -538,6 +579,15 @@ class ImportStatement:
         """
         Pretty-print into a single string.
 
+        ImportStatement objects represent python import statements, which can span
+        multiple lines or multiple aliases. Here we append comments
+
+        - If the output is one line
+        - If there is only one comment
+
+        This way we avoid worrying about combining comments from multiple lines,
+        or where to place comments if the resulting output is more than one line
+
         :type params:
           `FormatParams`
         :param modulename_ljust:
@@ -569,10 +619,21 @@ class ImportStatement:
                 t = "%s as %s" % (importname, asname)
             else:
                 t = "%s" % (importname,)
+
             tokens.append(t)
         res = s0 + pyfill(s, tokens, params=params)
+
+        comment = self.get_valid_comment()
+        if comment is not None:
+            # Only append to text on the first line
+            lines = res.split('\n')
+            if len(lines) == 2:
+                lines[0] += f" #{comment}"
+                res = "\n".join(lines)
+
         if params.use_black:
-            return self.run_black(res, params)
+            res = self.run_black(res, params)
+
         return res
 
     @staticmethod
