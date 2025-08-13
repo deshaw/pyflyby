@@ -18,10 +18,10 @@ import sys
 from typing import List, Any, Dict, Union, Literal
 
 
-from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack, auto_eval,
+from   pyflyby._autoimp         import (ScopeStack,
                                         auto_import,
-                                        clear_failed_imports_cache,
-                                        load_symbol)
+                                        auto_import_symbol,
+                                        clear_failed_imports_cache)
 from   pyflyby._dynimp          import (inject as inject_dynamic_import, 
                                         PYFLYBY_LAZY_LOAD_PREFIX)
 from   pyflyby._comms           import (initialize_comms, remove_comms,
@@ -484,12 +484,6 @@ def _install_in_ipython_config_file_40():
         logger.info("[DONE] Removed old file %s (moved to %s)", old_fn, trash_fn)
 
 
-
-
-
-
-
-
 def _ipython_in_multiline(ip):
     """
     Return ``False`` if the user has entered only one line of input so far,
@@ -759,79 +753,25 @@ def get_global_namespaces(ip):
         return [builtins.__dict__, __main__.__dict__]
 
 
-def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
-                    allow_eval=False):
-    """
-    Enumerate possible completions for ``fullname``.
+class NamespaceWithPotentialImports(dict):
+    def __init__(self, values, ip):
+        dict.__init__(values)
+        self._ip = ip
 
-    Includes globals and auto-importable symbols.
+    @property
+    def _potential_imports_list(self):
+        """Collect symbols that could be imported into the namespace.
 
-      >>> complete_symbol("threadi", [{}])                # doctest:+ELLIPSIS
-      [...'threading'...]
+        This needs to be executed each time because the context can change,
+        e.g. when in pdb the frames and their namespaces will change."""
 
-    Completion works on attributes, even on modules not yet imported - modules
-    are auto-imported first if not yet imported::
-
-      >>> ns = {}
-      >>> complete_symbol("threading.Threa", namespaces=[ns])
-      [PYFLYBY] import threading
-      ['threading.Thread', 'threading.ThreadError']
-
-      >>> 'threading' in ns
-      True
-
-      >>> complete_symbol("threading.Threa", namespaces=[ns])
-      ['threading.Thread', 'threading.ThreadError']
-
-    We only need to import *parent* modules (packages) of the symbol being
-    completed.  If the user asks to complete "foo.bar.quu<TAB>", we need to
-    import foo.bar, but we don't need to import foo.bar.quux.
-
-    :type fullname:
-      ``str``
-    :param fullname:
-      String to complete.  ("Full" refers to the fact that it should contain
-      dots starting from global level.)
-    :type namespaces:
-      ``dict`` or ``list`` of ``dict``
-    :param namespaces:
-      Namespaces of (already-imported) globals.
-    :type db:
-      `importDB`
-    :param db:
-      Import database to use.
-    :type ip:
-      ``InteractiveShell``
-    :param ip:
-      IPython shell instance if in IPython; ``None`` to assume not in IPython.
-    :param allow_eval:
-      Whether to allow evaluating code, which is necessary to allow completing
-      e.g. 'foo[0].bar<TAB>' or 'foo().bar<TAB>'.  Note that IPython will only
-      pass such strings if IPCompleter.greedy is configured to True by the
-      user.
-    :rtype:
-      ``list`` of ``str``
-    :return:
-      Completion candidates.
-    """
-    namespaces = ScopeStack(namespaces)
-    logger.debug("complete_symbol(%r)", fullname)
-    splt = fullname.rsplit(".", 1)
-    attrname = splt[-1]
-    # The right-hand-side of the split (the part to complete, possibly the
-    # fullname) must be a prefix of a valid symbol.  Otherwise don't bother
-    # generating completions.
-    # As for the left-hand-side of the split, load_symbol() will validate it
-    # or evaluate it depending on ``allow_eval``.
-    if not is_identifier(attrname, prefix=True):
-        return []
-    # Get the database of known imports.
-    db = ImportDB.interpret_arg(db, target_filename=".")
-    known = db.known_imports
-    if len(splt) == 1:
+        db = None
+        db = ImportDB.interpret_arg(db, target_filename=".")
+        known = db.known_imports
         # Check global names, including global-level known modules and
         # importable modules.
         results = set()
+        namespaces = ScopeStack(get_global_namespaces(self._ip))
         for ns in namespaces:
             for name in ns:
                 if '.' not in name:
@@ -839,94 +779,35 @@ def complete_symbol(fullname, namespaces, db=None, autoimported=None, ip=None,
         results.update(known.member_names.get("", []))
         results.update([str(m) for m in ModuleHandle.list()])
         assert all('.' not in r for r in results)
-        results = sorted([r for r in results if r.startswith(attrname)])
-    elif len(splt) == 2:
-        # Check members, including known sub-modules and importable sub-modules.
-        pname = splt[0]
-        if allow_eval:
-            # Evaluate the parent, with autoimporting.
-            ns_g, ns_l = namespaces.merged_to_two()
-            # TODO: only catch exceptions around the eval, not the other stuff
-            # (loading import db, etc).
-            try:
-                parent = auto_eval(pname, globals=ns_g, locals=ns_l, db=db)
-            except Exception as e:
-                logger.debug("complete_symbol(%r): couldn't evaluate %r: %s: %s",
-                             fullname, pname, type(e).__name__, e)
-                return []
-        else:
-            try:
-                parent = load_symbol(pname, namespaces, autoimport=True, db=db,
-                                     autoimported=autoimported)
-            except LoadSymbolError as e2:
-                # Even after attempting auto-import, the symbol is still
-                # unavailable, or some other error occurred.  Nothing to complete.
-                e3 = getattr(e2, "__cause__", e2)
-                logger.debug("complete_symbol(%r): couldn't load symbol %r: %s: %s",
-                             fullname, pname, type(e3).__name__, e3)
-                return []
-        logger.debug("complete_symbol(%r): %s == %r", fullname, pname, parent)
-        results = set()
-        # Add current attribute members.
-        results.update(_list_members_for_completion(parent, ip))
-        # Is the parent a package/module?
-        if sys.modules.get(pname, Ellipsis) is parent and parent.__name__ == pname:
-            # Add known_imports entries from the database.
-            results.update(known.member_names.get(pname, []))
-            # Get the module handle.  Note that we use ModuleHandle() on the
-            # *name* of the module (``pname``) instead of the module instance
-            # (``parent``).  Using the module instance normally works, but
-            # breaks if the module hackily replaced itself with a pseudo
-            # module (e.g. https://github.com/josiahcarlson/mprop).
-            pmodule = ModuleHandle(pname)
-            # Add importable submodules.
-            results.update([m.name.parts[-1] for m in pmodule.submodules])
-        results = sorted([r for r in results if r.startswith(attrname)])
-        results = ["%s.%s" % (pname, r) for r in results]
-    else:
-        raise AssertionError
-    logger.debug("complete_symbol(%r) => %r", fullname, results)
-    return results
+        return sorted([r for r in results])
+
+    def keys(self):
+        return list(self) + self._potential_imports_list
 
 
-def _list_members_for_completion(obj, ip):
-    """
-    Enumerate the existing member attributes of an object.
-    This emulates the regular Python/IPython completion items.
-
-    It does not include not-yet-imported submodules.
-
-    :param obj:
-      Object whose member attributes to enumerate.
-    :rtype:
-      ``list`` of ``str``
-    """
-    if ip is None:
-        words = dir(obj)
-    else:
-        try:
-            limit_to__all__ = ip.Completer.limit_to__all__
-        except AttributeError:
-            limit_to__all__ = False
-        if limit_to__all__ and hasattr(obj, '__all__'):
-            words = getattr(obj, '__all__')
-        elif "IPython.core.error" in sys.modules:
-            from IPython.utils import generics
-            from IPython.utils.dir2 import dir2
-            from IPython.core.error import TryNext
-            words = dir2(obj)
-            try:
-                words = generics.complete_object(obj, words)
-            except TryNext:
-                pass
-        else:
-            words = dir(obj)
-    return [w for w in words if isinstance(w, str)]
+def _auto_import_hook(name: str):
+    logger.debug("_auto_import_hook(%r)", name)
+    ip = _get_ipython_app().shell
+    try:
+        namespaces = ScopeStack(get_global_namespaces(ip))
+        db = ImportDB.interpret_arg(None, target_filename='.')
+        did_auto_import = auto_import_symbol(name, namespaces, db)
+    except Exception as e:
+        logger.debug("_auto_import_hook preparation error: %r", e)
+        raise e
+    if not did_auto_import:
+        raise ImportError(f"{name} not auto-imported")
+    try:
+        # relies on `auto_import_symbol` auto-importing into [-1] namespace
+        return namespaces[-1][name]
+    except Exception as e:
+        logger.debug("_auto_import_hook internal error: %r", e)
+        raise e
 
 
 def _auto_import_in_pdb_frame(pdb_instance, arg):
     frame = pdb_instance.curframe
-    namespaces = [ frame.f_globals, pdb_instance.curframe_locals ]
+    namespaces = [frame.f_globals, pdb_instance.curframe_locals]
     filename = frame.f_code.co_filename
     if not filename or filename.startswith("<"):
         filename = "."
@@ -1861,6 +1742,7 @@ class AutoImporter:
             logger.debug("Couldn't enable prun hook")
             return False
 
+
     def _enable_completer_hooks(self, completer):
         # Hook a completer instance.
         #
@@ -1881,61 +1763,89 @@ class AutoImporter:
         # manages, is not useful because that only works for specific commands.
         # (A "command" refers to the first word on a line, such as "cd".)
         #
-        # We choose to advise global_matches() and attr_matches(), which are
-        # called to enumerate global and non-global attribute symbols
-        # respectively.  (python_matches() calls these two.  We advise
-        # global_matches() and attr_matches() instead of python_matches()
-        # because a few other functions call global_matches/attr_matches
-        # directly.)
+        # We avoid advising attr_matcher() and minimise inference with
+        # global_matcher(), because these are not public API hooks,
+        # and contain a lot of logic which would need to be reproduced
+        # here for high quality completions in edge cases.
+        #
+        # Instead, we hook into three public APIs:
+        #   * generics.complete_object - for attribute completion
+        #   * global_namespace - for completion of modules before they get imported
+        #     (in the `global_matches` context only)
+        #   * auto_import_method - for auto-import
         logger.debug("_enable_completer_hooks(%r)", completer)
-        if hasattr(completer, "global_matches"):
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
-            # 2.4, 3.0, 3.1, 3.2, 4.0, 5.8.
+
+        if hasattr(completer, "policy_overrides"):
+            # `policy_overrides` and `auto_import_method` were added in IPython 9.3
+            old_policy = completer.policy_overrides.copy()
+            old_auto_import_method = completer.auto_import_method
+
+            completer.policy_overrides.update({"allow_auto_import": True})
+            completer.auto_import_method = "pyflyby._interactive._auto_import_hook"
+
+            def disable_custom_completer_policies():
+                completer.policy_overrides = old_policy
+                completer.auto_import_method = old_auto_import_method
+
+            self._disablers.append(disable_custom_completer_policies)
+
+        if getattr(completer, 'use_jedi', False) and hasattr(completer, 'python_matcher'):
+            # IPython 6.0+ uses jedi completion by default, which bypasses
+            # the global and attr matchers. For now we manually reenable
+            # them. A TODO would be to hook the Jedi completer itself.
+            if completer.python_matcher not in completer.matchers:
+                @self._advise(type(completer).matchers)
+                def matchers_with_python_matcher(completer):
+                    return __original__.fget(completer) + [completer.python_matcher]
+
+        @self._advise(completer.global_matches)
+        def global_matches_with_autoimport(name):
+            old_global_namespace = completer.global_namespace
+            completer.global_namespace = NamespaceWithPotentialImports(
+                old_global_namespace,
+                ip=self._ip
+            )
             try:
-                completer.shell.pt_cli
-                is_pt = True
-            except AttributeError:
-                is_pt = False
-            if is_pt:
-                def get_completer_namespaces():
-                    return [completer.namespace, completer.global_namespace]
-            else:
-                def get_completer_namespaces():
-                    # For non-prompt_toolkit, (1) completer.namespace is not
-                    # reliable inside pdb, and (2) _get_pdb_if_is_in_pdb() is
-                    # reliable inside pdb because no threading.
-                    # Use get_global_namespaces(), which relies on
-                    # _get_pdb_if_is_in_pdb().
-                    return None
-            if getattr(completer, 'use_jedi', False):
-                # IPython 6.0+ uses jedi completion by default, which bypasses
-                # the global and attr matchers. For now we manually reenable
-                # them. A TODO would be to hook the Jedi completer itself.
-                if completer.python_matches not in completer.matchers:
-                    @self._advise(type(completer).matchers)
-                    def matchers_with_python_matches(completer):
-                        return __original__.fget(completer)+[completer.python_matches]
+                return self._safe_call(__original__, name)
+            finally:
+                completer.global_namespace = old_global_namespace
 
-            @self._advise(completer.global_matches)
-            def global_matches_with_autoimport(fullname):
-                if len(fullname) == 0:
-                    return []
-                logger.debug("global_matches_with_autoimport(%r)", fullname)
-                namespaces = get_completer_namespaces()
-                return self.complete_symbol(fullname, namespaces, on_error=__original__)
-            @self._advise(completer.attr_matches)
-            def attr_matches_with_autoimport(fullname):
-                logger.debug("attr_matches_with_autoimport(%r)", fullname)
-                namespaces = get_completer_namespaces()
-                return self.complete_symbol(fullname, namespaces, on_error=__original__)
+        from IPython.utils import generics
+        object_hook_enabled = True
 
-            return True
-        elif hasattr(completer, "complete_request"):
-            # This is a ZMQCompleter, so nothing to do.
-            return True
-        else:
-            logger.debug("Couldn't enable completion hook")
-            return False
+        @generics.complete_object.register(object)
+        def complete_object_hook(obj, words):
+            if not object_hook_enabled:
+                return words
+            with InterceptPrintsDuringPromptCtx(self._ip):
+                logger.debug("complete_object_hook(%r)", obj)
+                # Get the database of known imports.
+                db = ImportDB.interpret_arg(None, target_filename=".")
+                known = db.known_imports
+                results = set(words)
+                pname = obj.__name__
+                # Is it a package/module?
+                if sys.modules.get(pname, Ellipsis) is obj:
+                    # Add known_imports entries from the database.
+                    results.update(known.member_names.get(pname, []))
+                    # Get the module handle.  Note that we use ModuleHandle() on the
+                    # *name* of the module (``pname``) instead of the module instance
+                    # (``obj``).  Using the module instance normally works, but
+                    # breaks if the module hackily replaced itself with a pseudo
+                    # module (e.g. https://github.com/josiahcarlson/mprop).
+                    pmodule = ModuleHandle(pname)
+                    # Add importable submodules.
+                    results.update([m.name.parts[-1] for m in pmodule.submodules])
+                results = sorted([r for r in results])
+                return results
+
+        def disable_custom_completer_object_hook():
+            nonlocal object_hook_enabled
+            object_hook_enabled = False
+
+        self._disablers.append(disable_custom_completer_object_hook)
+
+        return True
 
     def _enable_completion_hook(self, ip):
         """
@@ -2156,22 +2066,6 @@ class AutoImporter:
             raise_on_error=raise_on_error, on_error=on_error,
             post_import_hook=post_import_hook)
 
-    def complete_symbol(self, fullname, namespaces,
-                        raise_on_error='if_debug', on_error=None):
-        with InterceptPrintsDuringPromptCtx(self._ip):
-            if namespaces is None:
-                namespaces = get_global_namespaces(self._ip)
-            if on_error is not None:
-                def on_error1(fullname, namespaces, autoimported, ip, allow_eval):
-                    return on_error(fullname)
-            else:
-                on_error1 = None
-            return self._safe_call(
-                complete_symbol, fullname, namespaces,
-                autoimported=self._autoimported_this_cell,
-                ip=self._ip, allow_eval=True,
-                raise_on_error=raise_on_error, on_error=on_error1)
-
     def compile_with_autoimport(self, src, filename, mode, flags=0):
         logger.debug("compile_with_autoimport(%r)", src)
         ast_node = compile(src, filename, mode, flags|ast.PyCF_ONLY_AST,
@@ -2241,7 +2135,7 @@ def load_ipython_extension(arg=Ellipsis):
 
       In [1]: %reload_ext pyflyby
 
-    To load pyflyby automatically on IPython startup, appendto
+    To load pyflyby automatically on IPython startup, append to
     ~/.ipython/profile_default/ipython_config.py::
       c.InteractiveShellApp.extensions.append("pyflyby")
 
