@@ -10,6 +10,7 @@ import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
 from   contextlib               import contextmanager
+import pexpect
 
 from   pyflyby                  import Filename, saveframe
 
@@ -91,65 +92,88 @@ def run_code_and_set_exception(code, exception):
         delattr(sys, "last_value" if VERSION_INFO < (3, 12) else "last_exc")
 
 
-def frames_metadata_checker(tmpdir, pkg_name, filename):
+def frames_metadata_checker(tmpdir, pkg_name, filename, num_frames=None):
     """
     Check if the metadata of the frames is correctly written in the ``filename``.
     """
     data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
+    if num_frames is None:
+        expected_frame_keys = {1, 2, 3, 4, 5}
+        assert set(data.keys()) == exception_info_keys | expected_frame_keys
+    else:
+        expected_frame_keys = set(range(1, num_frames + 1))
+        assert set(data.keys()) == expected_frame_keys
 
-    assert data[1]["code"] == 'raise ValueError("Error is raised")'
-    assert data[1]["frame_index"] == 1
-    assert data[1]["filename"] == str(
-        tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py")
-    assert data[1]["lineno"] == 6
-    assert data[1]["function_name"] == "func3"
-    assert data[1]["function_qualname"] == "func3"
-    assert data[1]["module_name"] == f"{pkg_name}.pkg1.pkg2.mod3"
-    assert data[1]["frame_identifier"] == (
-        f"{data[1]['filename']},{data[1]['lineno']},{data[1]['function_name']}")
+    # Check frame 1 (func3)
+    if 1 in expected_frame_keys:
+        # Check if we're in debugger mode vs exception mode
+        if 'exception_object' in data and data['exception_object'] is not None:
+            # Exception mode - should have "raise ValueError" code
+            assert data[1]["code"] == 'raise ValueError("Error is raised")'
+            assert data[1]["lineno"] == 6
+        else:
+            # Debugger mode - should have "pdb.set_trace()" code
+            assert data[1]["code"] == 'pdb.set_trace()'
+            assert data[1]["lineno"] == 7
 
-    assert data[2]["code"] == 'func3()'
-    assert data[2]["frame_index"] == 2
-    assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
-    assert data[2]["lineno"] == 10
-    assert data[2]["function_name"] == "func2"
-    assert (
-        data[2]["function_qualname"] ==
-        "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
-    assert data[2]["module_name"] == f"{pkg_name}.pkg1.mod2"
-    assert data[2]["frame_identifier"] == (
-        f"{data[2]['filename']},{data[2]['lineno']},{data[2]['function_name']}")
+        assert data[1]["frame_index"] == 1
+        assert data[1]["filename"] == str(
+            tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py")
+        assert data[1]["function_name"] == "func3"
+        assert data[1]["function_qualname"] == "func3"
+        assert data[1]["module_name"] == f"{pkg_name}.pkg1.pkg2.mod3"
+        assert data[1]["frame_identifier"] == (
+            f"{data[1]['filename']},{data[1]['lineno']},{data[1]['function_name']}")
 
-    assert data[3]["code"] == 'obj.func2()'
-    assert data[3]["frame_index"] == 3
-    assert data[3]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[3]["lineno"] == 9
-    assert data[3]["function_name"] == "func2"
-    assert data[3]["function_qualname"] == "func2"
-    assert data[3]["module_name"] == f"{pkg_name}.mod1"
-    assert data[3]["frame_identifier"] == (
-        f"{data[3]['filename']},{data[3]['lineno']},{data[3]['function_name']}")
+    # Check frame 2 (func2 in mod2.py)
+    if 2 in expected_frame_keys:
+        assert data[2]["code"] == 'func3()'
+        assert data[2]["frame_index"] == 2
+        assert data[2]["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
+        assert data[2]["lineno"] == 10
+        assert data[2]["function_name"] == "func2"
+        assert (
+            data[2]["function_qualname"] ==
+            "func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
+        assert data[2]["module_name"] == f"{pkg_name}.pkg1.mod2"
+        assert data[2]["frame_identifier"] == (
+            f"{data[2]['filename']},{data[2]['lineno']},{data[2]['function_name']}")
 
-    assert data[4]["code"] == 'func2()'
-    assert data[4]["frame_index"] == 4
-    assert data[4]["filename"] == str(tmpdir / pkg_name / "mod1.py")
-    assert data[4]["lineno"] == 14
-    assert data[4]["function_name"] == "func1"
-    assert data[4]["function_qualname"] == "func1"
-    assert data[4]["module_name"] == f"{pkg_name}.mod1"
-    assert data[4]["frame_identifier"] == (
-        f"{data[4]['filename']},{data[4]['lineno']},{data[4]['function_name']}")
+    # Check frame 3 (func2 in mod1.py)
+    if 3 in expected_frame_keys:
+        assert data[3]["code"] == 'obj.func2()'
+        assert data[3]["frame_index"] == 3
+        assert data[3]["filename"] == str(tmpdir / pkg_name / "mod1.py")
+        assert data[3]["lineno"] == 9
+        assert data[3]["function_name"] == "func2"
+        assert data[3]["function_qualname"] == "func2"
+        assert data[3]["module_name"] == f"{pkg_name}.mod1"
+        assert data[3]["frame_identifier"] == (
+            f"{data[3]['filename']},{data[3]['lineno']},{data[3]['function_name']}")
 
-    assert data[5]["code"] == 'func1()'
-    assert data[5]["frame_index"] == 5
-    assert data[5]["filename"] == str(tmpdir / pkg_name / "__init__.py")
-    assert data[5]["lineno"] == 6
-    assert data[5]["function_name"] == "init_func1"
-    assert data[5]["function_qualname"] == "init_func1"
-    assert data[5]["module_name"] == pkg_name
-    assert data[5]["frame_identifier"] == (
-        f"{data[5]['filename']},{data[5]['lineno']},{data[5]['function_name']}")
+    # Check frame 4 (func1 in mod1.py)
+    if 4 in expected_frame_keys:
+        assert data[4]["code"] == 'func2()'
+        assert data[4]["frame_index"] == 4
+        assert data[4]["filename"] == str(tmpdir / pkg_name / "mod1.py")
+        assert data[4]["lineno"] == 14
+        assert data[4]["function_name"] == "func1"
+        assert data[4]["function_qualname"] == "func1"
+        assert data[4]["module_name"] == f"{pkg_name}.mod1"
+        assert data[4]["frame_identifier"] == (
+            f"{data[4]['filename']},{data[4]['lineno']},{data[4]['function_name']}")
+
+    # Check frame 5 (init_func1 in __init__.py)
+    if 5 in expected_frame_keys:
+        assert data[5]["code"] == 'func1()'
+        assert data[5]["frame_index"] == 5
+        assert data[5]["filename"] == str(tmpdir / pkg_name / "__init__.py")
+        assert data[5]["lineno"] == 6
+        assert data[5]["function_name"] == "init_func1"
+        assert data[5]["function_qualname"] == "init_func1"
+        assert data[5]["module_name"] == pkg_name
+        assert data[5]["frame_identifier"] == (
+            f"{data[5]['filename']},{data[5]['lineno']},{data[5]['function_name']}")
 
 
 def frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename):
@@ -182,39 +206,67 @@ def frames_metadata_checker_for_keyboard_interrupt(tmpdir, pkg_name, filename):
         f"{data[2]['filename']},{data[2]['lineno']},{data[2]['function_name']}")
 
 
-def frames_local_variables_checker(pkg_name, filename):
+def frames_local_variables_checker(pkg_name, filename, num_frames=None):
     """
     Check if the local variables of the frames are correctly written in the
     ``filename``.
     """
     data = load_pkl(filename)
-    assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
+    if num_frames is None:
+        expected_frame_keys = {1, 2, 3, 4, 5}
+        assert set(data.keys()) == exception_info_keys | expected_frame_keys
+    else:
+        expected_frame_keys = set(range(1, num_frames + 1))
+        assert set(data.keys()) == expected_frame_keys
 
-    assert set(data[1]['variables'].keys()) == {'func3_var3', 'var1', 'var2'}
-    assert pickle.loads(data[1]['variables']['func3_var3']) == True
-    assert pickle.loads(data[1]['variables']['var1']) == [4, 'foo', 2.4]
-    assert pickle.loads(data[1]['variables']['var2']) == 'blah'
+    # Check frame 1 (func3) variables
+    if 1 in expected_frame_keys:
+        vars = set(data[1]['variables'].keys())
+        vars.discard('saveframe')
+        assert vars == {'func3_var3', 'var1', 'var2'}
+        assert pickle.loads(data[1]['variables']['func3_var3']) == True
+        assert pickle.loads(data[1]['variables']['var1']) == [4, 'foo', 2.4]
+        assert pickle.loads(data[1]['variables']['var2']) == 'blah'
 
-    assert set(data[2]['variables'].keys()) == {'self', 'var1', 'var2'}
-    self_val = pickle.loads(data[2]['variables']['self'])
-    mod2 = __import__(f"{pkg_name}.pkg1.mod2", fromlist=['dummy'], level=0)
-    assert isinstance(self_val, mod2.mod2_cls)
-    assert pickle.loads(data[2]['variables']['var1']) == 'foo'
-    assert pickle.loads(data[2]['variables']['var2']) == (4, 9, 10)
+    # Check frame 2 (func2 in mod2.py) variables
+    if 2 in expected_frame_keys:
+        vars = set(data[2]['variables'].keys())
+        vars.discard('saveframe')
+        assert vars == {'self', 'var1', 'var2'}
+        self_val = pickle.loads(data[2]['variables']['self'])
+        mod2 = __import__(f"{pkg_name}.pkg1.mod2", fromlist=['dummy'], level=0)
+        assert isinstance(self_val, mod2.mod2_cls)
+        assert pickle.loads(data[2]['variables']['var1']) == 'foo'
+        assert pickle.loads(data[2]['variables']['var2']) == (4, 9, 10)
 
-    assert set(data[3]['variables'].keys()) == {'obj', 'var1', 'var2'}
-    obj_val = pickle.loads(data[3]['variables']['obj'])
-    assert isinstance(obj_val, mod2.mod2_cls)
-    assert pickle.loads(data[3]['variables']['var1']) == 'func2'
-    assert pickle.loads(data[3]['variables']['var2']) == 34
+    # Check frame 3 (func2 in mod1.py) variables
+    if 3 in expected_frame_keys:
+        vars = set(data[3]['variables'].keys())
+        vars.discard('saveframe')
+        assert vars == {'obj', 'var1', 'var2'}
+        obj_val = pickle.loads(data[3]['variables']['obj'])
+        if 2 not in expected_frame_keys:
+            # Import mod2 if we haven't already
+            mod2 = __import__(f"{pkg_name}.pkg1.mod2", fromlist=['dummy'], level=0)
+        assert isinstance(obj_val, mod2.mod2_cls)
+        assert pickle.loads(data[3]['variables']['var1']) == 'func2'
+        assert pickle.loads(data[3]['variables']['var2']) == 34
 
-    assert set(data[4]['variables'].keys()) == {'func1_var2', 'var1'}
-    assert pickle.loads(data[4]['variables']['func1_var2']) == 4.56
-    assert pickle.loads(data[4]['variables']['var1']) == [4, 5, 2]
+    # Check frame 4 (func1 in mod1.py) variables
+    if 4 in expected_frame_keys:
+        vars = set(data[4]['variables'].keys())
+        vars.discard('saveframe')
+        assert vars == {'func1_var2', 'var1'}
+        assert pickle.loads(data[4]['variables']['func1_var2']) == 4.56
+        assert pickle.loads(data[4]['variables']['var1']) == [4, 5, 2]
 
-    assert set(data[5]['variables'].keys()) == {'var1', 'var2'}
-    assert pickle.loads(data[5]['variables']['var1']) == 3
-    assert pickle.loads(data[5]['variables']['var2']) == 'blah'
+    # Check frame 5 (init_func1 in __init__.py) variables
+    if 5 in expected_frame_keys:
+        vars = set(data[5]['variables'].keys())
+        vars.discard('saveframe')
+        assert vars == {'var1', 'var2'}
+        assert pickle.loads(data[5]['variables']['var1']) == 3
+        assert pickle.loads(data[5]['variables']['var2']) == 'blah'
 
 
 def frames_local_variables_checker_for_keyboard_interrupt(filename):
@@ -264,7 +316,7 @@ def exception_info_checker_for_keyboard_interrupt(filename):
     assert data['exception_string'] == ''
 
 
-def create_pkg(tmpdir):
+def create_pkg(tmpdir, start_debugger=False):
     """
     Create a pacakge with multiple nested sub-packages and modules in ``tmpdir``.
     """
@@ -328,14 +380,66 @@ def create_pkg(tmpdir):
     """)
     os.mkdir(str(tmpdir/ pkg_name / "pkg1" / "pkg2"))
     writetext(tmpdir / pkg_name / "pkg1" / "pkg2" / "__init__.py", "")
-    writetext(tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py", """
-        def func3():
-            var1 = [4, 'foo', 2.4]
-            var2 = 'blah'
-            func3_var3 = True
-            raise ValueError("Error is raised")
-    """)
+    if start_debugger:
+        writetext(tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py", """
+            import pdb
+            def func3():
+                var1 = [4, 'foo', 2.4]
+                var2 = 'blah'
+                func3_var3 = True
+                pdb.set_trace()
+        """)
+    else:
+        writetext(tmpdir / pkg_name / "pkg1" / "pkg2" / "mod3.py", """
+            def func3():
+                var1 = [4, 'foo', 2.4]
+                var2 = 'blah'
+                func3_var3 = True
+                raise ValueError("Error is raised")
+        """)
     return pkg_name
+
+
+def _run_saveframe_in_debugger(tmpdir, num_frames=None, jump=False):
+    """
+    Helper function to run saveframe in debugger using pexpect.
+    """
+    pkg_name = create_pkg(tmpdir, start_debugger=True)
+    # Create a test script that imports and calls the package
+    test_script = writetext(tmpdir / f"debug_test_{get_random()}.py", f"""
+        import sys
+        sys.path.append('{tmpdir}')
+        from {pkg_name} import init_func1
+        init_func1()
+    """)
+    output_filename = str(tmpdir / f"debugger_saveframe_{get_random()}.pkl")
+
+    # Start the process with pexpect
+    child = pexpect.spawn('python', [str(test_script)], timeout=30)
+    try:
+        child.expect('(Pdb)')
+        # Jump up one frame if requested
+        if jump:
+            child.sendline('u')
+            child.expect('(Pdb)')
+        child.sendline('from pyflyby import saveframe')
+        child.expect('(Pdb)')
+
+        # Call saveframe in the debugger
+        if num_frames is not None:
+            child.sendline(f'saveframe(filename="{output_filename}", frames={num_frames})')
+        else:
+            child.sendline(f'saveframe(filename="{output_filename}")')
+        child.expect('(Pdb)')
+        child.sendline('c')
+        child.expect(pexpect.EOF)
+    finally:
+        child.close()
+
+    # Verify the output file was created by saveframe.
+    assert os.path.exists(output_filename)
+
+    return output_filename, pkg_name
 
 
 def test_saveframe_invalid_filename_1(tmpdir):
@@ -532,9 +636,8 @@ def test_saveframe_no_error_raised(tmpdir):
     with pytest.raises(RuntimeError) as err:
         exec(f"from {pkg_name} import init_func2; init_func2()")
         saveframe()
-    err_msg = ("No exception is raised currently for which to save the frames. "
-               "Make sure that an uncaught exception is raised before calling "
-               "the `saveframe` function.")
+    err_msg = ("No exception has been raised, and the session is not currently "
+               "within a debugger. Unable to save frames.")
     assert str(err.value) == err_msg
 
 
@@ -962,3 +1065,60 @@ def test_saveframe_cmdline_keyboard_interrupt_exception_info(tmpdir):
         f"init_func4; init_func4()"]
     run_command(command)
     exception_info_checker_for_keyboard_interrupt(filename)
+
+
+@pytest.mark.parametrize("num_frames", [1, 2, 3, 5])
+def test_saveframe_in_debugger_1(tmpdir, num_frames):
+    """
+    Test saveframe when called from within a debugger with different frame counts.
+    """
+    output_filename, pkg_name = _run_saveframe_in_debugger(
+        tmpdir, num_frames=num_frames)
+
+    frames_metadata_checker(tmpdir, pkg_name, output_filename, num_frames=num_frames)
+    frames_local_variables_checker(pkg_name, output_filename, num_frames=num_frames)
+
+
+def test_saveframe_in_debugger_2(tmpdir):
+    """
+    Test the default behavior of saveframe when called from within a debugger,
+    i.e., only the current frame is saved.
+    """
+    output_filename, pkg_name = _run_saveframe_in_debugger(tmpdir)
+
+    # Use the checker functions to verify the saved data - default behavior saves 1 frame
+    frames_metadata_checker(tmpdir, pkg_name, output_filename, num_frames=1)
+    frames_local_variables_checker(pkg_name, output_filename, num_frames=1)
+
+
+def test_saveframe_in_debugger_3(tmpdir):
+    """
+    Test saveframe when called from within a debugger after jumping one frame
+    up. It should save only the frame at which we are currently at. 
+    """
+    output_filename, pkg_name = _run_saveframe_in_debugger(
+        tmpdir, jump=True)
+
+    data = load_pkl(output_filename)
+    assert set(data.keys()) == {1}
+
+    # Verify frame metadata - should be func2's metadata saved as frame 1
+    frame_data = data[1]
+    assert frame_data["frame_index"] == 1
+    assert frame_data["function_name"] == "func2"
+    assert frame_data["function_qualname"] == ("func2" if VERSION_INFO < (3, 11) else "mod2_cls.func2")
+    assert frame_data["filename"] == str(tmpdir / pkg_name / "pkg1" / "mod2.py")
+    assert frame_data["lineno"] == 10
+    assert frame_data["code"] == 'func3()'
+    assert frame_data["module_name"] == f"{pkg_name}.pkg1.mod2"
+
+    # Verify local variables - should be func2's variables
+    variables = frame_data["variables"]
+    vars_set = set(variables.keys())
+    vars_set.discard('saveframe')
+    assert vars_set == {'self', 'var1', 'var2'}
+    mod2 = __import__(f"{pkg_name}.pkg1.mod2", fromlist=['dummy'], level=0)
+    self_val = pickle.loads(variables['self'])
+    assert isinstance(self_val, mod2.mod2_cls)
+    assert pickle.loads(variables['var1']) == 'foo'
+    assert pickle.loads(variables['var2']) == (4, 9, 10)
