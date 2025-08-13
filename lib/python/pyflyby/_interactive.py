@@ -771,8 +771,7 @@ class NamespaceWithPotentialImports(dict):
         # Check global names, including global-level known modules and
         # importable modules.
         results = set()
-        namespaces = get_global_namespaces(self._ip)
-        namespaces = ScopeStack(namespaces)
+        namespaces = ScopeStack(get_global_namespaces(self._ip))
         for ns in namespaces:
             for name in ns:
                 if '.' not in name:
@@ -780,21 +779,18 @@ class NamespaceWithPotentialImports(dict):
         results.update(known.member_names.get("", []))
         results.update([str(m) for m in ModuleHandle.list()])
         assert all('.' not in r for r in results)
-        results = sorted([r for r in results])
-        return results
+        return sorted([r for r in results])
 
     def keys(self):
-        return list(dict.keys(self)) + self._potential_imports_list
+        return list(self) + self._potential_imports_list
 
 
 def _auto_import_hook(name: str):
     logger.debug("_auto_import_hook(%r)", name)
     ip = _get_ipython_app().shell
     try:
-        namespaces = get_global_namespaces(ip)
-        namespaces = ScopeStack(namespaces)
-        db = None
-        db = ImportDB.interpret_arg(db, target_filename='.')
+        namespaces = ScopeStack(get_global_namespaces(ip))
+        db = ImportDB.interpret_arg(None, target_filename='.')
         did_auto_import = auto_import_symbol(name, namespaces, db)
     except Exception as e:
         logger.debug("_auto_import_hook preparation error: %r", e)
@@ -1823,11 +1819,9 @@ class AutoImporter:
                 return words
             with InterceptPrintsDuringPromptCtx(self._ip):
                 logger.debug("complete_object_hook(%r)", obj)
-                namespaces = get_global_namespaces(self._ip)
-                namespaces = ScopeStack(namespaces)
+                namespaces = ScopeStack(get_global_namespaces(self._ip))
                 # Get the database of known imports.
-                db = None
-                db = ImportDB.interpret_arg(db, target_filename=".")
+                db = ImportDB.interpret_arg(None, target_filename=".")
                 known = db.known_imports
                 results = set(words)
                 pname = obj.__name__
