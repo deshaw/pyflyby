@@ -836,7 +836,7 @@ class AnnotatedModule(ast.Module, AnnotatedAst):
 class PythonBlock:
     r"""
     Representation of a sequence of consecutive top-level
-    `PythonStatement` (s).
+    statements containing at most one AST node.
 
       >>> source_code = '# 1\nprint(2)\n# 3\n# 4\nprint(5)\nx=[6,\n 7]\n# 8\n'
       >>> codeblock = PythonBlock(source_code)
@@ -908,9 +908,8 @@ class PythonBlock:
         if isinstance(filename, str):
             filename = Filename(filename)
         assert isinstance(filename, (Filename, NoneType)), filename
-        text = FileText(text, filename=filename, startpos=startpos)
         self = object.__new__(cls)
-        self.text = text
+        self.text = FileText(text, filename=filename, startpos=startpos)
         self._input_flags = CompilerFlags(flags)
         self._auto_flags = auto_flags
         return self

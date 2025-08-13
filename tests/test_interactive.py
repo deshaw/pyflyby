@@ -34,6 +34,7 @@ from   typing                   import Union
 
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
+_TESTED_EVALUATION_SETTINGS = ['greedy=True', "evaluation='limited'"]
 
 _env_timeout = os.getenv("PYFLYBYTEST_DEFAULT_TIMEOUT", None)
 if _env_timeout is not None:
@@ -180,12 +181,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
 
     if _IPYTHON_VERSION < (1, 0):
         assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (0, 11):
-        assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (0, 12):
-        assert False, "we don't support IPython pre  1.0 anymore"
-    if _IPYTHON_VERSION < (1, 0):
-        assert False, "we don't support IPython pre  1.0 anymore"
         # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
     regexp = re.sub(re.compile(br"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
@@ -197,6 +192,7 @@ def assert_match(result, expected, ignore_prompt_number=False):
     regexp = re.compile(regexp)
     result = b'\n'.join(line.rstrip() for line in result.splitlines())
     result = result.strip()
+
     if DEBUG:
         print("expected: %r" % (expected,))
         print("result  : %r" % (result,))
@@ -437,6 +433,10 @@ try:
 except AttributeError:
     _IPYTHON_VERSION = _parse_version(IPython.__version__)
 
+
+# `policy_overrides` and `auto_import_method` were added in IPython 9.3
+_SUPPORTS_TAB_AUTO_IMPORT = _IPYTHON_VERSION < (9, 3)
+
 # Prompts that we expect for.
 _IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
 _IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
@@ -640,6 +640,7 @@ PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 
 class AnsiFilterDecoder(object):
+    # TODO: replace this with `pyte`?
 
     def __init__(self):
         self._buffer = b""
@@ -650,6 +651,7 @@ class AnsiFilterDecoder(object):
         arg = re.sub(b"\r+\n", b"\n", arg)
         arg = arg.replace(b"\x1b[J", b"")             # clear to end of display
         arg = re.sub(br"\x1b\[[0-9]+(?:;[0-9]+)*m", b"", arg) # color
+        arg = re.sub(br"([^\n])(\[PYFLYBY\])", br"\1\n\2", arg) # ensure [PYFLYBY] goes on its own line
         arg = arg.replace(b"\x1b[6n", b"")            # query cursor position
         arg = arg.replace(b"\x1b[?1l", b"")           # normal cursor keys
         arg = arg.replace(b"\x1b[?7l", b"")           # no wraparound mode
@@ -663,11 +665,11 @@ class AnsiFilterDecoder(object):
         arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
         arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
         arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
+        arg = arg.replace(b'\x1b[A', b'')             # move the cursor up one line
         arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
-        arg = arg.replace(b'?[33m', b'')              # (???)
-        arg = arg.replace(b'?[0m', b'')              # (???)
+        arg = arg.replace(b'?[33m', b'')              # yellow text
+        arg = arg.replace(b'?[0m', b'')              # reset (no more yellow)
 
-        
         # cursor movement on PTK 3.0.6+ compute the number of back and forth and
         # insert that many spaces.
         pat = br"\x1b\[(\d+)D\x1b\[(\d+)C"
@@ -680,8 +682,6 @@ class AnsiFilterDecoder(object):
             start, stop = match.start(), match.end()
             arg = arg[:start]+n_spaces*b' '+arg[stop:]
             match = re.search(pat, arg)
-
-
 
         arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
         # Cursor movement. We assume this is used only for places that have '...'
@@ -775,8 +775,6 @@ class AnsiFilterDecoder(object):
             else:
                 print("AnsiFilterDecoder: %r [no change]" % (arg,))
         return arg
-
-
 
 class MySpawn(pexpect.spawn):
 
@@ -948,23 +946,6 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                     # is there a better way?
                     _wait_for_output(child, timeout=0.05)
                 break
-        if line.startswith(b" ") and is_prompt_toolkit and _IPYTHON_VERSION < (7,):
-            # Clear the line via ^U. This is needed with prompt_toolkit
-            # (IPython 5 and 6) because it is no longer possible to turn off
-            # autoindent. (IPython now relies on bracketed paste mode; they
-            # assumed that was the only reason to turn off autoindent. Another
-            # idea is to use bracket paste mode, i.e. ESC[200~blahESC[201~.
-            # But that causes IPython to not print a "...:" prompt that it
-            # would be nice to see. This was fixed in IPython 7.0) We also
-            # sleep afterwards to make sure that IPython doesn't optimize the
-            # output.
-            # For example, without the sleep, if IPython defaulted 4 spaces and
-            # we wanted 1 space, we would send "^U blah"; after IPython printed
-            # out the 4 spaces it would backspace 3 of them and ultimately do
-            # "    ESC[3D   ESC[3Dblah".  That's hard for us to match.  It's
-            # better if it sends out "     ESC[4D    ESC[4D blah".
-            child.send(b"\x15") # ^U
-            time.sleep(0.02)
         while line:
             left, tab, right = line.partition(b"\t")
             # if DEBUG:
@@ -977,7 +958,6 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 # Send the tab.
                 child.send(tab)
                 # Wait for response to tab.
-                # if _IPYTHON_VERSION >= (5,):
                 if is_prompt_toolkit:
                     # When using prompt_toolkit (default for IPython 5+), we
                     # need to wait for output.
@@ -1394,9 +1374,6 @@ def _clean_ipython_output(result):
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(br"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), b"<ipython-input>", result)
     result = re.sub(re.compile(br"^----> .*?\n", re.M), b"", result)
-    # Remove cruft resulting from flakiness in 'ipython console'
-    if _IPYTHON_VERSION < (2,):
-        result = re.sub(re.compile(br"Exception in thread Thread-[0-9]+ [(]most likely raised during interpreter shutdown[)]:.*", re.S), b"", result)
     # Remove trailing post-exit message.
     if _IPYTHON_VERSION >= (3,):
         result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
@@ -1555,21 +1532,42 @@ def test_ipython_tab_fail_1(frontend):
     )
 
 
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_ipython_tab_multi_1(frontend):
     # Test that our test harness works for tab when there are multiple matches
-    # for tab completion.
-    if frontend == "prompt_toolkit": pytest.skip()
-    # Currently our test harness is only able to test this using rlipython.
+    # for tab completion. This test checks whether the common prefix gets added.
     ipython("""
         In [1]: def foo(): pass
         In [2]: foo.xyz1 = 111
         In [3]: foo.xyz2 = 222
         In [4]: foo.xy\t
-        foo.xyz1  foo.xyz2
-        In [4]: foo.xyz\x062
-        Out[4]: 222
-    """, frontend=frontend)
+        In [4]: foo.xyz\x06
+        ...
+        ...
+        ...
+        AttributeError: 'function' object has no attribute 'xyz'
+    """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
+
+
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
+@retry
+def test_ipython_tab_multi_2(frontend):
+    # Test that our test harness works for tab when there are multiple matches
+    # for tab completion. This test checks if multiple suggestions are shown.
+    ipython("""
+        In [1]: def foo(): pass
+        In [2]: foo.xyz1 = 111
+        In [3]: foo.xyz2 = 222
+        In [4]: foo.xyz\t
+        In [4]: foo.xyz
+        .xyz1 .xyz2
+        ...
+        ...
+        ...
+        ...
+        AttributeError: 'function' object has no attribute 'xyz'
+    """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
 
 @retry
@@ -1624,7 +1622,6 @@ def test_autoimport_1():
     """)
 
 
-# @pytest.mark.skipif(_IPYTHON_VERSION > (8, 0), reason="Strange output missparsing")
 @retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
@@ -1824,27 +1821,26 @@ def test_autoimport_multiline_statement_1():
 
 @retry
 def test_autoimport_multiline_continued_statement_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
            ...:     (sys.
            ...:         stdout
-           ...:             .write(
-           ...:                 b64decode(
-           ...:                     'bWljcm9waG9uZQ==')))
+           ...:             .buffer
+           ...:                 .write(
+           ...:                     b64decode(
+           ...:                         'bWljcm9waG9uZQ==')))
            ...:
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] import sys
         microphone
-        In [3]: if 1: sys.stdout.write(b64decode('bG91ZHNwZWFrZXI='))
+        In [3]: if 1: sys.stdout.buffer.write(b64decode('bG91ZHNwZWFrZXI='))
         loudspeaker
     """, frontend=frontend)
 
 
 @retry
 def test_autoimport_multiline_continued_statement_fake_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
@@ -2134,6 +2130,7 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_basic_1():
     # Verify that tab completion works.
@@ -2145,32 +2142,33 @@ def test_complete_symbol_basic_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b64\t
-        b64decode  b64encode
+        In [2]: print(b64
+        b64decode b64encode
         In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(b6\t
-        b64decode  b64encode
-        In [2]: print(b64\x06d\tecode)
+        In [2]: print(b64\x06decode)
         [PYFLYBY] from base64 import b64decode
         <function b64decode...>
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
@@ -2192,6 +2190,7 @@ def test_complete_symbol_import_check_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_instance_identity_1():
     # Verify that automatic symbols give the same instance (i.e., no proxy
@@ -2205,6 +2204,7 @@ def test_complete_symbol_instance_identity_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_1(frontend):
     # Verify that tab completion in members works.
@@ -2223,17 +2223,16 @@ def test_complete_symbol_member_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b64\t
-        [PYFLYBY] import base64
         In [2]: print(base64.b64
-        base64.b64decode  base64.b64encode
+        .b64decode .b64encode
+        [PYFLYBY] import base64
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
@@ -2244,17 +2243,14 @@ def test_complete_symbol_member_multiple_1(frontend):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
-    if frontend == "prompt_toolkit":
-        pytest.skip()
     ipython(
         """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: print(base64.b6\t
         [PYFLYBY] import base64
-        In [2]: print(base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: print(base64.b64)
         ---------------------------------------------------------------------------
         AttributeError                            Traceback (most recent call last)
@@ -2265,6 +2261,7 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_import_module_as_1(frontend, tmp):
     writetext(tmp.file, "import base64 as b64\n")
@@ -2277,6 +2274,7 @@ def test_complete_symbol_import_module_as_1(frontend, tmp):
     """, PYFLYBY_PATH=tmp.file, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_statement_1():
     # Verify that tab completion in statements works.  This requires a more
@@ -2290,6 +2288,7 @@ def test_complete_symbol_statement_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiline_statement_1():
     ipython("""
@@ -2306,25 +2305,27 @@ def test_complete_symbol_multiline_statement_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: if 1:
            ...:     print(base64.b64d\t
         [PYFLYBY] import base64
+        In [2]: if 1:
            ...:     print(base64.b64decode('Z2lyYWZmZQ=='))
            ...:     print(42)
            ...:
-        giraffe
+        b'giraffe'
         42
         In [3]: print(b64d\tecode('bGlvbg=='))
         [PYFLYBY] from base64 import b64decode
-        lion
+        b'lion'
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
@@ -2340,7 +2341,7 @@ def test_complete_symbol_autocall_arg_1():
             Out[2]: b'CHEWBACCA'
         """, autocall=True)
     else:
-        # IPython 7.17+ shoudl have fixed double autocall
+        # IPython 7.17+ should have fixed double autocall
         ipython("""
             In [1]: import pyflyby; pyflyby.enable_auto_importer()
             In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
@@ -2350,6 +2351,7 @@ def test_complete_symbol_autocall_arg_1():
         """, autocall=True)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_any_module_1(frontend, tmp):
     # Verify that completion and autoimport works for an arbitrary module in
@@ -2365,6 +2367,7 @@ def test_complete_symbol_any_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
@@ -2381,6 +2384,7 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
@@ -2402,6 +2406,7 @@ def test_complete_symbol_bad_1(frontend, tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
@@ -2422,43 +2427,60 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     )
 
 
+@retry
 def test_complete_symbol_getitem_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    if _IPYTHON_VERSION >= (5,): pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: apples = ['McIntosh', 'PinkLady']
         In [3]: apples[1].l\t
-        apples[1].ljust   apples[1].lower   apples[1].lstrip
+        In [3]: apples[1].l
+        ljust()  lower()  lstrip()
         In [3]: apples[1].l\x06ow\ter()
         Out[3]: 'pinklady'
-    """, args=['--InteractiveShell.readline_remove_delims=-/~[]'],
+    """,
             frontend=frontend)
 
 
-def test_complete_symbol_greedy_eval_1():
+def test_complete_symbol_getitem_no_jedi_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %config IPCompleter.greedy=True
+        In [2]: apples = ['McIntosh', 'PinkLady']
+        In [3]: apples[1].l\t
+        In [3]: apples[1].l
+        .ljust  .lower  .lstrip
+        In [3]: apples[1].l\x06ow\ter()
+        Out[3]: 'pinklady'
+    """,
+            args=['--IPCompleter.use_jedi=False'],
+            frontend=frontend)
+
+
+@pytest.mark.parametrize('evaluation', _TESTED_EVALUATION_SETTINGS)
+def test_complete_symbol_eval_1(evaluation):
+    ipython(f"""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: %config IPCompleter.{evaluation}
         In [3]: apple = 'Fuji'
         In [4]: apple.lower()[0].stri\tp()
         Out[4]: 'f'
     """)
 
 
-def test_complete_symbol_greedy_eval_autoimport_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
-    if _IPYTHON_VERSION >= (5,): pytest.skip()
-    ipython("""
+
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.parametrize('evaluation', _TESTED_EVALUATION_SETTINGS)
+def test_complete_symbol_eval_autoimport_1(frontend, evaluation):
+    ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %config IPCompleter.greedy=True
+        In [2]: %config IPCompleter.{evaluation}
         In [3]: os.sep.strip().lst\t
         [PYFLYBY] import os
-        In [3]: os.sep.strip().lst\trip()
-        Out[3]: '/'
+        In [3]: os.sep.strip().lst\trip
+        Out[3]: <function str.lstrip(chars=None, /)>
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
@@ -2526,6 +2548,7 @@ def test_disable_reenable_autoimport_1():
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_disable_reenable_completion_1():
     ipython(
@@ -2624,7 +2647,6 @@ def test_error_during_auto_import_expression_1(tmp):
 
 @retry
 def test_error_during_completion_1(frontend, tmp):
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.file, "3+")
     ipython(
         """
@@ -2927,6 +2949,7 @@ def test_timeit_1():
     """)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
@@ -2938,31 +2961,33 @@ def test_timeit_complete_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: timeit -n 2 -r 1 b64\t
-        b64decode  b64encode
-        In [2]: timeit -n 2 -r 1 b64\x06d\tecode('YmxhbmtldA==')
+        In [2]: timeit -n 2 -r 1 b64
+        b64decode b64encode
+        In [2]: timeit -n 2 -r 1 b64\x06de\tcode('YmxhbmtldA==')
         [PYFLYBY] from base64 import b64decode
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_timeit_complete_autoimport_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: timeit -n 2 -r 1 base64.b6\t
+        In [2]: timeit -n 2 -r 1 base64.b64\t
+        In [2]: timeit -n 2 -r 1 base64.b64
+        .b64decode .b64encode
         [PYFLYBY] import base64
-        In [2]: timeit -n 2 -r 1 base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: timeit -n 2 -r 1 base64.b64\x06dec\tode('bWF0dHJlc3M=')
-        2 loops, best of 1: ... per loop
+        ... per loop (mean ± std. dev. of 1 run, 2 loops each)
     """, frontend=frontend)
 
 
@@ -3014,6 +3039,7 @@ def test_time_repeat_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
@@ -3027,14 +3053,15 @@ def test_time_complete_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: time b64\t
-        b64decode  b64encode
+        In [2]: time b64
+        b64decode b64encode
         In [2]: time b64\x06d\tecode('cGFudHM=')
         [PYFLYBY] from base64 import b64decode
         CPU times: ...
@@ -3043,15 +3070,16 @@ def test_time_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
 def test_time_complete_autoimport_member_1(frontend):
-    if frontend == "prompt_toolkit": pytest.skip()
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: time base64.b6\t
+        In [2]: time base64.b64\t
+        In [2]: time base64.b64
+        .b64decode .b64encode
         [PYFLYBY] import base64
-        In [2]: time base64.b6
-        base64.b64decode  base64.b64encode
         In [2]: time base64.b64\x06dec\tode('amFja2V0')
         CPU times: ...
         Wall time: ...
@@ -3271,6 +3299,7 @@ def test_ipython_notebook_reconnect_1():
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_py_interactive_1():
     # Verify that 'py' enables pyflyby autoimporter at start.
@@ -3354,6 +3383,7 @@ def test_py_notebook_1():
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
@@ -3386,6 +3416,7 @@ def _install_load_ext_pyflyby_in_config(ipython_dir):
         print('c.InteractiveShellApp.extensions.append("pyflyby")', file=f)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_ipython_cmdline_1(tmp):
     # Verify that autoimport works in 'ipython' when pyflyby is installed in
@@ -3408,6 +3439,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_redundant_1(tmp):
     # Verify that redundant installations are fine.
@@ -3469,6 +3501,7 @@ def test_installed_in_config_ipython_notebook_1(tmp):
         """, args=['console'], kernel=kernel)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
@@ -3497,6 +3530,7 @@ def test_installed_in_config_disable_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
@@ -3526,6 +3560,7 @@ def test_installed_in_config_enable_noop_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_ipython_py_1(tmp):
     # Verify that installation in ipython_config and 'py' are compatible.
@@ -3554,6 +3589,7 @@ def test_installed_in_config_ipython_py_1(tmp):
     )
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
@@ -3567,6 +3603,7 @@ def test_manual_install_profile_startup_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_ipython_config_direct_1(tmp):
     # Verify that manually installing in ipython_config.py works when enabling
@@ -3581,6 +3618,7 @@ def test_manual_install_ipython_config_direct_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
@@ -3596,6 +3634,7 @@ def test_manual_install_exec_lines_1(tmp):
     """, ipython_dir=tmp.ipython_dir)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
@@ -3616,6 +3655,7 @@ def test_manual_install_exec_files_1(tmp):
 
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
@@ -3625,6 +3665,7 @@ def test_cmdline_enable_c_i_1(tmp):
     """, args=['-c', 'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_cmdline_enable_code_to_run_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cm90dHdlaWxlcg==')
@@ -3634,6 +3675,7 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
                'import pyflyby; pyflyby.enable_auto_importer()', '-i'])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
@@ -3645,6 +3687,7 @@ def test_cmdline_enable_exec_lines_1(tmp):
         '''["__import__('pyflyby').enable_auto_importer()"]'''])
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_cmdline_enable_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -3796,7 +3839,7 @@ def test_debug_postmortem_auto_import_1(frontend):
     """, frontend=frontend)
 
 
-@retry
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_db_1(frontend):
     # Verify that tab completion from database works.
     ipython("""
@@ -3813,7 +3856,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """
@@ -3826,18 +3869,19 @@ def test_debug_tab_completion_module_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(thornton60097\t181.rando\t
+        ipdb> thornton60097\t181.rando\t
+        ipdb> thornton60097181.rando\x06
         [PYFLYBY] import thornton60097181
-        ipdb> print(thornton60097181.randolph)
+        lph
         14164598
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
-    if frontend == "prompt_toolkit": pytest.skip()
     writetext(tmp.dir/"sturbridge9088333.py", """
         nebula_41695458 = 1
         nebula_10983840 = 2
@@ -3849,20 +3893,21 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
         ZeroDivisionError: ...
         In [3]: %debug
         ....
-        ipdb> print(sturbridge9088333.neb\t
+        ipdb> sturbridge9088333.nebula_\t
+        ipdb> sturbridge9088333.nebula_
+        .nebula_10983840 .nebula_41695458
+        ipdb> sturbridge9088333.nebula_
         [PYFLYBY] import sturbridge9088333
-        ipdb> print(sturbridge9088333.neb
-        sturbridge9088333.nebula_10983840  sturbridge9088333.nebula_41695458
-        ipdb> print(sturbridge9088333.nebula_)
-        *** AttributeError: sturbridge9088333 has no attribute 'nebula_'
+        *** AttributeError: module 'sturbridge9088333' has no attribute 'nebula_'
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
-    ipython("""
+    template = """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: def foo(x, y):
            ...:     return x / y
@@ -3874,14 +3919,26 @@ def test_debug_postmortem_tab_completion_1(frontend):
         TypeError: unsupported operand type(s) for /: 'str' and 'str'
         In [4]: %debug
         ....
-        ipdb> print(x + base64.b64d\t
-        [PYFLYBY] import base64
-        ipdb> print(x + base64.b64decode("Lw==").decode('utf-8') + y)
+        ipdb> func = base64.b64d\t{0}
+        ipdb> print(x + func("Lw==").decode('utf-8') + y)
         Camden/Hopkinson
         ipdb> q
-    """, frontend=frontend)
+    """
+    scenario_a = """
+        ipdb> func = base64.b64d\x06
+        [PYFLYBY] import base64
+        ecode"""
+    scenario_b = """
+        ipdb> func = base64.b64decode
+        [PYFLYBY] import base64"""
+    try:
+        ipython(template.format(scenario_a), frontend=frontend)
+    except pytest.fail.Exception:
+        ipython(template.format(scenario_b), frontend=frontend)
 
-@pytest.mark.xfail(IPython.version_info >= (8, 14), reason='not working on tab completion since https://github.com/ipython/ipython/pull/13889')
+
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@retry
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3905,6 +3962,7 @@ def test_debug_namespace_1_py3(frontend):
         ipdb> p b64deco\tde("Q29udGluZW50YWw=")
         b'Continental'
         ipdb> q
+        [PYFLYBY] import base64
         In [5]: base64.b64de\t
         In [5]: base64.b64decode("SGlsbA==") + b64deco\tde("TGFrZQ==")
         [PYFLYBY] from base64 import b64decode
@@ -3912,6 +3970,8 @@ def test_debug_namespace_1_py3(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.

@@ -11,6 +11,7 @@ import sys
 from   textwrap                 import dedent
 import types
 
+from   pyflyby._file            import FileText
 from   pyflyby._format          import FormatParams
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import (canonicalize_imports,
@@ -19,6 +20,7 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         remove_broken_imports,
                                         replace_star_imports,
                                         transform_imports)
+from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
 from   pyflyby._parse           import PythonBlock
 
 
@@ -1159,3 +1161,64 @@ def test_reformat_import_statements_respect_width_3(tmp_path):
         input,
         FormatParams(max_line_length=FormatParams.max_line_length_default),
     )
+
+@pytest.mark.parametrize(
+    ("text"),
+    [
+        "import foo # test comment # more text",
+        "from foo import bar, bar2 # test comment",
+        "from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl # test comment",
+        "from foo import (\n    bar # test comment\n)",
+        "from foo import (\n\n    bar # test comment\n)",
+        "from foo import ( # test comment\n    bar\n)",
+        "from foo import ( # test comment\n    bar,\n)",
+        "from foo import (\n    bar, # test comment\n)",
+        "from foo import (\n    bar\n) # test comment\n",
+        "from foo import (\n    bar, # test comment\n    bar2\n)",
+        "from foo import (\n    bar,\n    bar2 # test comment\n)",
+        "import foo # test comment",
+        "from foo import bar # test comment",
+        "import foo",
+        "import foo as bar",
+        "from foo import bar, bar2",
+        "from foo import bar, bar2, baz, quux, abc, defg, lmo, pqr, nmp, qrs, ghi, jkl",
+    ]
+)
+def test_fumi(text):
+    """Test fix_unused_and_missing_imports keeps 1-line comments for single aliases."""
+    kwargs = {
+        'params': ImportFormatParams(
+            align_imports=(32,),
+            from_spaces=3,
+            separate_from_imports=False,
+            max_line_length=None,
+            use_black=False,
+            align_future=False,
+            hanging_indent="never",
+        ),
+        'add_missing': True,
+        'remove_unused': 'AUTOMATIC',
+        'add_mandatory': True,
+    }
+
+    imp_stmt = ImportStatement._from_str(text)
+
+    # Insert all the imports in the text as variables in the fake code block,
+    # so they don't get removed when calling fix_unused_and_missing_imports
+    fake_code_block = (
+        "\n\nif __name__ == '__main__':\n    "
+        + '\n    '.join(imp.import_as for imp in imp_stmt.imports)
+    )
+    fixed = str(
+        fix_unused_and_missing_imports(
+            FileText(text + fake_code_block),
+            **kwargs
+        )
+    )
+
+    # Only single alias imports have comments preserved
+    if "#" in text and len(imp_stmt.aliases) == 1:
+        assert "test comment" in fixed or "test comment # more text" in fixed
+    else:
+        assert '#' not in fixed
+        assert 'test_comment' not in fixed
