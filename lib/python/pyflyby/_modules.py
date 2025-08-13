@@ -509,7 +509,7 @@ def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
 
     This function patches `pkgutil.iter_importer_modules` for
     `importlib.machinery.FileFinder` types, causing `pkgutil.iter_importer_modules` to
-    call our own custom _fast_iter_finder_modules instead of
+    call our own custom _iter_file_finder_modules instead of
     pkgutil._iter_file_finder_modules.
 
     :return: The modules that are importable by python
