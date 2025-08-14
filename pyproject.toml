@@ -25,10 +25,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "black",
     "six",
     "toml",
-    "black",
-    "typing_extensions>=4.6; python_version<'3.12'"
+    "typing_extensions>=4.6; python_version<'3.12'",
+    'epydoc',
+    'wheel', # required by epydoc, but not listed as a dependency
 ]
 [project.urls]
 Homepage = "https://pypi.org/project/pyflyby/"
@@ -43,7 +45,6 @@ py3 = "pyflyby._py:py_main"
 test = [
     'build',
     'coverage',
-    'epydoc',
     'flaky',
     'hypothesis',
     'ipykernel>=5.4.3',
@@ -64,7 +65,7 @@ lint = [
     'flake8',
     'mypy',
     'pyflakes',
-    'types-six'
+    'types-six',
 ]
 docs = [
     'sphinx',
