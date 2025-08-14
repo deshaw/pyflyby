@@ -13,8 +13,11 @@ jobs:
         python-version: 3.13
     - name: Install pyflyby
       run: |
-        pip install -U pip
-        pip install -v . --group lint
+        # Include build dependencies for run time; see
+        # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
+        # for details.
+        pip install meson-python meson ninja pybind11>=2.10.4
+        pip install --no-build-isolation -ve . --group lint
     - name: Mypy
       run: |
         mypy lib/python --ignore-missing-imports

@@ -45,6 +45,7 @@ test = [
     'coverage',
     'epydoc',
     'flaky',
+    'hypothesis',
     'ipykernel>=5.4.3',
     'ipython',
     'jupyter',
