@@ -17,6 +17,7 @@ jobs:
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
         pip install meson-python meson ninja pybind11>=2.10.4
+        pip install setuptools wheel # needed for epydoc
         pip install --no-build-isolation -ve . --group lint
     - name: Mypy
       run: |
