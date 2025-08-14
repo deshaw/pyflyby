@@ -15,8 +15,7 @@ subdir('lib/python/pyflyby')
 install_data(
   ['libexec/pyflyby/colordiff', 'libexec/pyflyby/diff-colorize'],
   install_dir: py.get_install_dir(
-    subdir: 'libexec/pyflyby',
-    pure: true, # Not really pure, these are bash scripts, but we're not compiling them.
+    subdir: 'pyflyby/libexec/pyflyby',
   )
 )
 
@@ -30,16 +29,14 @@ install_data(
     './etc/pyflyby/std.py',
   ],
   install_dir: py.get_install_dir(
-    subdir: 'etc/pyflyby',
-    pure: true,
+    subdir: 'pyflyby/etc/pyflyby',
   )
 )
 
 install_data(
   ['./lib/emacs/pyflyby.el'],
   install_dir: py.get_install_dir(
-    subdir: 'share/emacs/site-lisp',
-    pure: true,
+    subdir: 'pyflyby/share/emacs/site-lisp',
   )
 )
 

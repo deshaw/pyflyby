@@ -459,7 +459,7 @@ Emacs support
 
 * To get a ``M-x tidy-imports`` command in GNU Emacs, add to your ``~/.emacs``::
 
-    (load "/path/to/pyflyby/lib/emacs/pyflyby.el")
+    (load "/<site-packages>/pyflyby/share/emacs/site-lisp/pyflyby.el")
 
 
 - Pyflyby.el doesn't yet work with XEmacs; patches welcome.
@@ -546,5 +546,3 @@ Release
 
 8. Check/update https://github.com/conda-forge/pyflyby-feedstock for new pyflyby
    release on conda-forge
-
-

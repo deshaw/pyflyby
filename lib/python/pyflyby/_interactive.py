@@ -758,13 +758,13 @@ class NamespaceWithPotentialImports(dict):
         dict.__init__(values)
         self._ip = ip
 
+
     @property
     def _potential_imports_list(self):
         """Collect symbols that could be imported into the namespace.
 
         This needs to be executed each time because the context can change,
         e.g. when in pdb the frames and their namespaces will change."""
-
         db = None
         db = ImportDB.interpret_arg(db, target_filename=".")
         known = db.known_imports
