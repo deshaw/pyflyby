@@ -2,24 +2,27 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import print_function
+from __future__ import annotations
 
 import ast
-from   functools                import cached_property, total_ordering
+from   functools                import cached_property, total_ordering, partial
+import importlib
 import itertools
 import os
+import pkgutil
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
+from   pyflyby._fast_iter_modules import _iter_file_finder_modules
 
 import re
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Dict
+from   typing                   import Any, Dict, Generator
 
 class ErrorDuringImportError(ImportError):
     """
@@ -280,32 +283,20 @@ class ModuleHandle(object):
 
     @staticmethod
     @memoize
-    def list():
-        """
-        Enumerate all top-level packages/modules.
+    def list() -> list[str]:
+        """Enumerate all top-level packages/modules.
 
-        :rtype:
-          ``tuple`` of `ModuleHandle` s
+        The current working directory is excluded for autoimporting; if we autoimported
+        random python scripts in the current directory, we could accidentally execute
+        code with side effects.
+
+        Also exclude any module names that are not legal python module names (e.g.
+        "try.py" or "123.py").
+
+        :return: A list of all importable module names
         """
-        import pkgutil
-        # Get the list of top-level packages/modules using pkgutil.
-        # We exclude "." from sys.path while doing so.  Python includes "." in
-        # sys.path by default, but this is undesirable for autoimporting.  If
-        # we autoimported random python scripts in the current directory, we
-        # could accidentally execute code with side effects.  If the current
-        # working directory is /tmp, trying to enumerate modules there also
-        # causes problems, because there are typically directories there not
-        # readable by the current user.
         with ExcludeImplicitCwdFromPathCtx():
-            modlist = pkgutil.iter_modules(None)
-            module_names = [t[1] for t in modlist]
-        # pkgutil includes all *.py even if the name isn't a legal python
-        # module name, e.g. if a directory in $PYTHONPATH has files named
-        # "try.py" or "123.py", pkgutil will return entries named "try" or
-        # "123".  Filter those out.
-        module_names = [m for m in module_names if is_identifier(m)]
-        # Canonicalize.
-        return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
+            return [mod.name for mod in fast_iter_modules() if is_identifier(mod.name)]
 
     @cached_property
     def submodules(self):
@@ -511,3 +502,23 @@ class ModuleHandle(object):
                     module = cls(result)
         logger.debug("Imported %r to get %r", module, identifier)
         return module
+
+SUFFIXES = sorted(importlib.machinery.all_suffixes())
+def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
+    """Return an iterator over all importable python modules.
+
+    This function patches `pkgutil.iter_importer_modules` for
+    `importlib.machinery.FileFinder` types, causing `pkgutil.iter_importer_modules` to
+    call our own custom _iter_file_finder_modules instead of
+    pkgutil._iter_file_finder_modules.
+
+    :return: The modules that are importable by python
+    """
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder, partial(_iter_file_finder_modules, suffixes=SUFFIXES)
+    )
+    yield from pkgutil.iter_modules()
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder,
+        pkgutil._iter_file_finder_modules,  # type: ignore[attr-defined]
+    )
