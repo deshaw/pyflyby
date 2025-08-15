@@ -4106,6 +4106,9 @@ def test_breakpoint_IOStream_broken():
             frontend='prompt_toolkit',
         )
     else:
+        # The `__call__` in trace below is expected because
+        # the next instruction is IPython's `displayhook`
+        # at `IPython.core.displayhook.DisplayHook.__call__`.
         ipython(
             '''
             In [1]: breakpoint()
