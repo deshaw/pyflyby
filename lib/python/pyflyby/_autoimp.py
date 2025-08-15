@@ -29,6 +29,15 @@ import types
 from   typing                   import (Any, Dict, List, Optional, Set, Tuple,
                                         Union)
 
+
+if sys.version_info >= (3, 13):
+    def f():
+        return sys._getframe().f_locals
+
+    FrameLocalsProxyType = type(f())
+else:
+    FrameLocalsProxyType = dict
+
 if sys.version_info >= (3, 12):
     ATTRIBUTE_NAME = "value"
 else:
@@ -94,8 +103,8 @@ class ScopeStack(Sequence):
                 % (type(arg).__name__,))
         if not len(scopes):
             raise TypeError("ScopeStack: no scopes given")
-        if not all(isinstance(scope, dict) for scope in scopes):
-            raise TypeError("ScopeStack: Expected list of dicts; got a sequence of %r"
+        if not all(isinstance(scope, (dict, FrameLocalsProxyType)) for scope in scopes):
+            raise TypeError("ScopeStack: Expected list of dict or FrameLocalsProxy objects; got a sequence of %r"
                             % ([type(x).__name__ for x in scopes]))
         scopes = [builtins.__dict__, _builtins2] + scopes
         result = []

@@ -12,6 +12,14 @@ from   pyflyby                  import Filename, xreload
 from   pyflyby._livepatch       import UnknownModuleError
 
 
+def maybe_dedent(docstring):
+    if sys.version_info >= (3, 13):
+        # Python 3.13 dedents docstrings
+        # https://github.com/python/cpython/issues/81283
+        return dedent(docstring)
+    return docstring
+
+
 @pytest.fixture
 def tpp(request):
     """
@@ -840,8 +848,8 @@ def test_xreload_module_doc_1(tpp):
     """)
     import brain29321610
     from brain29321610 import f
-    assert brain29321610.__doc__ == "\n  hello\n  there\n"
-    assert f() == "\n  hello\n  there\n!"
+    assert brain29321610.__doc__ == maybe_dedent("\n  hello\n  there\n")
+    assert f() == maybe_dedent("\n  hello\n  there\n") + "!"
     writetext(tpp/"brain29321610.py", """
         '''
           goodbye
@@ -851,8 +859,8 @@ def test_xreload_module_doc_1(tpp):
             return __doc__ + '?'
     """)
     xreload('brain29321610')
-    assert brain29321610.__doc__ == "\n  goodbye\n  there\n"
-    assert f() == "\n  goodbye\n  there\n?"
+    assert brain29321610.__doc__ == maybe_dedent("\n  goodbye\n  there\n")
+    assert f() == maybe_dedent("\n  goodbye\n  there\n") + "?"
 
 
 def test_xreload_function_doc_1(tpp):
@@ -871,8 +879,8 @@ def test_xreload_function_doc_1(tpp):
             '''
     """)
     from dinner85190349 import Weekend, weekday
-    assert Weekend.date.__doc__ == "\n          abc\n           def\n        "
-    assert weekday.__doc__ == "\n     a\n      b\n    "
+    assert Weekend.date.__doc__ == maybe_dedent("\n          abc\n           def\n        ")
+    assert weekday.__doc__ == maybe_dedent("\n     a\n      b\n    ")
     writetext(tpp/"dinner85190349.py", """
         class Weekend(object):
             '''
@@ -891,8 +899,8 @@ def test_xreload_function_doc_1(tpp):
             '''
     """)
     xreload("dinner85190349")
-    assert Weekend.date.__doc__ == "\n          abc\n           DEF\n        "
-    assert weekday.__doc__ == "\n     a\n      B\n    "
+    assert Weekend.date.__doc__ == maybe_dedent("\n          abc\n           DEF\n        ")
+    assert weekday.__doc__ == maybe_dedent("\n     a\n      B\n    ")
 
 
 def test_xreload_class_doc_1(tpp):
@@ -907,7 +915,7 @@ def test_xreload_class_doc_1(tpp):
             '''
     """)
     from experience90592183 import Beautiful
-    assert Beautiful.__doc__ == "\n       ab\n        cd\n    "
+    assert Beautiful.__doc__ == maybe_dedent("\n       ab\n        cd\n    ")
     writetext(tpp/"experience90592183.py", """
         class Beautiful(object):
             '''
@@ -916,7 +924,7 @@ def test_xreload_class_doc_1(tpp):
             '''
     """)
     xreload("experience90592183")
-    assert Beautiful.__doc__ == "\n       ab\n        CD\n    "
+    assert Beautiful.__doc__ == maybe_dedent("\n       ab\n        CD\n    ")
 
 
 def test_xreload_function_attribute_1(tpp):
