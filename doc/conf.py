@@ -46,6 +46,7 @@ autodoc_default_options = {
 autodoc_mock_imports = [
     "pyflyby._fast_iter_modules",
     "appdirs",
+    "prompt_toolkit",
 ]
 
 html_theme_options = {

@@ -29,6 +29,7 @@ dependencies = [
     "six",
     "toml",
     "typing_extensions>=4.6; python_version<'3.12'",
+    'prompt_toolkit',
     'epydoc',
     'wheel', # required by epydoc, but not listed as a dependency
     'appdirs',
