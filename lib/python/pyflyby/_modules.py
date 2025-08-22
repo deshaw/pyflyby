@@ -5,15 +5,22 @@
 from __future__ import annotations
 
 import ast
+import appdirs
 from   functools                import cached_property, total_ordering, partial
+from rich.console import Console
+from prompt_toolkit.patch_stdout import patch_stdout
+import hashlib
 import importlib
 import itertools
+import json
 import os
+import pathlib
 import pkgutil
+from   rich.progress import Progress
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
-from   pyflyby._log             import logger
+from   pyflyby._log             import logger, _PyflybyHandler
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
 from   pyflyby._fast_iter_modules import _iter_file_finder_modules
@@ -22,7 +29,7 @@ import re
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Dict, Generator
+from   typing                   import Any, Dict, Generator, Union
 
 class ErrorDuringImportError(ImportError):
     """
@@ -504,6 +511,84 @@ class ModuleHandle(object):
         return module
 
 SUFFIXES = sorted(importlib.machinery.all_suffixes())
+def _rebuild_cache(importer: Any, cache_file: pathlib.Path) -> list[tuple[str, bool]]:
+    """Cache and return all modules found by the importer.
+
+    Parameters
+    ----------
+    importer : Any
+        Importer to use to import modules
+    cache_file : pathlib.Path
+        File where the modules should be cached
+
+    Returns
+    -------
+    list[tuple[str, bool]]
+        List of tuples containing the module name and whether or not it is a package
+
+    """
+    label = _PyflybyHandler().get_prefix()
+    console = Console(file=sys.__stdout__)
+    fancy_path = format_path(importer.path)
+
+    with Progress(console=console) as progress:
+        task = progress.add_task(
+            f"{label}Building module cache for {fancy_path}..."
+        )
+        modules = _iter_file_finder_modules(
+            importer,
+            SUFFIXES,
+            partial(progress.update, task_id=task),
+        )
+
+        # # Write the new cache file
+        progress.update(
+            task, description=f"{label}Dumping cache updated for {fancy_path}..."
+        )
+        with open(cache_file, 'w') as fp:
+            json.dump(modules, fp)
+
+        progress.update(
+            task, description=f"{label}Module cache updated for {fancy_path}"
+        )
+
+    return modules
+
+
+def format_path(path: Union[str, pathlib.Path]) -> str:
+    path = pathlib.Path(path)
+    home = pathlib.Path.home()
+
+    if path.is_relative_to(home):
+        return str(pathlib.Path("~").joinpath(path.relative_to(home)))
+    return str(path)
+
+
+def _cached_module_finder(importer, prefix=''):
+    if hasattr(importer, 'path'):
+        mtime = os.stat(importer.path).st_mtime_ns
+
+        cache_dir = pathlib.Path(
+            appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+        ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
+        cache_file = cache_dir / str(mtime)
+
+        if cache_file.exists():
+            with open(cache_file) as fp:
+                modules = json.load(fp)
+        else:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            with patch_stdout():
+                modules = _rebuild_cache(importer, cache_file)
+
+    else:
+        modules = _iter_file_finder_modules(importer, SUFFIXES)
+
+    for module, ispkg in modules:
+        yield prefix + module, ispkg
+
+
 def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
     """Return an iterator over all importable python modules.
 
@@ -515,7 +600,7 @@ def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
     :return: The modules that are importable by python
     """
     pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
-        importlib.machinery.FileFinder, partial(_iter_file_finder_modules, suffixes=SUFFIXES)
+        importlib.machinery.FileFinder, _cached_module_finder
     )
     yield from pkgutil.iter_modules()
     pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]

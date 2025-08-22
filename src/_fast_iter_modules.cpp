@@ -1,5 +1,9 @@
 #include "pybind11/cast.h"
 #include "pybind11/pytypes.h"
+#include <cstddef>
+#include <iostream>
+#include <iterator>
+#include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <filesystem>
@@ -9,7 +13,7 @@
 
 namespace py = pybind11;
 namespace fs = std::filesystem;
-
+using namespace pybind11::literals;
 
 /**
  * @brief Fast equivalent of `inspect.getmodulename`.
@@ -38,54 +42,66 @@ std::string getmodulename(fs::path path, std::vector<std::string> suffixes) {
  *
  * @param importer Importer instance containing an import path. Typically this is an object of type
  *      `importlib.machinery.FileFinder`
- * @param prefix A string prefix to affix to the front of all returned modules
  * @param suffixes Suffixes of valid python modules. Typically this is
  *      `importlib.machinery.all_suffixes()`
  * @return A vector of tuples containing modules names, and a boolean indicating whether the module
  *      is a package or not
  */
-std::vector<std::tuple<std::string, bool>> _iter_file_finder_modules(
-    py::object importer, std::string prefix, std::vector<std::string> suffixes
+std::vector<std::tuple<std::string, bool>>
+_iter_file_finder_modules(
+    py::object importer,
+    std::vector<std::string> suffixes,
+    py::object update
 ) {
-    std::vector<std::tuple<std::string, bool>> ret;
+  std::vector<std::tuple<std::string, bool>> ret;
 
-    // The importer doesn't have a path
-    py::object path_obj = importer.attr("path");
-    if (path_obj.is_none()) {
-        return ret;
-    }
-
-    // The importer's path isn't an existing directory
-    fs::path path = fs::path(py::str(path_obj).cast<std::string>());
-    if (!fs::is_directory(path) || !fs::exists(path)) {
-        return ret;
-    }
-
-    for (auto const& entry : fs::directory_iterator(path)) {
-        fs::path entry_path = entry.path();
-        fs::path filename = entry_path.filename();
-        std::string modname = getmodulename(filename, suffixes);
-
-        if (
-            modname == ""
-            && fs::is_directory(entry_path)
-            && filename.string().find(".") == std::string::npos
-            && fs::is_regular_file(entry_path / "__init__.py") // Is this a package?
-        ) {
-            ret.push_back(std::make_tuple(prefix + filename.string(), true));
-        } else if (modname == "__init__") {
-            continue;
-        } else if (modname != "" && modname.find(".") == std::string::npos){
-            ret.push_back(
-                std::make_tuple(
-                    prefix + modname,
-                    false // This is definitely not a package
-                )
-            );
-        }
-    }
-
+  // The importer doesn't have a path
+  py::object path_obj = importer.attr("path");
+  if (path_obj.is_none()) {
     return ret;
+  }
+
+  // The importer's path isn't an existing directory
+  fs::path path = fs::path(py::str(path_obj).cast<std::string>());
+  if (!fs::is_directory(path) || !fs::exists(path)) {
+    return ret;
+  }
+
+    bool has_progress = !update.is_none();
+    fs::directory_iterator it = fs::directory_iterator(path);
+    std::size_t n_items = std::distance(it, fs::directory_iterator{});
+    std::size_t i = 0;
+
+  for (auto const &entry : fs::directory_iterator(path)) {
+    fs::path entry_path = entry.path();
+    fs::path filename = entry_path.filename();
+    std::string modname = getmodulename(filename, suffixes);
+
+    if (has_progress) {
+        update("total"_a=n_items, "completed"_a=i);
+        i++;
+    }
+
+    if (modname == "" && fs::is_directory(entry_path) &&
+        filename.string().find(".") == std::string::npos &&
+        fs::is_regular_file(entry_path / "__init__.py") // Is this a package?
+    ) {
+      ret.push_back(std::make_tuple(filename.string(), true));
+    } else if (modname == "__init__") {
+      continue;
+    } else if (modname != "" && modname.find(".") == std::string::npos) {
+      ret.push_back(std::make_tuple(modname,
+                                    false // This is definitely not a package
+                                    ));
+    }
+  }
+
+    // Close out any open progress bars
+    if (has_progress) {
+        update("total"_a=n_items, "completed"_a=n_items);
+    }
+
+  return ret;
 }
 
 PYBIND11_MODULE(_fast_iter_modules, m) {
@@ -95,8 +111,8 @@ PYBIND11_MODULE(_fast_iter_modules, m) {
         &_iter_file_finder_modules,
         "A fast implementation of pkgutil._iter_file_finder_modules(importer, prefix='')",
         py::arg("importer"),
-        py::arg("prefix") = py::str(""),
         py::arg("suffixes") = std::make_tuple(".py", ".pyc"),
+        py::arg("update") = py::none(),
         py::return_value_policy::take_ownership
     );
 }

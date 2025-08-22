@@ -31,6 +31,8 @@ dependencies = [
     "typing_extensions>=4.6; python_version<'3.12'",
     'epydoc',
     'wheel', # required by epydoc, but not listed as a dependency
+    'appdirs',
+    'rich',
 ]
 [project.urls]
 Homepage = "https://pypi.org/project/pyflyby/"
