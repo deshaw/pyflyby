@@ -1,9 +1,5 @@
 #include "pybind11/cast.h"
 #include "pybind11/pytypes.h"
-#include <cstddef>
-#include <iostream>
-#include <iterator>
-#include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <filesystem>
@@ -50,8 +46,7 @@ std::string getmodulename(fs::path path, std::vector<std::string> suffixes) {
 std::vector<std::tuple<std::string, bool>>
 _iter_file_finder_modules(
     py::object importer,
-    std::vector<std::string> suffixes,
-    py::object update
+    std::vector<std::string> suffixes
 ) {
   std::vector<std::tuple<std::string, bool>> ret;
 
@@ -67,20 +62,11 @@ _iter_file_finder_modules(
     return ret;
   }
 
-    bool has_progress = !update.is_none();
-    fs::directory_iterator it = fs::directory_iterator(path);
-    std::size_t n_items = std::distance(it, fs::directory_iterator{});
-    std::size_t i = 0;
-
   for (auto const &entry : fs::directory_iterator(path)) {
     fs::path entry_path = entry.path();
     fs::path filename = entry_path.filename();
     std::string modname = getmodulename(filename, suffixes);
 
-    if (has_progress) {
-        update("total"_a=n_items, "completed"_a=i);
-        i++;
-    }
 
     if (modname == "" && fs::is_directory(entry_path) &&
         filename.string().find(".") == std::string::npos &&
@@ -96,11 +82,6 @@ _iter_file_finder_modules(
     }
   }
 
-    // Close out any open progress bars
-    if (has_progress) {
-        update("total"_a=n_items, "completed"_a=n_items);
-    }
-
   return ret;
 }
 
@@ -112,7 +93,6 @@ PYBIND11_MODULE(_fast_iter_modules, m) {
         "A fast implementation of pkgutil._iter_file_finder_modules(importer, prefix='')",
         py::arg("importer"),
         py::arg("suffixes") = std::make_tuple(".py", ".pyc"),
-        py::arg("update") = py::none(),
         py::return_value_policy::take_ownership
     );
 }

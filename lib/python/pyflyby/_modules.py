@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import ast
 import appdirs
-from   functools                import cached_property, total_ordering, partial
-from rich.console import Console
+from   functools                import cached_property, total_ordering
 from prompt_toolkit.patch_stdout import patch_stdout
 import hashlib
 import importlib
@@ -16,11 +15,10 @@ import json
 import os
 import pathlib
 import pkgutil
-from   rich.progress import Progress
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
-from   pyflyby._log             import logger, _PyflybyHandler
+from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
 from   pyflyby._fast_iter_modules import _iter_file_finder_modules
@@ -511,50 +509,6 @@ class ModuleHandle(object):
         return module
 
 SUFFIXES = sorted(importlib.machinery.all_suffixes())
-def _rebuild_cache(importer: Any, cache_file: pathlib.Path) -> list[tuple[str, bool]]:
-    """Cache and return all modules found by the importer.
-
-    Parameters
-    ----------
-    importer : Any
-        Importer to use to import modules
-    cache_file : pathlib.Path
-        File where the modules should be cached
-
-    Returns
-    -------
-    list[tuple[str, bool]]
-        List of tuples containing the module name and whether or not it is a package
-
-    """
-    label = _PyflybyHandler().get_prefix()
-    console = Console(file=sys.__stdout__)
-    fancy_path = format_path(importer.path)
-
-    with Progress(console=console) as progress:
-        task = progress.add_task(
-            f"{label}Building module cache for {fancy_path}..."
-        )
-        modules = _iter_file_finder_modules(
-            importer,
-            SUFFIXES,
-            partial(progress.update, task_id=task),
-        )
-
-        # # Write the new cache file
-        progress.update(
-            task, description=f"{label}Dumping cache updated for {fancy_path}..."
-        )
-        with open(cache_file, 'w') as fp:
-            json.dump(modules, fp)
-
-        progress.update(
-            task, description=f"{label}Module cache updated for {fancy_path}"
-        )
-
-    return modules
-
-
 def format_path(path: Union[str, pathlib.Path]) -> str:
     path = pathlib.Path(path)
     home = pathlib.Path.home()
@@ -564,14 +518,26 @@ def format_path(path: Union[str, pathlib.Path]) -> str:
     return str(path)
 
 
-def _cached_module_finder(importer, prefix=''):
-    if hasattr(importer, 'path'):
-        mtime = os.stat(importer.path).st_mtime_ns
+def _cached_module_finder(importer: importlib.machinery.FileFinder, prefix: str = ''):
+    """Yield the modules found by the importer.
 
+    The importer path's mtime is recorded; if the path and mtime have a corresponding
+    cache file, the modules recorded in the cache file are returned. Otherwise, the
+    cache is rebuilt.
+
+    Parameters
+    ----------
+    importer : importlib.machinery.FileFinder
+        FileFinder importer that points to a path under which imports can be found
+    prefix : str
+        String to affix to the beginning of each module name
+
+    """
+    if hasattr(importer, 'path'):
         cache_dir = pathlib.Path(
             appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
         ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
-        cache_file = cache_dir / str(mtime)
+        cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
 
         if cache_file.exists():
             with open(cache_file) as fp:
@@ -579,8 +545,12 @@ def _cached_module_finder(importer, prefix=''):
         else:
             cache_dir.mkdir(parents=True, exist_ok=True)
 
-            with patch_stdout():
-                modules = _rebuild_cache(importer, cache_file)
+            with patch_stdout(raw=True):
+                logger.info(f"Rebuilding cache for {format_path(importer.path)}...")
+
+            modules = _iter_file_finder_modules(importer, SUFFIXES)
+            with open(cache_file, 'w') as fp:
+                json.dump(modules, fp)
 
     else:
         modules = _iter_file_finder_modules(importer, SUFFIXES)

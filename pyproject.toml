@@ -32,7 +32,6 @@ dependencies = [
     'epydoc',
     'wheel', # required by epydoc, but not listed as a dependency
     'appdirs',
-    'rich',
 ]
 [project.urls]
 Homepage = "https://pypi.org/project/pyflyby/"
