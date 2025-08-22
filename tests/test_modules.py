@@ -9,7 +9,6 @@
 from unittest import mock
 import pathlib
 import hashlib
-import json
 import logging.handlers
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
