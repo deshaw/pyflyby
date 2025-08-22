@@ -33,7 +33,10 @@ class _PyflybyHandler(Handler):
             # Format (currently a no-op).
             msg = self.format(record)
             # Add prefix per line.
-            prefix = self.get_prefix()
+            if _is_ipython() or _is_interactive(sys.stderr):
+                prefix = self._interactive_prefix
+            else:
+                prefix = self._noninteractive_prefix
             msg = ''.join(["%s%s\n" % (prefix, line) for line in msg.splitlines()])
             # First, flush stdout, to make sure that stdout and stderr don't get
             # interleaved.  Normally this is automatic, but when stdout is piped,
@@ -52,20 +55,6 @@ class _PyflybyHandler(Handler):
             raise
         except:
             self.handleError(record)
-
-    def get_prefix(self) -> str:
-        """Get the appropriate prefix for the current environment.
-
-        Returns
-        -------
-        str
-            If this is interactive, or an IPython shell, this is the interactive prefix.
-            Otherwise, return the noninteractive prefix
-        """
-        if _is_ipython() or _is_interactive(sys.stderr):
-            return self._interactive_prefix
-        else:
-            return self._noninteractive_prefix
 
     @contextmanager
     def HookCtx(self, pre, post):
