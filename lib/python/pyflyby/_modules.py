@@ -4,10 +4,9 @@
 
 from __future__ import annotations
 
-import ast
 import appdirs
+import ast
 from   functools                import cached_property, total_ordering
-from prompt_toolkit.patch_stdout import patch_stdout
 import hashlib
 import importlib
 import itertools
@@ -15,15 +14,20 @@ import json
 import os
 import pathlib
 import pkgutil
+from   prompt_toolkit.patch_stdout \
+                                import patch_stdout
+import textwrap
 
+from   pyflyby._fast_iter_modules \
+                                import _iter_file_finder_modules
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
-from   pyflyby._fast_iter_modules import _iter_file_finder_modules
 
 import re
+import shutil
 from   six                      import reraise
 import sys
 import types
@@ -36,6 +40,42 @@ class ErrorDuringImportError(ImportError):
     ImportError, e.g. if a module tries to import another module that doesn't
     exist.
     """
+
+def rebuild_import_cache():
+    """Force the import cache to be rebuilt.
+
+    The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
+    """
+    for path in pathlib.Path(
+        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+    ).iterdir():
+        _remove_import_cache_dir(path)
+    _fast_iter_modules()
+
+
+def _remove_import_cache_dir(path: pathlib.Path):
+    """Remove an import cache directory.
+
+    Import cache directories exist in <user cache dir>/pyflyby/, and they should
+    contain just a single file which itself contains a JSON blob of cached import names.
+    We therefore only delete the requested path if it is a directory.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Import cache directory path to remove
+    """
+    if path.is_dir():
+        # Only directories are valid import cache entries
+        try:
+            shutil.rmtree(str(path))
+        except Exception as e:
+            with patch_stdout(raw=True):
+                logger.error(
+                    f"Failed to remove cache directory at {path} - please "
+                    "consider removing this directory manually. Error:\n"
+                    f"{textwrap.indent(str(e), prefix='  ')}"
+                )
 
 
 @memoize
@@ -301,7 +341,7 @@ class ModuleHandle(object):
         :return: A list of all importable module names
         """
         with ExcludeImplicitCwdFromPathCtx():
-            return [mod.name for mod in fast_iter_modules() if is_identifier(mod.name)]
+            return [mod.name for mod in _fast_iter_modules() if is_identifier(mod.name)]
 
     @cached_property
     def submodules(self):
@@ -508,8 +548,23 @@ class ModuleHandle(object):
         logger.debug("Imported %r to get %r", module, identifier)
         return module
 
-SUFFIXES = sorted(importlib.machinery.all_suffixes())
-def format_path(path: Union[str, pathlib.Path]) -> str:
+
+def _format_path(path: Union[str, pathlib.Path]) -> str:
+    """Format a path for printing as a log message.
+
+    If the path is a child of $HOME, the prefix is replaced with "~" for brevity.
+    Otherwise the original path is returned.
+
+    Parameters
+    ----------
+    path : Union[str, pathlib.Path]
+        Path to format
+
+    Returns
+    -------
+    str
+        Formatted output path
+    """
     path = pathlib.Path(path)
     home = pathlib.Path.home()
 
@@ -518,7 +573,12 @@ def format_path(path: Union[str, pathlib.Path]) -> str:
     return str(path)
 
 
-def _cached_module_finder(importer: importlib.machinery.FileFinder, prefix: str = ''):
+SUFFIXES = sorted(importlib.machinery.all_suffixes())
+
+
+def _cached_module_finder(
+    importer: importlib.machinery.FileFinder, prefix: str = ""
+) -> Generator[tuple[str, bool], None, None]:
     """Yield the modules found by the importer.
 
     The importer path's mtime is recorded; if the path and mtime have a corresponding
@@ -532,34 +592,39 @@ def _cached_module_finder(importer: importlib.machinery.FileFinder, prefix: str 
     prefix : str
         String to affix to the beginning of each module name
 
+    Returns
+    -------
+    Generator[tuple[str, bool], None, None]
+        Tuples containing (prefix+module name, a bool indicating whether the module is a
+        package or not)
     """
-    if hasattr(importer, 'path'):
-        cache_dir = pathlib.Path(
-            appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
-        ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
-        cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
+    cache_dir = pathlib.Path(
+        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+    ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
+    cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
 
-        if cache_file.exists():
-            with open(cache_file) as fp:
-                modules = json.load(fp)
-        else:
-            cache_dir.mkdir(parents=True, exist_ok=True)
-
-            with patch_stdout(raw=True):
-                logger.info(f"Rebuilding cache for {format_path(importer.path)}...")
-
-            modules = _iter_file_finder_modules(importer, SUFFIXES)
-            with open(cache_file, 'w') as fp:
-                json.dump(modules, fp)
-
+    if cache_file.exists():
+        with open(cache_file) as fp:
+            modules = json.load(fp)
     else:
+        # Generate the cache dir if it doesn't exist, and remove any existing cache
+        # files for the given import path
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        for path in cache_dir.iterdir():
+            _remove_import_cache_dir(path)
+
+        with patch_stdout(raw=True):
+            logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
+
         modules = _iter_file_finder_modules(importer, SUFFIXES)
+        with open(cache_file, 'w') as fp:
+            json.dump(modules, fp)
 
     for module, ispkg in modules:
         yield prefix + module, ispkg
 
 
-def fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
+def _fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
     """Return an iterator over all importable python modules.
 
     This function patches `pkgutil.iter_importer_modules` for
