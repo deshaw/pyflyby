@@ -6,10 +6,15 @@
 
 
 
+from unittest import mock
+import pathlib
+import hashlib
+import json
 import logging.handlers
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
-from   pyflyby._modules         import ModuleHandle, fast_iter_modules
+from   pyflyby._log             import logger
+from   pyflyby._modules         import ModuleHandle, _fast_iter_modules, _iter_file_finder_modules
 from   pkgutil                  import iter_modules
 import re
 import subprocess
@@ -112,9 +117,65 @@ def test_filename_noload_1(modname):
     assert ret.returncode != 120, f"{modname} in sys.modules at startup"
     assert ret.returncode == 0, (ret, ret.stdout, ret.stderr)
 
+
 def test_fast_iter_modules():
     """Test that the cpp extension finds the same modules as pkgutil.iter_modules."""
-    fast = sorted(list(fast_iter_modules()), key=lambda x: x.name)
+    fast = sorted(list(_fast_iter_modules()), key=lambda x: x.name)
     slow = sorted(list(iter_modules()), key=lambda x: x.name)
 
     assert fast == slow
+
+
+@mock.patch("appdirs.user_cache_dir")
+def test_import_cache(mock_user_cache_dir, tmp_path):
+    """Test that the import cache is built when iterating modules.
+
+    Also:
+    - Check that each path mentioned in the logs appears (sha256-encoded) in the cache
+    - The first time generating the import cache, _iter_file_finder_modules is called
+    - Subsequent calls use the cached modules
+    """
+
+    mock_user_cache_dir.return_value = tmp_path
+
+    assert len(list(tmp_path.iterdir())) == 0
+    with (
+        mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
+        mock.patch(
+            "pyflyby._modules._iter_file_finder_modules",
+            wraps=_iter_file_finder_modules,
+        ) as mock_iffm,
+    ):
+        list(_fast_iter_modules())
+
+    paths = [str(path.name) for path in tmp_path.iterdir()]
+    n_cached_paths = len(paths)
+    n_log_messages = len(mock_logger.info.call_args_list)
+
+    # On the first call, log messages should be generated for each import path. Check
+    # that _iter_file_finder_modules was called once for each cached path.
+    assert (n_cached_paths == n_log_messages) and n_cached_paths > 0
+    assert len(mock_iffm.call_args_list) == n_cached_paths
+    assert "Rebuilding cache for " in mock_logger.info.call_args.args[0]
+    for call_args in mock_logger.info.call_args_list:
+        # Grab the path names from the log messages; make sure the sha256 checksum
+        # can be found in the paths of the cache directory
+        path = pathlib.Path(
+            call_args.args[0].lstrip("Rebuilding cache for ").rstrip("...")
+        ).expanduser()
+        assert hashlib.sha256(str(path).encode()).hexdigest() in paths
+
+    with (
+        mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
+        mock.patch(
+            "pyflyby._modules._iter_file_finder_modules",
+            wraps=_iter_file_finder_modules,
+        ) as mock_iffm,
+    ):
+        list(_fast_iter_modules())
+
+    # On the second call, no additional messages should be emitted because the cache has
+    # already been built. Check that _iter_file_finder_modules was never called.
+    n_log_messages = len(mock_logger.info.call_args_list)
+    assert n_log_messages == 0
+    mock_iffm.assert_not_called()
