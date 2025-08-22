@@ -134,6 +134,8 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     - Check that each path mentioned in the logs appears (sha256-encoded) in the cache
     - The first time generating the import cache, _iter_file_finder_modules is called
     - Subsequent calls use the cached modules
+    - If the mtime of one of the importer paths is updated, the corresponding
+      cache file gets regenerated
     """
 
     mock_user_cache_dir.return_value = tmp_path
@@ -179,3 +181,20 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     n_log_messages = len(mock_logger.info.call_args_list)
     assert n_log_messages == 0
     mock_iffm.assert_not_called()
+
+    # Update the mtime of one of the importer paths
+    path.touch()
+    with (
+        mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
+        mock.patch(
+            "pyflyby._modules._iter_file_finder_modules",
+            wraps=_iter_file_finder_modules,
+        ) as mock_iffm,
+    ):
+        list(_fast_iter_modules())
+
+    # Only one path should have been updated and only 1 message logged. The number
+    # of cache directories should not change.
+    assert len(mock_logger.info.call_args_list) == 1
+    assert len(list(tmp_path.iterdir())) == n_cached_paths
+    mock_iffm.assert_called_once()
