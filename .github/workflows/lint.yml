@@ -3,25 +3,22 @@ name: Lint
 on: [push, pull_request]
 
 jobs:
-  test:
+  lint:
     runs-on: "ubuntu-latest"
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13"]
-
     steps:
     - uses: actions/checkout@v5
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install and update Python dependencies on Python 3
+        python-version: 3.13
+    - name: Install pyflyby
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade pyflakes flake8 mypy
-        python -m pip install types-six
-        pip install -e .
+        # Include build dependencies for run time; see
+        # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
+        # for details.
+        pip install meson-python meson ninja pybind11>=2.10.4
+        pip install setuptools wheel # needed for epydoc
+        pip install --no-build-isolation -ve . --group lint
     - name: Mypy
       run: |
         mypy lib/python --ignore-missing-imports
@@ -32,4 +29,3 @@ jobs:
     - name: Self-tidy-import
       run: |
         ./bin/tidy-imports -d lib/python/ tests/
-        

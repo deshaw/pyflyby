@@ -31,6 +31,7 @@ from   pyflyby._interactive     import (disable_auto_importer,
                                         unload_ipython_extension)
 from   pyflyby._livepatch       import livepatch, xreload
 from   pyflyby._log             import logger
+from   pyflyby._modules         import rebuild_import_cache
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._saveframe       import saveframe
 from   pyflyby._saveframe_reader \
