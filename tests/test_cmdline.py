@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from   textwrap                 import dedent
+import tomli
 
 from   pyflyby._cmdline         import _get_pyproj_toml_config
 from   pyflyby._util            import CwdCtx, EnvVarCtx
@@ -926,4 +927,4 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
         f.write(pyproject_text)
 
     os.chdir(tmp_path)
-    assert _get_pyproj_toml_config() == pyproject_text
+    assert _get_pyproj_toml_config() == tomli.loads(pyproject_text)

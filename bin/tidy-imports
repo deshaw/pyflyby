@@ -30,8 +30,6 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._parse           import PythonBlock
 
-import tomli
-
 
 def _addopts(parser):
     """
@@ -109,9 +107,9 @@ def _addopts(parser):
                             --no-add-mandatory.'''))
 def main() -> None:
 
-    config_text = _get_pyproj_toml_config()
-    if config_text:
-        default_config = tomli.loads(config_text).get('tool', {}).get('pyflyby',{})
+    config = _get_pyproj_toml_config()
+    if config:
+        default_config = config.get('tool', {}).get('pyflyby',{})
     else:
         default_config = {}
 

@@ -11,6 +11,7 @@ from   pathlib                  import Path
 import signal
 import sys
 from   textwrap                 import dedent
+import tomli
 import traceback
 from   typing                   import List
 
@@ -538,6 +539,6 @@ def _get_pyproj_toml_config():
     for pth in [cwd] + list(cwd.parents):
         pyproj_toml = pth /'pyproject.toml'
         if pyproj_toml.exists() and pyproj_toml.is_file():
-            return pyproj_toml.read_text()
+            return tomli.loads(pyproj_toml.read_text())
 
     return None
