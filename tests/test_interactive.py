@@ -2361,6 +2361,7 @@ def test_complete_symbol_any_module_1(frontend, tmp):
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        [PYFLYBY] Rebuilding cache for ...
         In [2]: m18908697_\tfoo.f_68421204()
         [PYFLYBY] import m18908697_foo
         Out[2]: 'good'
@@ -2377,8 +2378,9 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: m51145108_\tfoo.f_76313558_\t
+        [PYFLYBY] Rebuilding cache for ...
         [PYFLYBY] import m51145108_foo
+        In [2]: m51145108_\tfoo.f_76313558_\t
         In [2]: m51145108_foo.f_76313558_59577191()
         Out[2]: 'ok'
     """, PYTHONPATH=tmp.dir, frontend=frontend)
