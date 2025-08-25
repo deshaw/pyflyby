@@ -7,13 +7,15 @@
 
 from   io                       import BytesIO
 import os
-import sys
 import pexpect
 import subprocess
+import sys
 import tempfile
 from   textwrap                 import dedent
+from   unittest                 import mock
 
-from pyflyby._util import EnvVarCtx, CwdCtx
+from   pyflyby._cmdline         import _get_pyproj_toml_config
+from   pyflyby._util            import CwdCtx, EnvVarCtx
 
 import pytest
 
@@ -796,7 +798,7 @@ def test_tidy_imports_forward_references():
                     param1: str
                     param2: B
 
-                                
+
                 class B:
                     param1: str
             """
@@ -834,3 +836,102 @@ def test_tidy_imports_forward_references():
             """
             ).strip()
         assert result == expected
+
+
+@pytest.mark.parametrize(
+    "pyproject_text",
+    [
+        r'''[tool.tox.env_run_base]
+commands = [["{tox_root}{/}run_pytest.py", {replace = "posargs", default = ["-cvv"], extend = true}]]''',
+        r'''[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+files = ['lib']
+#warn_incomplete_stub = false
+warn_unused_configs = true
+#ignore_missing_imports = true
+follow_imports = 'silent'
+# disallow_untyped_defs = true
+# ignore_errors = false
+# ignore_missing_imports = false
+# disallow_untyped_calls = true
+# disallow_incomplete_defs = true
+# check_untyped_defs = true
+# disallow_untyped_decorators = true
+warn_redundant_casts = true
+exclude = '(?x)(_dbg\.py|_py\.py)'
+
+[[tool.mypy.overrides]]
+module = [
+    "pyflyby._docxref",
+    "pyflyby._interactive",
+]
+ignore_errors = true
+'''
+    ]
+)
+def test_tidy_imports_toml(tmp_path, pyproject_text):
+    """Test that tidy-imports works with a pyproject.toml that has mixed array types."""
+    with open(tmp_path / "pyproject.toml", 'w') as f:
+        f.write(pyproject_text)
+
+    result = pipe([BIN_DIR+"/tidy-imports", "--quiet"], stdin="os, sys", cwd=tmp_path)
+    expected = dedent('''
+        import os
+        import sys
+
+        os, sys
+    ''').strip()
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "pyproject_text",
+    [
+        r'''[tool.tox.env_run_base]
+commands = [["{tox_root}{/}run_pytest.py", {replace = "posargs", default = ["-cvv"], extend = true}]]''',
+        r'''[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+files = ['lib']
+#warn_incomplete_stub = false
+warn_unused_configs = true
+#ignore_missing_imports = true
+follow_imports = 'silent'
+# disallow_untyped_defs = true
+# ignore_errors = false
+# ignore_missing_imports = false
+# disallow_untyped_calls = true
+# disallow_incomplete_defs = true
+# check_untyped_defs = true
+# disallow_untyped_decorators = true
+warn_redundant_casts = true
+exclude = '(?x)(_dbg\.py|_py\.py)'
+
+[[tool.mypy.overrides]]
+module = [
+    "pyflyby._docxref",
+    "pyflyby._interactive",
+]
+ignore_errors = true
+'''
+    ]
+)
+def test_load_pyproject_toml(tmp_path, pyproject_text):
+    """Test that a pyproject.toml that has mixed array types can be loaded."""
+    with open(tmp_path / "pyproject.toml", 'w') as f:
+        f.write(pyproject_text)
+
+    os.chdir(tmp_path)
+    with mock.patch("os.getcwd", wraps=os.getcwd) as mock_getcwd:
+        text = _get_pyproj_toml_config()
+
+    mock_getcwd.assert_called_once()
+    assert text == pyproject_text
+
+    # Check that the mock points to the temp path
+    assert mock_getcwd() == str(tmp_path)

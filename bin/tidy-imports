@@ -21,11 +21,8 @@ Only top-level import statements are touched.
 # License: MIT http://opensource.org/licenses/MIT
 
 
-from __future__ import print_function
-
-import os
-
-from   pyflyby._cmdline         import hfmt, parse_args, process_actions
+from   pyflyby._cmdline         import (_get_pyproj_toml_config, hfmt,
+                                        parse_args, process_actions)
 from   pyflyby._import_sorting  import sort_imports
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -33,23 +30,7 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._parse           import PythonBlock
 
-from   pathlib                  import Path
 import tomli
-
-
-def _get_pyproj_toml_config():
-    """
-    Try to find current project pyproject.toml
-    in cwd or parents directories.
-    """
-    cwd = Path(os.getcwd())
-
-    for pth in [cwd] + list(cwd.parents):
-        pyproj_toml = pth /'pyproject.toml'
-        if pyproj_toml.exists() and pyproj_toml.is_file():
-            return pyproj_toml.read_text()
-
-    return None
 
 
 def _addopts(parser):

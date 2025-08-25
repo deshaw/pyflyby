@@ -7,6 +7,7 @@
 from   builtins                 import input
 import optparse
 import os
+from   pathlib                  import Path
 import signal
 import sys
 from   textwrap                 import dedent
@@ -526,3 +527,17 @@ symlink_callbacks = {
     'skip': symlink_skip,
     'replace': symlink_replace,
 }
+
+def _get_pyproj_toml_config():
+    """
+    Try to find current project pyproject.toml
+    in cwd or parents directories.
+    """
+    cwd = Path(os.getcwd())
+
+    for pth in [cwd] + list(cwd.parents):
+        pyproj_toml = pth /'pyproject.toml'
+        if pyproj_toml.exists() and pyproj_toml.is_file():
+            return pyproj_toml.read_text()
+
+    return None
