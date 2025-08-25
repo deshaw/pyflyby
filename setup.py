@@ -224,7 +224,7 @@ setup(
     ],
     install_requires=[
             "six",
-            "toml",
+            "tomli",
             "black",
             "typing_extensions>=4.6; python_version<'3.12'"
     ],
