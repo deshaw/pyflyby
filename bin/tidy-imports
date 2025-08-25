@@ -33,8 +33,8 @@ from   pyflyby._imports2s       import (canonicalize_imports,
                                         transform_imports)
 from   pyflyby._parse           import PythonBlock
 
-import toml
-TOML_AVAIL = True
+from   pathlib                  import Path
+import tomli
 
 
 def _get_pyproj_toml_config():
@@ -42,14 +42,7 @@ def _get_pyproj_toml_config():
     Try to find current project pyproject.toml
     in cwd or parents directories.
     """
-    if not TOML_AVAIL:
-        return None
-
-    from pathlib import Path
-
-
     cwd = Path(os.getcwd())
-
 
     for pth in [cwd] + list(cwd.parents):
         pyproj_toml = pth /'pyproject.toml'
@@ -57,9 +50,6 @@ def _get_pyproj_toml_config():
             return pyproj_toml.read_text()
 
     return None
-
-
-
 
 
 def _addopts(parser):
@@ -140,7 +130,7 @@ def main() -> None:
 
     config_text = _get_pyproj_toml_config()
     if config_text:
-        default_config = toml.loads(config_text).get('tool', {}).get('pyflyby',{})
+        default_config = tomli.loads(config_text).get('tool', {}).get('pyflyby',{})
     else:
         default_config = {}
 
@@ -149,7 +139,10 @@ def main() -> None:
         parser.set_defaults(**default_config)
 
     options, args = parse_args(
-        _add_opts_and_defaults, import_format_params=True, modify_action_params=True, defaults=default_config)
+        _add_opts_and_defaults,
+        import_format_params=True,
+        modify_action_params=True,
+    )
 
     def modify(block:PythonBlock) -> PythonBlock:
         if options.transformations:
@@ -166,13 +159,13 @@ def main() -> None:
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
 
-        # here we get a (single?) PythonBlock, we can access each statement with 
+        # here we get a (single?) PythonBlock, we can access each statement with
         # >>> block.statements
         # and each statement can have a:
         # is_import
         # or
         # is_comment or blank
-        
+
         # TODO: we do Python(str(...)) in order to unparse-reparse and get proper ast node numbers.
         if options.experimental_sort_imports:
             sorted_imports = PythonBlock(str(sort_imports(block)))
