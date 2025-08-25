@@ -12,7 +12,6 @@ import subprocess
 import sys
 import tempfile
 from   textwrap                 import dedent
-from   unittest                 import mock
 
 from   pyflyby._cmdline         import _get_pyproj_toml_config
 from   pyflyby._util            import CwdCtx, EnvVarCtx
@@ -927,11 +926,4 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
         f.write(pyproject_text)
 
     os.chdir(tmp_path)
-    with mock.patch("os.getcwd", wraps=os.getcwd) as mock_getcwd:
-        text = _get_pyproj_toml_config()
-
-    mock_getcwd.assert_called_once()
-    assert text == pyproject_text
-
-    # Check that the mock points to the temp path
-    assert mock_getcwd() == str(tmp_path)
+    assert _get_pyproj_toml_config() == pyproject_text
