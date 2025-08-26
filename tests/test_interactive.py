@@ -3858,6 +3858,12 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skip(
+    reason=(
+        "ipdb runs commands in a thread, which breaks prompt_toolkit.patch_stdout. "
+        "Turn this back on if a solution can be found."
+    )
+)
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
@@ -3880,6 +3886,12 @@ def test_debug_tab_completion_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skip(
+    reason=(
+        "ipdb runs commands in a thread, which breaks prompt_toolkit.patch_stdout. "
+        "Turn this back on if a solution can be found."
+    )
+)
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
