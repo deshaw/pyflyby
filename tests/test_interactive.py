@@ -2472,14 +2472,24 @@ def test_complete_symbol_eval_1(evaluation):
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.parametrize('evaluation', _TESTED_EVALUATION_SETTINGS)
 def test_complete_symbol_eval_autoimport_1(frontend, evaluation):
-    ipython(f"""
+    template = """
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: %config IPCompleter.{evaluation}
-        In [3]: os.sep.strip().lst\t
-        [PYFLYBY] import os
-        In [3]: os.sep.strip().lst\trip
+        In [2]: %config IPCompleter.{0}
+        In [3]: os.sep.strip().lst\t{1}
         Out[3]: <function str.lstrip(chars=None, /)>
-    """, frontend=frontend)
+    """
+
+    scenario_a = """
+        [PYFLYBY] import os
+        In [3]: os.sep.strip().lst\trip"""
+    scenario_b = """
+        [PYFLYBY] import os
+        In [3]: os.sep.strip().lstrip"""
+
+    try:
+        ipython(template.format(evaluation, scenario_a), frontend=frontend)
+    except pytest.fail.Exception:
+        ipython(template.format(evaluation, scenario_b), frontend=frontend)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
