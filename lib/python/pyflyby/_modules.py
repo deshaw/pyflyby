@@ -14,8 +14,6 @@ import json
 import os
 import pathlib
 import pkgutil
-from   prompt_toolkit.patch_stdout \
-                                import patch_stdout
 import textwrap
 
 from   pyflyby._fast_iter_modules \
@@ -70,12 +68,11 @@ def _remove_import_cache_dir(path: pathlib.Path):
         try:
             shutil.rmtree(str(path))
         except Exception as e:
-            with patch_stdout(raw=True):
-                logger.error(
-                    f"Failed to remove cache directory at {path} - please "
-                    "consider removing this directory manually. Error:\n"
-                    f"{textwrap.indent(str(e), prefix='  ')}"
-                )
+            logger.error(
+                f"Failed to remove cache directory at {path} - please "
+                "consider removing this directory manually. Error:\n"
+                f"{textwrap.indent(str(e), prefix='  ')}"
+            )
 
 
 @memoize
@@ -613,8 +610,7 @@ def _cached_module_finder(
         for path in cache_dir.iterdir():
             _remove_import_cache_dir(path)
 
-        with patch_stdout(raw=True):
-            logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
+        logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
 
         modules = _iter_file_finder_modules(importer, SUFFIXES)
         with open(cache_file, 'w') as fp:
