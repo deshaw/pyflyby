@@ -81,18 +81,8 @@ def pytest_generate_tests(metafunc):
     if 'frontend' in metafunc.fixturenames:
         if _IPYTHON_VERSION >= (7,0):
             metafunc.parametrize('frontend', [            'prompt_toolkit'])
-        elif _IPYTHON_VERSION >= (5,4):
-            try:
-                import rlipython
-                rlipython # used
-            except ImportError:
-                raise ImportError("test_interactive requires rlipython installed.  "
-                                  "Please try: pip install rlipython")
-            metafunc.parametrize('frontend', ['readline', 'prompt_toolkit'])
-        elif _IPYTHON_VERSION >= (5,0):
-            metafunc.parametrize('frontend', [            'prompt_toolkit'])
         else:
-            metafunc.parametrize('frontend', ['readline'])
+            raise ImportError("IPython < 8 is unsupported.")
 
 
 @pytest.fixture
@@ -616,13 +606,8 @@ def _build_ipython_cmd(
         else:
             cmd += [opt("--autocall=1")]
     if frontend == 'readline':
-        if _IPYTHON_VERSION >= (5,4):
-            cmd += ["--TerminalIPythonApp.interactive_shell_class=rlipython.TerminalInteractiveShell"]
-        elif _IPYTHON_VERSION >= (5,0):
-            raise ValueError("IPython 5.0 through 5.3 only support prompt_toolkit")
-        else:
-            # For IPython 4 and earlier, readline is the default and only option.
-            pass
+        if _IPYTHON_VERSION < (8, 0):
+            raise ValueError("IPython < 8 is unsupported.")
     elif frontend == 'prompt_toolkit':
         if _IPYTHON_VERSION >= (5,):
             # For IPython >= 5.0, prompt_toolkit is the default option (and

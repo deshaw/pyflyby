@@ -629,7 +629,6 @@ _IS_PDB_IGNORE_PKGS = frozenset([
     'contextlib',
     'prompt_toolkit',
     'pyflyby',
-    'rlipython',
     'asyncio',
 ])
 
