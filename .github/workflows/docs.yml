@@ -14,7 +14,7 @@ jobs:
         run: |
           pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --upgrade rlipython ipykernel==5.4.3 requests jupyter flaky 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' ipython 'coverage<6.3' pytest-json-report
+          python -m pip install --upgrade ipykernel==5.4.3 requests jupyter flaky 'notebook<6.1' 'prompt_toolkit<3.0.15' wheel 'jupyter_console>=6.2' 'pytest-cov<3' ipython 'coverage<6.3' pytest-json-report
           pip install -e .
       - name: Build docs
         run: |
