@@ -3,11 +3,11 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.mypy]
-files = ['lib']
+files = ["lib"]
 #warn_incomplete_stub = false
 warn_unused_configs = true
 #ignore_missing_imports = true
-follow_imports = 'silent'
+follow_imports = "silent"
 # disallow_untyped_defs = true
 # ignore_errors = false
 # ignore_missing_imports = false
