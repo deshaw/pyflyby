@@ -11,7 +11,6 @@ from   pathlib                  import Path
 import signal
 import sys
 from   textwrap                 import dedent
-import tomli
 import traceback
 from   typing                   import List
 
@@ -21,6 +20,11 @@ from   pyflyby._file            import (FileText, Filename, atomic_write_file,
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, indent
+
+if sys.version_info < (3, 11):
+    from tomli import loads
+else:
+    from tomllib import loads
 
 
 def hfmt(s):
@@ -539,6 +543,6 @@ def _get_pyproj_toml_config():
     for pth in [cwd] + list(cwd.parents):
         pyproj_toml = pth /'pyproject.toml'
         if pyproj_toml.exists() and pyproj_toml.is_file():
-            return tomli.loads(pyproj_toml.read_text())
+            return loads(pyproj_toml.read_text())
 
     return None

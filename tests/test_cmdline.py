@@ -12,12 +12,17 @@ import subprocess
 import sys
 import tempfile
 from   textwrap                 import dedent
-import tomli
 
 from   pyflyby._cmdline         import _get_pyproj_toml_config
 from   pyflyby._util            import CwdCtx, EnvVarCtx
 
 import pytest
+
+if sys.version_info < (3, 11):
+    from tomli import loads
+else:
+    from tomllib import loads
+
 
 PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
@@ -927,7 +932,7 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
         f.write(pyproject_text)
 
     os.chdir(tmp_path)
-    assert _get_pyproj_toml_config() == tomli.loads(pyproject_text)
+    assert _get_pyproj_toml_config() == loads(pyproject_text)
 
 def test_load_no_pyproject_toml(tmp_path):
     """Test that a directory pyproject.toml that has mixed array types can be loaded."""

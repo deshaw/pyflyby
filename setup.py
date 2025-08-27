@@ -224,7 +224,7 @@ setup(
     ],
     install_requires=[
             "six",
-            "tomli",
+            "tomli; python_version<'3.11'",
             "black",
             "typing_extensions>=4.6; python_version<'3.12'"
     ],
