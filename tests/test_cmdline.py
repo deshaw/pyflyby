@@ -928,3 +928,8 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
 
     os.chdir(tmp_path)
     assert _get_pyproj_toml_config() == tomli.loads(pyproject_text)
+
+def test_load_no_pyproject_toml(tmp_path):
+    """Test that a directory pyproject.toml that has mixed array types can be loaded."""
+    os.chdir(tmp_path)
+    assert _get_pyproj_toml_config() is None
