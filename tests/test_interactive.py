@@ -859,6 +859,7 @@ def IPythonCtx(prog="ipython",
     try:
         # Prepare environment variables.
         env = {}
+        env["PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS"] = "1"
         env["PYFLYBY_PATH"]      = PYFLYBY_PATH
         env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
         env["PYTHONPATH"] = _build_pythonpath(PYTHONPATH)
@@ -1395,14 +1396,6 @@ def _clean_ipython_output(result):
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
-    # Remove cache rebuild log messages
-    lines = []
-    for line in result.split(b"\n"):
-        if b"[PYFLYBY] Rebuilding cache for" not in line:
-            lines.append(line)
-
-    result = b"\n".join(lines)
-    # result = re.sub(rb"\[PYFLYBY\] Rebuilding cache for .*\.\.\.\n", b"", result, flags=re.M).strip()
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):  # and _IPYTHON_VERSION <= (8,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn

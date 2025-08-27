@@ -610,7 +610,8 @@ def _cached_module_finder(
         for path in cache_dir.iterdir():
             _remove_import_cache_dir(path)
 
-        logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
+        if os.environ.get("PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS", 0) != "1":
+            logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
 
         modules = _iter_file_finder_modules(importer, SUFFIXES)
         with open(cache_file, 'w') as fp:
