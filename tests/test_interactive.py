@@ -1395,6 +1395,14 @@ def _clean_ipython_output(result):
     # Remove code to clear to end of line. This is done here instead of in
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
+    # Remove cache rebuild log messages
+    lines = []
+    for line in result.split(b"\n"):
+        if b"[PYFLYBY] Rebuilding cache for" not in line:
+            lines.append(line)
+
+    result = b"\n".join(lines)
+    # result = re.sub(rb"\[PYFLYBY\] Rebuilding cache for .*\.\.\.\n", b"", result, flags=re.M).strip()
     result = result.lstrip()
     if _IPYTHON_VERSION >= (5,):  # and _IPYTHON_VERSION <= (8,):
         # In IPython 5 kernel/console/etc, it seems to be impossible to turn
@@ -2361,7 +2369,6 @@ def test_complete_symbol_any_module_1(frontend, tmp):
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        [PYFLYBY] Rebuilding cache for ...
         In [2]: m18908697_\tfoo.f_68421204()
         [PYFLYBY] import m18908697_foo
         Out[2]: 'good'
@@ -2378,7 +2385,6 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
     """)
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        [PYFLYBY] Rebuilding cache for ...
         [PYFLYBY] import m51145108_foo
         In [2]: m51145108_\tfoo.f_76313558_\t
         In [2]: m51145108_foo.f_76313558_59577191()
@@ -3868,12 +3874,6 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
-@pytest.mark.skip(
-    reason=(
-        "ipdb runs commands in a thread, which breaks prompt_toolkit.patch_stdout. "
-        "Turn this back on if a solution can be found."
-    )
-)
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
@@ -3896,12 +3896,6 @@ def test_debug_tab_completion_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@pytest.mark.skip(
-    reason=(
-        "ipdb runs commands in a thread, which breaks prompt_toolkit.patch_stdout. "
-        "Turn this back on if a solution can be found."
-    )
-)
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
