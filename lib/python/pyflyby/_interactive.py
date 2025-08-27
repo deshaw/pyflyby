@@ -22,7 +22,7 @@ from   pyflyby._autoimp         import (ScopeStack,
                                         auto_import,
                                         auto_import_symbol,
                                         clear_failed_imports_cache)
-from   pyflyby._dynimp          import (inject as inject_dynamic_import, 
+from   pyflyby._dynimp          import (inject as inject_dynamic_import,
                                         PYFLYBY_LAZY_LOAD_PREFIX)
 from   pyflyby._comms           import (initialize_comms, remove_comms,
                                         send_comm_message, MISSING_IMPORTS)
@@ -516,6 +516,7 @@ def InterceptPrintsDuringPromptCtx(ip):
     :type ip:
       ``InteractiveShell``
     """
+    breakpoint()
     if not ip:
         return NullCtx()
 
@@ -540,40 +541,7 @@ def InterceptPrintsDuringPromptCtx(ip):
             sys.stdout.write(ip.pt_cli.current_buffer.document.current_line)
             sys.stdout.flush()
         return logger.HookCtx(pre=pre, post=post)
-
-    readline = ip.readline
-    if not hasattr(readline, "redisplay"):
-        # May be IPython Notebook.
-        return NullCtx()
-    redisplay = readline.redisplay
-    get_prompt = None
-    if type(ip).__module__ == "rlipython.shell":
-        # IPython 5.4 with
-        # interactive_shell_class=rlipython.TerminalInteractiveShell
-        def get_prompt_rlipython():
-            pdb_instance = _get_pdb_if_is_in_pdb()
-            if pdb_instance is not None:
-                return pdb_instance.prompt
-            elif _ipython_in_multiline(ip):
-                return ip.prompt_in2
-            else:
-                return ip.separate_in + ip.prompt_in1.format(ip.execution_count)
-        get_prompt = get_prompt_rlipython
-    else:
-        # Too old or too new IPython version?
-        return NullCtx()
-    def pre():
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-    def post():
-        # Re-display the current line.
-        prompt = get_prompt()
-        prompt = prompt.replace("\x01", "").replace("\x02", "")
-        line = readline.get_line_buffer()[:readline.get_endidx()]
-        sys.stdout.write(prompt + line)
-        redisplay()
-        sys.stdout.flush()
-    return logger.HookCtx(pre=pre, post=post)
+    return NullCtx()
 
 
 def _get_ipython_app():
