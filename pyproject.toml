@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "black",
     "six",
-    "toml",
+    "tomli; python_version<'3.11'",
     "typing_extensions>=4.6; python_version<'3.12'",
     'prompt_toolkit',
     'epydoc',
@@ -76,11 +76,11 @@ docs = [
 ]
 
 [tool.mypy]
-files = ['lib']
+files = ["lib"]
 #warn_incomplete_stub = false
 warn_unused_configs = true
 #ignore_missing_imports = true
-follow_imports = 'silent'
+follow_imports = "silent"
 # disallow_untyped_defs = true
 # ignore_errors = false
 # ignore_missing_imports = false
