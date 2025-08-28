@@ -2,13 +2,22 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import print_function
+from __future__ import annotations
 
+import appdirs
 import ast
 from   functools                import cached_property, total_ordering
+import hashlib
+import importlib
 import itertools
+import json
 import os
+import pathlib
+import pkgutil
+import textwrap
 
+from   pyflyby._fast_iter_modules \
+                                import _iter_file_finder_modules
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
@@ -16,10 +25,11 @@ from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize, prefixes)
 
 import re
+import shutil
 from   six                      import reraise
 import sys
 import types
-from   typing                   import Any, Dict
+from   typing                   import Any, Dict, Generator, Union
 
 class ErrorDuringImportError(ImportError):
     """
@@ -28,6 +38,41 @@ class ErrorDuringImportError(ImportError):
     ImportError, e.g. if a module tries to import another module that doesn't
     exist.
     """
+
+def rebuild_import_cache():
+    """Force the import cache to be rebuilt.
+
+    The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
+    """
+    for path in pathlib.Path(
+        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+    ).iterdir():
+        _remove_import_cache_dir(path)
+    _fast_iter_modules()
+
+
+def _remove_import_cache_dir(path: pathlib.Path):
+    """Remove an import cache directory.
+
+    Import cache directories exist in <user cache dir>/pyflyby/, and they should
+    contain just a single file which itself contains a JSON blob of cached import names.
+    We therefore only delete the requested path if it is a directory.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Import cache directory path to remove
+    """
+    if path.is_dir():
+        # Only directories are valid import cache entries
+        try:
+            shutil.rmtree(str(path))
+        except Exception as e:
+            logger.error(
+                f"Failed to remove cache directory at {path} - please "
+                "consider removing this directory manually. Error:\n"
+                f"{textwrap.indent(str(e), prefix='  ')}"
+            )
 
 
 @memoize
@@ -280,32 +325,20 @@ class ModuleHandle(object):
 
     @staticmethod
     @memoize
-    def list():
-        """
-        Enumerate all top-level packages/modules.
+    def list() -> list[str]:
+        """Enumerate all top-level packages/modules.
 
-        :rtype:
-          ``tuple`` of `ModuleHandle` s
+        The current working directory is excluded for autoimporting; if we autoimported
+        random python scripts in the current directory, we could accidentally execute
+        code with side effects.
+
+        Also exclude any module names that are not legal python module names (e.g.
+        "try.py" or "123.py").
+
+        :return: A list of all importable module names
         """
-        import pkgutil
-        # Get the list of top-level packages/modules using pkgutil.
-        # We exclude "." from sys.path while doing so.  Python includes "." in
-        # sys.path by default, but this is undesirable for autoimporting.  If
-        # we autoimported random python scripts in the current directory, we
-        # could accidentally execute code with side effects.  If the current
-        # working directory is /tmp, trying to enumerate modules there also
-        # causes problems, because there are typically directories there not
-        # readable by the current user.
         with ExcludeImplicitCwdFromPathCtx():
-            modlist = pkgutil.iter_modules(None)
-            module_names = [t[1] for t in modlist]
-        # pkgutil includes all *.py even if the name isn't a legal python
-        # module name, e.g. if a directory in $PYTHONPATH has files named
-        # "try.py" or "123.py", pkgutil will return entries named "try" or
-        # "123".  Filter those out.
-        module_names = [m for m in module_names if is_identifier(m)]
-        # Canonicalize.
-        return tuple(ModuleHandle(m) for m in sorted(set(module_names)))
+            return [mod.name for mod in _fast_iter_modules() if is_identifier(mod.name)]
 
     @cached_property
     def submodules(self):
@@ -511,3 +544,98 @@ class ModuleHandle(object):
                     module = cls(result)
         logger.debug("Imported %r to get %r", module, identifier)
         return module
+
+
+def _format_path(path: Union[str, pathlib.Path]) -> str:
+    """Format a path for printing as a log message.
+
+    If the path is a child of $HOME, the prefix is replaced with "~" for brevity.
+    Otherwise the original path is returned.
+
+    Parameters
+    ----------
+    path : Union[str, pathlib.Path]
+        Path to format
+
+    Returns
+    -------
+    str
+        Formatted output path
+    """
+    path = pathlib.Path(path)
+    home = pathlib.Path.home()
+
+    if path.is_relative_to(home):
+        return str(pathlib.Path("~").joinpath(path.relative_to(home)))
+    return str(path)
+
+
+SUFFIXES = sorted(importlib.machinery.all_suffixes())
+
+
+def _cached_module_finder(
+    importer: importlib.machinery.FileFinder, prefix: str = ""
+) -> Generator[tuple[str, bool], None, None]:
+    """Yield the modules found by the importer.
+
+    The importer path's mtime is recorded; if the path and mtime have a corresponding
+    cache file, the modules recorded in the cache file are returned. Otherwise, the
+    cache is rebuilt.
+
+    Parameters
+    ----------
+    importer : importlib.machinery.FileFinder
+        FileFinder importer that points to a path under which imports can be found
+    prefix : str
+        String to affix to the beginning of each module name
+
+    Returns
+    -------
+    Generator[tuple[str, bool], None, None]
+        Tuples containing (prefix+module name, a bool indicating whether the module is a
+        package or not)
+    """
+    cache_dir = pathlib.Path(
+        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+    ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
+    cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
+
+    if cache_file.exists():
+        with open(cache_file) as fp:
+            modules = json.load(fp)
+    else:
+        # Generate the cache dir if it doesn't exist, and remove any existing cache
+        # files for the given import path
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        for path in cache_dir.iterdir():
+            _remove_import_cache_dir(path)
+
+        if os.environ.get("PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS", 0) != "1":
+            logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")
+
+        modules = _iter_file_finder_modules(importer, SUFFIXES)
+        with open(cache_file, 'w') as fp:
+            json.dump(modules, fp)
+
+    for module, ispkg in modules:
+        yield prefix + module, ispkg
+
+
+def _fast_iter_modules() -> Generator[pkgutil.ModuleInfo, None, None]:
+    """Return an iterator over all importable python modules.
+
+    This function patches `pkgutil.iter_importer_modules` for
+    `importlib.machinery.FileFinder` types, causing `pkgutil.iter_importer_modules` to
+    call our own custom _iter_file_finder_modules instead of
+    pkgutil._iter_file_finder_modules.
+
+    :return: The modules that are importable by python
+    """
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder, _cached_module_finder
+    )
+    yield from pkgutil.iter_modules()
+    pkgutil.iter_importer_modules.register(  # type: ignore[attr-defined]
+        importlib.machinery.FileFinder,
+        pkgutil._iter_file_finder_modules,  # type: ignore[attr-defined]
+    )

@@ -7,6 +7,7 @@
 from   builtins                 import input
 import optparse
 import os
+from   pathlib                  import Path
 import signal
 import sys
 from   textwrap                 import dedent
@@ -19,6 +20,11 @@ from   pyflyby._file            import (FileText, Filename, atomic_write_file,
 from   pyflyby._importstmt      import ImportFormatParams
 from   pyflyby._log             import logger
 from   pyflyby._util            import cached_attribute, indent
+
+if sys.version_info < (3, 11):
+    from tomli import loads
+else:
+    from tomllib import loads
 
 
 def hfmt(s):
@@ -37,16 +43,10 @@ def _sigpipe_handler(*args):
     raise SystemExit(1)
 
 
-def parse_args(
-    addopts=None, import_format_params=False, modify_action_params=False, defaults=None
-):
+def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
     """
     Do setup for a top-level script and parse arguments.
     """
-
-    if defaults is None:
-        defaults = {}
-
     ### Setup.
     # Register a SIGPIPE handler.
     signal.signal(signal.SIGPIPE, _sigpipe_handler)
@@ -532,3 +532,17 @@ symlink_callbacks = {
     'skip': symlink_skip,
     'replace': symlink_replace,
 }
+
+def _get_pyproj_toml_config():
+    """
+    Try to find current project pyproject.toml
+    in cwd or parents directories.
+    """
+    cwd = Path(os.getcwd())
+
+    for pth in [cwd] + list(cwd.parents):
+        pyproj_toml = pth /'pyproject.toml'
+        if pyproj_toml.exists() and pyproj_toml.is_file():
+            return loads(pyproj_toml.read_text())
+
+    return None

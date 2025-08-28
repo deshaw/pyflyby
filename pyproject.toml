@@ -1,13 +1,85 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = [
+    "meson-python>=0.18.0",
+    "pybind11>=2.10.4",
+]
+build-backend = "mesonpy"
+
+[project]
+name = "pyflyby"
+dynamic = ["version"]
+authors = [
+  { name = "Karl Chen", email = "quarl@8166.clguba.z.quarl.org" },
+]
+description = "pyflyby - Python development productivity tools, in particular automatic import management"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+readme = "README.rst"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Interpreters",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "black",
+    "six",
+    "tomli; python_version<'3.11'",
+    "typing_extensions>=4.6; python_version<'3.12'",
+    'prompt_toolkit',
+    'epydoc',
+    'wheel', # required by epydoc, but not listed as a dependency
+    'appdirs',
+]
+[project.urls]
+Homepage = "https://pypi.org/project/pyflyby/"
+Documentation = "https://deshaw.github.io/pyflyby/"
+Source = "https://github.com/deshaw/pyflyby"
+
+[project.scripts]
+py = "pyflyby._py:py_main"
+py3 = "pyflyby._py:py_main"
+
+[project.optional-dependencies]
+test = [
+    'build',
+    'coverage',
+    'flaky',
+    'hypothesis',
+    'ipykernel>=5.4.3',
+    'ipython',
+    'jupyter',
+    'jupyter_console>=6.2',
+    'notebook<6.1',
+    'pexpect>=3.3',
+    'pytest-cov',
+    'pytest-json-report',
+    'pytest<=8',
+    'requests',
+]
+
+[dependency-groups]
+lint = [
+    'flake8',
+    'mypy',
+    'pyflakes',
+    'types-six',
+]
+docs = [
+    'sphinx',
+    'sphinx_rtd_theme',
+    'sphinx-autodoc-typehints',
+]
 
 [tool.mypy]
-files = ['lib']
+files = ["lib"]
 #warn_incomplete_stub = false
 warn_unused_configs = true
 #ignore_missing_imports = true
-follow_imports = 'silent'
+follow_imports = "silent"
 # disallow_untyped_defs = true
 # ignore_errors = false
 # ignore_missing_imports = false
