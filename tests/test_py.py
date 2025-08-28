@@ -93,26 +93,48 @@ class _TmpFixture(object):
 
 
 
-def _py_internal_1(args, stdin="",
-                   PYTHONPATH=[],
-                   PYFLYBY_PATH=PYFLYBY_PATH):
-    env = dict(os.environ)
-    if isinstance(PYFLYBY_PATH, str):
-        PYFLYBY_PATH = Filename(PYFLYBY_PATH)
-    env["PYFLYBY_PATH"] = str(PYFLYBY_PATH)
-    env["PYTHONPATH"] = _build_pythonpath(PYTHONPATH)
+def _py_internal_1(
+    args,
+    stdin="",
+    PYTHONPATH=[],
+    PYFLYBY_PATH=PYFLYBY_PATH,
+    **environment
+):
+    pythonpath = _build_pythonpath(environment.pop('PYTHONPATH', []))
+    pyflyby_path = environment.pop("PYFLYBY_PATH", PYFLYBY_PATH)
+    environment.pop('PYTHONSTARTUP', None)
+
+    if isinstance(pyflyby_path, str):
+        pyflyby_path = Filename(pyflyby_path)
+
+    env = dict(os.environ) | environment
+    env['PYFLYBY_PATH'] = str(pyflyby_path)
+    env['PYTHONPATH'] = pythonpath
     env["PYTHONSTARTUP"] = ""
     prog = str(BIN_DIR/"py")
     return pipe((prog,) + args, stdin=stdin, env=env)
 
 
-def py(*args, **kwargs):
+def py(*args, **environment) -> str:
+    """Run `py`, pipe stderr to stdout, and return the result.
+
+    Parameters
+    ----------
+    *args
+        Arguments to pass to `py`
+    **environment
+        Environment variables to set. Note that PYTHONUNBUFFERED=1 always to ensure
+        consistent output when stderr gets piped to stdout
+
+    Returns
+    -------
+    str
+        Stderr is piped to stdout, and stdout is returned
     """
-    Run ``py`` and return stdout.
-    """
+    environment.pop('PYTHONUNBUFFERED', None)
     if len(args) == 1 and isinstance(args[0], (tuple, list)):
         args = tuple(args[0])
-    return _py_internal_1(args, **kwargs)
+    return _py_internal_1(args, PYTHONUNBUFFERED="1", **environment)
 
 
 def writetext(filename, text, mode='w'):
