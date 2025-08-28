@@ -506,44 +506,6 @@ def _ipython_in_multiline(ip):
         return False
 
 
-def InterceptPrintsDuringPromptCtx(ip):
-    """
-    Decorator that hooks our logger so that::
-
-      1. Before the first print, if any, print an extra newline.
-      2. Upon context exit, if any lines were printed, redisplay the prompt.
-
-    :type ip:
-      ``InteractiveShell``
-    """
-    breakpoint()
-    if not ip:
-        return NullCtx()
-
-    if not hasattr(ip, 'readline'):
-        if type(sys.stdout).__module__.startswith("prompt_toolkit."):
-            # prompt_toolkit replaces stdout with a proxy that takes
-            # care of redrawing the prompt correctly.
-            return NullCtx()
-
-        if not hasattr(ip, "prompts_class"):
-            # This could be a Jupyter console/notebook.
-            return NullCtx()
-
-        def pre():
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-        def post():
-            # Re-display the current line.
-            sys.stdout.write("\n")
-            t = ip.prompts_class(ip).in_prompt_tokens()
-            ip.pt_cli.print_tokens(t)
-            sys.stdout.write(ip.pt_cli.current_buffer.document.current_line)
-            sys.stdout.flush()
-        return logger.HookCtx(pre=pre, post=post)
-    return NullCtx()
-
-
 def _get_ipython_app():
     """
     Get an IPython application instance, if we are inside an IPython session.
@@ -1784,27 +1746,26 @@ class AutoImporter:
         def complete_object_hook(obj, words):
             if not object_hook_enabled:
                 return words
-            with InterceptPrintsDuringPromptCtx(self._ip):
-                logger.debug("complete_object_hook(%r)", obj)
-                # Get the database of known imports.
-                db = ImportDB.interpret_arg(None, target_filename=".")
-                known = db.known_imports
-                results = set(words)
-                pname = obj.__name__
-                # Is it a package/module?
-                if sys.modules.get(pname, Ellipsis) is obj:
-                    # Add known_imports entries from the database.
-                    results.update(known.member_names.get(pname, []))
-                    # Get the module handle.  Note that we use ModuleHandle() on the
-                    # *name* of the module (``pname``) instead of the module instance
-                    # (``obj``).  Using the module instance normally works, but
-                    # breaks if the module hackily replaced itself with a pseudo
-                    # module (e.g. https://github.com/josiahcarlson/mprop).
-                    pmodule = ModuleHandle(pname)
-                    # Add importable submodules.
-                    results.update([m.name.parts[-1] for m in pmodule.submodules])
-                results = sorted([r for r in results])
-                return results
+            logger.debug("complete_object_hook(%r)", obj)
+            # Get the database of known imports.
+            db = ImportDB.interpret_arg(None, target_filename=".")
+            known = db.known_imports
+            results = set(words)
+            pname = obj.__name__
+            # Is it a package/module?
+            if sys.modules.get(pname, Ellipsis) is obj:
+                # Add known_imports entries from the database.
+                results.update(known.member_names.get(pname, []))
+                # Get the module handle.  Note that we use ModuleHandle() on the
+                # *name* of the module (``pname``) instead of the module instance
+                # (``obj``).  Using the module instance normally works, but
+                # breaks if the module hackily replaced itself with a pseudo
+                # module (e.g. https://github.com/josiahcarlson/mprop).
+                pmodule = ModuleHandle(pname)
+                # Add importable submodules.
+                results.update([m.name.parts[-1] for m in pmodule.submodules])
+            results = sorted([r for r in results])
+            return results
 
         def disable_custom_completer_object_hook():
             nonlocal object_hook_enabled

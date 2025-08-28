@@ -5,7 +5,6 @@
 
 
 import builtins
-from   contextlib               import contextmanager
 import logging
 from   logging                  import Handler, Logger
 import os
@@ -38,37 +37,6 @@ class _PyflybyHandler(Handler):
         except Exception:
             sys.__stderr__.write(f"AN ERROR OCCURRED {record}")
             self.handleError(record)
-
-    @contextmanager
-    def HookCtx(self, pre, post):
-        """
-        Enter a context where:
-          * ``pre`` is called before the first time a log record is emitted
-            during the context, and
-          * ``post`` is called at the end of the context, if any log records
-            were emitted during the context.
-
-        :type pre:
-          ``callable``
-        :param pre:
-          Function to call before the first time something is logged during
-          this context.
-        :type post:
-          ``callable``
-        :param post:
-          Function to call before returning from the context, if anything was
-          logged during the context.
-        """
-        assert self._pre_log_function is None
-        self._pre_log_function = pre
-        try:
-            yield
-        finally:
-            if self._logged_anything_during_context:
-                post()
-                self._logged_anything_during_context = False
-            self._pre_log_function = None
-
 
 def _is_interactive(file):
     filemod = type(file).__module__
@@ -133,11 +101,5 @@ class PyflybyLogger(Logger):
     def info_enabled(self):
         return self.level <= logging.INFO
 
-    def HookCtx(self, pre, post):
-        return self.handlers[0].HookCtx(pre, post)
-
-    def log(self, *args, **kwargs):
-        sys.__stderr__.write(f"\n----\n{sys.stderr}\n----\n")
-        return super().log(*args, **kwargs)
 
 logger = PyflybyLogger('pyflyby', os.getenv("PYFLYBY_LOG_LEVEL") or "INFO")
