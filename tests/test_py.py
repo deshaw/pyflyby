@@ -96,8 +96,6 @@ class _TmpFixture(object):
 def _py_internal_1(
     args,
     stdin="",
-    PYTHONPATH=[],
-    PYFLYBY_PATH=PYFLYBY_PATH,
     **environment
 ):
     pythonpath = _build_pythonpath(environment.pop('PYTHONPATH', []))
