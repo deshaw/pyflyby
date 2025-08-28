@@ -2,30 +2,27 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-
-
 import ast
 import builtins
 from   contextlib               import contextmanager
 import errno
 import inspect
-import os
 import operator
+import os
 import re
 import subprocess
 import sys
 
-from typing import List, Any, Dict, Union, Literal
+from   typing                   import Any, Dict, List, Literal, Union
 
 
-from   pyflyby._autoimp         import (ScopeStack,
-                                        auto_import,
+from   pyflyby._autoimp         import (ScopeStack, auto_import,
                                         auto_import_symbol,
                                         clear_failed_imports_cache)
-from   pyflyby._dynimp          import (inject as inject_dynamic_import,
-                                        PYFLYBY_LAZY_LOAD_PREFIX)
-from   pyflyby._comms           import (initialize_comms, remove_comms,
-                                        send_comm_message, MISSING_IMPORTS)
+from   pyflyby._comms           import (MISSING_IMPORTS, initialize_comms,
+                                        remove_comms, send_comm_message)
+from   pyflyby._dynimp          import (PYFLYBY_LAZY_LOAD_PREFIX,
+                                        inject as inject_dynamic_import)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -33,8 +30,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, NullCtx, advise,
-                                        indent)
+                                        FunctionWithGlobals, advise, indent)
 
 if False:
     __original__ = None # for pyflakes
