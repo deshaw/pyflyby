@@ -35,7 +35,6 @@ class _PyflybyHandler(Handler):
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
-            sys.__stderr__.write(f"AN ERROR OCCURRED {record}")
             self.handleError(record)
 
 def _is_interactive(file):
