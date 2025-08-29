@@ -2,30 +2,27 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-
-
 import ast
 import builtins
 from   contextlib               import contextmanager
 import errno
 import inspect
-import os
 import operator
+import os
 import re
 import subprocess
 import sys
 
-from typing import List, Any, Dict, Union, Literal
+from   typing                   import Any, Dict, List, Literal, Union
 
 
-from   pyflyby._autoimp         import (ScopeStack,
-                                        auto_import,
+from   pyflyby._autoimp         import (ScopeStack, auto_import,
                                         auto_import_symbol,
                                         clear_failed_imports_cache)
-from   pyflyby._dynimp          import (inject as inject_dynamic_import, 
-                                        PYFLYBY_LAZY_LOAD_PREFIX)
-from   pyflyby._comms           import (initialize_comms, remove_comms,
-                                        send_comm_message, MISSING_IMPORTS)
+from   pyflyby._comms           import (MISSING_IMPORTS, initialize_comms,
+                                        remove_comms, send_comm_message)
+from   pyflyby._dynimp          import (PYFLYBY_LAZY_LOAD_PREFIX,
+                                        inject as inject_dynamic_import)
 from   pyflyby._file            import Filename, atomic_write_file, read_file
 from   pyflyby._idents          import is_identifier
 from   pyflyby._importdb        import ImportDB
@@ -33,8 +30,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, NullCtx, advise,
-                                        indent)
+                                        FunctionWithGlobals, advise, indent)
 
 if False:
     __original__ = None # for pyflakes
@@ -506,76 +502,6 @@ def _ipython_in_multiline(ip):
         return False
 
 
-def InterceptPrintsDuringPromptCtx(ip):
-    """
-    Decorator that hooks our logger so that::
-
-      1. Before the first print, if any, print an extra newline.
-      2. Upon context exit, if any lines were printed, redisplay the prompt.
-
-    :type ip:
-      ``InteractiveShell``
-    """
-    if not ip:
-        return NullCtx()
-
-    if not hasattr(ip, 'readline'):
-        if type(sys.stdout).__module__.startswith("prompt_toolkit."):
-            # prompt_toolkit replaces stdout with a proxy that takes
-            # care of redrawing the prompt correctly.
-            return NullCtx()
-
-        if not hasattr(ip, "prompts_class"):
-            # This could be a Jupyter console/notebook.
-            return NullCtx()
-
-        def pre():
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-        def post():
-            # Re-display the current line.
-            sys.stdout.write("\n")
-            t = ip.prompts_class(ip).in_prompt_tokens()
-            ip.pt_cli.print_tokens(t)
-            sys.stdout.write(ip.pt_cli.current_buffer.document.current_line)
-            sys.stdout.flush()
-        return logger.HookCtx(pre=pre, post=post)
-
-    readline = ip.readline
-    if not hasattr(readline, "redisplay"):
-        # May be IPython Notebook.
-        return NullCtx()
-    redisplay = readline.redisplay
-    get_prompt = None
-    if type(ip).__module__ == "rlipython.shell":
-        # IPython 5.4 with
-        # interactive_shell_class=rlipython.TerminalInteractiveShell
-        def get_prompt_rlipython():
-            pdb_instance = _get_pdb_if_is_in_pdb()
-            if pdb_instance is not None:
-                return pdb_instance.prompt
-            elif _ipython_in_multiline(ip):
-                return ip.prompt_in2
-            else:
-                return ip.separate_in + ip.prompt_in1.format(ip.execution_count)
-        get_prompt = get_prompt_rlipython
-    else:
-        # Too old or too new IPython version?
-        return NullCtx()
-    def pre():
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-    def post():
-        # Re-display the current line.
-        prompt = get_prompt()
-        prompt = prompt.replace("\x01", "").replace("\x02", "")
-        line = readline.get_line_buffer()[:readline.get_endidx()]
-        sys.stdout.write(prompt + line)
-        redisplay()
-        sys.stdout.flush()
-    return logger.HookCtx(pre=pre, post=post)
-
-
 def _get_ipython_app():
     """
     Get an IPython application instance, if we are inside an IPython session.
@@ -661,7 +587,6 @@ _IS_PDB_IGNORE_PKGS = frozenset([
     'contextlib',
     'prompt_toolkit',
     'pyflyby',
-    'rlipython',
     'asyncio',
 ])
 
@@ -1817,27 +1742,26 @@ class AutoImporter:
         def complete_object_hook(obj, words):
             if not object_hook_enabled:
                 return words
-            with InterceptPrintsDuringPromptCtx(self._ip):
-                logger.debug("complete_object_hook(%r)", obj)
-                # Get the database of known imports.
-                db = ImportDB.interpret_arg(None, target_filename=".")
-                known = db.known_imports
-                results = set(words)
-                pname = obj.__name__
-                # Is it a package/module?
-                if sys.modules.get(pname, Ellipsis) is obj:
-                    # Add known_imports entries from the database.
-                    results.update(known.member_names.get(pname, []))
-                    # Get the module handle.  Note that we use ModuleHandle() on the
-                    # *name* of the module (``pname``) instead of the module instance
-                    # (``obj``).  Using the module instance normally works, but
-                    # breaks if the module hackily replaced itself with a pseudo
-                    # module (e.g. https://github.com/josiahcarlson/mprop).
-                    pmodule = ModuleHandle(pname)
-                    # Add importable submodules.
-                    results.update([m.name.parts[-1] for m in pmodule.submodules])
-                results = sorted([r for r in results])
-                return results
+            logger.debug("complete_object_hook(%r)", obj)
+            # Get the database of known imports.
+            db = ImportDB.interpret_arg(None, target_filename=".")
+            known = db.known_imports
+            results = set(words)
+            pname = obj.__name__
+            # Is it a package/module?
+            if sys.modules.get(pname, Ellipsis) is obj:
+                # Add known_imports entries from the database.
+                results.update(known.member_names.get(pname, []))
+                # Get the module handle.  Note that we use ModuleHandle() on the
+                # *name* of the module (``pname``) instead of the module instance
+                # (``obj``).  Using the module instance normally works, but
+                # breaks if the module hackily replaced itself with a pseudo
+                # module (e.g. https://github.com/josiahcarlson/mprop).
+                pmodule = ModuleHandle(pname)
+                # Add importable submodules.
+                results.update([m.name.parts[-1] for m in pmodule.submodules])
+            results = sorted([r for r in results])
+            return results
 
         def disable_custom_completer_object_hook():
             nonlocal object_hook_enabled
