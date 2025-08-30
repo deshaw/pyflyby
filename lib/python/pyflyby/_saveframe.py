@@ -481,8 +481,30 @@ def _get_all_frames_from_exception_obj(exception_obj):
     return all_frames
 
 
+def _get_all_frames_from_current_frame(current_frame):
+    """
+    Get all frame objects starting from the current frame up the call stack.
+
+    :param current_frame:
+      The current frame in the debugger.
+    :return
+      A list of all frame objects in bottom-to-top order, with the bottom frame
+      (current frame) at index 0.
+    """
+    all_frames = []
+    while current_frame:
+        func_name = current_frame.f_code.co_name
+        # We've reached the python internal frames. Break the loop.
+        if func_name == '<module>':
+            break
+        all_frames.append(current_frame)
+        current_frame = current_frame.f_back
+    return all_frames
+
+
 def _save_frames_and_exception_info_to_file(
-        filename, frames, variables, exclude_variables, exception_obj):
+        filename, frames, variables, exclude_variables, *,
+        exception_obj=None, current_frame=None):
     """
     Save the frames and exception information in the file ``filename``.
 
@@ -519,6 +541,9 @@ def _save_frames_and_exception_info_to_file(
           'traceback': '(multiline traceback)
       }
 
+    NOTE: Exception info (such as 'exception_*') will not be stored if
+    ``exception_obj`` is None.
+
     :param filename:
       The file path in which to save the information.
     :param frames:
@@ -531,11 +556,20 @@ def _save_frames_and_exception_info_to_file(
     :param exception_obj:
       The ``Exception`` raised by the user's code. This is used to extract all
       the required info; the traceback, all the frame objects, etc.
+    :param current_frame:
+      The current frame if the user is in a debugger. This is used to extract all
+      the required info; the traceback, all the frame objects, etc.
     """
     # Mapping that stores all the information to save.
     frames_and_exception_info = {}
-    # Get the list of frame objects from the exception object.
-    all_frames = _get_all_frames_from_exception_obj(exception_obj)
+    if exception_obj:
+        # Get the list of frame objects from the exception object.
+        all_frames = _get_all_frames_from_exception_obj(
+            exception_obj=exception_obj)
+    else:
+        all_frames = _get_all_frames_from_current_frame(
+            current_frame=current_frame)
+
     # Take out the frame objects we want to save as per 'frames'.
     frames_to_save = _get_frames_to_save(frames, all_frames)
     _SAVEFRAME_LOGGER.info(
@@ -549,8 +583,10 @@ def _save_frames_and_exception_info_to_file(
         frames_and_exception_info[frame_idx]['variables'] = (
             _get_frame_local_variables_data(frame_obj, variables, exclude_variables))
 
-    _SAVEFRAME_LOGGER.info("Getting exception metadata info.")
-    frames_and_exception_info.update(_get_exception_info(exception_obj).__dict__)
+    if exception_obj:
+        _SAVEFRAME_LOGGER.info("Getting exception metadata info.")
+        frames_and_exception_info.update(_get_exception_info(
+            exception_obj).__dict__)
     _SAVEFRAME_LOGGER.info("Saving the complete data in the file: %a", filename)
     with _open_file(filename, 'wb') as f:
         pickle.dump(frames_and_exception_info, f, protocol=PICKLE_PROTOCOL)
@@ -857,11 +893,20 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     If you have a piece of code that is currently failing due to an issue
     originating from upstream code, and you cannot share your private
     code as a reproducer, use this function to save relevant information to a file.
-    While in an interactive session such as IPython, Jupyter Notebook, or a
-    debugger (pdb/ipdb), you can call this function after your code raised
-    an error to capture and save error frames specific to the upstream codebase
-    Share the generated file with the upstream team, enabling them to reproduce
-    and diagnose the issue independently.
+
+    When to use:
+      - After an Exception:
+        - In an interactive session (IPython, Jupyter Notebook, pdb/ipdb),
+          after your code raises an error, call this function to capture and
+          save error frames specific to the upstream code.
+        - Share the generated file with the upstream team, enabling them to
+          reproduce and diagnose the issue independently.
+      -  Without an Exception:
+        - Even if no error has occurred, you can deliberately enter a debugger
+          (e.g., using ``ipdb.set_trace()``) and save the frames.
+        - This can be used in case you are experiencing slowness in the upstream
+          code. Save the frames using this function to provide the upstream team
+          with relevant information for further investigation.
 
     Information saved in the file:
     --------------------------------------------------------------------------
@@ -908,6 +953,9 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
       - 'variables' key in each frame's entry stores the local variables of that frame.
       - The 'exception_object' key stores the actual exception object but without
         the __traceback__ info (for security reasons).
+      - Exception info (such as 'exception_*') will not be stored in the file if
+        you enter the debugger manually (e.g., using ``ipdb.set_trace()``) and
+        call ``saveframe`` without an exception being raised.
 
     **Example usage**:
 
@@ -924,6 +972,8 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
 
       >> <Your code raised an error>
       >> ipdb.pm() # start a debugger
+      >> OR
+      >> <You entered the debugger using ipdb.set_trace()>
       >> ipdb> from pyflyby import saveframe
       >> ipdb> saveframe(filename=/path/to/file) # Saves the frame which you are currently at
       >> ipdb> saveframe(filename=/path/to/file, frames=frames_to_save,
@@ -1044,31 +1094,52 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     :return:
       The file path in which the frame info is saved.
     """
+    current_frame = None
+    exception_obj = None
+    # Boolean to denote if an exception has been raised.
+    exception_raised = True
     if not ((sys.version_info < (3, 12) and hasattr(sys, 'last_value')) or
             (sys.version_info >= (3, 12) and hasattr(sys, 'last_exc'))):
-        raise RuntimeError(
-            "No exception is raised currently for which to save the frames. "
-            "Make sure that an uncaught exception is raised before calling the "
-            "`saveframe` function.")
-    # Get the latest exception raised.
-    exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
+        exception_raised = False
 
-    if frames is None:
-        # Get the instance of the interactive session the user is currently in.
-        interactive_session_obj = sys._getframe().f_back.f_back.f_locals.get('self')
-        # If the user is currently in a debugger (ipdb/pdb), save the frame the
-        # user is currently at in the debugger.
-        if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
-            current_frame = interactive_session_obj.curframe
+    if exception_raised:
+        # Get the latest exception raised.
+        exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
+
+    if not (exception_raised and frames):
+        try:
+            # Get the instance of the interactive session the user is currently in.
+            interactive_session_obj = sys._getframe(2).f_locals.get('self')
+            # If the user is currently in a debugger (ipdb/pdb), save the frame the
+            # user is currently at in the debugger.
+            if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
+                current_frame = interactive_session_obj.curframe
+        except Exception as err:
+            _SAVEFRAME_LOGGER.warning(
+                f"Error while extracting the interactive session object: {err}")
+        # This logic handles two scenarios:
+        # 1. No exception is raised and the debugger is started.
+        # 2. An exception is raised, and the user then starts a debugger manually
+        #    (e.g., via ipdb.pm()).
+        # In both cases, we set the frame to the current frame as the default
+        # behavior.
+        if frames is None and current_frame:
             frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
                       f"{_get_qualname(current_frame)}")
+
+    if not (exception_obj or current_frame):
+        raise RuntimeError(
+            "No exception has been raised, and the session is not currently "
+            "within a debugger. Unable to save frames.")
 
     _SAVEFRAME_LOGGER.info("Validating arguments passed.")
     filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
         filename, frames, variables, exclude_variables)
-    _SAVEFRAME_LOGGER.info(
-        "Saving frames and metadata for the exception: %a", exception_obj)
+    if exception_raised:
+        _SAVEFRAME_LOGGER.info(
+            "Saving frames and metadata for the exception: %a", exception_obj)
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
-        exclude_variables=exclude_variables, exception_obj=exception_obj)
+        exclude_variables=exclude_variables,
+        exception_obj=exception_obj, current_frame=current_frame)
     return filename
