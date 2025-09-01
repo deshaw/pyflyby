@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import appdirs
 import ast
 from   functools                import cached_property, total_ordering
 import hashlib
@@ -14,6 +13,7 @@ import json
 import os
 import pathlib
 import pkgutil
+import platformdirs
 import textwrap
 
 from   pyflyby._fast_iter_modules \
@@ -45,7 +45,7 @@ def rebuild_import_cache():
     The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
     """
     for path in pathlib.Path(
-        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+        platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
     ).iterdir():
         _remove_import_cache_dir(path)
     _fast_iter_modules()
@@ -596,7 +596,7 @@ def _cached_module_finder(
         package or not)
     """
     cache_dir = pathlib.Path(
-        appdirs.user_cache_dir(appname='pyflyby', appauthor=False)
+        platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
     ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
     cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
 
