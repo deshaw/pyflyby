@@ -73,21 +73,19 @@ def test_failing():
     assert False
 
 
-def pytest_generate_tests(metafunc):
+@pytest.fixture
+def frontend():
     # IPython 4 and earlier only had readline frontend.
     # IPython 5.0 through 5.3 only allow prompt_toolkit.
     # IPython 5.4 through 6.5 defaults to prompt_toolkit, but allows choosing readline.
     # IPython 7+ breaks rlipython (https://github.com/ipython/rlipython/issues/21).
-    if 'frontend' in metafunc.fixturenames:
-        if _IPYTHON_VERSION >= (7,0):
-            metafunc.parametrize('frontend', [            'prompt_toolkit'])
-        else:
-            raise ImportError("IPython < 8 is unsupported.")
+    return "prompt_toolkit"
 
 
 @pytest.fixture
 def tmp(request):
     return _TmpFixture(request)
+
 
 class _TmpFixture(object):
     def __init__(self, request):
@@ -934,8 +932,8 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 break
         while line:
             left, tab, right = line.partition(b"\t")
-            # if DEBUG:
-            #     print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
+            if DEBUG:
+                print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
             # Send the input (up to tab or newline).
             child.send(left)
             # Check that the client IPython gets the input.

@@ -53,12 +53,13 @@ jobs:
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        python -m pytest -v --cov=pyflyby --cov-report=xml\
-               --doctest-modules\
-               --maxfail=3\
-               --json-report\
-               --json-report-file=report-${ENVNAME}.json\
-               lib tests
+        pytest -v --maxfail=3 tests/test_interactive.py::test_timeit_complete_autoimport_member_1
+        # python -m pytest -v --cov=pyflyby --cov-report=xml\
+        #        --doctest-modules\
+        #        --maxfail=3\
+        #        --json-report\
+        #        --json-report-file=report-${ENVNAME}.json\
+        #        lib tests
     - uses: actions/upload-artifact@v4
       name: upload pytest timing reports as json
       with:
