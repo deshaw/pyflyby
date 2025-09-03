@@ -35,9 +35,9 @@ jobs:
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        pip install meson-python meson ninja pybind11>=2.10.4
+        pip install meson-python meson ninja "pybind11>=2.10.4"
         pip install setuptools wheel # needed for epydoc
-        pip install --no-build-isolation -ve .[test]
+        pip install --no-build-isolation -ve ".[test]"
     - name: test release build
       run: |
         python -m build
@@ -54,13 +54,12 @@ jobs:
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        pytest -v --maxfail=3 tests/test_interactive.py::test_timeit_complete_autoimport_member_1
-        # python -m pytest -v --cov=pyflyby --cov-report=xml\
-        #        --doctest-modules\
-        #        --maxfail=3\
-        #        --json-report\
-        #        --json-report-file=report-${ENVNAME}.json\
-        #        lib tests
+        python -m pytest -v --cov=pyflyby --cov-report=xml\
+               --doctest-modules\
+               --maxfail=3\
+               --json-report\
+               --json-report-file=report-${ENVNAME}.json\
+               lib tests
     - uses: actions/upload-artifact@v4
       name: upload pytest timing reports as json
       with:

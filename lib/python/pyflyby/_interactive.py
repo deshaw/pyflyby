@@ -711,22 +711,26 @@ class NamespaceWithPotentialImports(dict):
 
 
 def _auto_import_hook(name: str):
-    logger.critical("_auto_import_hook(%r)", name)
+    logger.debug("_auto_import_hook(%r)", name)
     ip = _get_ipython_app().shell
     try:
         namespaces = ScopeStack(get_global_namespaces(ip))
         db = ImportDB.interpret_arg(None, target_filename='.')
         did_auto_import = auto_import_symbol(name, namespaces, db)
     except Exception as e:
-        logger.critical("_auto_import_hook preparation error: %r", e)
+        logger.debug("_auto_import_hook preparation error: %r", e)
         raise e
     if not did_auto_import:
-        raise ImportError(f"{name} not auto-imported")
+        # IPython >= 9.5 will only only try trimming and reevaluating invalid
+        # expressions if this is either a SyntaxError or a TypeError. See
+        # https://github.com/deshaw/pyflyby/pull/409 and
+        # https://github.com/ipython/ipython/pull/14943 for context.
+        raise SyntaxError from ImportError(f"{name} not auto-imported")
     try:
         # relies on `auto_import_symbol` auto-importing into [-1] namespace
         return namespaces[-1][name]
     except Exception as e:
-        logger.critical("_auto_import_hook internal error: %r", e)
+        logger.debug("_auto_import_hook internal error: %r", e)
         raise e
 
 
@@ -1698,7 +1702,7 @@ class AutoImporter:
         #   * global_namespace - for completion of modules before they get imported
         #     (in the `global_matches` context only)
         #   * auto_import_method - for auto-import
-        logger.critical("_enable_completer_hooks(%r)", completer)
+        logger.debug("_enable_completer_hooks(%r)", completer)
 
         if hasattr(completer, "policy_overrides"):
             # `policy_overrides` and `auto_import_method` were added in IPython 9.3

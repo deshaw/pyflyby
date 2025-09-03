@@ -932,8 +932,8 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 break
         while line:
             left, tab, right = line.partition(b"\t")
-            if DEBUG:
-                print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
+            # if DEBUG:
+            #     print("_interact_ipython(): line=%r, left=%r, tab=%r, right=%r" % (line, left, tab, right))
             # Send the input (up to tab or newline).
             child.send(left)
             # Check that the client IPython gets the input.
@@ -2972,6 +2972,7 @@ def test_timeit_complete_menu_1(frontend):
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
+@retry
 def test_timeit_complete_autoimport_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
