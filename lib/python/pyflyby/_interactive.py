@@ -718,7 +718,7 @@ def _auto_import_hook(name: str):
         db = ImportDB.interpret_arg(None, target_filename='.')
         did_auto_import = auto_import_symbol(name, namespaces, db)
     except Exception as e:
-        logger.debug("_auto_import_hook preparation error: %r", e)
+        logger.critical("_auto_import_hook preparation error: %r", e)
         raise e
     if not did_auto_import:
         raise ImportError(f"{name} not auto-imported")
@@ -726,7 +726,7 @@ def _auto_import_hook(name: str):
         # relies on `auto_import_symbol` auto-importing into [-1] namespace
         return namespaces[-1][name]
     except Exception as e:
-        logger.debug("_auto_import_hook internal error: %r", e)
+        logger.critical("_auto_import_hook internal error: %r", e)
         raise e
 
 
@@ -1698,7 +1698,7 @@ class AutoImporter:
         #   * global_namespace - for completion of modules before they get imported
         #     (in the `global_matches` context only)
         #   * auto_import_method - for auto-import
-        logger.debug("_enable_completer_hooks(%r)", completer)
+        logger.critical("_enable_completer_hooks(%r)", completer)
 
         if hasattr(completer, "policy_overrides"):
             # `policy_overrides` and `auto_import_method` were added in IPython 9.3
