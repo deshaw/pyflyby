@@ -711,7 +711,7 @@ class NamespaceWithPotentialImports(dict):
 
 
 def _auto_import_hook(name: str):
-    logger.debug("_auto_import_hook(%r)", name)
+    logger.critical("_auto_import_hook(%r)", name)
     ip = _get_ipython_app().shell
     try:
         namespaces = ScopeStack(get_global_namespaces(ip))
