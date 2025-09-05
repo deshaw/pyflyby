@@ -32,7 +32,7 @@ dependencies = [
     'prompt_toolkit',
     'epydoc',
     'wheel', # required by epydoc, but not listed as a dependency
-    'appdirs',
+    'platformdirs',
 ]
 [project.urls]
 Homepage = "https://pypi.org/project/pyflyby/"
