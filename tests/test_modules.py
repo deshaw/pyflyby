@@ -3,22 +3,20 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-
-
-
-from unittest import mock
-import pathlib
 import hashlib
 import logging.handlers
+import pathlib
+from   pkgutil                  import iter_modules
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._log             import logger
-from   pyflyby._modules         import ModuleHandle, _fast_iter_modules, _iter_file_finder_modules
-from   pkgutil                  import iter_modules
+from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
+                                        _iter_file_finder_modules)
 import re
 import subprocess
 import sys
 from   textwrap                 import dedent
+from   unittest                 import mock
 
 import pytest
 
@@ -125,7 +123,7 @@ def test_fast_iter_modules():
     assert fast == slow
 
 
-@mock.patch("appdirs.user_cache_dir")
+@mock.patch("platformdirs.user_cache_dir")
 def test_import_cache(mock_user_cache_dir, tmp_path):
     """Test that the import cache is built when iterating modules.
 
