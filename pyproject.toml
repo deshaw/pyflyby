@@ -30,8 +30,6 @@ dependencies = [
     "tomli; python_version<'3.11'",
     "typing_extensions>=4.6; python_version<'3.12'",
     'prompt_toolkit',
-    'epydoc',
-    'wheel', # required by epydoc, but not listed as a dependency
     'platformdirs',
 ]
 [project.urls]
@@ -59,6 +57,9 @@ test = [
     'pytest-json-report',
     'pytest<=8',
     'requests',
+    'epydoc',
+    'wheel', # required by epydoc, but not listed as a dependency
+    'setuptools', # required by epydoc, but not listed as a dependency
 ]
 
 [dependency-groups]
