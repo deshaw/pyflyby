@@ -1,7 +1,7 @@
 project(
   'pyflyby',
   'cpp',
-  version: '1.10.0',
+  version: '1.10.1',
   default_options: 'cpp_std=c++17'
 )
 
