@@ -162,7 +162,7 @@ def main() -> None:
     process_actions(
         args,
         options.actions, modify,
-        exclude=getattr(default_config, 'tidy-imports', {}).get('exclude', []) + (cmdline_exclude if cmdline_exclude else [])
+        exclude=default_config.get('tidy-imports', {}).get('exclude', []) + (cmdline_exclude if cmdline_exclude else [])
     )
 
 
