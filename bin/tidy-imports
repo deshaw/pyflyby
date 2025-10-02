@@ -20,10 +20,9 @@ Only top-level import statements are touched.
 # Copyright (C) 2011, 2012, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-import pathlib
 
-from   pyflyby._cmdline         import (_get_pyproj_toml_file, _get_pyproj_toml_config, hfmt,
-                                        parse_args, process_actions, AbortActions)
+from   pyflyby._cmdline         import (_get_pyproj_toml_config, hfmt,
+                                        parse_args, process_actions)
 from   pyflyby._import_sorting  import sort_imports
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -159,10 +158,11 @@ def main() -> None:
             cannonical_imports = sorted_imports
         return cannonical_imports
 
+    cmdline_exclude = getattr(options, "exclude")
     process_actions(
         args,
         options.actions, modify,
-        exclude=getattr(default_config, 'tidy-imports', {}).get('exclude', []) + options.exclude
+        exclude=getattr(default_config, 'tidy-imports', {}).get('exclude', []) + (cmdline_exclude if cmdline_exclude else [])
     )
 
 
