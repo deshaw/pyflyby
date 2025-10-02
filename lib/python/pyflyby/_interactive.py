@@ -1724,14 +1724,14 @@ class AutoImporter:
                     return __original__.fget(completer) + [completer.python_matcher]
 
         @self._advise(completer.global_matches)
-        def global_matches_with_autoimport(name):
+        def global_matches_with_autoimport(name, *args, **kwargs):
             old_global_namespace = completer.global_namespace
             completer.global_namespace = NamespaceWithPotentialImports(
                 old_global_namespace,
                 ip=self._ip
             )
             try:
-                return self._safe_call(__original__, name)
+                return self._safe_call(__original__, name, *args, **kwargs)
             finally:
                 completer.global_namespace = old_global_namespace
 
