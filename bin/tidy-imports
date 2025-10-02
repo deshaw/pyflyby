@@ -159,19 +159,10 @@ def main() -> None:
             cannonical_imports = sorted_imports
         return cannonical_imports
 
-    project_root = _get_pyproj_toml_file().parent
-    exclude = []
-    for item in getattr(options, 'tidy-imports', {}).get('exclude', []):
-        path = pathlib.Path(item)
-        if project_root and not path.is_absolute():
-            exclude.append(project_root / path)
-        else:
-            exclude.append(path)
-
     process_actions(
         args,
         options.actions, modify,
-        exclude=exclude
+        exclude=getattr(default_config, 'tidy-imports', {}).get('exclude', []) + options.exclude
     )
 
 

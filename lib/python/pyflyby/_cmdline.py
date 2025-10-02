@@ -399,9 +399,10 @@ def process_actions(filenames:List[str], actions, modify_function,
     exit_code = 0
     for filename in filename_objs:
 
+        # Log any matching exclusion patterns before ignoring, if applicable
         matching_excludes = []
         for pattern in exclude:
-            if Path(str(filename)).match(pattern):
+            if Path(str(filename)).match(str(pattern)):
                 matching_excludes.append(pattern)
         if any(matching_excludes):
             msg = f"{filename} matches exclusion pattern"
@@ -578,7 +579,7 @@ def _get_pyproj_toml_config():
     If no pyproject.toml can be found in cwd or parent directories,
     None is returned.
     """
-    pyproject_toml = _get_pyproj_toml_config()
+    pyproject_toml = _get_pyproj_toml_file()
     if pyproject_toml is not None:
         return loads(pyproject_toml.read_text())
     return None
