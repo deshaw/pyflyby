@@ -85,6 +85,8 @@ def _addopts(parser):
                         default=True, action='store_false',
                         help=hfmt('''
                             Don't canonicalize imports.'''))
+    parser.add_option('--exclude', type='string', dest='exclude',
+                        action='append', help=hfmt('Files to exclude from formatting.'))
 
 
     def transform_callback(option, opt_str, value, group):
@@ -156,7 +158,12 @@ def main() -> None:
             cannonical_imports = sorted_imports
         return cannonical_imports
 
-    process_actions(args, options.actions, modify)
+    cmdline_exclude = getattr(options, "exclude")
+    process_actions(
+        args,
+        options.actions, modify,
+        exclude=default_config.get('tidy-imports', {}).get('exclude', []) + (cmdline_exclude if cmdline_exclude else [])
+    )
 
 
 if __name__ == '__main__':

@@ -935,6 +935,165 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
     assert _get_pyproj_toml_config() == loads(pyproject_text)
 
 def test_load_no_pyproject_toml(tmp_path):
-    """Test that a directory pyproject.toml that has mixed array types can be loaded."""
+    """Test that a directory without a pyproject.toml is correctly handled."""
     os.chdir(tmp_path)
     assert _get_pyproj_toml_config() is None
+
+def test_tidy_imports_exclude_pyproject(tmp_path):
+    """Test that a pyproject.toml can be used to exclude files for tidy-imports."""
+    with open(tmp_path / "pyproject.toml", 'w') as f:
+        f.write(
+            dedent(
+                """
+                [tool.pyflyby.tidy-imports]
+                exclude = [
+                    'foo.py',
+                    'bar/*.py',
+                ]
+                """
+            )
+        )
+
+    (tmp_path / "bar").mkdir()
+    (tmp_path / "baz" / "blah").mkdir(parents=True)
+
+    txt = dedent(
+        """
+        # hello
+        def foo():
+            foo() + os + sys
+        """
+    )
+    for path in [
+        tmp_path / "foo.py",
+        tmp_path / "what.py",
+        tmp_path / "bar" / "foo2.py",
+        tmp_path / "baz" / "foo3.py",
+    ]:
+        with open(path, "w") as f:
+            f.write(txt)
+
+    child = pexpect.spawn(
+        python,
+        [BIN_DIR+'/tidy-imports', './'],
+        timeout=5.0,
+        cwd=tmp_path,
+        logfile=BytesIO()
+    )
+    child.expect_exact("baz/foo3.py? [y/N]")
+    child.send("y\n")
+    child.expect_exact("what.py? [y/N]")
+    child.send("y\n")
+    child.expect(pexpect.EOF)
+
+    # Check that the tidy-imports output has log messages about exclusion patterns
+    output = child.logfile.getvalue().decode()
+    assert "bar/foo2.py matches exclusion pattern: bar/*.py" in output
+    assert "foo.py matches exclusion pattern: foo.py" in output
+
+    # Check that the two modified files have imports
+    with open(tmp_path / "baz" / "foo3.py") as f:
+        foo3 = f.read()
+
+    with open(tmp_path / "what.py") as f:
+        what = f.read()
+
+    expected = dedent(
+        """
+        # hello
+        import os
+        import sys
+
+        def foo():
+            foo() + os + sys
+        """
+    )
+    assert foo3 == expected
+    assert what == expected
+
+    # Check that the two unmodified files don't have imports
+    with open(tmp_path / "foo.py") as f:
+        foo = f.read()
+
+    with open(tmp_path / "bar" / "foo2.py") as f:
+        foo2 = f.read()
+
+    assert foo == txt
+    assert foo2 == txt
+
+
+def test_tidy_imports_exclude_arg(tmp_path):
+    """Test that a command line arg can be used to exclude files for tidy-imports."""
+    (tmp_path / "bar").mkdir()
+    (tmp_path / "baz" / "blah").mkdir(parents=True)
+
+    txt = dedent(
+        """
+        # hello
+        def foo():
+            foo() + os + sys
+        """
+    )
+    for path in [
+        tmp_path / "foo.py",
+        tmp_path / "what.py",
+        tmp_path / "bar" / "foo2.py",
+        tmp_path / "baz" / "foo3.py",
+    ]:
+        with open(path, "w") as f:
+            f.write(txt)
+
+    child = pexpect.spawn(
+        python,
+        [
+            BIN_DIR + "/tidy-imports",
+            "./",
+            "--exclude",
+            "foo.py",
+            "--exclude",
+            "bar/*.py",
+        ],
+        timeout=5.0,
+        cwd=tmp_path,
+        logfile=BytesIO(),
+    )
+    child.expect_exact("baz/foo3.py? [y/N]")
+    child.send("y\n")
+    child.expect_exact("what.py? [y/N]")
+    child.send("y\n")
+    child.expect(pexpect.EOF)
+
+    # Check that the tidy-imports output has log messages about exclusion patterns
+    output = child.logfile.getvalue().decode()
+    assert "bar/foo2.py matches exclusion pattern: bar/*.py" in output
+    assert "foo.py matches exclusion pattern: foo.py" in output
+
+    # Check that the two modified files have imports
+    with open(tmp_path / "baz" / "foo3.py") as f:
+        foo3 = f.read()
+
+    with open(tmp_path / "what.py") as f:
+        what = f.read()
+
+    expected = dedent(
+        """
+        # hello
+        import os
+        import sys
+
+        def foo():
+            foo() + os + sys
+        """
+    )
+    assert foo3 == expected
+    assert what == expected
+
+    # Check that the two unmodified files don't have imports
+    with open(tmp_path / "foo.py") as f:
+        foo = f.read()
+
+    with open(tmp_path / "bar" / "foo2.py") as f:
+        foo2 = f.read()
+
+    assert foo == txt
+    assert foo2 == txt
