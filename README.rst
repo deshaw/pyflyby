@@ -467,7 +467,7 @@ To exclude files from ``tidy-imports``, add an exclusion pattern to
         "baz/*.py"
     ]
 
-Exclusions are assumed to be relative to the project root if a pyproject.toml exists, unless an
+Exclusions are assumed to be relative to the project root if a ``pyproject.toml`` exists, unless an
 absolute path is specified. Consult the documentation for ``pathlib.Path.match`` for information about
 valid exclusion patterns.
 
