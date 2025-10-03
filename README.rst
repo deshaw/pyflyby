@@ -449,7 +449,7 @@ section. Simply use the long form option name by replacing dashes ``-`` by
 underscore ``_``. For long option that have the form ``--xxx`` and ``--no-xxx``, you
 can assign a boolean to ``xxx``. For example::
 
-.. code::
+.. code:: toml
 
     [tool.pyflyby]
     add_missing=true
