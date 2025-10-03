@@ -459,7 +459,7 @@ can assign a boolean to ``xxx``. For example::
 To exclude files from ``tidy-imports``, add an exclusion pattern to
 ``tool.pyflyby.tidy-imports.exclude``:
 
-.. code::
+.. code:: toml
 
     [tool.pyflyby.tidy-imports]
     exclude = [
