@@ -232,26 +232,17 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                              only if it is necessary to prevent exceeding the
                              width (by default 79).
                          '''))
-        def uniform_callback(option, opt_str, value, parser):
-            parser.values.separate_from_imports = False
-            parser.values.from_spaces           = 3
-            parser.values.align_imports         = '32'
-        group.add_option('--uniform', '-u', action="callback",
-                         callback=uniform_callback,
+        group.add_option('--uniform', '-u', action="store_true",
                          help=hfmt('''
                              (Default) Shortcut for --no-separate-from-imports
                              --from-spaces=3 --align-imports=32.'''))
-        def unaligned_callback(option, opt_str, value, parser):
-            parser.values.separate_from_imports = True
-            parser.values.from_spaces           = 1
-            parser.values.align_imports         = '0'
-        group.add_option('--unaligned', '-n', action="callback",
-                         callback=unaligned_callback,
+        group.add_option('--unaligned', '-n', action="store_true",
                          help=hfmt('''
                              Shortcut for --separate-from-imports
                              --from-spaces=1 --align-imports=0.'''))
 
         parser.add_option_group(group)
+
     if addopts is not None:
         addopts(parser)
     # This is the only way to provide a default value for an option with a
@@ -260,7 +251,22 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         args = ["--symlinks=error"] + sys.argv[1:]
     else:
         args = None
+
     options, args = parser.parse_args(args=args)
+
+    # Set these manually rather than in a callback option because callback
+    # options don't get triggered by OptionParser.set_default (which is
+    # used when setting values via pyproject.toml)
+    if getattr(options, "unaligned", False):
+        parser.values.separate_from_imports = True
+        parser.values.from_spaces = 1
+        parser.values.align_imports = '0'
+
+    if getattr(options, "uniform", False):
+        parser.values.separate_from_imports = False
+        parser.values.from_spaces = 3
+        parser.values.align_imports = '32'
+
     if import_format_params:
         align_imports_args = [int(x.strip())
                               for x in options.align_imports.split(",")]
