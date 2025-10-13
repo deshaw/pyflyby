@@ -934,10 +934,111 @@ def test_load_pyproject_toml(tmp_path, pyproject_text):
     os.chdir(tmp_path)
     assert _get_pyproj_toml_config() == loads(pyproject_text)
 
+
 def test_load_no_pyproject_toml(tmp_path):
     """Test that a directory without a pyproject.toml is correctly handled."""
     os.chdir(tmp_path)
     assert _get_pyproj_toml_config() is None
+
+
+def test_pyproject_unaligned(tmp_path):
+    """Test that having an unaligned option in pyproject.toml works as intended."""
+    with open(tmp_path / 'pyproject.toml', 'w') as f:
+        f.write(
+            dedent(
+                """
+                [tool.pyflyby]
+                remove_unused = false
+                add_mandatory = false
+                unaligned = true
+                """
+            )
+        )
+
+    with open(tmp_path / "foo.py", 'w') as f:
+        f.write(
+            dedent(
+                """
+                from math import pi
+                import numpy
+                from os import open
+                import pandas
+                from urllib import request
+                """
+            )
+        )
+
+    child = pexpect.spawn(
+        python,
+        [BIN_DIR + "/tidy-imports", "./"],
+        timeout=5.0,
+        cwd=tmp_path,
+        logfile=BytesIO(),
+    )
+    child.expect_exact("foo.py? [y/N]")
+    child.send("y\n")
+    child.expect(pexpect.EOF)
+
+    with open(tmp_path / "foo.py") as f:
+        assert f.read() == dedent(
+            """
+            import numpy
+            import pandas
+            from math import pi
+            from os import open
+            from urllib import request
+            """
+        )
+
+
+def test_no_unaligned(tmp_path):
+    """Test that not having an unaligned option in pyproject.toml works as intended."""
+    with open(tmp_path / 'pyproject.toml', 'w') as f:
+        f.write(
+            dedent(
+                """
+                [tool.pyflyby]
+                remove_unused = false
+                add_mandatory = false
+                """
+            )
+        )
+
+    with open(tmp_path / "foo.py", 'w') as f:
+        f.write(
+            dedent(
+                """
+                from math import pi
+                import numpy
+                from os import open
+                import pandas
+                from urllib import request
+                """
+            )
+        )
+
+    child = pexpect.spawn(
+        python,
+        [BIN_DIR + "/tidy-imports", "./"],
+        timeout=5.0,
+        cwd=tmp_path,
+        logfile=BytesIO(),
+    )
+    child.expect_exact("foo.py? [y/N]")
+    child.send("y\n")
+    child.expect(pexpect.EOF)
+
+    with open(tmp_path / "foo.py") as f:
+        assert f.read() == dedent(
+            """
+            from   math                     import pi
+            import numpy
+            from   os                       import open
+            import pandas
+            from   urllib                   import request
+            """
+        )
+
 
 def test_tidy_imports_exclude_pyproject(tmp_path):
     """Test that a pyproject.toml can be used to exclude files for tidy-imports."""
