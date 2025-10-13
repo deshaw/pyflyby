@@ -122,7 +122,7 @@ def test_fast_iter_modules():
 
     assert fast == slow
 
-
+@mock.patch.dict(os.environ, {"PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS": "0"})
 @mock.patch("platformdirs.user_cache_dir")
 def test_import_cache(mock_user_cache_dir, tmp_path):
     """Test that the import cache is built when iterating modules.
