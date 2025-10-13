@@ -62,6 +62,33 @@ _iter_file_finder_modules(
     return ret;
   }
 
+  // Check if the directory is readable by examining its permissions.
+  // We use the overload of fs::status that takes an error_code to avoid throwing exceptions
+  // if the status itself cannot be retrieved (e.g., due to permissions).
+  std::error_code ec;
+  fs::file_status s = fs::status(path, ec);
+
+  if (ec) {
+    // If we couldn't get the status (e.g., due to permissions or other system errors),
+    // we treat the path as unreadable/inaccessible and skip it.
+    return ret;
+  }
+
+  // Check if any read permission bit is set for the owner, group, or others.
+  // This is a common heuristic to determine if a directory is "readable" for iteration.
+  fs::perms p = s.permissions();
+  if (!((p & fs::perms::owner_read) != fs::perms::none ||
+        (p & fs::perms::group_read) != fs::perms::none ||
+        (p & fs::perms::others_read) != fs::perms::none)) {
+    // The directory exists but no read permission is explicitly set, so we skip it.
+    return ret;
+  }
+
+  // If the directory is deemed readable based on permissions, proceed with iteration.
+  // Note: While we've checked permissions, fs::directory_iterator might still throw
+  // in rare cases (e.g., if the directory is removed concurrently or other non-permission
+  // related OS errors occur). However, this addresses the specific "permissions 000" case
+  // without using a try/catch block around the iterator itself.
   for (auto const &entry : fs::directory_iterator(path)) {
     fs::path entry_path = entry.path();
     fs::path filename = entry_path.filename();
