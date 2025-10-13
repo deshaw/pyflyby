@@ -27,6 +27,10 @@ else:
     from tomllib import loads
 
 
+class ConfigurationError(Exception):
+    """Exception class indicating a configuration error."""
+
+
 def hfmt(s):
     return dedent(s).strip()
 
@@ -386,14 +390,35 @@ class Modifier(object):
 
 
 def process_actions(filenames:List[str], actions, modify_function,
-                    reraise_exceptions=()):
+                    reraise_exceptions=(), exclude=()):
+
+    if not isinstance(exclude, (list, tuple)):
+        raise ConfigurationError(
+            "Exclusions must be a list of filenames/patterns to exclude."
+        )
+
     errors = []
     def on_error_filename_arg(arg):
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
-    filenames = filename_args(filenames, on_error=on_error_filename_arg)
+    filename_objs = filename_args(filenames, on_error=on_error_filename_arg)
     exit_code = 0
-    for filename in filenames:
+    for filename in filename_objs:
+
+        # Log any matching exclusion patterns before ignoring, if applicable
+        matching_excludes = []
+        for pattern in exclude:
+            if Path(str(filename)).match(str(pattern)):
+                matching_excludes.append(pattern)
+        if any(matching_excludes):
+            msg = f"{filename} matches exclusion pattern"
+            if len(matching_excludes) == 1:
+                msg += f": {matching_excludes[0]}"
+            else:
+                msg += f"s: {matching_excludes}"
+            logger.info(msg)
+            continue
+
         try:
             m = Modifier(modify_function, filename)
             for action in actions:
@@ -539,16 +564,28 @@ symlink_callbacks = {
     'replace': symlink_replace,
 }
 
-def _get_pyproj_toml_config():
-    """
-    Try to find current project pyproject.toml
+def _get_pyproj_toml_file():
+    """Try to find the location of the current project pyproject.toml
     in cwd or parents directories.
+
+    If no pyproject.toml can be found, None is returned.
     """
     cwd = Path(os.getcwd())
 
     for pth in [cwd] + list(cwd.parents):
         pyproj_toml = pth /'pyproject.toml'
         if pyproj_toml.exists() and pyproj_toml.is_file():
-            return loads(pyproj_toml.read_text())
+            return pyproj_toml
 
+    return None
+
+def _get_pyproj_toml_config():
+    """Return the toml contents of the current pyproject.toml.
+
+    If no pyproject.toml can be found in cwd or parent directories,
+    None is returned.
+    """
+    pyproject_toml = _get_pyproj_toml_file()
+    if pyproject_toml is not None:
+        return loads(pyproject_toml.read_text())
     return None
