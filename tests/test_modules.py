@@ -13,6 +13,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
                                         _iter_file_finder_modules)
 import re
+import os
 import subprocess
 import sys
 from   textwrap                 import dedent
