@@ -595,6 +595,12 @@ def _cached_module_finder(
         Tuples containing (prefix+module name, a bool indicating whether the module is a
         package or not)
     """
+    if os.environ.get("PYFLYBY_DISABLE_CACHE", "0") == "1":
+        modules = _iter_file_finder_modules(importer, SUFFIXES)
+        for module, ispkg in modules:
+            yield prefix + module, ispkg
+        return
+
     cache_dir = pathlib.Path(
         platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
     ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
