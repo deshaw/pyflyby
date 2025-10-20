@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 from   textwrap                 import dedent
+from   tempfile                 import TemporaryDirectory
 from   unittest                 import mock
 
 import pytest
@@ -196,3 +197,20 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     assert len(mock_logger.info.call_args_list) == 1
     assert len(list(tmp_path.iterdir())) == n_cached_paths
     mock_iffm.assert_called_once()
+
+@mock.patch.dict(os.environ, {"PYFLYBY_DISABLE_CACHE": "1"})
+@mock.patch("platformdirs.user_cache_dir")
+def test_import_perms(mock_user_cache_dir, tmp_path):
+    """Test that the import cache does not fail on unreadable paths."""
+
+    mock_user_cache_dir.return_value = tmp_path
+
+    with TemporaryDirectory(suffix="_pyflyby_restricted") as restricted:
+        try:
+            os.chmod(restricted, 0o000)
+
+            sys.path.append(restricted)
+
+            list(_fast_iter_modules())
+        finally:
+            sys.path.remove(restricted)
