@@ -167,6 +167,7 @@ For example:
 
    Replace /tmp/foo.py? [y/N]
 
+To exclude a file, use `--exclude <pattern>`.
 
 Quick start: import libraries
 =============================
@@ -438,21 +439,37 @@ Per-Project configuration of tidy-imports
 =========================================
 
 You can configure Pyflyby on a per-repository basis by using the
-`[tool.pyflyby]` section of `pyproject.toml` files. Pyflyby will look in current
-working directory and all it's parent until it find a `pyproject.toml` file from
+``[tool.pyflyby]`` section of ``pyproject.toml`` files. Pyflyby will look in current
+working directory and all it's parent until it find a ``pyproject.toml`` file from
 which it will load the defaults.
 
 
 Most of the long command line flags default values can be configured in this
-section. Simply use the long form option name by replacing dashes `-` by
-underscore `_`. For long option that have the form `--xxx` and `--no-xxx`, you
-can assign a boolean to `xxx`. For example::
+section. Simply use the long form option name by replacing dashes ``-`` by
+underscore ``_``. For long option that have the form ``--xxx`` and ``--no-xxx``, you
+can assign a boolean to ``xxx``. For example::
+
+.. code:: toml
 
     [tool.pyflyby]
     add_missing=true
     from_spaces=7
     remove_unused=false
 
+To exclude files from ``tidy-imports``, add an exclusion pattern to
+``tool.pyflyby.tidy-imports.exclude``:
+
+.. code:: toml
+
+    [tool.pyflyby.tidy-imports]
+    exclude = [
+        "foo.py",
+        "baz/*.py"
+    ]
+
+Exclusions are assumed to be relative to the project root if a ``pyproject.toml`` exists, unless an
+absolute path is specified. Consult the documentation for ``pathlib.Path.match`` for information about
+valid exclusion patterns.
 
 Emacs support
 =============
