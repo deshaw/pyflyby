@@ -340,6 +340,7 @@ from   shlex                    import quote as shquote
 import ast
 import builtins
 from   contextlib               import contextmanager
+import importlib
 import inspect
 import os
 import re
@@ -1198,6 +1199,53 @@ class LoggedList:
     def unaccessed(self):
         return [x for x in self._unaccessed if x is not self._ACCESSED]
 
+def import_from_path(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+@contextmanager
+def set_sys_modules(key: str, path: str):
+    """Set sys.modules[key] to the specified module temporarily.
+
+    Parameters
+    ----------
+    key : str
+        Key to use in sys.modules; usually this is the module name, but it could
+        also be __main__
+    path : str
+        Path of the module to import and insert into sys.modules
+    """
+    module_name = inspect.getmodulename(path)
+    if module_name is None:
+        logger.error(
+            f"Error getting the module name for the file being executed: {path}"
+        )
+        yield
+        return
+
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None:
+        logger.error(
+            f"Error getting the module spec for the file being executed: {path}"
+        )
+        yield
+        return
+    new_mod = importlib.util.module_from_spec(spec)
+
+    if key in sys.modules:
+        old_mod = sys.modules[key]
+        sys.modules[key] = new_mod
+        yield
+        sys.modules[key] = old_mod
+
+    else:
+        sys.modules[key] = new_mod
+        yield
+        del sys.modules[key]
+
 
 @contextmanager
 def SysArgvCtx(*args):
@@ -1571,7 +1619,6 @@ class _PyMain(object):
 
     def execfile(self, filename_arg, cmd_args):
         # TODO: pass filename to import db target_filename; unit test.
-        # TODO: set __file__
         # TODO: support compiled (.pyc/.pyo) files
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode)
@@ -1597,7 +1644,8 @@ class _PyMain(object):
                 filename = Filename(filename_arg)
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
-        with SysArgvCtx(str(filename), *cmd_args):
+
+        with SysArgvCtx(str(filename), *cmd_args), set_sys_modules('__main__', str(filename)):
             sys.path.insert(0, str(filename.dir))
             self.namespace.globals["__file__"] = str(filename)
             result = self.namespace.auto_eval(filename, debug=self.debug)
