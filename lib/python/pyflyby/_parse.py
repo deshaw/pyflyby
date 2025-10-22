@@ -1121,6 +1121,7 @@ class PythonBlock:
           ``CodeType``
         """
         ast_node = self.parse(mode=mode)
+        breakpoint()
         c_mode = infer_compile_mode(ast_node)
         filename = str(self.filename or "<unknown>")
         return compile(ast_node, filename, c_mode)

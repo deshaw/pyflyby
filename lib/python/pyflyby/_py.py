@@ -342,6 +342,7 @@ import builtins
 from   contextlib               import contextmanager
 import importlib
 import inspect
+from   modulefinder             import Module
 import os
 import re
 import sys
@@ -1199,15 +1200,9 @@ class LoggedList:
     def unaccessed(self):
         return [x for x in self._unaccessed if x is not self._ACCESSED]
 
-def import_from_path(module_name, file_path):
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
 
 @contextmanager
-def set_sys_modules(key: str, path: str):
+def _set_sys_modules(key: str, path: str):
     """Set sys.modules[key] to the specified module temporarily.
 
     Parameters
@@ -1218,6 +1213,10 @@ def set_sys_modules(key: str, path: str):
     path : str
         Path of the module to import and insert into sys.modules
     """
+    # sys.path.insert(0, str(Path(path).parent))
+    yield
+    return
+
     module_name = inspect.getmodulename(path)
     if module_name is None:
         logger.error(
@@ -1225,25 +1224,33 @@ def set_sys_modules(key: str, path: str):
         )
         yield
         return
+    new_mod = importlib.import_module(module_name)
 
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None:
-        logger.error(
-            f"Error getting the module spec for the file being executed: {path}"
-        )
-        yield
-        return
-    new_mod = importlib.util.module_from_spec(spec)
-
+    # spec = importlib.util.spec_from_file_location(module_name, path)
+    # if spec is None:
+    #     logger.error(
+    #         f"Error getting the module spec for the file being executed: {path}"
+    #     )
+    #     yield
+    #     return
+    #
+    # if spec.loader is None:
+    #     logger.error(f"Error loading the module at: {path}")
+    #     return
+    #
     if key in sys.modules:
         old_mod = sys.modules[key]
-        sys.modules[key] = new_mod
-        yield
-        sys.modules[key] = old_mod
-
     else:
-        sys.modules[key] = new_mod
-        yield
+        old_mod = None
+
+    # new_mod = importlib.util.module_from_spec(spec)
+    sys.modules[key] = new_mod
+    # spec.loader.exec_module(new_mod)
+    yield
+
+    if old_mod:
+        sys.modules[key] = old_mod
+    else:
         del sys.modules[key]
 
 
@@ -1645,7 +1652,7 @@ class _PyMain(object):
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
 
-        with SysArgvCtx(str(filename), *cmd_args), set_sys_modules('__main__', str(filename)):
+        with SysArgvCtx(str(filename), *cmd_args), _set_sys_modules('__main__', str(filename)):
             sys.path.insert(0, str(filename.dir))
             self.namespace.globals["__file__"] = str(filename)
             result = self.namespace.auto_eval(filename, debug=self.debug)
