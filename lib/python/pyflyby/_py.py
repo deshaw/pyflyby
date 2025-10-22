@@ -340,12 +340,12 @@ from   shlex                    import quote as shquote
 import ast
 import builtins
 from   contextlib               import contextmanager
-import importlib
 import inspect
-from   modulefinder             import Module
 import os
 import re
+import runpy
 import sys
+import tempfile
 import types
 from   types                    import FunctionType, MethodType
 
@@ -1202,59 +1202,6 @@ class LoggedList:
 
 
 @contextmanager
-def _set_sys_modules(key: str, path: str):
-    """Set sys.modules[key] to the specified module temporarily.
-
-    Parameters
-    ----------
-    key : str
-        Key to use in sys.modules; usually this is the module name, but it could
-        also be __main__
-    path : str
-        Path of the module to import and insert into sys.modules
-    """
-    # sys.path.insert(0, str(Path(path).parent))
-    yield
-    return
-
-    module_name = inspect.getmodulename(path)
-    if module_name is None:
-        logger.error(
-            f"Error getting the module name for the file being executed: {path}"
-        )
-        yield
-        return
-    new_mod = importlib.import_module(module_name)
-
-    # spec = importlib.util.spec_from_file_location(module_name, path)
-    # if spec is None:
-    #     logger.error(
-    #         f"Error getting the module spec for the file being executed: {path}"
-    #     )
-    #     yield
-    #     return
-    #
-    # if spec.loader is None:
-    #     logger.error(f"Error loading the module at: {path}")
-    #     return
-    #
-    if key in sys.modules:
-        old_mod = sys.modules[key]
-    else:
-        old_mod = None
-
-    # new_mod = importlib.util.module_from_spec(spec)
-    sys.modules[key] = new_mod
-    # spec.loader.exec_module(new_mod)
-    yield
-
-    if old_mod:
-        sys.modules[key] = old_mod
-    else:
-        del sys.modules[key]
-
-
-@contextmanager
 def SysArgvCtx(*args):
     """
     Context manager that:
@@ -1580,8 +1527,14 @@ class _Namespace(object):
             if debug:
                 return debug_statement(block, self.globals)
             else:
-                code = block.compile(mode=mode)
-                return eval(code, self.globals, self.globals)
+                with tempfile.NamedTemporaryFile('w', delete=False) as f:
+                    f.write(str(block))
+                    f.seek(0)
+                    runpy.run_path(
+                        f.name, init_globals=self.globals, run_name="__main__"
+                    )
+                # This works fine if `mode` is  `None` or `exec` because in that case
+                # `eval` returns `None`. However this will fail for mode='eval'.
         except SystemExit:
             raise
         except:
@@ -1652,12 +1605,11 @@ class _PyMain(object):
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
 
-        with SysArgvCtx(str(filename), *cmd_args), _set_sys_modules('__main__', str(filename)):
-            sys.path.insert(0, str(filename.dir))
-            self.namespace.globals["__file__"] = str(filename)
-            result = self.namespace.auto_eval(filename, debug=self.debug)
-            print_result(result, output_mode)
-            self.result = result
+        sys.path.insert(0, str(filename.dir))
+        self.namespace.globals["__file__"] = str(filename)
+        result = self.namespace.auto_eval(filename, debug=self.debug)
+        print_result(result, output_mode)
+        self.result = result
 
     def apply(self, function, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="auto")
