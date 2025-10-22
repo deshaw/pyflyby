@@ -2820,6 +2820,34 @@ def test_virtualenv_recognized(tmpdir, monkeypatch):
     assert any(env_dir in path for path in venv_sys_path)
 
 
+def test_beartype_annotations(tmp_path):
+    """Test that annotations."""
+    pytest.importorskip('beartype', reason="beartype is required to run this test")
+
+    file = tmp_path / 'foo.py'
+
+    file.write_text(
+        dedent(
+            """
+            from beartype import beartype
+            from pathlib import Path
+
+            @beartype
+            def test(x: "Path") -> None:
+                pass
+
+            test(Path())
+            print("done")
+            """
+        )
+    )
+
+    result = py(str(file))
+    breakpoint()
+    assert result.strip() == "done"
+
+
+
 # TODO: test timeit, time
 # TODO: test --attach
 # TODO: test postmortem debugging

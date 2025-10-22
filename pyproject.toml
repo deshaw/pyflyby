@@ -60,6 +60,7 @@ test = [
     'epydoc',
     'wheel', # required by epydoc, but not listed as a dependency
     'setuptools', # required by epydoc, but not listed as a dependency
+    'beartype',
 ]
 
 [dependency-groups]

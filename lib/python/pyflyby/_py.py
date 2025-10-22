@@ -343,7 +343,9 @@ from   contextlib               import contextmanager
 import inspect
 import os
 import re
+import runpy
 import sys
+import tempfile
 import types
 from   types                    import FunctionType, MethodType
 
@@ -1525,8 +1527,14 @@ class _Namespace(object):
             if debug:
                 return debug_statement(block, self.globals)
             else:
-                code = block.compile(mode=mode)
-                return eval(code, self.globals, self.globals)
+                with tempfile.NamedTemporaryFile('w', delete=False) as f:
+                    f.write(str(block))
+                    f.seek(0)
+                    runpy.run_path(
+                        f.name, init_globals=self.globals, run_name="__main__"
+                    )
+                # This works fine if `mode` is  `None` or `exec` because in that case
+                # `eval` returns `None`. However this will fail for mode='eval'.
         except SystemExit:
             raise
         except:
@@ -1571,7 +1579,6 @@ class _PyMain(object):
 
     def execfile(self, filename_arg, cmd_args):
         # TODO: pass filename to import db target_filename; unit test.
-        # TODO: set __file__
         # TODO: support compiled (.pyc/.pyo) files
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode)
@@ -1597,12 +1604,12 @@ class _PyMain(object):
                 filename = Filename(filename_arg)
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
-        with SysArgvCtx(str(filename), *cmd_args):
-            sys.path.insert(0, str(filename.dir))
-            self.namespace.globals["__file__"] = str(filename)
-            result = self.namespace.auto_eval(filename, debug=self.debug)
-            print_result(result, output_mode)
-            self.result = result
+
+        sys.path.insert(0, str(filename.dir))
+        self.namespace.globals["__file__"] = str(filename)
+        result = self.namespace.auto_eval(filename, debug=self.debug)
+        print_result(result, output_mode)
+        self.result = result
 
     def apply(self, function, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="auto")
