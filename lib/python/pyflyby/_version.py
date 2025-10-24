@@ -4,4 +4,4 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 
-__version__ = "1.10.1"
+__version__ = "1.10.2"
