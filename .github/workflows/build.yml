@@ -1,0 +1,103 @@
+name: Build and publish wheels and sdist to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      test_pypi:
+        type: boolean
+        description: 'Test release: publish on test.pypi.org'
+        default: false
+
+jobs:
+  build-sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💻 Checkout the repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true # include tags to get correct version from setuptools_scm
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v6
+
+      - name: 🚀 Install build dependencies
+        run: |
+          pip install build twine
+
+      - name: 📦 Build the sdist and wheel
+        run: python -m build --sdist -o wheelhouse
+
+      - name: List and check sdist
+        run: |
+          ls -lh wheelhouse/
+          twine check wheelhouse/*
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: ./wheelhouse/*.tar.gz
+
+  build-wheels:
+    name: 'Build wheels: ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: 💻 Checkout the repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true # include tags to get correct version from setuptools_scm
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.2.1
+
+      - name: List and check wheels
+        run: |
+          pip install twine
+          twine check wheelhouse/*
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  publish:
+    name: Publish Python packages on PyPI
+    if: (github.event_name == 'release' && startsWith(github.ref, 'refs/tags')) || (github.event_name == 'workflow_dispatch')
+    needs: [build-sdist, build-wheels]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyflyby
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve wheels and sdist
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: wheels/
+
+      - name: print artifacts
+        run: ls -l wheels/
+
+      - name: 🧪 Publish to PyPI Testing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ inputs.test_pypi }}
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: wheels
+
+      - name: 🎉 Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ !inputs.test_pypi }}
+        with:
+          packages-dir: wheels
