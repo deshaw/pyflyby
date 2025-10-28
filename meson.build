@@ -1,7 +1,7 @@
 project(
   'pyflyby',
   'cpp',
-  version: '1.10.2',
+  version: run_command(['python', '-m', 'setuptools_scm'], check: true).stdout().strip(),
   default_options: 'cpp_std=c++17'
 )
 
