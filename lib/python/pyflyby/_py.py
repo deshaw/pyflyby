@@ -343,7 +343,9 @@ from   contextlib               import contextmanager
 import inspect
 import os
 import re
+import runpy
 import sys
+import tempfile
 import types
 from   types                    import FunctionType, MethodType
 
@@ -1498,16 +1500,18 @@ class _Namespace(object):
     def auto_import(self, arg):
         return auto_import(arg, [self.globals], autoimported=self.autoimported)
 
-    def auto_eval(self, block, mode=None, info=False, auto_import=True,
-                  debug=False):
+    def auto_eval(self, obj, mode=None, info=False, auto_import=True, debug=False):
         """
-        Evaluate ``block`` with auto-importing.
+        Evaluate ``obj`` with auto-importing.
         """
         # Equivalent to::
         #   auto_eval(arg, mode=mode, flags=FLAGS, globals=self.globals)
         # but better logging and error raising.
-        if not isinstance(block, PythonBlock):
-            block = PythonBlock(block, flags=FLAGS, auto_flags=True)
+        if isinstance(obj, PythonBlock):
+            block = obj
+        else:
+            block = PythonBlock(obj, flags=FLAGS, auto_flags=True)
+
         if auto_import and not self.auto_import(block):
             missing = find_missing_imports(block, [self.globals])
             mstr = ", ".join(repr(str(x)) for x in missing)
@@ -1524,6 +1528,23 @@ class _Namespace(object):
             # TODO: enter text into linecache
             if debug:
                 return debug_statement(block, self.globals)
+            elif isinstance(obj, Filename) and mode != "eval":
+                # This was a file that got passed in. Execute it with runpy.run_path to
+                # ensure sys.packages[__main__] is set correctly.
+                #
+                # This replaced a section that called eval(); this works fine if `mode`
+                # is `None` or `exec` because in that case `eval` returns `None`.
+                # However this will fail for mode='eval', because in that case `eval`
+                # will return the result of the expression, which instead depends on the
+                # current globals(), locals(), etc. So for that reason we only use this
+                # branch if mode != "eval".
+                with tempfile.NamedTemporaryFile('w', delete=False) as f:
+                    f.write(str(block))
+                    f.seek(0)
+                    runpy.run_path(
+                        f.name, init_globals=self.globals, run_name="__main__"
+                    )
+                return
             else:
                 code = block.compile(mode=mode)
                 return eval(code, self.globals, self.globals)
@@ -1571,7 +1592,6 @@ class _PyMain(object):
 
     def execfile(self, filename_arg, cmd_args):
         # TODO: pass filename to import db target_filename; unit test.
-        # TODO: set __file__
         # TODO: support compiled (.pyc/.pyo) files
         arg_mode = _interpret_arg_mode(self.arg_mode, default="string")
         output_mode = _interpret_output_mode(self.output_mode)
@@ -1597,12 +1617,12 @@ class _PyMain(object):
                 filename = Filename(filename_arg)
         if not filename.exists:
             raise Exception("No such file: %s%s" % (filename, additional_msg))
-        with SysArgvCtx(str(filename), *cmd_args):
-            sys.path.insert(0, str(filename.dir))
-            self.namespace.globals["__file__"] = str(filename)
-            result = self.namespace.auto_eval(filename, debug=self.debug)
-            print_result(result, output_mode)
-            self.result = result
+
+        sys.path.insert(0, str(filename.dir))
+        self.namespace.globals["__file__"] = str(filename)
+        result = self.namespace.auto_eval(filename, debug=self.debug)
+        print_result(result, output_mode)
+        self.result = result
 
     def apply(self, function, cmd_args):
         arg_mode = _interpret_arg_mode(self.arg_mode, default="auto")
