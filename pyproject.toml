@@ -2,6 +2,7 @@
 requires = [
     "meson-python>=0.18.0",
     "pybind11>=2.10.4",
+    "setuptools-scm>=8"
 ]
 build-backend = "mesonpy"
 
@@ -97,3 +98,6 @@ module = [
     "pyflyby._interactive",
 ]
 ignore_errors = true
+
+[tool.setuptools_scm]
+version_file = "lib/python/pyflyby/_version.py"
