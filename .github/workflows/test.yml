@@ -59,7 +59,7 @@ jobs:
                --json-report\
                --json-report-file=report-${ENVNAME}.json\
                lib tests
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       name: upload pytest timing reports as json
       with:
         name: pytest-timing-${{ matrix.os }}-${{ matrix.python-version }}
