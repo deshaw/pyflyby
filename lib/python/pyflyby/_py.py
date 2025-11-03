@@ -1528,9 +1528,13 @@ class _Namespace(object):
             # TODO: enter text into linecache
             if debug:
                 return debug_statement(block, self.globals)
-            elif isinstance(obj, Filename) and mode != "eval":
+            elif isinstance(obj, Filename) and obj != Filename.STDIN and mode != "eval":
                 # This was a file that got passed in. Execute it with runpy.run_path to
                 # ensure sys.packages[__main__] is set correctly.
+                #
+                # Check that this isn't stdin; on linux everything is a file but that's
+                # obviously not what is intended here, because you can't execute it with
+                # runpy.run_path.
                 #
                 # This replaced a section that called eval(); this works fine if `mode`
                 # is `None` or `exec` because in that case `eval` returns `None`.
