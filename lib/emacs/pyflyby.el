@@ -67,7 +67,11 @@ Tries to keep point in the same place."
       (if (search-forward ptext (+ p 1000) t)
           (goto-char (match-beginning 0))
         (goto-char p)))
-    (recenter)))
+    ;; Only recenter when the buffer is visible in a live window.
+    (let ((win (get-buffer-window (current-buffer) t)))
+      (when (and win (window-live-p win))
+        (with-selected-window win
+          (recenter))))))
 
 
 (defun pyflyby-transform-region-with-command (command &rest args)
