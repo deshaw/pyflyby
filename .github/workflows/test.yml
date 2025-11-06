@@ -63,7 +63,7 @@ jobs:
     - name: Set up Emacs
       uses: purcell/setup-emacs@b3884972d55f850449e43be74de08f9a97aa3f34
       with:
-        version: 29.4
+        version: 30.2
 
     - name: Test emacs integration
       run: |
