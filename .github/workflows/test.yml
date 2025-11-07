@@ -59,6 +59,16 @@ jobs:
                --json-report\
                --json-report-file=report-${ENVNAME}.json\
                lib tests
+
+    - name: Set up Emacs
+      uses: purcell/setup-emacs@b3884972d55f850449e43be74de08f9a97aa3f34
+      with:
+        version: 30.2
+
+    - name: Test emacs integration
+      run: |
+        emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
+
     - uses: actions/upload-artifact@v5
       name: upload pytest timing reports as json
       with:

@@ -10,6 +10,7 @@ from   logging                  import Handler, Logger
 import os
 import sys
 from prompt_toolkit import patch_stdout
+from contextlib     import nullcontext
 
 
 class _PyflybyHandler(Handler):
@@ -24,12 +25,14 @@ class _PyflybyHandler(Handler):
         try:
             if _is_ipython() or _is_interactive(sys.stderr):
                 prefix = self._interactive_prefix
+                patch_stdout_c = patch_stdout.patch_stdout(raw=True)
             else:
                 prefix = self._noninteractive_prefix
+                patch_stdout_c = nullcontext()
 
             msg = self.format(record)
             msg = ''.join(["%s%s\n" % (prefix, line) for line in msg.splitlines()])
-            with patch_stdout.patch_stdout(raw=True):
+            with patch_stdout_c:
                 sys.stderr.write(msg)
                 sys.stderr.flush()
         except (KeyboardInterrupt, SystemExit):
