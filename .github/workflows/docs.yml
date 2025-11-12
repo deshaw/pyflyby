@@ -9,11 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
       - name: Install dependencies
         run: |
-          pip install -U pip
-          pip install -v --group docs
+          uv pip install -v --group docs
       - name: Build docs
         run: |
           make html
