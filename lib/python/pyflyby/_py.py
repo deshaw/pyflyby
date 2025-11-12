@@ -278,16 +278,39 @@ Examples
 
 """
 
-
-
+from   contextlib               import contextmanager
 from   functools                import total_ordering
 from   pathlib                  import Path
+from   shlex                    import quote as shquote
+from   types                    import FunctionType, MethodType, ModuleType
 from   typing                   import Any
+import ast
+import builtins
+import inspect
+import os
+import re
+import sys
+import types
 import warnings
 
-from   pyflyby._util            import cmp
-from   shlex                    import quote as shquote
-
+from   pyflyby._autoimp         import auto_import, find_missing_imports
+from   pyflyby._cmdline         import print_version_and_exit, syntax
+from   pyflyby._dbg             import (add_debug_functions_to_builtins,
+                                        attach_debugger, debug_statement,
+                                        debugger, enable_faulthandler,
+                                        enable_signal_handler_debugger,
+                                        enable_sigterm_handler,
+                                        remote_print_stack)
+from   pyflyby._file            import Filename, UnsafeFilenameError, which
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._idents          import is_identifier
+from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
+                                        run_ipython_line_magic,
+                                        start_ipython_with_autoimporter)
+from   pyflyby._log             import logger
+from   pyflyby._modules         import ModuleHandle
+from   pyflyby._parse           import PythonBlock
+from   pyflyby._util            import indent, prefixes, cmp
 
 # TODO: add --tidy-imports, etc
 
@@ -336,36 +359,6 @@ from   shlex                    import quote as shquote
 # TODO: refactor this module - maybe to _heuristic.py
 
 # TODO: add --profile, --runsnake
-
-import ast
-import builtins
-from   contextlib               import contextmanager
-import inspect
-import os
-import re
-import sys
-import types
-from   types                    import FunctionType, MethodType
-
-from   pyflyby._autoimp         import auto_import, find_missing_imports
-from   pyflyby._cmdline         import print_version_and_exit, syntax
-from   pyflyby._dbg             import (add_debug_functions_to_builtins,
-                                        attach_debugger, debug_statement,
-                                        debugger, enable_faulthandler,
-                                        enable_signal_handler_debugger,
-                                        enable_sigterm_handler,
-                                        remote_print_stack)
-from   pyflyby._file            import Filename, UnsafeFilenameError, which
-from   pyflyby._flags           import CompilerFlags
-from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
-                                        run_ipython_line_magic,
-                                        start_ipython_with_autoimporter)
-from   pyflyby._log             import logger
-from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import indent, prefixes
-
 usage = """
 py --- command-line python multitool with automatic importing
 
@@ -1487,12 +1480,14 @@ def _init_virtualenv():
 
 
 class _Namespace(object):
+    fake_main: ModuleType
 
     def __init__(self):
+        self.fake_main = ModuleType("__main__")
         _init_virtualenv()
-        self.globals      = {"__name__": "__main__",
-                             "__builtin__": builtins,
-                             "__builtins__": builtins}
+        self.fake_main.__dict__.setdefault("__builtin__", builtins)
+        self.fake_main.__dict__.setdefault("__builtins__", builtins)
+        self.globals = self.fake_main.__dict__
         self.autoimported = {}
 
     def auto_import(self, arg):
@@ -1526,7 +1521,13 @@ class _Namespace(object):
                 return debug_statement(block, self.globals)
             else:
                 code = block.compile(mode=mode)
-                return eval(code, self.globals, self.globals)
+                try:
+                    main = sys.modules["__main__"]
+                    sys.modules["__main__"] = self.fake_main
+
+                    return eval(code, self.globals, self.globals)
+                finally:
+                    sys.modules["__main__"] = main
         except SystemExit:
             raise
         except:

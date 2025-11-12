@@ -2820,6 +2820,30 @@ def test_virtualenv_recognized(tmpdir, monkeypatch):
     assert any(env_dir in path for path in venv_sys_path)
 
 
+def test_beartype_with_forward_reference_1(tmp):
+    file = tmp.dir/"beartype_test.py"
+    writetext(file, """
+        from beartype import beartype
+        from pathlib import Path
+
+        @beartype
+        def test_func(x: "Path") -> None:
+            pass
+
+        test_func(Path())
+        # this may appear in traceback, so we obfuscate it
+        print(base64.b64decode(b'YmVhcnR5cGVvaw=='))
+    """)
+    result = py(str(file))
+    # The test should succeed and print "OK" without raising errors
+    # about __main__ module not being properly set up
+    assert "Forward reference" not in result
+    assert "BeartypeCallHintForwardRefException" not in result
+    assert "beartypeok" in result
+
+
+
+
 # TODO: test timeit, time
 # TODO: test --attach
 # TODO: test postmortem debugging
