@@ -282,7 +282,9 @@ Examples
 
 from   functools                import total_ordering
 from   pathlib                  import Path
+from   types                    import ModuleType
 from   typing                   import Any
+import sys
 import warnings
 
 from   pyflyby._util            import cmp
@@ -1487,12 +1489,14 @@ def _init_virtualenv():
 
 
 class _Namespace(object):
+    fake_main: ModuleType
 
     def __init__(self):
+        self.fake_main = ModuleType("__main__")
         _init_virtualenv()
-        self.globals      = {"__name__": "__main__",
-                             "__builtin__": builtins,
-                             "__builtins__": builtins}
+        self.fake_main.__dict__.setdefault("__builtin__", builtins)
+        self.fake_main.__dict__.setdefault("__builtins__", builtins)
+        self.globals = self.fake_main.__dict__
         self.autoimported = {}
 
     def auto_import(self, arg):
@@ -1526,7 +1530,13 @@ class _Namespace(object):
                 return debug_statement(block, self.globals)
             else:
                 code = block.compile(mode=mode)
-                return eval(code, self.globals, self.globals)
+                try:
+                    main = sys.modules["__main__"]
+                    sys.modules["__main__"] = self.fake_main
+
+                    return eval(code, self.globals, self.globals)
+                finally:
+                    sys.modules["__main__"] = main
         except SystemExit:
             raise
         except:
