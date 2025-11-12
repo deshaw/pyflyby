@@ -44,6 +44,7 @@ py3 = "pyflyby._py:py_main"
 
 [project.optional-dependencies]
 test = [
+    'beartype',
     'build',
     'coverage',
     'flaky',
