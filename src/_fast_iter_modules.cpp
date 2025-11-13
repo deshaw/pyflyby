@@ -96,7 +96,7 @@ _iter_file_finder_modules(
   return ret;
 }
 
-PYBIND11_MODULE(_fast_iter_modules, m) {
+PYBIND11_MODULE(_fast_iter_modules, m, py::mod_gil_not_used()) {
     m.doc() = "A fast version of pkgutil._iter_file_finder_modules.";
     m.def(
         "_iter_file_finder_modules",
