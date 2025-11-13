@@ -192,7 +192,7 @@ def comm_open_handler(comm, message):
             # by making the imports a string, all the imports are processed
             # together making sure tidy-imports has context on all the imports
             # while clubbing similar imports and re-ordering them.
-            import_statements, processed_cell_array = "", []
+            _import_statements, processed_cell_array = [], []
             for cell in cell_array:
                 ignore = False
                 text = cell.get("text")
@@ -200,15 +200,20 @@ def comm_open_handler(comm, message):
                 if cell_type == "code":
                     try:
                         imports, text = extract_import_statements(text)
-                        import_statements += (imports + "\n")
+                        _import_statements.append(imports)
                     except SyntaxError:
                         # If a cell triggers Syntax Error, we set ignore to
                         # True and don't include it when running tidy-imports
                         # For eg. this is triggered due to cells with magic
                         # commands
                         ignore = True
-                processed_cell_array.append({"text": text, "type": cell_type, "ignore": ignore})
-            code_with_collected_imports = collect_code_with_imports_on_top(import_statements, processed_cell_array)
+                processed_cell_array.append(
+                    {"text": text, "type": cell_type, "ignore": ignore}
+                )
+            import_statements: str = "\n".join(_import_statements) + "\n"
+            code_with_collected_imports = collect_code_with_imports_on_top(
+                import_statements, processed_cell_array
+            )
             code_post_tidy_imports = run_tidy_imports(code_with_collected_imports)
             import_statements, _ = extract_import_statements(code_post_tidy_imports)
             comm.send(
