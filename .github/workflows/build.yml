@@ -24,9 +24,12 @@ jobs:
       - name: 🐍 Set up Python
         uses: actions/setup-python@v6
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: 🚀 Install build dependencies
         run: |
-          pip install build twine
+          uv pip install --system build twine
 
       - name: 📦 Build the sdist and wheel
         run: python -m build --sdist -o wheelhouse
@@ -55,12 +58,15 @@ jobs:
           fetch-depth: 0
           fetch-tags: true # include tags to get correct version from setuptools_scm
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
 
       - name: List and check wheels
         run: |
-          pip install twine
+          uv pip install --system twine
           twine check wheelhouse/*
 
       - name: Upload wheels

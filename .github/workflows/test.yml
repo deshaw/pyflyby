@@ -30,14 +30,16 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
     - name: Install pyflyby
       run: |
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        pip install setuptools wheel # needed for epydoc
-        pip install --no-build-isolation -ve .[test]
+        uv pip install --system meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+        uv pip install --system setuptools wheel # needed for epydoc
+        uv pip install --system --no-build-isolation -ve .[test]
     - name: test release build
       run: |
         python -m build
