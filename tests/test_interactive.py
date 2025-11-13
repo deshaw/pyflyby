@@ -3903,6 +3903,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_postmortem_tab_completion_1(frontend):
