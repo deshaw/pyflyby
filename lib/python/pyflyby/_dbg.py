@@ -1040,6 +1040,18 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     """
     import subprocess
     os.kill(pid, 0) # raises OSError "No such process" unless pid exists
+
+    # Check if we have permissions to attach to the process before proceeding
+    try:
+        subprocess.run(
+            ["gdb", "-n", "-batch", "-p", str(pid)], check=True, capture_output=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise Exception(
+            f"Unable to attach to pid {pid} with gdb (exit code {e.returncode}). "
+            f"Reason: {e.stderr.decode()}"
+        ) from e
+
     if isinstance(statements, str):
         statements = (statements,)
     else:
@@ -1070,9 +1082,11 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     # noting that at the moment we are never parsig the output, but it's still
     # a good practice to use --interpreter=mi).
     command = (
-        ['gdb', str(python_path), '-p', str(pid), '-batch', '--interpreter=mi']
+        ['gdb', '-n', str(python_path), '-p', str(pid), '-batch', '--interpreter=mi']
         + [ '-eval-command=call %s' % (c,) for c in gdb_commands ])
-    output = None if show_gdb_output else _dev_null()
+
+    output = subprocess.PIPE if show_gdb_output else _dev_null()
+
     process = subprocess.Popen(command,
                                stdin=_dev_null(),
                                stdout=output,
@@ -1215,7 +1229,7 @@ def attach_debugger(pid):
          % (terminal.ttyname, on_continue))
         )
 
-    gdb_pid = inject(pid, statements=";".join(statements), wait=False)
+    gdb_pid = inject(pid, statements=";".join(statements), wait=False, show_gdb_output=True)
     # Fork a watchdog process to make sure we exit if the target process or
     # gdb process exits, and make sure the gdb process exits if we exit.
     parent_pid = os.getpid()
