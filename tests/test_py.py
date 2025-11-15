@@ -5,6 +5,7 @@
 
 
 
+import shutil
 import ast
 import os
 import pytest
@@ -16,6 +17,7 @@ from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 import venv
 
+from pyflyby._dbg import inject
 from   pyflyby._file            import Filename
 from   pyflyby._util            import cached_attribute
 
@@ -2841,6 +2843,13 @@ def test_beartype_with_forward_reference_1(tmp):
     assert "BeartypeCallHintForwardRefException" not in result
     assert "beartypeok" in result
 
+@pytest.mark.skipif(shutil.which("gdb") is None, reason="gdb is required for this test")
+def test_inject_insufficient_permissions():
+    """Test that having insufficient permissions for gdb to attach triggers an error."""
+    child = subprocess.Popen(["python", "-c", "import time; time.sleep(20)"])
+
+    with pytest.raises(Exception, match="Operation not permitted"):
+        inject(child.pid, [])
 
 
 
