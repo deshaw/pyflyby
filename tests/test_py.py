@@ -5,6 +5,7 @@
 
 
 
+import shutil
 import ast
 import os
 import pytest
@@ -2842,6 +2843,7 @@ def test_beartype_with_forward_reference_1(tmp):
     assert "BeartypeCallHintForwardRefException" not in result
     assert "beartypeok" in result
 
+@pytest.mark.skipif(shutil.which("gdb") is None, reason="gdb is required for this test")
 def test_inject_insufficient_permissions():
     """Test that having insufficient permissions for gdb to attach triggers an error."""
     child = subprocess.Popen(["python", "-c", "import time; time.sleep(20)"])
