@@ -1044,7 +1044,9 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     # Check if we have permissions to attach to the process before proceeding
     try:
         subprocess.run(
-            ["gdb", "-n", "-batch", "-p", str(pid)], check=True, capture_output=True
+            ["gdb", "-n", "-batch", "--interpreter=mi", "-p", str(pid)],
+            check=True,
+            capture_output=True,
         )
     except subprocess.CalledProcessError as e:
         raise Exception(
