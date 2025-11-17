@@ -45,7 +45,6 @@ install_data(
     'bin/collect-exports',
     'bin/collect-imports',
     'bin/find-import',
-    'bin/list-bad-xrefs',
     'bin/prune-broken-imports',
     'bin/pyflyby-diff',
     'bin/reformat-imports',

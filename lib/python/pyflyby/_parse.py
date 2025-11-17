@@ -1251,7 +1251,7 @@ class PythonBlock:
 
           - First literal string of function definitions, class definitions,
             and modules (the python standard)
-          - Literal strings after assignments, per Epydoc
+          - Literal strings after assignments
 
         :rtype:
           Generator of ``ast.Str`` nodes

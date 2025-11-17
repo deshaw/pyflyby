@@ -870,7 +870,6 @@ exclude = '(?x)(_dbg\.py|_py\.py)'
 
 [[tool.mypy.overrides]]
 module = [
-    "pyflyby._docxref",
     "pyflyby._interactive",
 ]
 ignore_errors = true
@@ -919,7 +918,6 @@ exclude = '(?x)(_dbg\.py|_py\.py)'
 
 [[tool.mypy.overrides]]
 module = [
-    "pyflyby._docxref",
     "pyflyby._interactive",
 ]
 ignore_errors = true

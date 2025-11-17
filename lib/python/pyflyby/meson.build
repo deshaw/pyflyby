@@ -6,7 +6,6 @@ py.install_sources(
     '_cmdline.py',
     '_comms.py',
     '_dbg.py',
-    '_docxref.py',
     '_dynimp.py',
     '_file.py',
     '_flags.py',
