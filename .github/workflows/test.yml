@@ -51,6 +51,9 @@ jobs:
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
