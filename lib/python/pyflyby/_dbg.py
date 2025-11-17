@@ -1231,7 +1231,7 @@ def attach_debugger(pid):
          % (terminal.ttyname, on_continue))
         )
 
-    gdb_pid = inject(pid, statements=";".join(statements), wait=False, show_gdb_output=True)
+    gdb_pid = inject(pid, statements=";".join(statements), wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
     # gdb process exits, and make sure the gdb process exits if we exit.
     parent_pid = os.getpid()
