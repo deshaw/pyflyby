@@ -42,6 +42,11 @@ else:
     from types import NoneType
     from ast import MatchAs, MatchMapping
 
+if sys.version_info >= (3, 14):
+    from ast import TemplateStr
+else:
+    TemplateStr = None  # type: ignore
+
 
 def _is_comment_or_blank(line, /):
     """
@@ -209,10 +214,12 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
         yield node.value,
-    elif isinstance(node, ast.JoinedStr):
+    elif isinstance(node, ast.JoinedStr) or (
+        TemplateStr is not None and isinstance(node, TemplateStr)
+    ):
         assert node._fields == ("values",)
         # Sort values by their position in the source code
-        # for f"{x=}", nodes are not in order
+        # for f"{x=}" / t"{x=}", nodes are not in order
         sorted_children = sorted(node.values, key=lambda v: (v.lineno, v.col_offset))
         yield sorted_children
     elif isinstance(node, MatchAs):
