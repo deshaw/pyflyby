@@ -15,7 +15,6 @@ from   pyflyby._autoimp         import (auto_eval, auto_import,
 from   pyflyby._cmdline         import (filename_args, hfmt, maindoc,
                                         parse_args, print_version_and_exit,
                                         process_actions, syntax)
-from   pyflyby._docxref         import find_bad_doc_cross_references
 from   pyflyby._file            import (FilePos, FileText, Filename,
                                         UnsafeFilenameError, atomic_write_file,
                                         expand_py_files_from_args, read_file)
