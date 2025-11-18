@@ -123,6 +123,8 @@ def _iter_child_nodes_in_order(node):
 
     ``ast.iter_child_nodes`` does the same thing, but not in source order.
     e.g. for ``Dict`` s, it yields all key nodes before all value nodes.
+
+    `JoinedStr` for `f"{x=}"` also does not.
     """
     return _flatten_ast_nodes(_iter_child_nodes_in_order_internal_1(node))
 
@@ -207,6 +209,12 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.FormattedValue):
         assert node._fields == ('value', 'conversion', 'format_spec')
         yield node.value,
+    elif isinstance(node, ast.JoinedStr):
+        assert node._fields == ("values",)
+        # Sort values by their position in the source code
+        # for f"{x=}", nodes are not in order
+        sorted_children = sorted(node.values, key=lambda v: (v.lineno, v.col_offset))
+        yield sorted_children
     elif isinstance(node, MatchAs):
         yield node.pattern
         yield node.name,

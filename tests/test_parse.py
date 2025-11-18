@@ -1498,6 +1498,31 @@ def test_join_formatted_string_columns(input):
 @pytest.mark.parametrize(
     "input",
     [
+        '''
+x = 42
+y = f'{x=}'
+''',
+        '''
+a = 1
+b = 2
+result = f'{a=} {b=}'
+''',
+        '''
+name = 'Alice'
+age = 30
+info = f'{name=}, {age=}'
+''',
+    ],
+)
+def test_fstring_debug_expressions(input):
+    """Test that f-string debug expressions (f'{x=}') are handled correctly."""
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
         '''b"""
 two
 """ b"""
