@@ -3,11 +3,11 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-
+from __future__ import print_function
 
 import ast
 import os
-import pytest
+import shutil
 from   shutil                   import rmtree
 import subprocess
 import sys
@@ -16,15 +16,19 @@ from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 import venv
 
+import pytest
+
+from   pyflyby._dbg             import inject
 from   pyflyby._file            import Filename
 from   pyflyby._util            import cached_attribute
-
 
 from   tests.test_interactive   import _build_pythonpath
 
 PYFLYBY_HOME = Filename(__file__).real.dir.dir
 BIN_DIR = PYFLYBY_HOME / "bin"
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
+
+python = sys.executable
 
 
 def flatten(args):
@@ -42,8 +46,6 @@ def flatten(args):
     return result
 
 
-python = sys.executable
-
 def pipe(command, stdin="", env=None, retretcode="automatic"):
     if command[0] != python:
         command = (python,) + command
@@ -57,9 +59,9 @@ def pipe(command, stdin="", env=None, retretcode="automatic"):
     stdout = proc.communicate(stdin)[0].strip().decode('utf-8')
     retcode = proc.returncode
     assert retcode >= 0
-    if retretcode == True:
+    if retretcode is True:
         return stdout, retcode
-    elif retretcode == False:
+    elif retretcode is False:
         return stdout
     elif retretcode == 'automatic':
         if retcode:
@@ -2841,6 +2843,19 @@ def test_beartype_with_forward_reference_1(tmp):
     assert "BeartypeCallHintForwardRefException" not in result
     assert "beartypeok" in result
 
+@pytest.mark.skipif(shutil.which("gdb") is None, reason="gdb is required for this test")
+@pytest.mark.skipif(sys.platform == "darwin", reason="test not applicable on macOS")
+def test_inject_insufficient_permissions():
+    """Test that having insufficient permissions for gdb to attach triggers an error."""
+    child = subprocess.Popen(["python", "-c", "import time; time.sleep(20)"])
+
+    with open("/proc/sys/kernel/yama/ptrace_scope") as f:
+        if f.read().strip() == "0":
+            pytest.skip(msg="ptrace is allowed without elevated user permissions")
+
+    # Should fail due to permissions
+    with pytest.raises(Exception):
+        inject(child.pid, [])
 
 
 
