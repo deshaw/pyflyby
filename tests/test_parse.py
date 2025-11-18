@@ -1525,6 +1525,32 @@ def test_fstring_debug_expressions(input):
     assert block.annotated_ast_node
 
 
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="Template strings require Python 3.14+")
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+x = 42
+y = t"{x=}"
+""",
+        """
+a = 1
+b = 2
+result = t"{a=} {b=}"
+""",
+        """
+name = 'Alice'
+age = 30
+info = t"{name=}, {age=}"
+""",
+    ],
+)
+def test_template_string_debug_expressions(input):
+    """Test that template string debug expressions (t'{x=}') are handled correctly."""
+    block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
 @pytest.mark.parametrize(
     "input",
     [
