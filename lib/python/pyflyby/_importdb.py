@@ -10,7 +10,6 @@ from   collections              import defaultdict
 import os
 import re
 import sys
-import warnings
 
 from   pathlib                  import Path
 
@@ -216,7 +215,7 @@ class ImportDB:
             return arg
         if isinstance(arg, ImportSet):
             return cls._from_data(arg, [], [], [])
-        return cls._from_args(arg) # PythonBlock, Filename, etc
+        return cls._from_code(arg) # PythonBlock, Filename, etc
 
     
 
@@ -250,7 +249,7 @@ class ImportDB:
         Return the default import library for the given target filename.
 
         This will read various .../.pyflyby files as specified by
-        $PYFLYBY_PATH as well as older deprecated environment variables.
+        $PYFLYBY_PATH.
 
         Memoized.
 
@@ -314,8 +313,6 @@ class ImportDB:
                 1,
                 target_dirname,
                 os.getenv("PYFLYBY_PATH"),
-                os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
-                os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH"),
             )
             cache_keys.append(key)
             if key in cls._default_cache:
@@ -330,9 +327,7 @@ class ImportDB:
         if target_dirname != cache_keys[-1][0]:
             cache_keys.append((1,
                                target_dirname,
-                               os.getenv("PYFLYBY_PATH"),
-                               os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
-                               os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH")))
+                               os.getenv("PYFLYBY_PATH")))
             try:
                 return cls._default_cache[cache_keys[-1]]
             except KeyError:
@@ -346,13 +341,12 @@ class ImportDB:
         logger.debug("DEFAULT_PYFLYBY_PATH=%s", DEFAULT_PYFLYBY_PATH)
         filenames = _get_python_path("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH,
                                      target_dirname)
-        mandatory_imports_filenames = ()
-        cache_keys.append((2, filenames, mandatory_imports_filenames))
+        cache_keys.append((2, filenames))
         try:
             return cls._default_cache[cache_keys[-1]]
         except KeyError:
             pass
-        result = cls._from_filenames(filenames, mandatory_imports_filenames)
+        result = cls._from_code(filenames)
         for k in cache_keys:
             cls._default_cache[k] = result
         return result
@@ -386,16 +380,7 @@ class ImportDB:
 
 
     @classmethod
-    def _from_args(cls, args):
-        # TODO: support merging input ImportDBs.  For now we support
-        # `PythonBlock` s and convertibles such as `Filename`.
-        return cls._from_code(args)
-
-    @classmethod
-    def _from_code(cls, blocks,
-                   _mandatory_imports_blocks_deprecated=(),
-                   _forget_imports_blocks_deprecated=(),
-               ):
+    def _from_code(cls, blocks):
         """
         Load an import database from code.
 
@@ -431,10 +416,6 @@ class ImportDB:
         """
         if not isinstance(blocks, (tuple, list)):
             blocks = [blocks]
-        if not isinstance(_mandatory_imports_blocks_deprecated, (tuple, list)):
-            _mandatory_imports_blocks_deprecated = [_mandatory_imports_blocks_deprecated]
-        if not isinstance(_forget_imports_blocks_deprecated, (tuple, list)):
-            _forget_imports_blocks_deprecated = [_forget_imports_blocks_deprecated]
         known_imports     = []
         mandatory_imports = []
         canonical_imports = []
@@ -464,49 +445,10 @@ class ImportDB:
                     raise ValueError(
                         "While parsing %s: error in %r: %s"
                         % (block.filename, statement, e))
-        for block in _mandatory_imports_blocks_deprecated:
-            mandatory_imports.append(ImportSet(block))
-        for block in _forget_imports_blocks_deprecated:
-            forget_imports.append(ImportSet(block))
         return cls._from_data(known_imports,
                               mandatory_imports,
                               canonical_imports,
                               forget_imports)
-
-    @classmethod
-    def _from_filenames(cls, filenames, _mandatory_filenames_deprecated=[]):
-        """
-        Load an import database from filenames.
-
-        This function exists to support deprecated behavior.
-        When we stop supporting the old behavior, we will delete this function.
-
-        :type filenames:
-          Sequence of `Filename` s
-        :param filenames:
-          Filenames of files to read.
-        :rtype:
-          `ImportDB`
-        """
-        if _mandatory_filenames_deprecated:
-            warnings.warn(
-                "_mandatory_filenames_deprecated has been deprecated in Pyflyby"
-                " 1.9.4 and will removed in future versions",
-                DeprecationWarning,
-                stacklevel=1,
-            )
-        if not isinstance(filenames, (tuple, list)):
-            # TODO DeprecationWarning July 2024,
-            # this is internal deprecate not passing a list;
-            filenames = [filenames]
-        for f in filenames:
-            assert isinstance(f, Filename)
-        logger.debug(
-            "ImportDB: loading %r, mandatory=%r",
-            [str(f) for f in filenames],
-            [str(f) for f in _mandatory_filenames_deprecated],
-        )
-        return cls._from_code(filenames)
 
     @classmethod
     def _parse_import_set(cls, arg):

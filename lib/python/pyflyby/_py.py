@@ -1834,8 +1834,6 @@ class _PyMain(object):
                 #   self.import_db = ""
                 # TODO: also turn off which() behavior
                 os.environ["PYFLYBY_PATH"] = "EMPTY"
-                os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
-                os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
                 continue
             if argname in ["arguments", "argument", "args", "arg",
                            "arg_mode", "arg-mode", "argmode"]:
