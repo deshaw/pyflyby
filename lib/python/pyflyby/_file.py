@@ -299,7 +299,12 @@ class FilePos(object):
           `FilePos`
         '''
         ldelta, cdelta = self._intint(delta)
-        assert ldelta >= 0 and cdelta >= 0
+        # Invalid position delta: this is known to be triggerd
+        # by decorators with whitespace after @ (e.g., '@ foo'),
+        # which is valid Python syntax but not currently supported by pyflyby.
+        # a knownfail test for this case exists.
+        assert ldelta >= 0 and cdelta >= 0, (
+        )
         if ldelta == 0:
             return FilePos(self.lineno, self.colno + cdelta)
         else:

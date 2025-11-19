@@ -50,6 +50,10 @@ jobs:
       run: |
         python -We:invalid -m compileall -f -q lib/ etc/;
 
+    - name: check-parse pyflyby
+      run: |
+        python -m pyflyby.check_parse lib/python/pyflyby
+
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.

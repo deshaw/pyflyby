@@ -21,6 +21,7 @@ py.install_sources(
     '_log.py',
     '_modules.py',
     '_parse.py',
+    'check_parse.py',
     '_py.py',
     '_saveframe.py',
     '_saveframe_reader.py',
