@@ -31,6 +31,8 @@ from   pyflyby._file            import Filename
 from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
 from   typing                   import Union
 
+is_free_threaded = (sys.version_info >= (3, 13)) and (sys._is_gil_enabled() is False)
+
 
 # To debug test_interactive.py itself, set the env var DEBUG_TEST_PYFLYBY.
 DEBUG = bool(os.getenv("DEBUG_TEST_PYFLYBY"))
@@ -3852,6 +3854,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
@@ -3874,6 +3877,7 @@ def test_debug_tab_completion_module_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
@@ -3899,6 +3903,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_debug_postmortem_tab_completion_1(frontend):
@@ -4092,14 +4097,24 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 @retry
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
-    if sys.version_info >= (3, 13):
+    if sys.version_info >= (3, 14):
         ipython(
-            '''
+            """
+            In [1]: breakpoint()
+            ...
+            > <ipython-input>(1)<module>()
+            ipdb> c
+        """,
+            frontend="prompt_toolkit",
+        )
+    elif sys.version_info >= (3, 13):
+        ipython(
+            """
             In [1]: breakpoint()
             > <ipython-input>(1)<module>()
             ipdb> c
-        ''',
-            frontend='prompt_toolkit',
+        """,
+            frontend="prompt_toolkit",
         )
     else:
         # The `__call__` in trace below is expected because
