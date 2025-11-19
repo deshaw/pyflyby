@@ -26,7 +26,6 @@ from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
 
 import re
 import shutil
-from   six                      import reraise
 import sys
 import types
 from   typing                   import Any, Dict, Generator, Union
@@ -113,13 +112,13 @@ def import_module(module_name):
                      real_importerror1, real_importerror2, real_importerror3)
         if real_importerror1 and real_importerror2 and real_importerror3:
             raise
-        reraise(ErrorDuringImportError, ErrorDuringImportError(
+        raise ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), sys.exc_info()[2])
+            % (module_name, type(e).__name__, e)) from e
     except Exception as e:
-        reraise(ErrorDuringImportError, ErrorDuringImportError(
+        raise ErrorDuringImportError(
             "Error while attempting to import %s: %s: %s"
-            % (module_name, type(e).__name__, e)), sys.exc_info()[2])
+            % (module_name, type(e).__name__, e)) from e
 
 
 def _my_iter_modules(path, prefix=''):

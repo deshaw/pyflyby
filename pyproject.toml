@@ -27,7 +27,6 @@ classifiers = [
 ]
 dependencies = [
     "black",
-    "six",
     "tomli; python_version<'3.11'",
     "typing_extensions>=4.6; python_version<'3.12'",
     'prompt_toolkit',
@@ -66,7 +65,6 @@ lint = [
     'flake8',
     'mypy',
     'pyflakes',
-    'types-six',
 ]
 docs = [
     'sphinx',

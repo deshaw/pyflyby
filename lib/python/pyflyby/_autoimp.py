@@ -23,7 +23,6 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
                                         infer_compile_mode)
 
-from   six                      import reraise
 import sys
 import types
 from   typing                   import (Any, Dict, List, Optional, Set, Tuple,
@@ -2220,7 +2219,7 @@ def load_symbol(fullname, namespaces, autoimport=False, db=None,
                 except Exception as e:
                     e2 = LoadSymbolError(fullname)
                     e2.__cause__ = e
-                    reraise(LoadSymbolError, e2, sys.exc_info()[2])
+                    raise e2
             return obj
     else:
         # Not found in any namespace.
