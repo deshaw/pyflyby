@@ -303,8 +303,7 @@ class FilePos(object):
         # by decorators with whitespace after @ (e.g., '@ foo'),
         # which is valid Python syntax but not currently supported by pyflyby.
         # a knownfail test for this case exists.
-        assert ldelta >= 0 and cdelta >= 0, (
-        )
+        assert ldelta >= 0 and cdelta >= 0
         if ldelta == 0:
             return FilePos(self.lineno, self.colno + cdelta)
         else:
