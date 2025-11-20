@@ -41,8 +41,8 @@ jobs:
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --no-build-isolation -ve .[test]
+        uv pip install --system --break-system-packages meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+        uv pip install --system --break-system-packages --no-build-isolation -ve .[test]
     - name: test release build
       run: |
         uv run python -m build

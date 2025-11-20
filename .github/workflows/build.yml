@@ -29,7 +29,7 @@ jobs:
 
       - name: 🚀 Install build dependencies
         run: |
-          uv pip install build twine
+          uv pip install --system --break-system-packages build twine
 
       - name: 📦 Build the sdist and wheel
         run: uv run python -m build --sdist -o wheelhouse
@@ -66,7 +66,7 @@ jobs:
 
       - name: List and check wheels
         run: |
-          uv pip install twine
+          uv pip install --system --break-system-packages twine
           uv run twine check wheelhouse/*
 
       - name: Upload wheels
