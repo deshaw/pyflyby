@@ -32,7 +32,7 @@ jobs:
           uv pip install --system --break-system-packages build twine
 
       - name: 📦 Build the sdist and wheel
-        run: uv run python -m build --sdist -o wheelhouse
+        run: python -m build --sdist -o wheelhouse
 
       - name: List and check sdist
         run: |
@@ -67,7 +67,7 @@ jobs:
       - name: List and check wheels
         run: |
           uv pip install --system --break-system-packages twine
-          uv run twine check wheelhouse/*
+          twine check wheelhouse/*
 
       - name: Upload wheels
         uses: actions/upload-artifact@v5

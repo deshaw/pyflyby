@@ -22,11 +22,11 @@ jobs:
         uv pip install --system --break-system-packages --no-build-isolation -ve . --group lint
     - name: Mypy
       run: |
-        uv run mypy lib/python --ignore-missing-imports
+        mypy lib/python --ignore-missing-imports
     - name: lint
       run: |
-        uv run flake8 --exclude known_imports,etc,__init__.py --select=F;
-        uv run flake8 --exclude known_imports,etc,__init__.py --select=F bin/*;
+        flake8 --exclude known_imports,etc,__init__.py --select=F;
+        flake8 --exclude known_imports,etc,__init__.py --select=F bin/*;
     - name: Self-tidy-import
       run: |
-        uv run ./bin/tidy-imports -d lib/python/ tests/
+        ./bin/tidy-imports -d lib/python/ tests/

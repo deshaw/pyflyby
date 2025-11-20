@@ -45,20 +45,20 @@ jobs:
         uv pip install --system --break-system-packages --no-build-isolation -ve .[test]
     - name: test release build
       run: |
-        uv run python -m build
+        python -m build
     - name: compileall
       run: |
-        uv run python -We:invalid -m compileall -f -q lib/ etc/;
+        python -We:invalid -m compileall -f -q lib/ etc/;
 
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
       run: |
-        uv run python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
+        python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        uv run python -m pytest -v --cov=pyflyby --cov-report=xml\
+        python -m pytest -v --cov=pyflyby --cov-report=xml\
                --doctest-modules\
                --maxfail=3\
                --json-report\
@@ -72,7 +72,7 @@ jobs:
 
     - name: Test emacs integration
       run: |
-        uv run emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
+        emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
 
     - uses: actions/upload-artifact@v5
       name: upload pytest timing reports as json
