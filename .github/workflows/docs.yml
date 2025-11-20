@@ -14,7 +14,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Install dependencies
         run: |
-          uv pip install --system --break-system-packages -v --group docs
+          sudo uv pip install --system --break-system-packages -v --group docs
       - name: Build docs
         run: |
           make html
