@@ -1,6 +1,19 @@
 # pyflyby/_parse.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
+"""
+Python parsing utilities for pyflyby.
+
+This module provides AST parsing and manipulation functionality. It includes
+PythonBlock and PythonStatement classes for working with Python code.
+
+On newer versions of Python it is suggested to run
+
+    python -m pyflyby.check_parse <path/to/cpython>
+
+This will parse all Python files in the given path and report any parsing issues
+"""
+
 from __future__ import annotations, print_function
 
 import ast
@@ -176,10 +189,10 @@ def _iter_child_nodes_in_order_internal_1(node):
             res = (
                 node.type_comment,
                 node.decorator_list,
+                node.type_params,
                 node.args,
                 node.returns,
                 node.body,
-                node.type_params
             )
             yield res
 
@@ -206,7 +219,7 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.ClassDef):
         if sys.version_info > (3, 12):
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'), node._fields
-            yield node.decorator_list, node.bases, node.body, node.type_params
+            yield node.decorator_list, node.type_params, node.bases, node.body
         else:
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list'), node._fields
             yield node.decorator_list, node.bases, node.body
@@ -449,11 +462,14 @@ def _annotate_ast_startpos(
                         for cn in _iter_child_nodes_in_order(aast_node)
                     )
                     + "\n"
-                    "This indicates a bug in pyflyby._\n"
+                    "This indicates a bug in pyflyby._parse\n"
                     "\n"
                     "pyflyby developer: Check if there's a bug or missing ast node handler in "
                     "pyflyby._parse._iter_child_nodes_in_order() - "
-                    "probably the handler for ast.%s." % type(aast_node).__name__
+                    +"probably the handler for ast.%s." % type(aast_node).__name__
+                    +"\n"
+                    "Please also run python -m pyflyby.check_parse on the cpython source tree"
+                    "to test for new syntax."
                 )
             child_minpos = child_node.startpos
         is_first_child = False

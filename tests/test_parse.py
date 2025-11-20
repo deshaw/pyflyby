@@ -1551,6 +1551,37 @@ def test_template_string_debug_expressions(input):
     assert block.annotated_ast_node
 
 
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="Type parameters require Python 3.12+")
+@pytest.mark.parametrize(
+    "input",
+    [
+        """
+        def func[T](x: T) -> T:
+            return x
+        """,
+        """
+        def prev_next_window[T](iterable: list[T]) -> list[T]:
+            return iterable
+        """,
+        """
+        class MyClass[T]:
+            def __init__(self, value: T):
+                self.value = value
+        """,
+        """
+        class Container[T, U]:
+            def __init__(self, first: T, second: U):
+                self.first = first
+                self.second = second
+        """,
+    ],
+)
+def test_type_parameters(input):
+    """Test that PEP 695 type parameters (def func[T](...)) are handled correctly."""
+    block = PythonBlock(dedent(input), auto_flags=True)
+    assert block.annotated_ast_node
+
+
 @pytest.mark.parametrize(
     "input",
     [
@@ -1570,4 +1601,85 @@ print(b"""
 )
 def test_bytes_concat(input):
     block = PythonBlock(input, auto_flags=True)
+    assert block.annotated_ast_node
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        """
+        def foo(fun):
+            return fun
+
+        @ foo
+        def bar():
+            pass
+        """,
+        """
+        def foo(fun):
+            return fun
+
+        @  foo
+        def bar():
+            pass
+        """,
+        """
+        def foo(fun):
+            return fun
+
+        @\tfoo
+        def bar():
+            pass
+        """,
+        pytest.param(
+            # Multiline decorator with backslash
+            """
+            def foo(fun):
+                return fun
+
+            @ \\
+            foo
+            def bar():
+                pass
+            """,
+            marks=pytest.mark.xfail(strict=True, reason="Multiline decorator with backslash continuation not yet supported"),
+        ),
+        """
+        def decorator(cls):
+            return cls
+
+        @ decorator
+        class MyClass:
+            pass
+        """,
+        """
+        def decorator(fun):
+            return fun
+
+        class MyClass:
+            @ decorator
+            def method(self):
+                pass
+        """,
+        """
+        def dec1(fun):
+            return fun
+
+        def dec2(fun):
+            return fun
+
+        @ dec1
+        @ dec2
+        def bar():
+            pass
+        """,
+    ],
+)
+def test_decorator_with_whitespace(code):
+    """Test that decorators with whitespace after @ are parsed correctly.
+
+    This is valid Python syntax (though discouraged by style guides like PEP 8).
+    These tests verify that pyflyby can handle decorators with whitespace after @.
+    """
+    block = PythonBlock(dedent(code).strip(), auto_flags=True)
     assert block.annotated_ast_node
