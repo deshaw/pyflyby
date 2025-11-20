@@ -18,15 +18,15 @@ jobs:
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        uv pip install --system meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --system --no-build-isolation -ve . --group lint
+        uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+        uv pip install --no-build-isolation -ve . --group lint
     - name: Mypy
       run: |
-        mypy lib/python --ignore-missing-imports
+        uv run mypy lib/python --ignore-missing-imports
     - name: lint
       run: |
-        flake8 --exclude known_imports,etc,__init__.py --select=F;
-        flake8 --exclude known_imports,etc,__init__.py --select=F bin/*;
+        uv run flake8 --exclude known_imports,etc,__init__.py --select=F;
+        uv run flake8 --exclude known_imports,etc,__init__.py --select=F bin/*;
     - name: Self-tidy-import
       run: |
-        ./bin/tidy-imports -d lib/python/ tests/
+        uv run ./bin/tidy-imports -d lib/python/ tests/

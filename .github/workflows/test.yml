@@ -41,24 +41,24 @@ jobs:
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        uv pip install --system meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --system --no-build-isolation -ve .[test]
+        uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+        uv pip install --no-build-isolation -ve .[test]
     - name: test release build
       run: |
-        python -m build
+        uv run python -m build
     - name: compileall
       run: |
-        python -We:invalid -m compileall -f -q lib/ etc/;
+        uv run python -We:invalid -m compileall -f -q lib/ etc/;
 
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
       run: |
-        python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
+        uv run python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        python -m pytest -v --cov=pyflyby --cov-report=xml\
+        uv run python -m pytest -v --cov=pyflyby --cov-report=xml\
                --doctest-modules\
                --maxfail=3\
                --json-report\
@@ -72,7 +72,7 @@ jobs:
 
     - name: Test emacs integration
       run: |
-        emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
+        uv run emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
 
     - uses: actions/upload-artifact@v5
       name: upload pytest timing reports as json
