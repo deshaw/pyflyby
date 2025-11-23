@@ -26,39 +26,44 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
     - name: Install gdb
       if: matrix.os == 'ubuntu-latest'
       run: |
           sudo apt install gdb -y
+
     - name: Install uv
       uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        cache-dependency-glob: |
+          "pyproject.toml"
+
     - name: Install pyflyby
       run: |
+        uv python install ${{matrix.python-version}}
+        uv venv
+
         # Include build dependencies for run time; see
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
-        uv pip install --system --break-system-packages meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --system --break-system-packages --no-build-isolation -ve .[test]
+        uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+        uv pip install --no-build-isolation -ve .[test]
     - name: test release build
       run: |
-        python -m build
+        uv run python -m build
     - name: compileall
       run: |
-        python -We:invalid -m compileall -f -q lib/ etc/;
+        uv run python -We:invalid -m compileall -f -q lib/ etc/;
 
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
       run: |
-        python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
+        uv run python -m pytest -v --cov=pyflyby --cov-report=xml --doctest-modules --maxfail=3 lib tests
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        python -m pytest -v --cov=pyflyby --cov-report=xml\
+        uv run python -m pytest -v --cov=pyflyby --cov-report=xml\
                --doctest-modules\
                --maxfail=3\
                --json-report\

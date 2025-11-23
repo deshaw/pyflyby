@@ -9,3 +9,6 @@ _build
 build
 dist
 pytestdebug.log
+
+# Ignore because don't use uv, except for workflows
+uv.lock
