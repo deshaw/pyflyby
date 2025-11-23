@@ -61,8 +61,6 @@ def _setup_logger():
 PYFLYBY_HOME = os.path.dirname(os.path.realpath(__file__))
 
 os.environ["PYFLYBY_PATH"] = os.path.join(PYFLYBY_HOME, "etc/pyflyby")
-os.environ["PYFLYBY_KNOWN_IMPORTS_PATH"] = ""
-os.environ["PYFLYBY_MANDATORY_IMPORTS_PATH"] = ""
 os.environ["PYFLYBY_LOG_LEVEL"] = ""
 os.environ["PYTHONSTARTUP"] = ""
 

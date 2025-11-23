@@ -10,7 +10,6 @@ from   collections              import defaultdict
 import os
 import re
 import sys
-import warnings
 
 from   pathlib                  import Path
 
@@ -30,7 +29,6 @@ if sys.version_info <= (3, 12):
 else:
     from typing import Self
 
-SUPPORT_DEPRECATED_BEHAVIOR = False
 
 @memoize
 def _find_etc_dirs():
@@ -217,7 +215,7 @@ class ImportDB:
             return arg
         if isinstance(arg, ImportSet):
             return cls._from_data(arg, [], [], [])
-        return cls._from_args(arg) # PythonBlock, Filename, etc
+        return cls._from_code(arg) # PythonBlock, Filename, etc
 
     
 
@@ -251,7 +249,7 @@ class ImportDB:
         Return the default import library for the given target filename.
 
         This will read various .../.pyflyby files as specified by
-        $PYFLYBY_PATH as well as older deprecated environment variables.
+        $PYFLYBY_PATH.
 
         Memoized.
 
@@ -315,8 +313,6 @@ class ImportDB:
                 1,
                 target_dirname,
                 os.getenv("PYFLYBY_PATH"),
-                os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
-                os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH"),
             )
             cache_keys.append(key)
             if key in cls._default_cache:
@@ -331,9 +327,7 @@ class ImportDB:
         if target_dirname != cache_keys[-1][0]:
             cache_keys.append((1,
                                target_dirname,
-                               os.getenv("PYFLYBY_PATH"),
-                               os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"),
-                               os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH")))
+                               os.getenv("PYFLYBY_PATH")))
             try:
                 return cls._default_cache[cache_keys[-1]]
             except KeyError:
@@ -347,73 +341,12 @@ class ImportDB:
         logger.debug("DEFAULT_PYFLYBY_PATH=%s", DEFAULT_PYFLYBY_PATH)
         filenames = _get_python_path("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH,
                                      target_dirname)
-        mandatory_imports_filenames = ()
-        if SUPPORT_DEPRECATED_BEHAVIOR:
-            PYFLYBY_PATH = _get_env_var("PYFLYBY_PATH", DEFAULT_PYFLYBY_PATH)
-            # If the old deprecated environment variables are set, then heed
-            # them.
-            if os.getenv("PYFLYBY_KNOWN_IMPORTS_PATH"):
-                # Use PYFLYBY_PATH as the default for
-                # PYFLYBY_KNOWN_IMPORTS_PATH.  Note that the default is
-                # relevant even though we only enter this code path when the
-                # variable is set to anything, because the env var can
-                # reference "-" to include the default.
-                # Before pyflyby version 0.8, the default value would have
-                # been
-                #   [d/"known_imports" for d in PYFLYBY_PATH]
-                # Instead of using that, we just use PYFLYBY_PATH directly as
-                # the default.  This simplifies things and avoids need for a
-                # "known_imports=>." symlink for backwards compatibility.  It
-                # means that ~/.pyflyby/**/*.py (as opposed to only
-                # ~/.pyflyby/known_imports/**/*.py) would be included.
-                # Although this differs slightly from the old behavior, it
-                # matches the behavior of the newer PYFLYBY_PATH; matching the
-                # new behavior seems higher utility than exactly matching the
-                # old behavior.  Files under ~/.pyflyby/mandatory_imports will
-                # be included in known_imports as well, but that should not
-                # cause any problems.
-                default_path = PYFLYBY_PATH
-                # Expand $PYFLYBY_KNOWN_IMPORTS_PATH.
-                filenames = _get_python_path(
-                    "PYFLYBY_KNOWN_IMPORTS_PATH", default_path, target_dirname
-                )
-                warnings.warn(
-                    "The environment variable PYFLYBY_KNOWN_IMPORTS_PATH was"
-                    " deprecated since 2014. But never emitted a warning,"
-                    " please use PYFLYBY_PATH or open an issue"
-                    " if you are still requiring PYFLYBY_KNOWN_IMPORTS_PATH",
-                    DeprecationWarning,
-                )
-                logger.debug(
-                    "The environment variable PYFLYBY_KNOWN_IMPORTS_PATH is deprecated.  "
-                    "Use PYFLYBY_PATH.")
-            if os.getenv("PYFLYBY_MANDATORY_IMPORTS_PATH"):
-                # Compute the "default" path.
-                # Note that we still calculate the erstwhile default value,
-                # even though it's no longer the defaults, in order to still
-                # allow the "-" in the variable.
-                default_path = [
-                    os.path.join(d,"mandatory_imports") for d in PYFLYBY_PATH]
-                # Expand $PYFLYBY_MANDATORY_IMPORTS_PATH.
-                mandatory_imports_filenames = _get_python_path(
-                    "PYFLYBY_MANDATORY_IMPORTS_PATH", default_path, target_dirname
-                )
-                warnings.warn(
-                    "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH was"
-                    " deprecated since 2014 but never emitted a warning."
-                    " Use PYFLYBY_PATH and write __mandatory_imports__=['...']"
-                    " in your files.",
-                    DeprecationWarning,
-                )
-                logger.debug(
-                    "The environment variable PYFLYBY_MANDATORY_IMPORTS_PATH is deprecated.  "
-                    "Use PYFLYBY_PATH and write __mandatory_imports__=['...'] in your files.")
-        cache_keys.append((2, filenames, mandatory_imports_filenames))
+        cache_keys.append((2, filenames))
         try:
             return cls._default_cache[cache_keys[-1]]
         except KeyError:
             pass
-        result = cls._from_filenames(filenames, mandatory_imports_filenames)
+        result = cls._from_code(filenames)
         for k in cache_keys:
             cls._default_cache[k] = result
         return result
@@ -447,16 +380,7 @@ class ImportDB:
 
 
     @classmethod
-    def _from_args(cls, args):
-        # TODO: support merging input ImportDBs.  For now we support
-        # `PythonBlock` s and convertibles such as `Filename`.
-        return cls._from_code(args)
-
-    @classmethod
-    def _from_code(cls, blocks,
-                   _mandatory_imports_blocks_deprecated=(),
-                   _forget_imports_blocks_deprecated=(),
-               ):
+    def _from_code(cls, blocks):
         """
         Load an import database from code.
 
@@ -492,10 +416,6 @@ class ImportDB:
         """
         if not isinstance(blocks, (tuple, list)):
             blocks = [blocks]
-        if not isinstance(_mandatory_imports_blocks_deprecated, (tuple, list)):
-            _mandatory_imports_blocks_deprecated = [_mandatory_imports_blocks_deprecated]
-        if not isinstance(_forget_imports_blocks_deprecated, (tuple, list)):
-            _forget_imports_blocks_deprecated = [_forget_imports_blocks_deprecated]
         known_imports     = []
         mandatory_imports = []
         canonical_imports = []
@@ -525,75 +445,10 @@ class ImportDB:
                     raise ValueError(
                         "While parsing %s: error in %r: %s"
                         % (block.filename, statement, e))
-        for block in _mandatory_imports_blocks_deprecated:
-            mandatory_imports.append(ImportSet(block))
-        for block in _forget_imports_blocks_deprecated:
-            forget_imports.append(ImportSet(block))
         return cls._from_data(known_imports,
                               mandatory_imports,
                               canonical_imports,
                               forget_imports)
-
-    @classmethod
-    def _from_filenames(cls, filenames, _mandatory_filenames_deprecated=[]):
-        """
-        Load an import database from filenames.
-
-        This function exists to support deprecated behavior.
-        When we stop supporting the old behavior, we will delete this function.
-
-        :type filenames:
-          Sequence of `Filename` s
-        :param filenames:
-          Filenames of files to read.
-        :rtype:
-          `ImportDB`
-        """
-        if _mandatory_filenames_deprecated:
-            warnings.warn(
-                "_mandatory_filenames_deprecated has been deprecated in Pyflyby"
-                " 1.9.4 and will removed in future versions",
-                DeprecationWarning,
-                stacklevel=1,
-            )
-        if not isinstance(filenames, (tuple, list)):
-            # TODO DeprecationWarning July 2024,
-            # this is internal deprecate not passing a list;
-            filenames = [filenames]
-        for f in filenames:
-            assert isinstance(f, Filename)
-        logger.debug(
-            "ImportDB: loading %r, mandatory=%r",
-            [str(f) for f in filenames],
-            [str(f) for f in _mandatory_filenames_deprecated],
-        )
-        if SUPPORT_DEPRECATED_BEHAVIOR:
-            # Before 2014-10, pyflyby read the following:
-            #   * known_imports from $PYFLYBY_PATH/known_imports/**/*.py or
-            #     $PYFLYBY_KNOWN_IMPORTS_PATH/**/*.py,
-            #   * mandatory_imports from $PYFLYBY_PATH/mandatory_imports/**/*.py or
-            #     $PYFLYBY_MANDATORY_IMPORTS_PATH/**/*.py, and
-            #   * forget_imports from $PYFLYBY_PATH/known_imports/**/__remove__.py
-            # After 2014-10, pyflyby reads the following:
-            #   * $PYFLYBY_PATH/**/*.py
-            #     (with directives inside the file)
-            # For backwards compatibility, for now we continue supporting the
-            # old, deprecated behavior.
-            blocks = []
-            mandatory_imports_blocks = [
-                Filename(f) for f in _mandatory_filenames_deprecated]
-            forget_imports_blocks = []
-            for filename in filenames:
-                if filename.base == "__remove__.py":
-                    forget_imports_blocks.append(filename)
-                elif "mandatory_imports" in str(filename).split("/"):
-                    mandatory_imports_blocks.append(filename)
-                else:
-                    blocks.append(filename)
-            return cls._from_code(
-                blocks, mandatory_imports_blocks, forget_imports_blocks)
-        else:
-            return cls._from_code(filenames)
 
     @classmethod
     def _parse_import_set(cls, arg):
