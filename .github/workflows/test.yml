@@ -77,7 +77,7 @@ jobs:
 
     - name: Test emacs integration
       run: |
-        emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
+        uv run emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
 
     - uses: actions/upload-artifact@v5
       name: upload pytest timing reports as json
