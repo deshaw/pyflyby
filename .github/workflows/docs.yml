@@ -9,14 +9,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            "pyproject.toml"
+
       - name: Install dependencies
         run: |
-          pip install -U pip
-          pip install -v --group docs
+          uv python install 3.13
+          uv venv
+          uv pip install -v --group docs
+
       - name: Build docs
         run: |
-          make html
+          uv run make html
+
         working-directory: doc
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4

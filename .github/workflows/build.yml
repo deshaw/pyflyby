@@ -21,23 +21,26 @@ jobs:
           fetch-depth: 0
           fetch-tags: true # include tags to get correct version from setuptools_scm
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v6
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            "pyproject.toml"
 
       - name: 🚀 Install build dependencies
         run: |
-          uv pip install --system --break-system-packages build twine
+          uv python install 3.13
+          uv venv
+          uv pip install build twine
 
       - name: 📦 Build the sdist and wheel
-        run: python -m build --sdist -o wheelhouse
+        run: uv run python -m build --sdist -o wheelhouse
 
       - name: List and check sdist
         run: |
           ls -lh wheelhouse/
-          twine check wheelhouse/*
+          uv run twine check wheelhouse/*
 
       - name: Upload sdist
         uses: actions/upload-artifact@v5
@@ -60,14 +63,20 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            "pyproject.toml"
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
 
       - name: List and check wheels
         run: |
-          uv pip install --system --break-system-packages twine
-          twine check wheelhouse/*
+          uv python install 3.13
+          uv venv
+          uv pip install twine
+          uv run twine check wheelhouse/*
 
       - name: Upload wheels
         uses: actions/upload-artifact@v5
