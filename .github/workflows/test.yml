@@ -25,7 +25,7 @@ jobs:
       ENVNAME: ${{matrix.os}}-${{matrix.python-version}}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Install gdb
       if: matrix.os == 'ubuntu-latest'
       run: |
