@@ -71,7 +71,7 @@ jobs:
                lib tests
 
     - name: Set up Emacs
-      uses: purcell/setup-emacs@b3884972d55f850449e43be74de08f9a97aa3f34
+      uses: purcell/setup-emacs@8415786a52b3a84babd7ffc92a802b06e3780c17
       with:
         version: 30.2
 
