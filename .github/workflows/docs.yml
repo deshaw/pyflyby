@@ -21,7 +21,7 @@ jobs:
         run: |
           uv python install 3.13
           uv venv
-          uv pip install -v --group docs
+          uv pip install -v . --group docs
 
       - name: Build docs
         run: |
