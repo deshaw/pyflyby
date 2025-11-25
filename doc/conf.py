@@ -2,9 +2,9 @@
 
 # -- Path setup --------------------------------------------------------------
 import os
-import pathlib
-import re
 import sys
+import importlib
+
 sys.path.insert(0, os.path.abspath('../lib/python'))
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -14,21 +14,7 @@ copyright = '2019, Karl Chen'
 author = 'Karl Chen'
 # The full version, including alpha/beta/rc tags
 
-def find_version():
-    # Extract version information via regex to avoid importing
-    project_root = pathlib.Path(__file__).parent.parent
-    with open(project_root / "lib" / "python" / "pyflyby" / "_version.py") as f:
-        version_match = re.search(
-            r"^__version__ = ['\"](?P<version>.*)['\"]$",
-            f.read(),
-            re.M,
-        )
-        if version_match:
-            return version_match.group("version")
-        raise RuntimeError("Unable to find version string.")
-
-release = find_version()
-
+release = importlib.metadata.version('pyflyby')
 
 # -- General configuration ---------------------------------------------------
 extensions = [

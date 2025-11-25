@@ -3,5 +3,6 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
+import importlib.metadata
 
-__version__ = "1.10.2"
+__version__ = importlib.metadata.version('pyflyby')
