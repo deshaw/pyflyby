@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 💻 Checkout the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true # include tags to get correct version from setuptools_scm
@@ -56,7 +56,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: 💻 Checkout the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true # include tags to get correct version from setuptools_scm
