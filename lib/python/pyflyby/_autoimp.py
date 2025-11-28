@@ -1279,14 +1279,17 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
 
     LOAD_ATTR    = opmap['LOAD_ATTR']
     # LOAD_METHOD is _supposed_ to be removed in 3.12 but still present in opmap
-    # if sys.version_info < (3, 12):
-    LOAD_METHOD  = opmap['LOAD_METHOD']
-    # endif
-    LOAD_GLOBAL  = opmap['LOAD_GLOBAL']
-    LOAD_NAME    = opmap['LOAD_NAME']
-    STORE_ATTR   = opmap['STORE_ATTR']
-    STORE_GLOBAL = opmap['STORE_GLOBAL']
-    STORE_NAME   = opmap['STORE_NAME']
+    # it was actually removed in 3.14
+    if sys.version_info < (3, 12):
+        LOAD_METHOD = opmap["LOAD_METHOD"]
+    else:
+        # Just delete any ref to LOAD_METHOD once we drop <3.12
+        LOAD_METHOD = None
+    LOAD_GLOBAL = opmap["LOAD_GLOBAL"]
+    LOAD_NAME = opmap["LOAD_NAME"]
+    STORE_ATTR = opmap["STORE_ATTR"]
+    STORE_GLOBAL = opmap["STORE_GLOBAL"]
+    STORE_NAME = opmap["STORE_NAME"]
 
     if sys.version_info > (3, 11):
         CACHE = opmap["CACHE"]
@@ -1401,7 +1404,7 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
                 pending = None
                 stores.add(fullname)
                 continue
-            if op in [LOAD_ATTR, LOAD_METHOD]:
+            if op in {LOAD_ATTR, LOAD_METHOD}:
                 if sys.version_info >= (3,12):
                     # from the docs:
                     #
