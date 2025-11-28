@@ -1189,6 +1189,62 @@ def test_find_missing_imports_pattern_match_2():
     assert expected == result
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
+def test_find_missing_imports_pattern_match_star_args():
+    """Test that *args in match/case patterns are not flagged as undefined names."""
+    code = dedent("""
+    match [1, 2, 3]:
+        case [*args]:
+            print("Matched with args:", args)
+        case _:
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
+def test_find_missing_imports_pattern_match_mapping_kwargs():
+    """Test that **kwargs in match/case patterns are not flagged as undefined names."""
+    code = dedent("""
+    match {"foo": 1}:
+        case {**kwargs}:
+            print("Matched with kwargs:", kwargs)
+        case _:
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = []
+    assert expected == result
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
+def test_find_missing_imports_pattern_match_mixed():
+    """Test mixed pattern matching with multiple capture styles."""
+    code = dedent("""
+    match data:
+        case {
+            "foo": foo,
+            "bar": bar,
+            **rest,
+        }:
+            print(foo, bar, rest)
+        case [head, *middle, tail]:
+            print(head, middle, tail)
+        case {"keys": keys}:
+            print(keys)
+        case _:
+            pass
+    """)
+    result   = find_missing_imports(code, [{}])
+    result   = _dilist2strlist(result)
+    expected = ['data']
+    assert expected == result
+
+
 def test_find_missing_imports_matmul_1():
     code = dedent("""
     a@b

@@ -897,13 +897,20 @@ class _MissingImportFinder:
 
         def visit_MatchMapping(self, node:ast.MatchMapping):
             logger.debug("visit_MatchMapping(%r)", node)
+            if node.rest is not None:
+                self._visit_Store(node.rest)
+            return self.generic_visit(node)
+
+        def visit_MatchStar(self, node:ast.MatchStar):
+            logger.debug("visit_MatchStar(%r)", node)
+            if node.name is not None:
+                self._visit_Store(node.name)
             return self.generic_visit(node)
 
         def visit_MatchAs(self, node:MatchAs):
             logger.debug("visit_MatchAs(%r)", node)
             if node.name is None:
                 return
-            isinstance(node.name, str), node.name
             return self._visit_Store(node.name)
 
     def visit_Call(self, node:ast.Call):
