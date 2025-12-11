@@ -1,4 +1,6 @@
 # pyflyby/test_imports2s.py
+from __future__ import print_function
+
 import tempfile
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication

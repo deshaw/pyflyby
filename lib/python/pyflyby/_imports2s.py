@@ -2,22 +2,25 @@
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from pyflyby._autoimp import scan_for_import_issues
-from pyflyby._file import FileText, Filename
-from pyflyby._flags import CompilerFlags
-from pyflyby._importclns import ImportSet, NoSuchImportError
-from pyflyby._importdb import ImportDB
-from pyflyby._importstmt import Import, ImportFormatParams, ImportStatement
-from pyflyby._log import logger
-from pyflyby._parse import PythonBlock, PythonStatement
-from pyflyby._util import ImportPathCtx, Inf, NullCtx, memoize
-import re
+from __future__ import print_function
+
 import ast
-from collections import defaultdict
+from   collections              import defaultdict
+from   pyflyby._autoimp         import scan_for_import_issues
+from   pyflyby._file            import FileText, Filename
+from   pyflyby._flags           import CompilerFlags
+from   pyflyby._importclns      import ImportSet, NoSuchImportError
+from   pyflyby._importdb        import ImportDB
+from   pyflyby._importstmt      import (Import, ImportFormatParams,
+                                        ImportStatement)
+from   pyflyby._log             import logger
+from   pyflyby._parse           import PythonBlock, PythonStatement
+from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+import re
 
-from typing import Union, Optional, Literal, Any
+from   typing                   import Literal, Optional, Union
 
-from textwrap import indent
+from   textwrap                 import indent
 
 # AST node types for function and class definitions
 _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -573,7 +576,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             if block.input.endpos.lineno <= max_lineno+1 ]
         if not annotated_blocks:
             raise NoImportBlockError()
-        annotated_blocks.sort()
+        annotated_blocks.sort(key=lambda x: x[0])
         if imp.split.module_name == '__future__':
             # For __future__ imports, only add to an existing block that
             # already contains __future__ import(s).  If there are no existing
