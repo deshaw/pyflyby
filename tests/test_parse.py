@@ -4,12 +4,15 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 
+from __future__ import print_function
 
 from   pyflyby._file            import FilePos, FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._imports2s       import SourceToSourceFileImportsTransformation
 from   pyflyby._parse           import PythonBlock, PythonStatement
+from   pyflyby.check_parse      import check_parse_main
 
+import os
 import pytest
 import sys
 from   textwrap                 import dedent
@@ -1683,3 +1686,15 @@ def test_decorator_with_whitespace(code):
     """
     block = PythonBlock(dedent(code).strip(), auto_flags=True)
     assert block.annotated_ast_node
+
+
+def test_check_parse_pyflyby_itself(monkeypatch):
+    """
+    Run check_parse on pyflyby itself for coverage.
+    """
+    pyflyby_path = os.path.join(
+        os.path.dirname(__file__), "..", "lib", "python", "pyflyby"
+    )
+    monkeypatch.setattr(sys, "argv", ["check_parse", pyflyby_path])
+    result = check_parse_main()
+    assert result == 0, result

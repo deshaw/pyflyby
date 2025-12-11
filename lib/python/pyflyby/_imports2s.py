@@ -2,20 +2,60 @@
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import print_function
+
+import ast
+from   collections              import defaultdict
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importclns      import ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
-from   pyflyby._importstmt      import ImportFormatParams, ImportStatement
+from   pyflyby._importstmt      import (Import, ImportFormatParams,
+                                        ImportStatement)
 from   pyflyby._log             import logger
-from   pyflyby._parse           import PythonBlock
+from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
 import re
 
-from typing import Union, Optional, Literal
+from   typing                   import Literal, Optional, Union
 
-from textwrap import indent
+from   textwrap                 import indent
+
+# AST node types for function and class definitions
+_FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+# AST node types for import statements
+_IMPORT_TYPES = (ast.Import, ast.ImportFrom)
+
+
+def _group_consecutive_imports(body: list) -> list[list]:
+    """Group consecutive import statements from an AST body.
+
+    Parameters
+    ----------
+    body : list
+        List of AST nodes from a function/class body
+
+    Returns
+    -------
+    list[list]
+        List of groups, where each group is a list of consecutive import statements
+    """
+    import_groups = []
+    current_group = []
+
+    for body_item in body:
+        if isinstance(body_item, _IMPORT_TYPES):
+            current_group.append(body_item)
+        else:
+            if current_group:
+                import_groups.append(current_group)
+                current_group = []
+
+    if current_group:
+        import_groups.append(current_group)
+
+    return import_groups
 
 
 class SourceToSourceTransformationBase:
@@ -98,6 +138,53 @@ class LineNumberNotFoundError(Exception):
 class LineNumberAmbiguousError(Exception):
     pass
 
+
+class _LocalImportBlockWrapper:
+    """
+    Wrapper for import blocks found within function/class bodies.
+    Preserves the original line number range since the block's internal line numbers
+    may not match the file's line numbers.
+
+    This will be useful for tidy imports which only know how to handle top
+    level import.
+    """
+
+    transform: SourceToSourceImportBlockTransformation
+    start_lineno: int
+    end_lineno: int
+    _original_imports: set[Import]
+    _id: str
+
+    def __init__(
+        self,
+        transform: SourceToSourceImportBlockTransformation,
+        start_lineno: int,
+        end_lineno: Optional[int] = None,
+    ) -> None:
+        self.transform = transform
+        self.start_lineno = start_lineno
+        self.end_lineno = end_lineno if end_lineno is not None else start_lineno
+        # Store the original imports so we can detect what was removed
+        self._original_imports = set(transform.importset.imports)
+        self._id = hex(id(self))
+
+    def __getattr__(self, name: str) -> object:
+        # Delegate all other attribute access to the wrapped transform
+        return getattr(self.transform, name)
+
+    def __repr__(self) -> str:
+        if self.start_lineno == self.end_lineno:
+            return f"<_LocalImportBlockWrapper lineno={self.start_lineno} {self.transform!r}>"
+        else:
+            return f"<_LocalImportBlockWrapper lines={self.start_lineno}-{self.end_lineno} {self.transform!r}>"
+
+    def get_removed_imports(self) -> set[Import]:
+        """Return the set of imports that have been removed from this block."""
+        current_imports = set(self.transform.importset.imports)
+        removed = self._original_imports - current_imports
+        logger.debug("get_removed_imports on block %s: removed=%r", self._id, removed)
+        return removed
+
 class NoImportBlockError(Exception):
     pass
 
@@ -105,38 +192,273 @@ class ImportAlreadyExistsError(Exception):
     pass
 
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
-    def preprocess(self):
+    blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
+    import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
+    _removed_lines_per_block: defaultdict[int, int]
+    _original_block_startpos: dict[int, int]
+
+    def preprocess(self) -> None:
         # Group into blocks of imports and non-imports.  Get a sequence of all
         # imports for the transformers to operate on.
-        self.blocks = []
-        self.import_blocks = []
+        self.blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]] = []
+        self.import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]] = []
+        # Track removed lines per block to adjust line numbers
+        self._removed_lines_per_block = defaultdict(int)
+        # Track original startpos for each block (before any modifications)
+        self._original_block_startpos = {}
 
         for is_imports, subblock in self.input.groupby(lambda ps: ps.is_import):
             if is_imports:
-                trans = SourceToSourceImportBlockTransformation(subblock)
-                self.import_blocks.append(trans)
+                import_trans = SourceToSourceImportBlockTransformation(subblock)
+                self.import_blocks.append(import_trans)
+                self.blocks.append(import_trans)
             else:
                 trans = SourceToSourceTransformation(subblock)
-            self.blocks.append(trans)
+                self.blocks.append(trans)
+
+        # Store original startpos for each block
+        for idx, block in enumerate(self.blocks):
+            if isinstance(block, SourceToSourceTransformation):
+                self._original_block_startpos[idx] = block._output.startpos.lineno
+
+        # Extract local import blocks from function/class bodies
+        self._extract_local_import_blocks()
+        logger.debug("preprocess: extracted %d total import blocks", len(self.import_blocks))
+
+    def _create_import_block_from_group(
+        self, group: list, lines: list, start_line: int, end_line: int
+    ) -> None:
+        """Create an import block from a group of import statements.
+
+        Extracts the import lines from source text, creates a PythonBlock and
+        transformation, and adds it to import_blocks (wrapped with line metadata).
+
+        Parameters
+        ----------
+        group : list
+            List of consecutive import AST nodes
+        lines : list
+            Lines of the full source text
+        start_line : int
+            Starting line number of the group
+        end_line : int
+            Ending line number of the group
+        """
+        import_lines = lines[start_line - 1 : end_line]
+
+        if import_lines and any(line.strip() for line in import_lines):
+            import_text = "\n".join(import_lines)
+            try:
+                import_block = PythonBlock(import_text)
+                trans = SourceToSourceImportBlockTransformation(import_block)
+            except (SyntaxError, ValueError) as e:
+                logger.debug(
+                    "Failed to create import block for lines %d-%d: %s",
+                    start_line,
+                    end_line,
+                    e,
+                )
+            else:
+                wrapped = _LocalImportBlockWrapper(trans, start_line, end_line)
+                self.import_blocks.append(wrapped)
+
+    def _extract_local_import_blocks(self) -> None:
+        """
+        Recursively extract import blocks from function and class bodies.
+        This allows us to find and remove unused imports within functions/classes.
+        """
+        for block in self.blocks:
+            if not isinstance(block, SourceToSourceTransformation):
+                continue
+            # Check each statement for function/class definitions
+            for stmt in block.input.statements:
+                self._extract_imports_from_statement(stmt)
+
+    def _extract_imports_from_statement(
+        self, stmt: Union[PythonStatement, ast.AST]
+    ) -> None:
+        """
+        Recursively extract imports from a statement's body (e.g., FunctionDef, ClassDef).
+        """
+        if isinstance(stmt, PythonStatement):
+            ast_node = stmt.ast_node
+            if ast_node is None:
+                # stmt.ast_node can be None for comments.
+                return
+        else:
+            ast_node = stmt
+
+        if not isinstance(ast_node, _FUNCTION_OR_CLASS_TYPES):
+            return
+
+        body = ast_node.body if hasattr(ast_node, "body") else []
+
+        # Group consecutive import statements
+        import_groups = _group_consecutive_imports(body)
+
+        # For each group of consecutive imports, create an import block
+        full_text = str(self.input.text)
+        lines = full_text.split("\n")
+
+        for group in import_groups:
+            start_line = group[0].lineno
+            end_line = group[-1].lineno
+            self._create_import_block_from_group(group, lines, start_line, end_line)
+
+        # Recursively check nested function/class definitions
+        for body_item in body:
+            if isinstance(body_item, _FUNCTION_OR_CLASS_TYPES):
+                self._extract_imports_from_statement(body_item)
 
     def pretty_print(self, params=None):
         params = ImportFormatParams(params)
         result = [block.pretty_print(params=params) for block in self.blocks]
-        return FileText.concatenate(result)
+        output = FileText.concatenate(result)
 
-    def find_import_block_by_lineno(self, lineno: int):
+        # Handle removal of local imports from function/class bodies
+        return self._remove_local_imports_from_output(output)
+
+
+    def _remove_local_imports_from_output(self, output: FileText) -> FileText:
+        """
+        Post-process the output to remove local imports that have been deleted.
+
+        This is necessary because local imports are embedded in function bodies,
+        which are stored in self.blocks as plain text. When we remove imports from
+        local import blocks, we need to also remove those lines from the output.
+        """
+        # Collect all imports that need to be removed, mapped by line number
+        lines_to_remove = set()
+
+        for block in self.import_blocks:
+            if not isinstance(block, _LocalImportBlockWrapper):
+                continue
+
+            logger.debug(
+                "Checking local block %s at lines %d-%d",
+                block._id,
+                block.start_lineno,
+                block.end_lineno,
+            )
+            removed_imports = block.get_removed_imports()
+            logger.debug("Block %s: Removed imports: %r", block._id, removed_imports)
+
+            if not removed_imports:
+                continue
+
+            logger.debug(
+                "Found %d removed imports in local block at lines %d-%d",
+                len(removed_imports),
+                block.start_lineno,
+                block.end_lineno,
+            )
+
+            # We need to figure out which lines in the output correspond to these imports
+            # The block knows its original line range, so we can map back to the source
+            # For now, we'll use a simple approach: parse the original input text
+            # to find which line each import was on
+
+            # Get the original input text for this block
+            original_lines = str(self.input.text).split("\n")
+
+            # For each removed import, find its line in the original source
+            for imp in removed_imports:
+                logger.debug("Looking for import: %s", imp)
+                # Search for the import statement in the original line range
+                for lineno in range(block.start_lineno, block.end_lineno + 1):
+                    if lineno <= len(original_lines):
+                        line = original_lines[lineno - 1]
+                        # Check if this line contains the import
+                        if self._line_contains_import(line, imp):
+                            logger.debug(
+                                "Found import on line %d: %s", lineno, line.strip()
+                            )
+                            lines_to_remove.add(lineno)
+                            break
+
+        if not lines_to_remove:
+            return output
+
+        logger.debug("Removing lines: %s", sorted(lines_to_remove))
+
+        # Filter out the lines from the output
+        # The output may have been reformatted, so we can't rely on line numbers matching exactly
+        # Instead, we'll filter the output by matching the lines to remove
+        output_lines = str(output).split("\n")
+
+        # Get the actual lines to remove by their content
+        input_lines = str(self.input.text).split("\n")
+        lines_to_remove_content = set()
+        for lineno in lines_to_remove:
+            if lineno <= len(input_lines):
+                # Store the stripped version to match against
+                line_content = input_lines[lineno - 1].strip()
+                if line_content:
+                    lines_to_remove_content.add(line_content)
+
+        logger.debug("Lines to remove by content: %s", lines_to_remove_content)
+
+        # Filter output lines by content match
+        filtered_lines = []
+        for line in output_lines:
+            stripped = line.strip()
+            # Keep the line if it's not in the set of lines to remove
+            if stripped not in lines_to_remove_content or not stripped:
+                filtered_lines.append(line)
+            else:
+                logger.debug("Removing line: %s", line)
+
+        return FileText("\n".join(filtered_lines))
+
+    def _line_contains_import(self, line: str, imp: Import) -> bool:
+        """
+        Check if a line contains the given import statement.
+
+        Parse the line as an import statement and compare Import objects,
+        rather than using string matching which is fragile with spacing.
+        """
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            return False
+
+        try:
+            # Parse the line as an import statement
+            stmt = ImportStatement._from_str(stripped)
+            # Check if any of the imports in this statement match the target import
+            for line_import in stmt.imports:
+                if line_import == imp:
+                    return True
+        except (SyntaxError, ValueError):
+            # Line is not a valid import statement
+            pass
+
+        return False
+
+    def find_import_block_by_lineno(self, lineno: int) -> Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]:
         """
         Find the import block containing the given line number.
+
+        Handles both top-level and local (function/class) import blocks.
+        For local imports wrapped in _LocalImportBlockWrapper, checks the original line range.
+        For regular imports, checks the line number range.
 
         :type lineno:
           ``int``
         :rtype:
-          `SourceToSourceImportBlockTransformation`
+          `SourceToSourceImportBlockTransformation` or `_LocalImportBlockWrapper`
         """
-        results = [
-            b
-            for b in self.import_blocks
-            if b.input.startpos.lineno <= lineno <= b.input.endpos.lineno]
+        results: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]] = []
+        for b in self.import_blocks:
+            # Check if this is a wrapped local import block
+            if isinstance(b, _LocalImportBlockWrapper):
+                # For wrapped blocks, check if lineno is in the original range
+                if b.start_lineno <= lineno <= b.end_lineno:
+                    results.append(b)
+            else:
+                # For regular blocks, check the range
+                if b.input.startpos.lineno <= lineno <= b.input.endpos.lineno:
+                    results.append(b)
+
         if len(results) == 0:
             raise LineNumberNotFoundError(lineno)
         if len(results) > 1:
@@ -153,6 +475,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           ``int``
         """
         block = self.find_import_block_by_lineno(lineno)
+
         try:
             imports = block.importset.by_import_as[imp.import_as]
         except KeyError:
@@ -162,7 +485,72 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             raise Exception("Multiple imports to remove: %r" % (imports,))
         imp = imports[0]
         block.importset = block.importset.without_imports([imp])
+
+        if isinstance(block, _LocalImportBlockWrapper):
+            # For local imports, we need to actually modify the source text
+            # Find the block in self.blocks that contains this import and modify it
+            self._remove_local_import_from_blocks(imp, lineno)
+
         return imp
+
+    def _remove_local_import_from_blocks(self, imp, lineno):
+        """
+        Remove a local import from the actual code blocks.
+        This modifies the _output of blocks in self.blocks to remove the import line.
+        """
+        # Find the block in self.blocks that contains this line
+        for block_idx, block in enumerate(self.blocks):
+            if not isinstance(block, SourceToSourceTransformation):
+                continue
+            # Use original startpos for comparison (before any modifications)
+            original_startpos = self._original_block_startpos.get(
+                block_idx, block._output.startpos.lineno
+            )
+
+            # Check against original positions
+            if original_startpos <= lineno <= block._output.endpos.lineno:
+                # This block contains the line, modify it
+                lines = str(block._output.text).split("\n")
+                logger.debug(
+                    "Block originally starts at line %d, has %d lines",
+                    original_startpos,
+                    len(lines),
+                )
+
+                # Adjust for previously removed lines in this block
+                offset = self._removed_lines_per_block[block_idx]
+
+                # Calculate the relative line number within this block using ORIGINAL startpos
+                relative_lineno = lineno - original_startpos - offset
+
+                if 0 <= relative_lineno < len(lines):
+                    line_to_remove = lines[relative_lineno]
+                    logger.debug(
+                        "Removing line %d (relative %d, offset %d) from block: %s",
+                        lineno,
+                        relative_lineno,
+                        offset,
+                        line_to_remove.strip(),
+                    )
+                    # Remove this line
+                    del lines[relative_lineno]
+
+                    # Track that we removed a line from this block
+                    self._removed_lines_per_block[block_idx] = offset + 1
+
+                    # Update the block's output
+                    new_text = "\n".join(lines)
+                    block._output = PythonBlock(
+                        new_text, filename=block._output.filename
+                    )
+                else:
+                    logger.warning(
+                        "Line %d out of range (relative %d, %d lines in block)",
+                        lineno,
+                        relative_lineno,
+                        len(lines),
+                    )
+                break
 
     def select_import_block_by_closest_prefix_match(self, imp, max_lineno):
         """
@@ -188,7 +576,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             if block.input.endpos.lineno <= max_lineno+1 ]
         if not annotated_blocks:
             raise NoImportBlockError()
-        annotated_blocks.sort()
+        annotated_blocks.sort(key=lambda x: x[0])
         if imp.split.module_name == '__future__':
             # For __future__ imports, only add to an existing block that
             # already contains __future__ import(s).  If there are no existing
@@ -390,7 +778,10 @@ def fix_unused_and_missing_imports(
         # implemented yet because this isn't necessary for __future__ imports
         # since they aren't reported as unused, and those are the only ones we
         # have by default right now.]
-        for lineno, imp in unused_imports:
+        for item in unused_imports:
+            # Each item is a (lineno, imp, scope_name) tuple
+            lineno, imp, scope_name = item
+
             try:
                 imp = transformer.remove_import(imp, lineno)
             except NoSuchImportError:
@@ -401,7 +792,18 @@ def fix_unused_and_missing_imports(
                     "%s: unused import %r on line %d not global",
                     filename, str(imp), e.args[0])
             else:
-                logger.info("%s: removed unused '%s'", filename, imp)
+                # Report with scope context if available
+                if scope_name:
+                    logger.info(
+                        "%s:%d: removed unused '%s' in %s '%s'",
+                        filename,
+                        lineno,
+                        imp,
+                        "function" if scope_name else "scope",
+                        scope_name,
+                    )
+                else:
+                    logger.info("%s: removed unused '%s'", filename, imp)
 
     if add_missing and missing_imports:
         missing_imports.sort(key=lambda k: (k[1], k[0]))

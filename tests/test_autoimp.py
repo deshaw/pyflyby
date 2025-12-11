@@ -1448,7 +1448,7 @@ def test_scan_for_import_issues_type_comment_4():
         pass
     """)
     missing, unused = scan_for_import_issues(code)
-    assert unused == [(2, Import('from typing import Tuple'))]
+    assert unused == [(2, Import('from typing import Tuple'), None)]
     assert missing == []
 
 
@@ -1483,7 +1483,7 @@ def test_scan_for_import_issues_dictcomp_unused_1():
     """)
     missing, unused = scan_for_import_issues(code)
     assert missing == []
-    assert unused == [(2, Import('import x1')), (2, Import('import x2'))]
+    assert unused == [(2, Import('import x1'), None), (2, Import('import x2'), None)]
 
 
 def test_scan_for_import_issues_setcomp_missing_1():
@@ -1503,7 +1503,7 @@ def test_scan_for_import_issues_setcomp_unused_1():
     """)
     missing, unused = scan_for_import_issues(code)
     assert missing == []
-    assert unused == [(2, Import('import x1'))]
+    assert unused == [(2, Import('import x1'), None)]
 
 
 def test_scan_for_import_issues_class_subclass_imported_class_1():
@@ -1576,7 +1576,7 @@ def test_scan_for_import_issues_brace_identifiers_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == []
-    assert unused == [(2, Import('import x2'))]
+    assert unused == [(2, Import('import x2'), None)]
 
 
 def test_scan_for_import_issues_brace_identifiers_bad_1():
@@ -1587,7 +1587,7 @@ def test_scan_for_import_issues_brace_identifiers_bad_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == []
-    assert unused == [(2, Import('import x2'))]
+    assert unused == [(2, Import('import x2'), None)]
 
 
 def test_scan_for_import_issues_star_import_1():
@@ -1599,7 +1599,7 @@ def test_scan_for_import_issues_star_import_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == [(3, DottedIdentifier('x2'))]
-    assert unused == [(2, Import('import y1'))]
+    assert unused == [(2, Import('import y1'), None)]
 
 
 def test_scan_for_import_issues_star_import_deferred_1():
@@ -1613,7 +1613,7 @@ def test_scan_for_import_issues_star_import_deferred_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == []
-    assert unused == [(2, Import('import y1'))]
+    assert unused == [(2, Import('import y1'), None)]
 
 
 def test_scan_for_import_issues_star_import_local_1():
@@ -1628,7 +1628,7 @@ def test_scan_for_import_issues_star_import_local_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == [(7, DottedIdentifier('x3')), (8, DottedIdentifier('x4'))]
-    assert unused == [(2, Import('import y1'))]
+    assert unused == [(2, Import('import y1'), None)]
 
 
 def test_scan_for_import_issues_comprehension_subscript_1():
@@ -1795,7 +1795,7 @@ def test_scan_for_import_issues_setattr_1():
     assert missing == [(4, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
-    assert unused == [(2, Import('import cc'))]
+    assert unused == [(2, Import('import cc'), None)]
 
 
 def test_scan_for_import_issues_setattr_in_func_1():
@@ -1809,7 +1809,7 @@ def test_scan_for_import_issues_setattr_in_func_1():
     assert missing == [(5, DottedIdentifier('bb.xx.yy'))]
     # 'cc' should be marked as an unused-import, but 'aa' should be considered
     # used.  (This was buggy before 201907.)
-    assert unused == [(2, Import('import cc'))]
+    assert unused == [(2, Import('import cc'), None)]
 
 
 def test_scan_for_import_issues_class_defined_after_use():
@@ -1871,7 +1871,7 @@ def test_all_exports_1():
     missing, unused = scan_for_import_issues(code)
     # path and walk should not be unused
     assert missing == [(3, DottedIdentifier('rmdir'))]
-    assert unused == [(2, Import('from os import read'))]
+    assert unused == [(2, Import('from os import read'), None)]
 
 
 def test_all_exports_tuple_1():
@@ -1881,7 +1881,7 @@ def test_all_exports_tuple_1():
     """)
     missing, unused = scan_for_import_issues(code)
     assert missing == [(3, DottedIdentifier('rmdir'))]
-    assert unused == [(2, Import('from os import read'))]
+    assert unused == [(2, Import('from os import read'), None)]
 
 
 def test_all_exports_2():
