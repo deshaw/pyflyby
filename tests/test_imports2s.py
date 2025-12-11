@@ -1222,3 +1222,275 @@ def test_fumi(text):
     else:
         assert '#' not in fixed
         assert 'test_comment' not in fixed
+
+
+def test_fix_unused_imports_local_function_1():
+    """Test that unused local imports in functions are removed."""
+    input_str = """\
+import os  --::removed::--
+
+def foo():
+    import os
+    import sys  --::removed::--
+    return os.getenv('FOO')
+"""
+
+    expected_str = """\
+def foo():
+    import os
+    return os.getenv('FOO')
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_local_function_used_1():
+    """Test that used local imports in functions are not reported."""
+    input_str = """\
+def foo():
+    import sys
+    return sys.version
+"""
+
+    expected_str = """\
+def foo():
+    import sys
+    return sys.version
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_local_class_method_1():
+    """Test that unused local imports in class methods are removed."""
+    input_str = """\
+class MyClass:
+    def method(self):
+        import unused_mod  --::removed::--
+        return 42
+"""
+
+    expected_str = """\
+class MyClass:
+    def method(self):
+        return 42
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_local_nested_function_1():
+    """Test that unused local imports in nested functions are removed."""
+    input_str = """\
+def outer():
+    def inner():
+        import unused  --::removed::--
+        return 1
+    return inner()
+"""
+
+    expected_str = """\
+def outer():
+    def inner():
+        return 1
+    return inner()
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_remove_shadowed_global_1():
+    """Remove global import when only used where shadowed by local import."""
+    input_str = """\
+import os  # Global import  --::removed::--
+
+def foo():
+    import os # Local import shadows global
+    return os.getenv('FOO')  # Uses local os
+"""
+
+    expected_str = """\
+def foo():
+    import os # Local import shadows global
+    return os.getenv('FOO')  # Uses local os
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_keep_global_used_at_global_1():
+    """Keep global import when used at global scope."""
+    input_str = """\
+import sys  # Global import
+
+print(sys.version)  # Used at global scope
+
+def foo():
+    import sys  # Local import
+    return sys.platform
+"""
+
+    expected_str = """\
+import sys # Global import
+
+print(sys.version)  # Used at global scope
+
+def foo():
+    import sys  # Local import
+    return sys.platform
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def test_fix_unused_imports_keep_global_used_elsewhere_1():
+    """Keep global import when used by function without local import."""
+    input_str = """\
+import os  # Global import
+
+def foo():
+    import os  # Local import shadows global
+    return os.path.join('a', 'b')
+
+def bar():
+    return os.getcwd()  # Uses global (no local import here)
+"""
+
+    expected_str = """\
+import os # Global import
+
+def foo():
+    import os  # Local import shadows global
+    return os.path.join('a', 'b')
+
+def bar():
+    return os.getcwd()  # Uses global (no local import here)
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+def _clean_code(code: str) -> str:
+    """Remove lines ending with --::removed::-- from code."""
+    lines = code.split('\n')
+    cleaned = [line for line in lines if not line.rstrip().endswith('--::removed::--')]
+    return '\n'.join(cleaned)
+
+
+def _apply_fix_unused_and_missing_imports(code: str) -> str:
+    """Apply fix_unused_and_missing_imports to code and return result as string.
+
+    The input code can use --::removed::-- markers at the end of lines to document
+    which lines are expected to be removed. These markers are stripped before processing.
+    """
+    cleaned_code = _clean_code(code)
+    input_block = PythonBlock(dedent(cleaned_code).lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input_block, db=db)
+    return str(output)
+
+
+# TODO: Implement removal of local import when global import is used elsewhere.
+@pytest.mark.xfail(strict=False)
+def test_fix_unused_imports_local_and_global_same_name():
+    """Remove local import when global import is used elsewhere and sufficient."""
+    input_str = """\
+import os  # Global import
+
+def fun_1():
+    import os  # Local import - should be removed, global is sufficient --::removed::--
+    return os.path.join('a', 'b')
+
+def fun_2():
+    return os.getcwd()  # Uses global import
+
+result = os.getcwd()  # Global scope usage
+"""
+
+    expected_str = """\
+import os  # Global import
+
+def fun_1():
+    return os.path.join('a', 'b')
+
+def fun_2():
+    return os.getcwd()  # Uses global import
+
+result = os.getcwd()  # Global scope usage
+"""
+
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    expected = _clean_code(expected_str)
+    assert output == expected
+
+
+@pytest.mark.parametrize(
+    "line,import_str,expected",
+    [
+        # Simple imports with variable spacing
+        ("import os", "import os", True),
+        ("import    os", "import os", True),
+        ("  import os  ", "import os", True),
+        ("import os", "import sys", False),
+        # from...import statements
+        ("from os import path", "from os import path", True),
+        ("from    os    import    path", "from os import path", True),
+        ("from os import path", "from sys import path", False),
+        ("from os import path", "from os import sep", False),
+        # Aliased imports
+        ("import os as operating_system", "import os as operating_system", True),
+        ("from os import path as p", "from os import path as p", True),
+        ("from os import path   as   p", "from os import path as p", True),
+        # Multiple imports on one line
+        ("import os, sys", "import os", True),
+        ("import os, sys", "import sys", True),
+        ("import os, sys", "import json", False),
+        # Edge cases
+        ("# import os", "import os", False),
+        ("", "import os", False),
+        ("   ", "import os", False),
+        ("x = import os", "import os", False),
+    ],
+    ids=[
+        "simple_single_space",
+        "simple_multiple_spaces",
+        "simple_with_whitespace",
+        "simple_non_matching",
+        "from_single_space",
+        "from_multiple_spaces",
+        "from_non_matching_module",
+        "from_non_matching_name",
+        "alias_import",
+        "alias_from_import",
+        "alias_multiple_spaces",
+        "multiple_on_line_first",
+        "multiple_on_line_second",
+        "multiple_on_line_non_matching",
+        "edge_case_comment",
+        "edge_case_empty",
+        "edge_case_whitespace_only",
+        "edge_case_non_import",
+    ],
+)
+def test_line_contains_import(line, import_str, expected):
+    """Test _line_contains_import with various import styles and spacing."""
+    from pyflyby._imports2s import SourceToSourceFileImportsTransformation
+    from pyflyby._importstmt import Import
+
+    transformer = SourceToSourceFileImportsTransformation("import sys\n")
+    imp = Import(import_str)
+    assert transformer._line_contains_import(line, imp) == expected
