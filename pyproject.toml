@@ -94,5 +94,20 @@ module = [
 ]
 ignore_errors = true
 
+[tool.pytest.ini_options]
+# Output and reporting
+addopts = [
+    "--strict-markers",
+    "--durations=10",
+    "-ra",
+]
+# Markers for organizing tests
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
 [tool.setuptools_scm]
 version_file = "lib/python/pyflyby/_version.py"
+
+[tool.ruff]
+exclude = ["etc/pyflyby"]

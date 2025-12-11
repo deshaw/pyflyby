@@ -11,6 +11,7 @@ import builtins
 from   collections.abc          import Sequence
 import contextlib
 import copy
+from   dataclasses              import field
 
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -247,7 +248,11 @@ class ScopeStack(Sequence):
         )
 
 
-def symbol_needs_import(fullname, namespaces):
+def symbol_needs_import(
+    fullname: DottedIdentifier | str | Tuple[str, ...] | List[str],
+    namespaces: ScopeStack | Dict[str, Any] | List[Dict[str, Any]],
+    using_scope_name: Optional[str] = None,
+) -> bool:
     """
     Return whether ``fullname`` is a symbol that needs to be imported, given
     the current namespace scopes.
@@ -267,6 +272,8 @@ def symbol_needs_import(fullname, namespaces):
       ``DottedIdentifier``
     :param fullname:
       Fully-qualified symbol name, e.g. "os.path.join".
+    :param using_scope_name:
+      Optional scope name where this symbol is being used.
     :type namespaces:
       ``list`` of ``dict``
     :param namespaces:
@@ -294,6 +301,7 @@ def symbol_needs_import(fullname, namespaces):
             # imports are unused, then mark the used ones now.
             if isinstance(var, _UseChecker):
                 var.used = True
+                var.mark_used_in_scope(using_scope_name)
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
             # the scope vars (most commonly this means it was imported
@@ -365,15 +373,27 @@ class _UseChecker:
     name: str
     source: str
     lineno: int
+    scope_name: Optional[str] = None
+    used_in_scopes: List[Optional[str]] = field(default_factory=list)
 
-    def __init__(self, name: str, source: str, lineno: int):
+    def __init__(
+        self, name: str, source: str, lineno: int, scope_name: Optional[str] = None
+    ):
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
+        self.scope_name = scope_name
+        self.used_in_scopes = []
         logger.debug("Create _UseChecker : %r", self)
 
+    def mark_used_in_scope(self, using_scope_name: Optional[str]):
+        """Mark this import as used in a specific scope."""
+        self.used = True
+        if using_scope_name not in self.used_in_scopes:
+            self.used_in_scopes.append(using_scope_name)
+
     def __repr__(self):
-        return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used}>"
+        return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used} scope_name:{self.scope_name!r} used_in_scopes:{self.used_in_scopes!r}>"
 
 
 class _MissingImportFinder:
@@ -398,8 +418,27 @@ class _MissingImportFinder:
     _lineno: Optional[int]
     missing_imports: List[Tuple[Optional[int], DottedIdentifier]]
     parse_docstrings: bool
-    unused_imports: Optional[List[Tuple[int, str]]]
-    _deferred_load_checks: list[tuple[str, ScopeStack, Optional[int]]]
+    find_unused_imports: bool
+    """List of unused imports found during analysis.
+
+    Each tuple contains:
+      - lineno (int): The line number where the import appears
+      - source (str): The import statement source (e.g., "from foo import bar")
+      - scope_name (Optional[str]): The name of the scope where the import is defined
+        (e.g., "MyClass.my_method"), or None for module-level imports
+    """
+    unused_imports: List[Tuple[int, str, Optional[str]]]
+
+    """Function bodies that we need to check after defining names in this function scope.
+
+    Each tuple contains:
+      - fullname (str): The full name of the symbol that needs to be checked
+      - scopestack (ScopeStack): The scope stack at the time the check was deferred
+      - lineno (Optional[int]): The line number where the load occurred, or None
+      - scope_name (Optional[str]): The name of the scope where the load occurred
+        (e.g., "MyClass.my_method"), or None for module-level loads
+    """
+    _deferred_load_checks: list[tuple[str, ScopeStack, Optional[int], Optional[str]]]
 
     def __init__(self, scopestack, *, find_unused_imports:bool, parse_docstrings:bool):
         """
@@ -425,8 +464,8 @@ class _MissingImportFinder:
         # missing_imports is a list of (lineno, DottedIdentifier) tuples.
         self.missing_imports = []
 
-        # unused_imports is a list of (lineno, Import) tuples, if enabled.
-        self.unused_imports = [] if find_unused_imports else None
+        self.find_unused_imports = find_unused_imports
+        self.unused_imports = []
 
         self.parse_docstrings = parse_docstrings
 
@@ -439,6 +478,8 @@ class _MissingImportFinder:
         # Current lineno.
         self._lineno = None
         self._in_class_def = 0
+        # Stack of scope names (for functions/classes) to track where imports are defined
+        self._scope_name_stack: List[str] = []
 
     def find_missing_imports(self, node):
         self._scan_node(node)
@@ -455,7 +496,7 @@ class _MissingImportFinder:
         finally:
             self.scopestack = oldscopestack
 
-    def scan_for_import_issues(self, codeblock: PythonBlock):
+    def scan_for_import_issues(self, codeblock: PythonBlock) -> tuple[list, list]:
         assert isinstance(codeblock, PythonBlock)
         # See global `scan_for_import_issues`
         if not isinstance(codeblock, PythonBlock):
@@ -468,7 +509,7 @@ class _MissingImportFinder:
         # the result.
         logger.debug("unused: %r", self.unused_imports)
         missing_imports = sorted(self.missing_imports)
-        if self.parse_docstrings and self.unused_imports is not None:
+        if self.parse_docstrings and self.find_unused_imports:
             doctest_blocks = codeblock.get_doctests()
             # Parse each doctest.  Don't report missing imports in doctests,
             # but do treat existing imports as 'used' if they are used in
@@ -501,8 +542,24 @@ class _MissingImportFinder:
                         ident = DottedIdentifier(ident)
                     except BadDottedIdentifierError:
                         continue
-                    symbol_needs_import(ident, self.scopestack)
+                    current_scope = (
+                        self._scope_name_stack[-1] if self._scope_name_stack else None
+                    )
+                    symbol_needs_import(
+                        ident, self.scopestack, using_scope_name=current_scope
+                    )
         self._scan_unused_imports()
+
+        if self.find_unused_imports:
+            redundant_imports = self.analyze_cross_scope_redundancies()
+            if redundant_imports:
+                logger.debug("Found %d redundant imports", len(redundant_imports))
+                # Add redundant imports to unused_imports
+                for item in redundant_imports:
+                    if item not in self.unused_imports:
+                        self.unused_imports.append(item)
+                self.unused_imports.sort()
+
         logger.debug("missing: %s, unused: %s", missing_imports, self.unused_imports)
         return missing_imports, self.unused_imports
 
@@ -545,7 +602,7 @@ class _MissingImportFinder:
         """
         # Modification of ast.NodeVisitor.generic_visit: recurse to visit()
         # even for lists, and be more explicit about type checking.
-        for field, value in ast.iter_fields(node):
+        for ast_field, value in ast.iter_fields(node):
             if isinstance(value, ast.AST):
                 self.visit(value)
             elif isinstance(value, list):
@@ -564,8 +621,8 @@ class _MissingImportFinder:
             else:
                 raise TypeError(
                     "unexpected %s for %s.%s"
-                    % (type(value).__name__, type(node).__name__, field))
-
+                    % (type(value).__name__, type(node).__name__, ast_field)
+                )
 
     @contextlib.contextmanager
     def _NewScopeCtx(
@@ -574,11 +631,17 @@ class _MissingImportFinder:
         new_class_scope=False,
         unhide_classdef=False,
         check_unused_imports=True,
+        scope_name: Optional[str] = None,
     ):
         """
         Context manager that temporarily pushes a new empty namespace onto the
         stack of namespaces.
+
+        :param scope_name:
+          Optional name of the scope (e.g., function or class name).
         """
+        if scope_name:
+            self._scope_name_stack.append(scope_name)
         prev_scopestack = self.scopestack
         new_scopestack = prev_scopestack._with_new_scope(
             include_class_scopes=include_class_scopes,
@@ -597,9 +660,18 @@ class _MissingImportFinder:
                         use_checker,
                         len(self.scopestack),
                     )
-                    self.unused_imports.append((use_checker.lineno, use_checker.source))
+                    if self.find_unused_imports:
+                        self.unused_imports.append(
+                            (
+                                use_checker.lineno,
+                                use_checker.source,
+                                use_checker.scope_name,
+                            )
+                        )
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
+            if scope_name:
+                self._scope_name_stack.pop()
 
     @contextlib.contextmanager
     def _UpScopeCtx(self):
@@ -672,7 +744,7 @@ class _MissingImportFinder:
         # we don't detect issues with nested classes.
         if self._in_class_def == 0:
             self.scopestack._class_delayed[node.name] = None
-        with self._NewScopeCtx(new_class_scope=True):
+        with self._NewScopeCtx(new_class_scope=True, scope_name=node.name):
             self._in_class_def += 1
             self._visit_Store(node.name)
             self.visit(node.body)
@@ -709,7 +781,7 @@ class _MissingImportFinder:
             self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
-            with self._NewScopeCtx(unhide_classdef=True):
+            with self._NewScopeCtx(unhide_classdef=True, scope_name=node.name):
                 if not self._in_class_def:
                     self._visit_Store(node.name)
                 self.visit(node.body)
@@ -981,13 +1053,14 @@ class _MissingImportFinder:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
-        if self.unused_imports is None or is_star or modulename == "__future__":
+        if is_star or modulename == "__future__" or not self.find_unused_imports:
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))
             logger.debug("_visit_StoreImport(): imp = %r", imp)
             # Keep track of whether we've used this import.
-            value = _UseChecker(name, imp, self._lineno)
+            scope_name = self._scope_name_stack[-1] if self._scope_name_stack else None
+            value = _UseChecker(name, imp, self._lineno, scope_name=scope_name)
         self._visit_Store(name, value)
 
     def _visit_Store(self, fullname: str, value: Optional[_UseChecker] = None):
@@ -1002,14 +1075,24 @@ class _MissingImportFinder:
         scope = self.scopestack[-1]
         if isinstance(fullname, ast.arg):
             fullname = fullname.arg
-        if self.unused_imports is not None:
+        if self.find_unused_imports:
             if fullname != '*':
                 # If we're storing "foo.bar.baz = 123", then "foo" and
                 # "foo.bar" have now been used and the import should not be
                 # removed.
                 for ancestor in DottedIdentifier(fullname).prefixes[:-1]:
-                    if symbol_needs_import(ancestor, self.scopestack):
-                        m = (self._lineno, DottedIdentifier(fullname, scope_info=self._get_scope_info()))
+                    current_scope = (
+                        self._scope_name_stack[-1] if self._scope_name_stack else None
+                    )
+                    if symbol_needs_import(
+                        ancestor, self.scopestack, using_scope_name=current_scope
+                    ):
+                        m = (
+                            self._lineno,
+                            DottedIdentifier(
+                                fullname, scope_info=self._get_scope_info()
+                            ),
+                        )
                         if m not in self.missing_imports:
                             self.missing_imports.append(m)
             # If we're redefining something, and it has not been used, then
@@ -1017,7 +1100,8 @@ class _MissingImportFinder:
             oldvalue = scope.get(fullname)
             if isinstance(oldvalue, _UseChecker) and not oldvalue.used:
                 logger.debug("Adding to unused %s", oldvalue)
-                self.unused_imports.append((oldvalue.lineno, oldvalue.source))
+                if self.find_unused_imports:
+                    self.unused_imports.append((oldvalue.lineno, oldvalue.source, oldvalue.scope_name))
         scope[fullname] = value
 
     def _remove_from_missing_imports(self, fullname):
@@ -1078,15 +1162,21 @@ class _MissingImportFinder:
         """
         assert isinstance(fullname, str), fullname
         logger.debug("_visit_Load_defered_global(%r)", fullname)
-        if symbol_needs_import(fullname, self.scopestack):
-            data = (fullname, self.scopestack, self._lineno)
+        current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
+        if symbol_needs_import(
+            fullname, self.scopestack, using_scope_name=current_scope
+        ):
+            data = (fullname, self.scopestack, self._lineno, current_scope)
             self._deferred_load_checks.append(data)
 
 
     def _visit_Load_defered(self, fullname):
         logger.debug("_visit_Load_defered(%r)", fullname)
-        if symbol_needs_import(fullname, self.scopestack):
-            data = (fullname, self.scopestack.clone_top(), self._lineno)
+        current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
+        if symbol_needs_import(
+            fullname, self.scopestack, using_scope_name=current_scope
+        ):
+            data = (fullname, self.scopestack.clone_top(), self._lineno, current_scope)
             self._deferred_load_checks.append(data)
 
     def _visit_Load_immediate(self, fullname):
@@ -1137,13 +1227,27 @@ class _MissingImportFinder:
         object it found, and we mark it as used here.)
         """
         fullname = DottedIdentifier(fullname, scope_info=self._get_scope_info())
-        if symbol_needs_import(fullname, scopestack) and not scopestack.has_star_import():
+        current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
+        if (
+            symbol_needs_import(fullname, scopestack, using_scope_name=current_scope)
+            and not scopestack.has_star_import()
+        ):
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
 
     def _finish_deferred_load_checks(self):
-        for fullname, scopestack, lineno in self._deferred_load_checks:
-            self._check_load(fullname, scopestack, lineno)
+        for item in self._deferred_load_checks:
+            # Handle both old 3-tuple and new 4-tuple format for compatibility
+            if len(item) == 4:
+                fullname, scopestack, lineno, scope_name = item
+                # Temporarily set scope for the check
+                old_scope_stack = self._scope_name_stack
+                self._scope_name_stack = [scope_name] if scope_name else []
+                self._check_load(fullname, scopestack, lineno)
+                self._scope_name_stack = old_scope_stack
+            else:
+                fullname, scopestack, lineno = item
+                self._check_load(fullname, scopestack, lineno)
         self._deferred_load_checks = []
 
     def _scan_unused_imports(self):
@@ -1151,9 +1255,9 @@ class _MissingImportFinder:
         # For now we only scan the top level.  If we wanted to support
         # non-global unused-import checking, then we should check this
         # whenever popping a scopestack.
-        unused_imports = self.unused_imports
-        if unused_imports is None:
+        if not self.find_unused_imports:
             return
+        unused_imports = self.unused_imports
         scope = self.scopestack[-1]
         for name, value in scope.items():
             if not isinstance(value, _UseChecker):
@@ -1161,8 +1265,65 @@ class _MissingImportFinder:
             if value.used:
                 continue
             logger.debug("Also Adding to usunsed import: %s ", value)
-            unused_imports.append(( value.lineno, value.source ))
+            unused_imports.append((value.lineno, value.source, value.scope_name))
         unused_imports.sort()
+
+    def analyze_cross_scope_redundancies(self) -> List[Tuple[int, str, Optional[str]]]:
+        """
+        Analyze imports across scopes to find redundancies (Phase 3).
+
+        Returns a list of redundant imports that should be removed.
+        Each item is (lineno, Import, scope_name) tuple.
+        """
+        if not self.find_unused_imports:
+            return []
+        redundant_imports: List[Tuple[int, str, Optional[str]]] = []
+
+        # Collect all _UseChecker objects from all scopes
+        all_imports: Dict[str, List[_UseChecker]] = {}
+
+        for scope in self.scopestack:
+            for name, value in scope.items():
+                if isinstance(value, _UseChecker):
+                    if name not in all_imports:
+                        all_imports[name] = []
+                    all_imports[name].append(value)
+
+        # Analyze each import name
+        for import_name, checkers in all_imports.items():
+            # Separate global and local imports
+            global_imports = [c for c in checkers if c.scope_name is None]
+            local_imports = [c for c in checkers if c.scope_name is not None]
+
+            # Scenario 1: Global import is shadowed by local imports
+            # If global import is only used in scopes where it's also imported locally, it's redundant
+            for global_imp in global_imports:
+                if not global_imp.used:
+                    continue  # Already handled by regular unused import detection
+
+                # Check if all usages are in scopes that have their own local import
+                scopes_with_local: Set[str] = set(c.scope_name for c in local_imports if c.used and c.scope_name is not None)
+
+                if scopes_with_local and global_imp.used_in_scopes:
+                    # If global is ONLY used in scopes that have local imports, it's redundant
+                    global_used_scopes: Set[str] = set([x for x in global_imp.used_in_scopes if x is not None])
+                    # Remove None (global scope usage) from the set for this check
+                    global_used_in_functions: Set[str] = global_used_scopes - {None}
+
+                    if global_used_in_functions and global_used_in_functions.issubset(
+                        scopes_with_local
+                    ):
+                        # Global import is redundant - only used where shadowed
+                        logger.debug(
+                            "Global import %s is redundant (shadowed by local imports in %s)",
+                            global_imp.name,
+                            scopes_with_local,
+                        )
+                        redundant_imports.append(
+                            (global_imp.lineno, global_imp.source, None)
+                        )
+
+        return redundant_imports
 
 
 def scan_for_import_issues(
