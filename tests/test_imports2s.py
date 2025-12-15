@@ -1,4 +1,6 @@
 # pyflyby/test_imports2s.py
+from __future__ import print_function
+
 import tempfile
 
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
@@ -399,50 +401,59 @@ def test_fix_unused_and_missing_imports_midfile_1():
     assert output == expected
 
 
-def test_fix_unused_and_missing_imports_doctests_1():
-    input = PythonBlock(dedent('''
-        from m1 import f1, f2, f3
-        def foo():
-            """
-              >>> f1 + f2 + f9
-            """
-            return None
-    ''').lstrip())
+@pytest.mark.parametrize(
+    ("input_code", "expected_code"),
+    [
+        pytest.param(
+            '''
+                from m1 import f1, f2, f3
+                def foo():
+                    """
+                      >>> f1 + f2 + f9
+                    """
+                    return None
+            ''',
+            '''
+                from m1 import f1, f2
+                def foo():
+                    """
+                      >>> f1 + f2 + f9
+                    """
+                    return None
+            ''',
+            id="simple_doctest",
+        ),
+        pytest.param(
+            '''
+                from m1 import f1, f2, f3
+                def foo():
+                    """
+                      >>> f1 = 0
+                      >>> f1 + f2 + f9
+                    """
+                    return None
+            ''',
+            '''
+                from m1 import f2
+                def foo():
+                    """
+                      >>> f1 = 0
+                      >>> f1 + f2 + f9
+                    """
+                    return None
+            ''',
+            id="doctest_with_assignment",
+            marks=pytest.mark.xfail,
+        ),
+    ],
+)
+def test_fix_unused_and_missing_imports_doctests(input_code, expected_code):
+    input_code = dedent(input_code).lstrip()
+    expected_code = dedent(expected_code).lstrip()
+    input = PythonBlock(input_code)
     db = ImportDB("")
     output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from m1 import f1, f2
-        def foo():
-            """
-              >>> f1 + f2 + f9
-            """
-            return None
-    ''').lstrip())
-    assert output == expected
-
-
-@pytest.mark.xfail
-def test_fix_unused_and_missing_imports_doctests_2():
-    input = PythonBlock(dedent('''
-        from m1 import f1, f2, f3
-        def foo():
-            """
-              >>> f1 = 0
-              >>> f1 + f2 + f9
-            """
-            return None
-    ''').lstrip())
-    db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from m1 import f2
-        def foo():
-            """
-              >>> f1 = 0
-              >>> f1 + f2 + f9
-            """
-            return None
-    ''').lstrip())
+    expected = PythonBlock(expected_code)
     assert output == expected
 
 
@@ -489,18 +500,6 @@ def test_fix_unused_and_missing_imports_decorator_2():
     assert output == expected
 
 
-def test_fix_unused_imports_funcall_1():
-    input = PythonBlock(dedent('''
-        from m1 import X1, X2
-        def F1(X1): X1, X2
-    ''').lstrip())
-    db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from m1 import X2
-        def F1(X1): X1, X2
-    ''').lstrip())
-    assert output == expected
 
 
 def test_fix_unused_and_missing_imports_funcall_1():
@@ -551,22 +550,6 @@ def test_fix_missing_imports_funcall_and_really_missing_1():
     assert output == expected
 
 
-def test_fix_unused_imports_local_1():
-    input = PythonBlock(dedent('''
-        from m1 import X1, X2
-        def F1():
-            X1 = 5
-            X1, X2
-    ''').lstrip())
-    db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        from m1 import X2
-        def F1():
-            X1 = 5
-            X1, X2
-    ''').lstrip())
-    assert output == expected
 
 
 def test_fix_missing_imports_local_1():
@@ -1035,20 +1018,6 @@ def test_with_1():
     assert expected == output
 
 
-def test_fix_unused_imports_repeated_1():
-    input = PythonBlock(dedent('''
-        import foo1, foo2, foo1, foo1
-        import foo1, foo2, foo3
-        foo1, foo2
-    '''))
-    db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
-        import foo1
-        import foo2
-        foo1, foo2
-    '''))
-    assert expected == output
 
 
 def test_fix_unused_imports_dunder_file_1(capsys):
@@ -1085,71 +1054,128 @@ def test_x_shadow_comprehension(capsys):
     assert "undefined name 'x'" not in out
     assert not err
 
-def test_fix_unused_imports_submodule_1():
-    input = PythonBlock(dedent('''
+@pytest.mark.parametrize(
+    ("input_code", "expected_code", "db_str"),
+    [
+        pytest.param(
+            '''
+        from m1 import X1, X2
+        def F1(X1): X1, X2
+    ''',
+            '''
+        from m1 import X2
+        def F1(X1): X1, X2
+    ''',
+            "",
+            id="funcall",
+        ),
+        pytest.param(
+            '''
+        from m1 import X1, X2
+        def F1():
+            X1 = 5
+            X1, X2
+    ''',
+            '''
+        from m1 import X2
+        def F1():
+            X1 = 5
+            X1, X2
+    ''',
+            "",
+            id="local",
+        ),
+        pytest.param(
+            '''
+        import foo1, foo2, foo1, foo1
+        import foo1, foo2, foo3
+        foo1, foo2
+    ''',
+            '''
+        import foo1
+        import foo2
+        foo1, foo2
+    ''',
+            "",
+            id="repeated",
+        ),
+        pytest.param(
+            '''
         import m2.y
         m2.x + m2.y + m3.x
-    '''))
-    db = ImportDB("import m2, m3, m4")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
+    ''',
+            '''
         import m2.y
         import m3
         m2.x + m2.y + m3.x
-    '''))
-    assert expected == output
-
-
-def test_fix_unused_imports_submodule_importas_1():
-    input = PythonBlock(dedent('''
+    ''',
+            "import m2, m3, m4",
+            id="submodule",
+        ),
+        pytest.param(
+            '''
         import m2.y as m2y
         m2.x + m2y + m3.x
-    '''))
-    db = ImportDB("import m2, m3, m4")
-    output = fix_unused_and_missing_imports(input, db=db)
-    expected = PythonBlock(dedent('''
+    ''',
+            '''
         import m2
         import m3
         from m2 import y as m2y
         m2.x + m2y + m3.x
-    '''))
-    assert expected == output
+    ''',
+            "import m2, m3, m4",
+            id="submodule_importas",
+        ),
+    ],
+)
+def test_fix_unused_imports_basic(input_code, expected_code, db_str):
+    """Test basic unused import removal scenarios."""
+    input_code = dedent(input_code).lstrip()
+    expected_code = dedent(expected_code).lstrip()
+    input = PythonBlock(input_code)
+    db = ImportDB(db_str)
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(expected_code)
+    assert output == expected
 
 
-def test_reformat_import_statements_respect_width_1(tmp_path):
+@pytest.mark.parametrize(
+    ("max_line_length", "expected_output"),
+    [
+        pytest.param(
+            100,
+            dedent('''
+                from math import (cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh,
+                                  tan, tanh)
+                assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+            ''').lstrip(),
+            id="width_100",
+        ),
+        pytest.param(
+            200,
+            dedent('''
+                from math import cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh, tan, tanh
+                assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
+            ''').lstrip(),
+            id="width_200",
+        ),
+    ],
+)
+def test_reformat_import_statements_respect_width(tmp_path, max_line_length, expected_output):
     """Test that tidy-imports with a max line length correctly wraps imports."""
-    filename = str(tmp_path / "test_reformat_import_statements_respect_width_1")
+    filename = str(tmp_path / "test_reformat_import_statements_respect_width")
     input = PythonBlock(dedent('''
         from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
         assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
     ''').lstrip(), filename=filename)
-    output = reformat_import_statements(input, FormatParams(max_line_length=100))
-    expected = PythonBlock(dedent('''
-        from math import (cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh,
-                          tan, tanh)
-        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
-    ''').lstrip(), filename=filename)
+    output = reformat_import_statements(input, FormatParams(max_line_length=max_line_length))
+    expected = PythonBlock(expected_output, filename=filename)
     assert output == expected
 
 
-def test_reformat_import_statements_respect_width_2(tmp_path):
-    """Test that tidy-imports with a max line length correctly wraps imports."""
-    filename = str(tmp_path / "test_reformat_import_statements_respect_width_2")
-    input = PythonBlock(dedent('''
-        from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
-        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
-    ''').lstrip(), filename=filename)
-    output = reformat_import_statements(input, FormatParams(max_line_length=200))
-    expected = PythonBlock(dedent('''
-        from math import cos, cosh, factorial, floor, log, log10, nextafter, radians, remainder, sin, sinh, tan, tanh
-        assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
-    ''').lstrip(), filename=filename)
-    assert output == expected
-
-
-def test_reformat_import_statements_respect_width_3(tmp_path):
+def test_reformat_import_statements_respect_width_default_none(tmp_path):
     """Test that tidy-imports with no specified width matches the default width."""
-    filename = str(tmp_path / "test_reformat_import_statements_respect_width_3")
+    filename = str(tmp_path / "test_reformat_import_statements_respect_width_default")
     input = PythonBlock(dedent('''
         from math import sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians
         assert [sin,cos,tan,sinh,cosh,tanh,log,floor,log10,remainder,factorial,nextafter,radians]
