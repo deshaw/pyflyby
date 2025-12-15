@@ -96,7 +96,7 @@ jobs:
       id-token: write
     steps:
       - name: Retrieve wheels and sdist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           merge-multiple: true
           path: wheels/
