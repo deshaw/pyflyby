@@ -1825,6 +1825,31 @@ def test_scan_for_import_issues_class_defined_after_use():
     assert unused == []
 
 
+def test_scan_for_import_issues_class_in_type_annotation_before_definition():
+    """
+    Test that a class used in function parameter type annotations before
+    it's defined is not reported as missing.
+
+    This test would have failed before the fix in _remove_from_missing_imports
+    that handles simple identifiers in type annotations.
+    """
+    code = dedent("""
+    class PythonStatement:
+        block: "PythonBlock"
+
+        def from_block(cls, block: PythonBlock) -> PythonStatement:
+            pass
+
+    class PythonBlock:
+        pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    # PythonBlock should not be reported as missing even though it's used
+    # in type annotations before it's defined
+    assert missing == [], f"Expected no missing imports, got {missing}"
+    assert unused == []
+
+
 def test_setattr_is_not_unused():
     code = dedent("""
         from a import b

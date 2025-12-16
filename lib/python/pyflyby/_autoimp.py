@@ -1021,19 +1021,26 @@ class _MissingImportFinder:
         scope[fullname] = value
 
     def _remove_from_missing_imports(self, fullname):
-        for missing_import in self.missing_imports:
+        for missing_import in list(self.missing_imports):
             # If it was defined inside a class method, then it wouldn't have been added to
             # the missing imports anyways (except in that case of annotations)
             # See the following tests:
             # - tests.test_autoimp.test_method_reference_current_class
             # - tests.test_autoimp.test_find_missing_imports_class_name_1
             # - tests.test_autoimp.test_scan_for_import_issues_class_defined_after_use
-            scopestack = missing_import[1].scope_info['scopestack']
+            missing_ident = missing_import[1]
+            if not missing_ident.startswith(fullname):
+                continue
+            scopestack = missing_ident.scope_info['scopestack']
             in_class_scope = isinstance(scopestack[-1], _ClassScope)
-            inside_class = missing_import[1].scope_info.get('_in_class_def')
-            if missing_import[1].startswith(fullname):
-                if in_class_scope or not inside_class:
-                    self.missing_imports.remove(missing_import)
+            inside_class = missing_ident.scope_info.get('_in_class_def')
+            # Remove if it's in class scope or not inside a class definition
+            # Also remove if it's a simple identifier (forward reference in type annotation)
+            # that matches the class name, regardless of scope
+            is_simple_identifier = (len(missing_ident.parts) == 1 and
+                                    missing_ident.parts[0] == fullname)
+            if in_class_scope or not inside_class or is_simple_identifier:
+                self.missing_imports.remove(missing_import)
 
     def _get_scope_info(self):
         return {
