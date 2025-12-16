@@ -3,13 +3,11 @@
 # License for THIS FILE ONLY: CC0 Public Domain Dedication
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-import atexit
 import difflib
 import json
 import os
 import random
 import re
-import readline
 import sys
 import time
 
@@ -27,9 +25,9 @@ import pytest
 import requests
 
 import pyflyby
-from   pyflyby._file            import Filename
-from   pyflyby._util            import EnvVarCtx, cached_attribute, memoize
-from   typing                   import Union
+from pyflyby._file import Filename
+from pyflyby._util import EnvVarCtx, cached_attribute
+from typing import Union
 
 is_free_threaded = (sys.version_info >= (3, 13)) and (sys._is_gil_enabled() is False)
 
