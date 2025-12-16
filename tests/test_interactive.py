@@ -443,26 +443,6 @@ assert b"In " in _IPYTHON_PROMPTS[0]
 
 
 @memoize
-def _extra_readline_pythonpath_dirs():
-    """
-    Return a path to use as an extra PYTHONPATH component in order to get GNU
-    readline to work.
-    """
-    if sys.platform != "darwin":
-        return ()
-    # On Darwin, we need a hack to make sure IPython gets GNU readline instead
-    # of libedit.
-    if "libedit" not in readline.__doc__:
-        return ()
-    dir = mkdtemp(prefix="pyflyby_", suffix=".tmp")
-    atexit.register(lambda: rmtree(dir))
-    import site
-    sitepackages = os.path.join(os.path.dirname(site.__file__), "site-packages")
-    readline_fn = os.path.abspath(os.path.join(sitepackages, "readline.so"))
-    if not os.path.isfile(readline_fn):
-        raise ValueError("Couldn't find readline")
-    os.symlink(readline_fn, os.path.join(dir, "readline.so"))
-    return (dir,)
 
 
 def _build_pythonpath(PYTHONPATH) -> str:
@@ -473,8 +453,6 @@ def _build_pythonpath(PYTHONPATH) -> str:
       ``str``
     """
     pypath = [os.path.dirname(os.path.dirname(pyflyby.__file__))]
-    if sys.version_info < (3, 9):
-        pypath += _extra_readline_pythonpath_dirs()
     if isinstance(PYTHONPATH, Filename):
         PYTHONPATH = [str(PYTHONPATH)]
     if isinstance(PYTHONPATH, str):
