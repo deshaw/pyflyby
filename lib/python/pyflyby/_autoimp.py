@@ -1339,7 +1339,7 @@ def scan_for_import_issues(
       >>> missing
       [(2, DottedIdentifier('x')), (3, DottedIdentifier('arange')), (3, DottedIdentifier('x'))]
       >>> unused
-      [(1, Import('from aa import bb as cc'))]
+      [(1, Import('from aa import bb as cc'), None)]
 
     :type codeblock:
       ``PythonBlock``
@@ -1352,9 +1352,9 @@ def scan_for_import_issues(
       braces::
 
         >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n")
-        ([], [(1, Import('import baz')), (1, Import('import foo as bar'))])
+        ([], [(1, Import('import baz'), None), (1, Import('import foo as bar'), None)])
         >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n", parse_docstrings=True)
-        ([], [(1, Import('import baz'))])
+        ([], [(1, Import('import baz'), None)])
 
     """
     logger.debug("global scan_for_import_issues()")
