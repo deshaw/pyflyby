@@ -25,6 +25,7 @@ from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
 
 import sys
 import types
+from types import NoneType, EllipsisType
 from   typing                   import (Any, Dict, List, Optional, Set, Tuple,
                                         Union)
 
@@ -48,11 +49,6 @@ else:
     LOAD_SHIFT = 0
 
 
-if sys.version_info >= (3, 10):
-    from types import NoneType, EllipsisType
-else:
-    NoneType = type(None)
-    EllipsisType = type(Ellipsis)
 
 
 class _ClassScope(dict):
@@ -650,10 +646,7 @@ class _MissingImportFinder:
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
-                if sys.version_info > (3,10):
-                    self._visit_Load_defered_global(e.value)
-                else:
-                    self._visit_Load_defered_global(e.s)
+                self._visit_Load_defered_global(e.value)
 
     def visit_ClassDef(self, node):
         logger.debug("visit_ClassDef(%r)", node)
@@ -886,32 +879,31 @@ class _MissingImportFinder:
         self._visit_StoreImport(node, modulename)
         self.generic_visit(node)
 
-    if sys.version_info >= (3,10):
-        def visit_match_case(self, node:ast.match_case):
-            logger.debug("visit_match_case(%r)", node)
-            return self.generic_visit(node)
+    def visit_match_case(self, node: ast.match_case):
+        logger.debug("visit_match_case(%r)", node)
+        return self.generic_visit(node)
 
-        def visit_Match(self, node:ast.Match):
-            logger.debug("visit_Match(%r)", node)
-            return self.generic_visit(node)
+    def visit_Match(self, node: ast.Match):
+        logger.debug("visit_Match(%r)", node)
+        return self.generic_visit(node)
 
-        def visit_MatchMapping(self, node:ast.MatchMapping):
-            logger.debug("visit_MatchMapping(%r)", node)
-            if node.rest is not None:
-                self._visit_Store(node.rest)
-            return self.generic_visit(node)
+    def visit_MatchMapping(self, node: ast.MatchMapping):
+        logger.debug("visit_MatchMapping(%r)", node)
+        if node.rest is not None:
+            self._visit_Store(node.rest)
+        return self.generic_visit(node)
 
-        def visit_MatchStar(self, node:ast.MatchStar):
-            logger.debug("visit_MatchStar(%r)", node)
-            if node.name is not None:
-                self._visit_Store(node.name)
-            return self.generic_visit(node)
+    def visit_MatchStar(self, node: ast.MatchStar):
+        logger.debug("visit_MatchStar(%r)", node)
+        if node.name is not None:
+            self._visit_Store(node.name)
+        return self.generic_visit(node)
 
-        def visit_MatchAs(self, node:MatchAs):
-            logger.debug("visit_MatchAs(%r)", node)
-            if node.name is None:
-                return
-            return self._visit_Store(node.name)
+    def visit_MatchAs(self, node: MatchAs):
+        logger.debug("visit_MatchAs(%r)", node)
+        if node.name is None:
+            return
+        return self._visit_Store(node.name)
 
     def visit_Call(self, node:ast.Call):
         logger.debug("visit_Call(%r)", node)

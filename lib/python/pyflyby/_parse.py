@@ -35,25 +35,11 @@ from   textwrap                 import dedent
 import types
 from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal
 import warnings
+from types import NoneType
+from ast import MatchAs, MatchMapping
 
 
 _sentinel = object()
-
-if sys.version_info < (3, 10):
-
-    NoneType = type(None)
-
-    class MatchAs:
-        name: str
-        pattern: ast.AST
-
-    class MatchMapping:
-        keys: List[ast.AST]
-        patterns: List[MatchAs]
-
-else:
-    from types import NoneType
-    from ast import MatchAs, MatchMapping
 
 if sys.version_info >= (3, 14):
     from ast import TemplateStr
@@ -106,10 +92,7 @@ def _ast_str_literal_value(node):
     if _is_ast_str_or_byte(node):
         return node.s
     if isinstance(node, ast.Expr) and _is_ast_str_or_byte(node.value):
-        if sys.version_info > (3,10):
-            return node.value.value
-        else:
-            return node.value.s
+        return node.value.value
     else:
         return None
 
@@ -1325,15 +1308,9 @@ class PythonBlock:
         flags = self.flags
         for ast_node in self._get_docstring_nodes():
             try:
-                if sys.version_info >= (3, 10):
-                    examples = parser.get_examples(ast_node.value)
-                else:
-                    examples = parser.get_examples(ast_node.s)
+                examples = parser.get_examples(ast_node.value)
             except Exception:
-                if sys.version_info >= (3, 10):
-                    blob = ast_node.s
-                else:
-                    blob = ast_node.value
+                blob = ast_node.s
                 if len(blob) > 60:
                     blob = blob[:60] + '...'
                 # TODO: let caller decide how to handle
