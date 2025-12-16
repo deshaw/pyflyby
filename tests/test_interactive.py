@@ -442,9 +442,6 @@ _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
 assert b"In " in _IPYTHON_PROMPTS[0]
 
 
-@memoize
-
-
 def _build_pythonpath(PYTHONPATH) -> str:
     """
     Build PYTHONPATH value to use.
