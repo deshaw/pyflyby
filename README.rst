@@ -8,7 +8,7 @@
 .. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
    :target: https://travis-ci.org/deshaw/pyflyby
 
-Pyflyby is a set of Python programming productivity tools for Python 3.9+.
+Pyflyby is a set of Python programming productivity tools for Python.
 
 For command-line interaction:
   * ``py``: command-line multitool
@@ -267,15 +267,6 @@ of automatic importing that use proxy objects.  Those implementations using
 proxy objects don't work as well, because it is impossible to make proxy
 objects behave perfectly.  For example, ``instance(x, T)`` will return the wrong
 answer if either x or T is a proxy object.
-
-
-Compatibility
--------------
-
-Tested with:
-  - Python 3.9, 3.10, 3.11, 3.12, 3.13
-  - IPython 8.18, 8.37.0, 9.4.0 (latest)
-  - IPython (text console), IPython Notebook, Spyder
 
 
 Details: import libraries
