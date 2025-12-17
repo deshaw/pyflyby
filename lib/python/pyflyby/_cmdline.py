@@ -102,11 +102,14 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 return action_ifchanged
             elif V == "EXIT1":
                 return action_exit1
+            elif V == "CHANGEDEXIT1":
+                return action_changedexit1
             else:
                 raise Exception(
                     "Bad argument %r to --action; "
                     "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
-                    "or EXECUTE:..." % (v,))
+                    "or CHANGEDEXIT1 or EXECUTE:..." % (v,)
+                )
 
         def set_actions(actions):
             actions = tuple(actions)
@@ -124,8 +127,9 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option(
             "--actions", type='string', action='callback',
             callback=action_callback,
-            metavar='PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1:EXECUTE:mycommand',
-            help=hfmt('''
+            metavar="PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1|CHANGEDEXIT1:EXECUTE:mycommand",
+            help=hfmt(
+                """
                    Comma-separated list of action(s) to take.  If PRINT, print
                    the changed file to stdout.  If REPLACE, then modify the
                    file in-place.  If EXECUTE:mycommand, then execute
@@ -133,7 +137,10 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                    'pyflyby-diff'.  If QUERY, then query user to continue.
                    If IFCHANGED, then continue actions only if file was
                    changed.  If EXIT1, then exit with exit code 1 after all
-                   files/actions are processed.'''))
+                   files/actions are processed.  If CHANGEDEXIT1, then exit
+                   with exit code 1 if any file was changed."""
+            ),
+        )
         group.add_option(
             "--print", "-p", action='callback',
             callback=action_callbacker([action_print]),
@@ -479,6 +486,13 @@ def action_replace(m):
 def action_exit1(m):
     logger.debug("action_exit1")
     raise Exit1
+
+
+def action_changedexit1(m):
+    """Exit with code 1 if there were changes."""
+    if m.output_content.joined != m.input_content.joined:
+        logger.debug("file changed: %s", m.filename)
+        raise Exit1
 
 
 def action_external_command(command):
