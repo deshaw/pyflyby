@@ -742,7 +742,7 @@ def fix_unused_and_missing_imports(
     _codeblock: PythonBlock
     if isinstance(codeblock, Filename):
         _codeblock = PythonBlock(codeblock)
-    if not isinstance(codeblock, PythonBlock):
+    elif not isinstance(codeblock, PythonBlock):
         _codeblock = PythonBlock(codeblock)
     else:
         _codeblock = codeblock
