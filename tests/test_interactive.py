@@ -2794,7 +2794,8 @@ def test_run_i_auto_import_1(tmp):
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
-@pytest.mark.xfail
+@pytest.mark.skip(reason="This is one of the slowest test and it's xfail")
+@pytest.mark.xfail(strict=True)
 def test_run_d_donterase(tmp):
     """
     accessing f_locals may reset namespace,
