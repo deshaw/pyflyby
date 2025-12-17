@@ -42,10 +42,10 @@ import importlib.abc
 import importlib.util
 import sys
 
-from textwrap import dedent
-from typing import FrozenSet
+from   textwrap                 import dedent
+from   typing                   import FrozenSet
 
-from pyflyby._importclns import ImportSet, Import
+from   pyflyby._importclns      import Import, ImportSet
 
 module_dict = {}
 

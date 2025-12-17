@@ -11,12 +11,12 @@ Usage:
 """
 
 import ast
+from   pathlib                  import Path
 import sys
+from   typing                   import List, Tuple
 import warnings
-from pathlib import Path
-from typing import List, Tuple
 
-from pyflyby._parse import PythonBlock
+from   pyflyby._parse           import PythonBlock
 
 
 def find_python_files(path: Path) -> List[Path]:

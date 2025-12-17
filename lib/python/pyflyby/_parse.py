@@ -33,7 +33,8 @@ import re
 import sys
 from   textwrap                 import dedent
 import types
-from   typing                   import Any, List, Optional, Tuple, Union, cast, Literal
+from   typing                   import (Any, List, Literal, Optional, Tuple,
+                                        Union, cast)
 import warnings
 
 

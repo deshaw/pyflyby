@@ -18,13 +18,8 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from typing import (
-    ClassVar,
-    Dict,
-    FrozenSet,
-    Sequence,
-    Union,
-)
+from   typing                   import (ClassVar, Dict, FrozenSet, Sequence,
+                                        Union)
 
 if sys.version_info < (3, 12):
     from typing_extensions          import Self

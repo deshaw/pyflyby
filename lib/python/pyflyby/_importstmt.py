@@ -16,7 +16,7 @@ from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
 
-from   typing                   import Dict, Tuple, Optional, Union
+from   typing                   import Dict, Optional, Tuple, Union
 
 
 
