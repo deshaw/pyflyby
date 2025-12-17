@@ -278,19 +278,19 @@ Examples
 
 """
 
-from   contextlib               import contextmanager
-from   functools                import total_ordering
-from   pathlib                  import Path
-from   shlex                    import quote as shquote
-from   types                    import FunctionType, MethodType, ModuleType
-from   typing                   import Any
 import ast
 import builtins
+from   contextlib               import contextmanager
+from   functools                import total_ordering
 import inspect
 import os
+from   pathlib                  import Path
 import re
+from   shlex                    import quote as shquote
 import sys
 import types
+from   types                    import FunctionType, MethodType, ModuleType
+from   typing                   import Any
 import warnings
 
 from   pyflyby._autoimp         import auto_import, find_missing_imports
@@ -310,7 +310,7 @@ from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimport
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import indent, prefixes, cmp
+from   pyflyby._util            import cmp, indent, prefixes
 
 # TODO: add --tidy-imports, etc
 

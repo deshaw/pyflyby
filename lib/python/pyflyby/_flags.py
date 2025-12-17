@@ -6,12 +6,12 @@
 
 import __future__
 import ast
-import operator
 from   functools                import reduce
+import operator
 import warnings
 
 from   pyflyby._util            import cached_attribute
-from typing import Tuple
+from   typing                   import Tuple
 
 # Initialize mappings from compiler_flag to feature name and vice versa.
 _FLAG2NAME = {}

@@ -4,12 +4,12 @@ from __future__ import print_function
 from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
                                         SourceToSourceImportBlockTransformation,
                                         fix_unused_and_missing_imports,
-                                        replace_star_imports,
-                                        reformat_import_statements)
+                                        reformat_import_statements,
+                                        replace_star_imports)
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 
-from   typing                   import Dict, Any
+from   typing                   import Any, Dict
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and

@@ -5,12 +5,12 @@
 
 
 import builtins
+from   contextlib               import nullcontext
 import logging
 from   logging                  import Handler, Logger
 import os
+from   prompt_toolkit           import patch_stdout
 import sys
-from prompt_toolkit import patch_stdout
-from contextlib     import nullcontext
 
 
 class _PyflybyHandler(Handler):

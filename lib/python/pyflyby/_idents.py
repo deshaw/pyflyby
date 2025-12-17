@@ -10,7 +10,7 @@ import re
 
 from   pyflyby._util            import cached_attribute, cmp
 
-from typing import Optional, Tuple, Dict
+from   typing                   import Dict, Optional, Tuple
 
 
 # TODO: use DottedIdentifier.prefixes
