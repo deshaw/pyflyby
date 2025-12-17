@@ -3,12 +3,12 @@ This module contain utility functions to sort imports in a Python Block.
 """
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import dataclass
-from itertools import groupby
-from pyflyby._importstmt import ImportStatement, PythonStatement
-from pyflyby._parse import PythonBlock
-from typing import List, Tuple, Union
+from   collections              import Counter
+from   dataclasses              import dataclass
+from   itertools                import groupby
+from   pyflyby._importstmt      import ImportStatement, PythonStatement
+from   pyflyby._parse           import PythonBlock
+from   typing                   import List, Tuple, Union
 
 
 # @dataclass

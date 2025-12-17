@@ -4,17 +4,17 @@
 
 
 
-from   contextlib               import contextmanager, ExitStack
+from   contextlib               import ExitStack, contextmanager
 import inspect
 import os
 import sys
 import types
-from types import MappingProxyType as DictProxyType
+from   types                    import MappingProxyType as DictProxyType
 
 # There used to be a custom caching_attribute implementation
 # this now uses functools's cached_property which is understood by
 # various static analysis tools.
-from functools import cached_property as cached_attribute # noqa: F401
+from   functools                import cached_property as cached_attribute # noqa: F401
 
 __all__ = ["cached_attribute"]
 
