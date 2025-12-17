@@ -196,6 +196,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
     _removed_lines_per_block: defaultdict[int, int]
     _original_block_startpos: dict[int, int]
+    tidy_local_imports: bool = True
 
     def preprocess(self) -> None:
         # Group into blocks of imports and non-imports.  Get a sequence of all
@@ -221,8 +222,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             if isinstance(block, SourceToSourceTransformation):
                 self._original_block_startpos[idx] = block._output.startpos.lineno
 
-        # Extract local import blocks from function/class bodies
-        self._extract_local_import_blocks()
+        # Extract local import blocks from function/class bodies (if enabled)
+        if self.tidy_local_imports:
+            self._extract_local_import_blocks()
         logger.debug("preprocess: extracted %d total import blocks", len(self.import_blocks))
 
     def _create_import_block_from_group(
@@ -709,6 +711,7 @@ def fix_unused_and_missing_imports(
     add_mandatory: bool = True,
     db: Optional[ImportDB] = None,
     params=None,
+    tidy_local_imports: bool = True,
 ) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
@@ -762,7 +765,13 @@ def fix_unused_and_missing_imports(
     _codeblock = reformat_import_statements(_codeblock, params=params)
 
     filename = _codeblock.filename
-    transformer = SourceToSourceFileImportsTransformation(_codeblock)
+    # Set the tidy_local_imports flag on the class before creating an instance
+    original_tidy_local = SourceToSourceFileImportsTransformation.tidy_local_imports
+    try:
+        SourceToSourceFileImportsTransformation.tidy_local_imports = tidy_local_imports
+        transformer = SourceToSourceFileImportsTransformation(_codeblock)
+    finally:
+        SourceToSourceFileImportsTransformation.tidy_local_imports = original_tidy_local
     missing_imports, unused_imports = scan_for_import_issues(
         _codeblock, find_unused_imports=remove_unused, parse_docstrings=True
     )
