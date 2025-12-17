@@ -12,7 +12,9 @@ Automatically improves python import statements.
 If filenames are given on the command line, rewrites them.  Otherwise, if
 stdin is not a tty, read from stdin and write to stdout.
 
-Only top-level import statements are touched.
+Top-level and local (within function/class bodies) import statements are
+touched by default. Use --no-tidy-local-imports to disable tidying of local
+imports.
 
 """
 
@@ -107,6 +109,11 @@ def _addopts(parser):
                         help=hfmt('''
                             Equivalent to --no-add-missing
                             --no-add-mandatory.'''))
+    parser.add_option('--no-tidy-local-imports', dest='tidy_local_imports',
+                        default=True, action='store_false',
+                        help=hfmt('''
+                            Don't tidy imports within function and class
+                            bodies. Temporary until this is considered stable.'''))
 def main() -> None:
 
     config = _get_pyproj_toml_config()
@@ -136,6 +143,7 @@ def main() -> None:
             add_missing=options.add_missing,
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
+            tidy_local_imports=options.tidy_local_imports,
             )
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
