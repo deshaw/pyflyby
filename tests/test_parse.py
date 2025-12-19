@@ -18,10 +18,7 @@ import sys
 from   textwrap                 import dedent
 import warnings
 
-if sys.version_info < (3, 8, 3):
-    print_function_flag = CompilerFlags.from_int(0x10000)
-else:
-    print_function_flag = CompilerFlags.from_int(0x100000)
+print_function_flag = CompilerFlags.from_int(0x100000)
 
 def test_PythonBlock_FileText_1():
     text = FileText(
@@ -613,71 +610,70 @@ examples_transform = [
     ]
 ]
 
-if sys.version_info >= (3, 10):
-    examples_transform.extend(
-        [
-            dedent(x)
-            for x in [
-                """
-            match { "foo": 1, "bar": 2 }:
-                case {
-                    "foo": foo,
-                    "bar": bar,
-                    **rest,
-                }:
-                    pass
+examples_transform.extend(
+    [
+        dedent(x)
+        for x in [
+            """
+        match { "foo": 1, "bar": 2 }:
+            case {
+                "foo": foo,
+                "bar": bar,
+                **rest,
+            }:
+                pass
+            case _:
+                pass
+        """,
+            """
+        match event.get():
+            case Click(position=(x, y)):
+                handle_click_at(x, y)
+            case KeyPress(key_name="Q") | Quit():
+                game.quit()
+            case KeyPress(key_name="up arrow"):
+                game.go_north()
+            case KeyPress():
+                pass # Ignore other keystrokes
+            case other_event:
+                raise ValueError(f"Unrecognized event: {other_event}")
+        """,
+            """
+        match event.get():
+            case Click((x, y), button=Button.LEFT):  # This is a left click
+                handle_click_at(x, y)
+            case Click():
+                pass  # ignore other clicks
+        """,
+            """
+        def http_error(status):
+            match status:
+                case 400:
+                    return "Bad request"
+                case 404:
+                    return "Not found"
+                case 418:
+                    return "I'm a teapot"
+                case 500 | 501 | 502:
+                    return "I'm a teapot"
                 case _:
-                    pass
-            """,
-            """
-            match event.get():
-                case Click(position=(x, y)):
-                    handle_click_at(x, y)
-                case KeyPress(key_name="Q") | Quit():
-                    game.quit()
-                case KeyPress(key_name="up arrow"):
-                    game.go_north()
-                case KeyPress():
-                    pass # Ignore other keystrokes
-                case other_event:
-                    raise ValueError(f"Unrecognized event: {other_event}")
-            """,
-            """
-            match event.get():
-                case Click((x, y), button=Button.LEFT):  # This is a left click
-                    handle_click_at(x, y)
-                case Click():
-                    pass  # ignore other clicks
-            """,
-            """
-            def http_error(status):
-                match status:
-                    case 400:
-                        return "Bad request"
-                    case 404:
-                        return "Not found"
-                    case 418:
-                        return "I'm a teapot"
-                    case 500 | 501 | 502:
-                        return "I'm a teapot"
-                    case _:
-                        return "Something's wrong with the Internet"
+                    return "Something's wrong with the Internet"
 
-            """,
-                """
-            match {"foo": 1, "bar": 2}:
-                case {
-                    "foo": foo,
-                    "bar": bar,
-                    **rest,
-                }:
-                    print(foo)
-                case _:
-                    pass
-            """,
-            ]
+        """,
+            """
+        match {"foo": 1, "bar": 2}:
+            case {
+                "foo": foo,
+                "bar": bar,
+                **rest,
+            }:
+                print(foo)
+            case _:
+                pass
+        """,
         ]
-    )
+    ]
+)
 
 
 @pytest.mark.parametrize("source", examples_transform)

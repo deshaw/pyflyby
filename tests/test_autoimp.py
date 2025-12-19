@@ -1147,7 +1147,6 @@ def test_find_missing_imports_true_false_none_1():
     assert expected == result
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
 def test_find_missing_imports_pattern_match_1():
     code = dedent("""
     match {"foo": 1, "bar": 2}:
@@ -1170,7 +1169,6 @@ def test_find_missing_imports_pattern_match_1():
             visit_match_case`, but that would remove the variable definition
             when leaving the match statement.
                    ''',strict=True)
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
 def test_find_missing_imports_pattern_match_2():
     code = dedent("""
     match {"foo": 1, "bar": 2}:
@@ -1189,7 +1187,6 @@ def test_find_missing_imports_pattern_match_2():
     assert expected == result
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
 def test_find_missing_imports_pattern_match_star_args():
     """Test that *args in match/case patterns are not flagged as undefined names."""
     code = dedent("""
@@ -1205,7 +1202,6 @@ def test_find_missing_imports_pattern_match_star_args():
     assert expected == result
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
 def test_find_missing_imports_pattern_match_mapping_kwargs():
     """Test that **kwargs in match/case patterns are not flagged as undefined names."""
     code = dedent("""
@@ -1221,7 +1217,6 @@ def test_find_missing_imports_pattern_match_mapping_kwargs():
     assert expected == result
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='No pattern matching before 3.10')
 def test_find_missing_imports_pattern_match_mixed():
     """Test mixed pattern matching with multiple capture styles."""
     code = dedent("""
