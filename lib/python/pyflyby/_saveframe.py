@@ -1108,7 +1108,8 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     :return:
       The file path in which the frame info is saved.
     """
-    current_frame = None
+    
+    _current_frame = None
     exception_obj = None
     exception_raised = False
 
@@ -1116,11 +1117,11 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     # This takes priority over any existing exception
     if current_frame:
         # Get the caller's frame (frame 1 is saveframe itself, frame 2 is the caller)
-        current_frame = sys._getframe(1)
+        _current_frame = sys._getframe(1)
         if frames is None:
             # Default to saving all frames from the caller onwards
-            frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
-                      f"{_get_qualname(current_frame)}..")
+            frames = (f"{_current_frame.f_code.co_filename}:"
+                      f"{_current_frame.f_lineno}:{_get_qualname(_current_frame)}..")
         # Don't use exception traceback when current_frame=True
         # We want to capture the live call stack, not an old exception's traceback
     else:
@@ -1138,7 +1139,7 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
                 # If the user is currently in a debugger (ipdb/pdb), save the frame the
                 # user is currently at in the debugger.
                 if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
-                    current_frame = interactive_session_obj.curframe
+                    _current_frame = interactive_session_obj.curframe
             except Exception as err:
                 _SAVEFRAME_LOGGER.warning(
                     f"Error while extracting the interactive session object: {err}")
@@ -1148,11 +1149,11 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
             #    (e.g., via ipdb.pm()).
             # In both cases, we set the frame to the current frame as the default
             # behavior.
-            if frames is None and current_frame:
-                frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
-                          f"{_get_qualname(current_frame)}")
+            if frames is None and _current_frame:
+                frames = (f"{_current_frame.f_code.co_filename}:{_current_frame.f_lineno}:"
+                          f"{_get_qualname(_current_frame)}")
 
-        if not (exception_obj or current_frame):
+        if not (exception_obj or _current_frame):
             raise RuntimeError(
                 "No exception has been raised, and the session is not currently "
                 "within a debugger. Unable to save frames. "
@@ -1167,5 +1168,5 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
         exclude_variables=exclude_variables,
-        exception_obj=exception_obj, current_frame=current_frame)
+        exception_obj=exception_obj, current_frame=_current_frame)
     return filename
