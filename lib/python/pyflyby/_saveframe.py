@@ -884,7 +884,8 @@ def _validate_saveframe_arguments(
     return filename, frames, variables, exclude_variables
 
 
-def saveframe(filename=None, frames=None, variables=None, exclude_variables=None):
+def saveframe(filename=None, frames=None, variables=None, exclude_variables=None,
+              current_frame=False):
     """
     Utility to save information for debugging / reproducing an issue.
 
@@ -907,6 +908,11 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
         - This can be used in case you are experiencing slowness in the upstream
           code. Save the frames using this function to provide the upstream team
           with relevant information for further investigation.
+      - Inline in your code (current_frame=True):
+        - You can embed ``saveframe(current_frame=True)`` directly in your
+          code to capture the call stack at that point.
+        - This is useful for analyzing how a function is called, debugging
+          without raising an exception, or capturing state for later inspection.
 
     Information saved in the file:
     --------------------------------------------------------------------------
@@ -1091,51 +1097,72 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
       If this parameter is not passed, save all the local variables of the
       included frames as per the ``variables`` parameter value.
 
+    :param current_frame:
+      If True, save the current call stack from the point where saveframe() is
+      called, even if no exception has been raised and not inside a debugger.
+      This is useful for embedding saveframe() directly in your code to analyze
+      how a function is being called.
+
+      Default is False.
+
     :return:
       The file path in which the frame info is saved.
     """
-    current_frame = None
+    save_current_frame = current_frame
+    _current_frame = None
     exception_obj = None
-    # Boolean to denote if an exception has been raised.
-    exception_raised = True
-    if not ((sys.version_info < (3, 12) and hasattr(sys, 'last_value')) or
-            (sys.version_info >= (3, 12) and hasattr(sys, 'last_exc'))):
-        exception_raised = False
+    exception_raised = False
 
-    if exception_raised:
-        # Get the latest exception raised.
-        exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
+    # Handle save_current_frame=True: capture the caller's frame directly
+    # This takes priority over any existing exception
+    if save_current_frame:
+        # Get the caller's frame (frame 1 is saveframe itself, frame 2 is the caller)
+        _current_frame = sys._getframe(1)
+        if frames is None:
+            # Default to saving all frames from the caller onwards
+            frames = (f"{_current_frame.f_code.co_filename}:{_current_frame.f_lineno}:"
+                      f"{_get_qualname(_current_frame)}..")
+        # Don't use exception traceback when save_current_frame=True
+        # We want to capture the live call stack, not an old exception's traceback
+    else:
+        # Check if an exception has been raised.
+        if ((sys.version_info < (3, 12) and hasattr(sys, 'last_value')) or
+                (sys.version_info >= (3, 12) and hasattr(sys, 'last_exc'))):
+            exception_raised = True
+            # Get the latest exception raised.
+            exception_obj = sys.last_value if sys.version_info < (3, 12) else sys.last_exc
 
-    if not (exception_raised and frames):
-        try:
-            # Get the instance of the interactive session the user is currently in.
-            interactive_session_obj = sys._getframe(2).f_locals.get('self')
-            # If the user is currently in a debugger (ipdb/pdb), save the frame the
-            # user is currently at in the debugger.
-            if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
-                current_frame = interactive_session_obj.curframe
-        except Exception as err:
-            _SAVEFRAME_LOGGER.warning(
-                f"Error while extracting the interactive session object: {err}")
-        # This logic handles two scenarios:
-        # 1. No exception is raised and the debugger is started.
-        # 2. An exception is raised, and the user then starts a debugger manually
-        #    (e.g., via ipdb.pm()).
-        # In both cases, we set the frame to the current frame as the default
-        # behavior.
-        if frames is None and current_frame:
-            frames = (f"{current_frame.f_code.co_filename}:{current_frame.f_lineno}:"
-                      f"{_get_qualname(current_frame)}")
+        if not (exception_raised and frames):
+            try:
+                # Get the instance of the interactive session the user is currently in.
+                interactive_session_obj = sys._getframe(2).f_locals.get('self')
+                # If the user is currently in a debugger (ipdb/pdb), save the frame the
+                # user is currently at in the debugger.
+                if interactive_session_obj and hasattr(interactive_session_obj, 'curframe'):
+                    _current_frame = interactive_session_obj.curframe
+            except Exception as err:
+                _SAVEFRAME_LOGGER.warning(
+                    f"Error while extracting the interactive session object: {err}")
+            # This logic handles two scenarios:
+            # 1. No exception is raised and the debugger is started.
+            # 2. An exception is raised, and the user then starts a debugger manually
+            #    (e.g., via ipdb.pm()).
+            # In both cases, we set the frame to the current frame as the default
+            # behavior.
+            if frames is None and _current_frame:
+                frames = (f"{_current_frame.f_code.co_filename}:{_current_frame.f_lineno}:"
+                          f"{_get_qualname(_current_frame)}")
 
-    if not (exception_obj or current_frame):
-        raise RuntimeError(
-            "No exception has been raised, and the session is not currently "
-            "within a debugger. Unable to save frames.")
+        if not (exception_obj or _current_frame):
+            raise RuntimeError(
+                "No exception has been raised, and the session is not currently "
+                "within a debugger. Unable to save frames. "
+                "Use current_frame=True to save the current call stack.")
 
     _SAVEFRAME_LOGGER.info("Validating arguments passed.")
     filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
         filename, frames, variables, exclude_variables)
-    if exception_raised:
+    if exception_raised and exception_obj:
         _SAVEFRAME_LOGGER.info(
             "Saving frames and metadata for the exception: %a", exception_obj)
     _save_frames_and_exception_info_to_file(
