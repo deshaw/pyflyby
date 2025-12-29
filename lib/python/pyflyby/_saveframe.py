@@ -1108,21 +1108,21 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     :return:
       The file path in which the frame info is saved.
     """
-    
+    save_current_frame = current_frame
     _current_frame = None
     exception_obj = None
     exception_raised = False
 
-    # Handle current_frame=True: capture the caller's frame directly
+    # Handle save_current_frame=True: capture the caller's frame directly
     # This takes priority over any existing exception
-    if current_frame:
+    if save_current_frame:
         # Get the caller's frame (frame 1 is saveframe itself, frame 2 is the caller)
         _current_frame = sys._getframe(1)
         if frames is None:
             # Default to saving all frames from the caller onwards
-            frames = (f"{_current_frame.f_code.co_filename}:"
-                      f"{_current_frame.f_lineno}:{_get_qualname(_current_frame)}..")
-        # Don't use exception traceback when current_frame=True
+            frames = (f"{_current_frame.f_code.co_filename}:{_current_frame.f_lineno}:"
+                      f"{_get_qualname(_current_frame)}..")
+        # Don't use exception traceback when save_current_frame=True
         # We want to capture the live call stack, not an old exception's traceback
     else:
         # Check if an exception has been raised.
@@ -1168,5 +1168,5 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
         exclude_variables=exclude_variables,
-        exception_obj=exception_obj, current_frame=_current_frame)
+        exception_obj=exception_obj, current_frame=current_frame)
     return filename
