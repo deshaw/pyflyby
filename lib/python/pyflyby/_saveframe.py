@@ -1168,5 +1168,5 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
     _save_frames_and_exception_info_to_file(
         filename=filename, frames=frames, variables=variables,
         exclude_variables=exclude_variables,
-        exception_obj=exception_obj, current_frame=current_frame)
+        exception_obj=exception_obj, current_frame=_current_frame)
     return filename
