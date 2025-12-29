@@ -328,7 +328,6 @@ def create_pkg(tmpdir, start_debugger=False):
             var1 = 3
             var2 = 'blah'
             func1()
-
         def init_func2():
             pass
         def init_func3():
