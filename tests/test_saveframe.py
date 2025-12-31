@@ -652,7 +652,7 @@ def test_saveframe_save_current_frame_basic(tmpdir):
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     # Capture the exact line number of the subsequent saveframe() call.
     frame = sys._getframe()
-    expected_lineno = frame.f_lineno + 2
+    expected_lineno = frame.f_lineno + 1
     saveframe(filename=filename, current_frame=True)
     data = load_pkl(filename)
 
