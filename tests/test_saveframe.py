@@ -328,8 +328,10 @@ def create_pkg(tmpdir, start_debugger=False):
             var1 = 3
             var2 = 'blah'
             func1()
+
         def init_func2():
             pass
+
         def init_func3():
             var1 = 'init_func3'
             var2 = 24
@@ -337,6 +339,7 @@ def create_pkg(tmpdir, start_debugger=False):
                 func1()
             except ValueError as err:
                 raise TypeError("Chained exception") from err
+
         def init_func4():
             var1 = 'init_func4'
             var2 = [3, 4]
@@ -351,10 +354,12 @@ def create_pkg(tmpdir, start_debugger=False):
             var2 = 34
             obj = mod2_cls()
             obj.func2()
+
         def func1():
             var1 = [4, 5, 2]
             func1_var2 = 4.56
             func2()
+
         def interrupt_func():
             interrupt_var1 = 'foo bar'
             interrupt_var2 = 3.4
