@@ -12,10 +12,7 @@ from   typing                   import ClassVar, List, Optional, Tuple, Union
 
 from   pyflyby._util            import cmp, memoize
 
-if sys.version_info < (3,10):
-    NoneType = type(None)
-else:
-    from types import NoneType
+from   types                    import NoneType
 
 
 class UnsafeFilenameError(ValueError):
