@@ -16,7 +16,7 @@ description = "pyflyby - Python development productivity tools, in particular au
 license = "MIT"
 license-files = ["LICENSE.txt"]
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python",
     "Topic :: Software Development",

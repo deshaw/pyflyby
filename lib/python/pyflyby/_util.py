@@ -14,25 +14,10 @@ from   types                    import MappingProxyType as DictProxyType
 # There used to be a custom caching_attribute implementation
 # this now uses functools's cached_property which is understood by
 # various static analysis tools.
-from   functools                import cached_property as cached_attribute # noqa: F401
+from   functools                import (cache as memoize,
+                                        cached_property as cached_attribute)
 
-__all__ = ["cached_attribute"]
-
-if sys.version_info > (3,9):
-    from functools import cache as memoize
-else:
-    def memoize(function):
-        cache = {}
-        def wrapped_fn(*args, **kwargs):
-            cache_key = (args, tuple(sorted(kwargs.items())))
-            try:
-                return cache[cache_key]
-            except KeyError:
-                result = function(*args, **kwargs)
-                cache[cache_key] = result
-                return result
-        wrapped_fn.cache = cache
-        return wrapped_fn
+__all__ = ["cached_attribute", "memoize"]
 
 
 class WrappedAttributeError(Exception):
