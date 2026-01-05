@@ -4,7 +4,7 @@ Jupyterlab-pyflyby extension related test
 Some of these test do not need the full extension installed so we put them here.
 """
 
-from pyflyby._comms import _reformat_helper, run_tidy_imports
+from   pyflyby._comms           import _reformat_helper, run_tidy_imports
 import pytest
 
 

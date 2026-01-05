@@ -6,8 +6,8 @@
 
 
 import os
-import sys
 from   shutil                   import rmtree
+import sys
 from   tempfile                 import NamedTemporaryFile, mkdtemp
 from   textwrap                 import dedent
 
@@ -16,7 +16,7 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._util            import EnvVarCtx
 
-from contextlib import contextmanager
+from   contextlib               import contextmanager
 
 
 if sys.version_info > (3, 11):
