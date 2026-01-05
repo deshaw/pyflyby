@@ -525,8 +525,9 @@ def action_query(prompt="Proceed?"):
     return action
 
 def symlink_callback(option, opt_str, value, parser):
-    parser.values.actions = tuple(i for i in parser.values.actions if i not in
-    symlink_callbacks.values())
+    parser.values.actions = tuple(
+        i for i in parser.values.actions if i not in symlink_callbacks.values()
+    )
     if value in symlink_callbacks:
         parser.values.actions = (symlink_callbacks[value],) + parser.values.actions
     else:
