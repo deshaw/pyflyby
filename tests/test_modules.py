@@ -5,6 +5,7 @@
 
 import hashlib
 import logging.handlers
+import os
 import pathlib
 from   pkgutil                  import iter_modules
 from   pyflyby._file            import Filename
@@ -13,11 +14,10 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
                                         _iter_file_finder_modules)
 import re
-import os
 import subprocess
 import sys
-from   textwrap                 import dedent
 from   tempfile                 import TemporaryDirectory
+from   textwrap                 import dedent
 from   unittest                 import mock
 
 import pytest

@@ -1,9 +1,10 @@
-from pyflyby._parse import PythonBlock
-from pyflyby._imports2s import fix_unused_and_missing_imports
-from pyflyby._import_sorting import sort_imports
-from textwrap import dedent
-from lib.python.pyflyby._importstmt import ImportFormatParams
+from   lib.python.pyflyby._importstmt \
+                                import ImportFormatParams
+from   pyflyby._import_sorting  import sort_imports
+from   pyflyby._imports2s       import fix_unused_and_missing_imports
+from   pyflyby._parse           import PythonBlock
 import pytest
+from   textwrap                 import dedent
 
 code1 = dedent("""
         import external

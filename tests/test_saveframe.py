@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from   contextlib               import contextmanager
 import os
+import pexpect
+import pickle
 import pytest
 import random
-import pickle
 from   shutil                   import rmtree
 import subprocess
 import sys
 from   tempfile                 import mkdtemp
 from   textwrap                 import dedent
-from   contextlib               import contextmanager
-import pexpect
 
 from   pyflyby                  import Filename, saveframe
 
