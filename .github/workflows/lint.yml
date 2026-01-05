@@ -33,4 +33,4 @@ jobs:
         uv run flake8 --exclude known_imports,etc,__init__.py,.venv --select=F bin/*;
     - name: Self-tidy-import
       run: |
-        uv run ./bin/tidy-imports --actions=CHANGEDEXIT1,DIFF --no-add lib/python/ tests/
+        uv run ./bin/tidy-imports --actions=DIFF,CHANGEDEXIT1 --no-add lib/python/ tests/
