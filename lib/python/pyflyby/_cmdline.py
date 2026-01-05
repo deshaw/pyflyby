@@ -479,7 +479,10 @@ def action_ifchanged(m):
 def action_replace(m):
     if m.filename == Filename.STDIN:
         raise Exception("Can't replace stdio in-place")
-    logger.info("%s: *** modified ***", m.filename)
+    if m.output_content.joined != m.input_content.joined:
+        logger.info("%s: *** modified ***", m.filename)
+    else:
+        logger.debug("%s: *** no modification necessary ***", m.filename)
     atomic_write_file(m.filename, m.output_content)
 
 
