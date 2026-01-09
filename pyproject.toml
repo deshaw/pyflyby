@@ -111,3 +111,6 @@ version_file = "lib/python/pyflyby/_version.py"
 
 [tool.ruff]
 exclude = ["etc/pyflyby"]
+
+[tool.coverage.run]
+patch = "subprocess,_exit"
