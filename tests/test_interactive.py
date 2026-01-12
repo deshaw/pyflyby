@@ -4081,7 +4081,7 @@ def test_breakpoint_IOStream_broken():
         """,
             frontend="prompt_toolkit",
         )
-    elif sys.version_info >= (3, 13):
+    elif sys.version_info >= (3, 13) and sys.version_info < (3, 14):
         ipython(
             """
             In [1]: # 3.13
