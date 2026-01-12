@@ -4068,13 +4068,13 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
     _IPYTHON_VERSION < (7, 0),
     reason="old IPython and Python won't work with breakpoint()",
 )
-@retry
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
     if sys.version_info >= (3, 14):
         ipython(
             """
-            In [1]: breakpoint()
+            In [1]: # 3.14+
+            In [2]: breakpoint()
             ...
             > <ipython-input>(1)<module>()
             ipdb> c
@@ -4084,7 +4084,8 @@ def test_breakpoint_IOStream_broken():
     elif sys.version_info >= (3, 13):
         ipython(
             """
-            In [1]: breakpoint()
+            In [1]: # 3.13
+            In [2]: breakpoint()
             > <ipython-input>(1)<module>()
             ipdb> c
         """,
@@ -4096,7 +4097,8 @@ def test_breakpoint_IOStream_broken():
         # at `IPython.core.displayhook.DisplayHook.__call__`.
         ipython(
             '''
-            In [1]: breakpoint()
+            In [1]: # 3.12 -
+            In [2]: breakpoint()
             --Call--
             > ...
                 ...
