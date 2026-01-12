@@ -1101,7 +1101,8 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
       If True, save the current call stack from the point where saveframe() is
       called, even if no exception has been raised and not inside a debugger.
       This is useful for embedding saveframe() directly in your code to analyze
-      how a function is being called.
+      how a function is being called. Use `frames=N` to save the last N frames
+      while using this option, otherwise only the last frame is saved.
 
       Default is False.
 
@@ -1119,9 +1120,9 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
         # Get the caller's frame (frame 1 is saveframe itself, frame 2 is the caller)
         _current_frame = sys._getframe(1)
         if frames is None:
-            # Default to saving all frames from the caller onwards
+            # Default to saving the current frame
             frames = (f"{_current_frame.f_code.co_filename}:{_current_frame.f_lineno}:"
-                      f"{_get_qualname(_current_frame)}..")
+                      f"{_get_qualname(_current_frame)}")
         # Don't use exception traceback when save_current_frame=True
         # We want to capture the live call stack, not an old exception's traceback
     else:
