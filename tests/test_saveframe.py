@@ -637,8 +637,46 @@ def test_saveframe_no_error_raised(tmpdir):
         exec(f"from {pkg_name} import init_func2; init_func2()")
         saveframe()
     err_msg = ("No exception has been raised, and the session is not currently "
-               "within a debugger. Unable to save frames.")
+               "within a debugger. Unable to save frames. "
+               "Use current_frame=True to save the current call stack.")
     assert str(err.value) == err_msg
+
+
+def test_saveframe_save_current_frame_basic(tmpdir):
+    # Ensure we don't have a leftover "last exception" state impacting behavior.
+    if hasattr(sys, "last_value"):
+        delattr(sys, "last_value")
+    if hasattr(sys, "last_exc"):
+        delattr(sys, "last_exc")
+
+    filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+    # Capture the exact line number of the subsequent saveframe() call.
+    frame = sys._getframe()
+    expected_lineno = frame.f_lineno + 1
+    saveframe(filename=filename, current_frame=True)
+    data = load_pkl(filename)
+
+    # No exception metadata should be stored for current_frame mode.
+    assert set(data.keys()) == {1}
+    assert data[1]["filename"] == os.path.realpath(__file__)
+    assert data[1]["lineno"] == expected_lineno
+    assert data[1]["function_name"] == "test_saveframe_save_current_frame_basic"
+    assert "saveframe(" in data[1]["code"]
+
+
+def test_saveframe_save_current_frame_ignores_last_exception(tmpdir):
+    pkg_name = create_pkg(tmpdir)
+    # Set sys.last_value/sys.last_exc via a synthetic exception,
+    # then ensure current_frame=True ignores it.
+    code = f"from {pkg_name} import init_func1; init_func1()"
+    with run_code_and_set_exception(code, ValueError):
+        filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
+        saveframe(filename=filename, current_frame=True)
+        data = load_pkl(filename)
+
+    assert exception_info_keys.isdisjoint(set(data.keys()))
+    assert 1 in data
+    assert data[1]["filename"] == os.path.realpath(__file__)
 
 
 def test_saveframe_frame_format_1(tmpdir):
