@@ -2266,6 +2266,7 @@ def test_complete_symbol_multiline_statement_1():
     """)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
@@ -2519,6 +2520,7 @@ def test_disable_reenable_autoimport_1():
     )
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_disable_reenable_completion_1():
@@ -2616,6 +2618,7 @@ def test_error_during_auto_import_expression_1(tmp):
     )
 
 
+@pytest.mark.slow
 @retry
 def test_error_during_completion_1(frontend, tmp):
     writetext(tmp.file, "3+")
@@ -2948,6 +2951,7 @@ def test_timeit_complete_menu_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
 @retry
@@ -3388,6 +3392,7 @@ def _install_load_ext_pyflyby_in_config(ipython_dir):
         print('c.InteractiveShellApp.extensions.append("pyflyby")', file=f)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_ipython_cmdline_1(tmp):
@@ -3411,6 +3416,7 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
     )
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
 def test_installed_in_config_redundant_1(tmp):
@@ -3828,6 +3834,7 @@ def test_debug_tab_completion_db_1(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_tab_completion_module_1(frontend, tmp):
@@ -3877,6 +3884,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
@@ -3912,6 +3920,7 @@ def test_debug_postmortem_tab_completion_1(frontend):
         ipython(template.format(scenario_b), frontend=frontend)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
@@ -3944,6 +3953,7 @@ def test_debug_namespace_1_py3(frontend):
     """, frontend=frontend)
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
