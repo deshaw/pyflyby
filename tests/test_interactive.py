@@ -923,7 +923,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 if is_prompt_toolkit:
                     # When using prompt_toolkit (default for IPython 5+), we
                     # need to wait for output.
-                    _wait_for_output(child, timeout=1.0)
+                    _wait_for_output(child, timeout=0.5)
                 else:
                     # When using readline (only option for IPython 4 and
                     # earlier), we can use the nonce trick.
