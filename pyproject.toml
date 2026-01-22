@@ -95,13 +95,17 @@ module = [
 ignore_errors = true
 
 [tool.pytest.ini_options]
-# Output and reporting
+# IGNORE_EXCEPTION_DETAIL prevents doctest from testing the exception message.
+doctest_optionflags = "ALLOW_UNICODE ALLOW_BYTES IGNORE_EXCEPTION_DETAIL"
+xfail_strict = true
 addopts = [
     "--strict-markers",
     "--durations=10",
     "-ra",
 ]
-# Markers for organizing tests
+filterwarnings = [
+    "error::DeprecationWarning",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
