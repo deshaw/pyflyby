@@ -3913,7 +3913,6 @@ def test_debug_postmortem_tab_completion_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3946,7 +3945,6 @@ def test_debug_namespace_1_py3(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
