@@ -500,15 +500,38 @@ def action_changedexit1(m):
 
 def action_external_command(command):
     import subprocess
+    import shlex
+    
     def action(m):
         bindir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        env = os.environ
+        env = os.environ.copy()
         env['PATH'] = env['PATH'] + ":" + bindir
-        fullcmd = "%s %s %s" % (
-            command, m.input_content_filename, m.output_content_filename)
-        logger.debug("Executing external command: %s", fullcmd)
-        ret = subprocess.call(fullcmd, shell=True, env=env)
-        logger.debug("External command returned %d", ret)
+        
+        # Split command into executable and arguments
+        # Use shlex.split to properly handle quoted arguments
+        try:
+            cmd_parts = shlex.split(command)
+        except ValueError as e:
+            logger.error("Invalid command: %s", e)
+            return
+        
+        # Build the full command list
+        full_cmd = cmd_parts + [
+            str(m.input_content_filename),
+            str(m.output_content_filename)
+        ]
+        
+        logger.debug("Executing external command: %s", full_cmd)
+        
+        # Execute without shell=True to prevent command injection
+        try:
+            ret = subprocess.call(full_cmd, shell=False, env=env)
+            logger.debug("External command returned %d", ret)
+        except FileNotFoundError:
+            logger.error("Command not found: %s", cmd_parts[0])
+        except Exception as e:
+            logger.error("Failed to execute command: %s", e)
+    
     return action
 
 
