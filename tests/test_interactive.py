@@ -51,6 +51,29 @@ else:
     retry = flaky.flaky(max_runs=5 if DEFAULT_TIMEOUT < 0 else 1)
 
 
+# Default timeout for _wait_for_output when not explicitly specified
+_WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = 0.5
+
+
+@contextmanager
+def wait_for_output_timeout(timeout):
+    """
+    Context manager to control the default timeout for _wait_for_output.
+
+    Usage:
+        with wait_for_output_timeout(0.5):
+            # All _wait_for_output calls with timeout=None will use 0.5s
+            result = _interact_ipython(child, input)
+    """
+    global _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT
+    old_timeout = _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT
+    _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = timeout
+    try:
+        yield
+    finally:
+        _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = old_timeout
+
+
 def _get_Failed_class():
     import _pytest
     try:
@@ -923,7 +946,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 if is_prompt_toolkit:
                     # When using prompt_toolkit (default for IPython 5+), we
                     # need to wait for output.
-                    _wait_for_output(child, timeout=0.5)
+                    _wait_for_output(child)
                 else:
                     # When using readline (only option for IPython 4 and
                     # earlier), we can use the nonce trick.
@@ -1186,15 +1209,20 @@ def IPythonNotebookCtx(**kwargs):
             cleanup()
 
 
-def _wait_for_output(child, timeout):
+def _wait_for_output(child, timeout=None):
     """
     Wait up to ``timeout`` seconds for output.
+
+    If timeout is None, uses _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT (controllable
+    via the wait_for_output_timeout context manager).
     """
+    if timeout is None:
+        timeout = _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT
     # In IPython 5, we cannot send any output before IPython responds to the
     # tab, else it won't respond to the tab.  The purpose of this function is
     # to wait for IPython to respond to a tab.
     if DEBUG:
-        print("_wait_for_output()")
+        print("_wait_for_output(timeout=%s)" % timeout)
     got_data_already = False
     # Read ``BLOCKSIZE`` bytes at a time.  Note that currently our ansi filter
     # won't work across block boundaries, so currently this blocksize needs to
@@ -2627,34 +2655,35 @@ def test_error_during_auto_import_expression_1(tmp):
 @retry
 def test_error_during_completion_1(frontend, tmp):
     writetext(tmp.file, "3+")
-    ipython(
-        """
-        In [1]: import pyflyby
-        In [2]: pyflyby.enable_auto_importer()
-        In [3]: 100
-        Out[3]: 100
-        In [4]: unknown_symbol_14954304_\t
-        [PYFLYBY] SyntaxError: While parsing ...: invalid syntax (..., line 1)
-        [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
-        [PYFLYBY] Disabling pyflyby auto importer.
-        In [4]: unknown_symbol_14954304_\x06foo
-        ---------------------------------------------------------------------------
-        NameError                                 Traceback (most recent call last)
-        ... in ...
-        NameError: name 'unknown_symbol_14954304_foo' is not defined
-        In [5]: 200
-        Out[5]: 200
-        In [6]: unknown_symbol_69697066_\t\x06foo
-        ---------------------------------------------------------------------------
-        NameError                                 Traceback (most recent call last)
-        ... in ...
-        NameError: name 'unknown_symbol_69697066_foo' is not defined
-        In [7]: 300
-        Out[7]: 300
-    """,
-        PYFLYBY_PATH=tmp.file,
-        frontend=frontend,
-    )
+    with wait_for_output_timeout(1.0):
+        ipython(
+            """
+            In [1]: import pyflyby
+            In [2]: pyflyby.enable_auto_importer()
+            In [3]: 100
+            Out[3]: 100
+            In [4]: unknown_symbol_14954304_\t
+            [PYFLYBY] SyntaxError: While parsing ...: invalid syntax (..., line 1)
+            [PYFLYBY] Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.
+            [PYFLYBY] Disabling pyflyby auto importer.
+            In [4]: unknown_symbol_14954304_\x06foo
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            ... in ...
+            NameError: name 'unknown_symbol_14954304_foo' is not defined
+            In [5]: 200
+            Out[5]: 200
+            In [6]: unknown_symbol_69697066_\t\x06foo
+            ---------------------------------------------------------------------------
+            NameError                                 Traceback (most recent call last)
+            ... in ...
+            NameError: name 'unknown_symbol_69697066_foo' is not defined
+            In [7]: 300
+            Out[7]: 300
+        """,
+            PYFLYBY_PATH=tmp.file,
+            frontend=frontend,
+        )
 
 
 @retry
