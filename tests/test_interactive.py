@@ -4070,13 +4070,15 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 )
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
-    if sys.version_info[:3] == (3, 14, 0):
+    if sys.version_info[:3] >= (3, 14, 0):
         ipython(
             """
             In [1]: # 3.14.0
-            In [2]: breakpoint()
+            In [2]: import sys; sys.version_info
+            Out[2]: ...
+            In [3]: breakpoint()
             ...
-            > <ipython-input>(1)<module>()
+            ... <ipython-input>(1)<module>()
             ipdb> c
         """,
             frontend="prompt_toolkit",
@@ -4097,7 +4099,7 @@ def test_breakpoint_IOStream_broken():
         # at `IPython.core.displayhook.DisplayHook.__call__`.
         ipython(
             '''
-            In [1]: # <3.12, or >= 3.14.1
+            In [1]: # <3.12
             In [2]: breakpoint()
             --Call--
             > ...

@@ -68,7 +68,7 @@ jobs:
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
-        uv run python -m pytest -v --cov=pyflyby --cov-report=xml\
+        uv run python -m pytest --cov=pyflyby --cov-report=xml\
                --doctest-modules\
                --maxfail=3\
                --json-report\
