@@ -4068,6 +4068,10 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
     _IPYTHON_VERSION < (7, 0),
     reason="old IPython and Python won't work with breakpoint()",
 )
+@pytest.mark.skipif(
+    sys.version_info[:3] in [(3, 14, 1), (3, 14, 2)],
+    reason="linux + >=3.14.1 show some extra stacks.",
+)
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
     if sys.version_info[:3] >= (3, 14, 0):
@@ -4078,7 +4082,7 @@ def test_breakpoint_IOStream_broken():
             Out[2]: ...
             In [3]: breakpoint()
             ...
-            ... <ipython-input>(1)<module>()
+            > <ipython-input>(1)<module>()
             ipdb> c
         """,
             frontend="prompt_toolkit",
