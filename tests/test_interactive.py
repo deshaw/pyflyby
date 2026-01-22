@@ -819,6 +819,7 @@ def IPythonCtx(prog="ipython",
     try:
         # Prepare environment variables.
         env = {}
+        env["PYTHONUNBUFFERED"] = "1"
         env["PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS"] = "1"
         env["PYFLYBY_PATH"]      = PYFLYBY_PATH
         env["PYFLYBY_LOG_LEVEL"] = PYFLYBY_LOG_LEVEL
