@@ -1248,3 +1248,53 @@ def test_fumi(text):
     else:
         assert '#' not in fixed
         assert 'test_comment' not in fixed
+
+
+def test_fix_unused_and_missing_imports_local_semicolon_chained_1():
+    """Test that semicolon-chained imports inside functions don't crash."""
+    input = PythonBlock(
+        dedent(
+            """
+        def f():
+            import os as x; del x
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(
+        dedent(
+            """
+        def f():
+            import os as x
+            del x
+    """
+        ).lstrip()
+    )
+    assert output == expected
+
+
+def test_reformat_import_statements_local_semicolon_chained_1():
+    """Test that reformat_import_statements handles local semicolon-chained imports.
+
+    This is a regression test for issue #655.
+    """
+    input = PythonBlock(
+        dedent(
+            """
+        def f():
+            import os as x; del x
+    """
+        ).lstrip()
+    )
+    output = reformat_import_statements(input)
+    expected = PythonBlock(
+        dedent(
+            """
+        def f():
+            import os as x
+            del x
+    """
+        ).lstrip()
+    )
+    assert output == expected
