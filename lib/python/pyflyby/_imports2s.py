@@ -154,12 +154,14 @@ class _LocalImportBlockWrapper:
     end_lineno: int
     _original_imports: set[Import]
     _id: str
+    _semicolon_suffixes: dict[int, str]
 
     def __init__(
         self,
         transform: SourceToSourceImportBlockTransformation,
         start_lineno: int,
         end_lineno: Optional[int] = None,
+        semicolon_suffixes: Optional[dict[int, str]] = None,
     ) -> None:
         self.transform = transform
         self.start_lineno = start_lineno
@@ -167,6 +169,7 @@ class _LocalImportBlockWrapper:
         # Store the original imports so we can detect what was removed
         self._original_imports = set(transform.importset.imports)
         self._id = hex(id(self))
+        self._semicolon_suffixes = semicolon_suffixes or {}
 
     def __getattr__(self, name: str) -> object:
         # Delegate all other attribute access to the wrapped transform
@@ -246,10 +249,27 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         end_line : int
             Ending line number of the group
         """
-        import_lines = lines[start_line - 1 : end_line]
+        import_text_parts = []
+        semicolon_suffixes = {}
 
-        if import_lines and any(line.strip() for line in import_lines):
-            import_text = "\n".join(import_lines)
+        for node in group:
+            lineno = node.lineno
+            line = lines[lineno - 1]
+
+            if hasattr(node, "col_offset") and hasattr(node, "end_col_offset"):
+                import_stmt = line[node.col_offset : node.end_col_offset]
+                remaining = line[node.end_col_offset :].lstrip()
+                if remaining and remaining.startswith(";"):
+                    suffix = remaining[1:].lstrip()
+                    if suffix:
+                        semicolon_suffixes[lineno] = suffix
+            else:
+                import_stmt = line
+
+            import_text_parts.append(import_stmt)
+
+        if import_text_parts and any(part.strip() for part in import_text_parts):
+            import_text = "\n".join(import_text_parts)
             try:
                 import_block = PythonBlock(import_text)
                 trans = SourceToSourceImportBlockTransformation(import_block)
@@ -261,7 +281,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                     e,
                 )
             else:
-                wrapped = _LocalImportBlockWrapper(trans, start_line, end_line)
+                wrapped = _LocalImportBlockWrapper(
+                    trans, start_line, end_line, semicolon_suffixes=semicolon_suffixes
+                )
                 self.import_blocks.append(wrapped)
 
     def _extract_local_import_blocks(self) -> None:
@@ -318,8 +340,77 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         output = FileText.concatenate(result)
 
         # Handle removal of local imports from function/class bodies
-        return self._remove_local_imports_from_output(output)
+        output = self._remove_local_imports_from_output(output)
 
+        output = self._split_semicolon_chained_imports(output)
+
+        return output
+
+    def _split_semicolon_chained_imports(self, output: FileText) -> FileText:
+        """
+        Split semicolon-chained import statements into separate lines.
+
+        For local import blocks that have semicolon_suffixes (code after
+        semicolons), replace those lines with the import on one line and the
+        remaining code on the next.
+        """
+        if not self.import_blocks:
+            return output
+
+        output_lines = str(output).split("\n")
+        input_lines = str(self.input.text).split("\n")
+
+        lines_to_split = {}
+
+        for block in self.import_blocks:
+            if not isinstance(block, _LocalImportBlockWrapper):
+                continue
+
+            if not block._semicolon_suffixes:
+                continue
+
+            for lineno, suffix in block._semicolon_suffixes.items():
+                lines_to_split[lineno] = suffix
+
+        if not lines_to_split:
+            return output
+
+        logger.debug(
+            "Splitting semicolon-chained imports on lines: %s",
+            sorted(lines_to_split.keys()),
+        )
+
+        new_output_lines = []
+        for i, line in enumerate(output_lines):
+            matched_lineno = None
+            line_stripped = line.strip()
+
+            for lineno, suffix in lines_to_split.items():
+                if lineno <= len(input_lines):
+                    original_line = input_lines[lineno - 1].strip()
+                    if line_stripped == original_line or (
+                        line_stripped
+                        and original_line.startswith(line_stripped.split(";")[0])
+                    ):
+                        matched_lineno = lineno
+                        break
+
+            if matched_lineno:
+                indent_match = re.match(r"^(\s*)", line)
+                indent = indent_match.group(1) if indent_match else ""
+
+                if ";" in line:
+                    parts = line.split(";", 1)
+                    import_part = parts[0].rstrip()
+                    new_output_lines.append(import_part)
+                    new_output_lines.append(indent + lines_to_split[matched_lineno])
+                else:
+                    new_output_lines.append(line)
+                    new_output_lines.append(indent + lines_to_split[matched_lineno])
+            else:
+                new_output_lines.append(line)
+
+        return FileText("\n".join(new_output_lines))
 
     def _remove_local_imports_from_output(self, output: FileText) -> FileText:
         """
@@ -683,8 +774,13 @@ def reformat_import_statements(codeblock, params=None):
       `PythonBlock`
     """
     params = ImportFormatParams(params)
-    transformer = SourceToSourceFileImportsTransformation(codeblock)
-    return transformer.output(params=params)
+    original_tidy_local = SourceToSourceFileImportsTransformation.tidy_local_imports
+    try:
+        SourceToSourceFileImportsTransformation.tidy_local_imports = False
+        transformer = SourceToSourceFileImportsTransformation(codeblock)
+        return transformer.output(params=params)
+    finally:
+        SourceToSourceFileImportsTransformation.tidy_local_imports = original_tidy_local
 
 
 def ImportPathForRelativeImportsCtx(codeblock):
