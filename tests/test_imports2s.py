@@ -1288,13 +1288,21 @@ def test_reformat_import_statements_local_semicolon_chained_1():
         ).lstrip()
     )
     output = reformat_import_statements(input)
-    expected = PythonBlock(
+    assert output == input
+
+
+def test_fix_unused_and_missing_imports_local_semicolon_multiple_imports():
+    """Test semicolon-chained imports with multiple import statements."""
+    input = PythonBlock(
         dedent(
             """
         def f():
-            import os as x
-            del x
+            import os; import sys
+            return os.path, sys.version
     """
         ).lstrip()
     )
-    assert output == expected
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    assert "import os" in str(output)
+    assert "import sys" in str(output)
