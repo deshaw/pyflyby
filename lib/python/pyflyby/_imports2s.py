@@ -357,7 +357,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         if not self.import_blocks:
             return output
 
-        output_lines = str(output).split("\n")
         input_lines = str(self.input.text).split("\n")
 
         lines_to_split = {}
@@ -381,7 +380,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         )
 
         new_output_lines = []
-        for i, line in enumerate(output_lines):
+        for i, line in enumerate(output.lines):
             matched_lineno = None
             line_stripped = line.strip()
 
