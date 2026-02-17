@@ -4111,7 +4111,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
     reason="old IPython and Python won't work with breakpoint()",
 )
 @pytest.mark.skipif(
-    sys.version_info[:3] in [(3, 14, 1), (3, 14, 2)],
+    sys.version_info[:3] in [(3, 14, 1), (3, 14, 2), (3, 14, 3)],
     reason="linux + >=3.14.1 show some extra stacks.",
 )
 def test_breakpoint_IOStream_broken():
