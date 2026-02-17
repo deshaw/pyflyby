@@ -402,10 +402,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                     parts = line.split(";", 1)
                     import_part = parts[0].rstrip()
                     new_output_lines.append(import_part)
-                    new_output_lines.append(indent + lines_to_split[matched_lineno])
                 else:
                     new_output_lines.append(line)
-                    new_output_lines.append(indent + lines_to_split[matched_lineno])
+                new_output_lines.append(indent + lines_to_split[matched_lineno])
             else:
                 new_output_lines.append(line)
 
