@@ -364,11 +364,9 @@ class FileText:
         Return a new ``FileText`` instance.
 
         :type arg:
-          ``FileText``, ``Filename``, ``str``, or tuple of ``str``
+          ``FileText``, ``Filename``, ``str``
         :param arg:
-          If a sequence of lines, then each should end with a newline and have
-          no other newlines.  Otherwise, something that can be interpreted or
-          converted into a sequence of lines.
+          Something that can be interpreted or converted into a sequence of lines.
         :type filename:
           `Filename`
         :param filename:
