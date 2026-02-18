@@ -254,11 +254,14 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         for node in group:
             lineno = node.lineno
-            line = lines[lineno - 1]
+            line: str = lines[lineno - 1]
 
             if hasattr(node, "col_offset") and hasattr(node, "end_col_offset"):
-                import_stmt = line[node.col_offset : node.end_col_offset]
-                remaining = line[node.end_col_offset :].lstrip()
+                # WARNING offsets seem to be in number of bytes!
+                import_stmt = line.encode()[
+                    node.col_offset : node.end_col_offset
+                ].decode()
+                remaining = line.encode()[node.end_col_offset :].decode().lstrip()
                 if remaining and remaining.startswith(";"):
                     suffix = remaining[1:].lstrip()
                     if suffix:
