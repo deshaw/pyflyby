@@ -1348,9 +1348,6 @@ class PythonBlock:
     def __str__(self):
         return str(self.text)
 
-    def __text__(self):
-        return self.text
-
     def __eq__(self, other):
         if self is other:
             return True

@@ -388,12 +388,14 @@ class FileText:
             return arg.alter(filename=filename, startpos=startpos)
         elif isinstance(arg, Filename):
             return cls(read_file(arg), filename=filename, startpos=startpos)
-        elif hasattr(arg, "__text__"):
-            return FileText(arg.__text__(), filename=filename, startpos=startpos)
         elif isinstance(arg, str):
             self = object.__new__(cls)
             self._lines = tuple(arg.split('\n'))
         else:
+            from pyflyby._modules import ModuleHandle
+            from pyflyby._parse import PythonBlock
+            if isinstance(arg, (ModuleHandle, PythonBlock)):
+                return FileText(arg.text, filename=filename, startpos=startpos)
             raise TypeError("%s: unexpected %s"
                             % (cls.__name__, type(arg).__name__))
 
