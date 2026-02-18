@@ -342,6 +342,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         # Handle removal of local imports from function/class bodies
         output = self._remove_local_imports_from_output(output)
 
+        # Handle semicolons in import statements
         output = self._split_semicolon_chained_imports(output)
 
         return output
