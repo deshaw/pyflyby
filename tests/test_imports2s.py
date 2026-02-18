@@ -1306,3 +1306,62 @@ def test_fix_unused_and_missing_imports_local_semicolon_multiple_imports():
     output = fix_unused_and_missing_imports(input, db=db)
     assert "import os" in str(output)
     assert "import sys" in str(output)
+
+
+def test_fix_unused_and_missing_imports_local_semicolon_multibyte_chars():
+    """Test that semicolon-chained imports work when multi-byte characters
+    precede the import on the same line.
+
+    col_offset and end_col_offset are byte indices, not character indices.
+    If the extraction code used string slicing instead of byte slicing,
+    multi-byte characters (2-byte é, 3-byte CJK, 4-byte emoji) would shift
+    the offset and corrupt the extracted import statement.
+    """
+    input = PythonBlock(
+        dedent(
+            """
+        def f():
+            x = "café"; import os
+            return os.path.join(x)
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    assert "import os" in str(output)
+
+
+def test_fix_unused_and_missing_imports_local_semicolon_multibyte_cjk():
+    """Test semicolon-chained imports with CJK characters (3 bytes each)."""
+    input = PythonBlock(
+        dedent(
+            """
+        def f():
+            x = "日本語"; import sys
+            return sys.version + x
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    assert "import sys" in str(output)
+
+
+def test_fix_unused_and_missing_imports_local_semicolon_multibyte_emoji():
+    """Test semicolon-chained imports with emoji (4 bytes each).
+
+    This is the most extreme case: each emoji adds 3 extra bytes over its
+    single character, so string indexing would miss the entire 'import' keyword.
+    """
+    input = PythonBlock(
+        dedent(
+            """
+        def f():
+            x = "🎉🎊"; import json
+            return json.dumps(x)
+    """
+        ).lstrip()
+    )
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db)
+    assert "import json" in str(output)
