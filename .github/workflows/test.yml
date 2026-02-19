@@ -117,18 +117,6 @@ jobs:
 
       - name: Run tidy-imports on all CPython .py files
         run: |
-          failed=()
-          while IFS= read -r -d '' f; do
-            exit_code=0
-            uv run tidy-imports "$f" > /dev/null 2>&1 || exit_code=$?
-            # 0 = no change, 1 = would modify — both are fine; anything else is a crash
-            if [ "$exit_code" -gt 1 ]; then
-              echo "CRASH (exit $exit_code): $f"
-              failed+=("$f")
-            fi
-          done < <(find /tmp/cpython -name '*.py' -print0)
-
-          if [ ${#failed[@]} -gt 0 ]; then
-            echo "tidy-imports crashed on ${#failed[@]} file(s)." >&2
-            exit 1
-          fi
+          find /tmp/cpython -name '*.py' -print0 | while IFS= read -r -d '' f; do
+            uv run tidy-imports "$f" >/dev/null
+          done
