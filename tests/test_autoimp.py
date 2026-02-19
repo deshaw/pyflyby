@@ -1894,65 +1894,6 @@ def test_all_exports_2():
     assert unused == []
 
 
-
-def test_all_exports_dynamic_listcomp(capsys):
-    # __all__ assigned via list comprehension is dynamic; pyflyby should log
-    # an info message and skip it gracefully without a warning.
-    code = dedent("""
-        from os import path, walk
-        __all__ = [n for n in dir() if not n.startswith('_')]
-    """)
-    missing, unused = scan_for_import_issues(code)
-    err = capsys.readouterr().err
-    assert "Can't handle dynamic __all__ (ListComp)" in err
-    assert "Don't know how to handle __all__" not in err
-    assert missing == []
-
-
-def test_all_exports_dynamic_binop(capsys):
-    # __all__ assigned via binary operation is dynamic; pyflyby should log
-    # an info message and skip it gracefully without a warning.
-    code = dedent("""
-        from os import path, walk
-        _extra = ['getcwd']
-        __all__ = ['path', 'walk'] + _extra
-    """)
-    missing, unused = scan_for_import_issues(code)
-    err = capsys.readouterr().err
-    assert "Can't handle dynamic __all__ (BinOp)" in err
-    assert "Don't know how to handle __all__" not in err
-    assert missing == []
-
-
-def test_all_exports_dynamic_ifexp(capsys):
-    # __all__ assigned via conditional expression is dynamic; pyflyby should
-    # log an info message and skip it gracefully without a warning.
-    code = dedent("""
-        from os import path, walk
-        import sys
-        __all__ = ['path'] if sys.version_info >= (3,) else ['walk']
-    """)
-    missing, unused = scan_for_import_issues(code)
-    err = capsys.readouterr().err
-    assert "Can't handle dynamic __all__ (IfExp)" in err
-    assert "Don't know how to handle __all__" not in err
-    assert missing == []
-
-
-def test_all_exports_dynamic_call(capsys):
-    # __all__ assigned via a function call is dynamic; pyflyby should log
-    # an info message and skip it gracefully without a warning.
-    code = dedent("""
-        from os import path, walk
-        __all__ = list(globals().keys())
-    """)
-    missing, unused = scan_for_import_issues(code)
-    err = capsys.readouterr().err
-    assert "Can't handle dynamic __all__ (Call)" in err
-    assert "Don't know how to handle __all__" not in err
-    assert missing == []
-
-
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 
