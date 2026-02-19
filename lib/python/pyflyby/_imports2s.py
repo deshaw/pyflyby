@@ -29,6 +29,19 @@ _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
 
+def _has_ignore_import_pragma(lines: list, lineno: int) -> bool:
+    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma."""
+    idx = lineno - 1
+    if 0 <= idx < len(lines):
+        line = lines[idx]
+        comment_start = line.find("#")
+        if comment_start >= 0:
+            comment = line[comment_start:]
+            if "tidy-imports:" in comment and "ignore-import" in comment:
+                return True
+    return False
+
+
 def _group_consecutive_imports(
     body: list[ast.stmt],
 ) -> list[list[Union[ast.Import, ast.ImportFrom]]]:
@@ -244,7 +257,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
     _removed_lines_per_block: defaultdict[int, int]
     _original_block_startpos: dict[int, int]
-    tidy_local_imports: bool = True
+    tidy_local_imports: bool = False
 
     def preprocess(self) -> None:
         # Group into blocks of imports and non-imports.  Get a sequence of all
@@ -392,9 +405,19 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         lines = full_text.split("\n")
 
         for group in import_groups:
-            start_line = group[0].lineno
+            # Filter out imports that have the ignore pragma
+            filtered_group = [
+                node
+                for node in group
+                if not _has_ignore_import_pragma(lines, node.lineno)
+            ]
+            if not filtered_group:
+                continue
+            start_line = filtered_group[0].lineno
             end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
-            self._create_import_block_from_group(group, lines, start_line, end_line)
+            self._create_import_block_from_group(
+                filtered_group, lines, start_line, end_line
+            )
 
         # Recursively check nested function/class definitions
         for body_item in body:
@@ -875,12 +898,18 @@ def fix_unused_and_missing_imports(
     add_mandatory: bool = True,
     db: Optional[ImportDB] = None,
     params=None,
-    tidy_local_imports: bool = True,
+    tidy_local_imports: bool = False,
 ) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
 
     Also formats imports.
+
+    By default only top-level imports are tidied.  Set ``tidy_local_imports=True``
+    to also remove unused imports inside function and class bodies.
+
+    Individual imports can be excluded from removal by adding
+    ``# tidy-imports: ignore-import`` as a trailing comment.
 
     In the example below, ``m1`` and ``m3`` are unused, so are automatically
     removed.  ``np`` was undefined, so an ``import numpy as np`` was
@@ -900,6 +929,9 @@ def fix_unused_and_missing_imports(
 
     :type codeblock:
       `PythonBlock` or convertible (``str``)
+    :param tidy_local_imports:
+      If ``True``, also tidy imports within function and class bodies.
+      Defaults to ``False``.
     :rtype:
       `PythonBlock`
     """

@@ -169,6 +169,40 @@ For example:
 
 To exclude a file, use `--exclude <pattern>`.
 
+Local imports
+-------------
+
+By default, ``tidy-imports`` only touches top-level import statements.
+To also tidy imports inside function and class bodies (removing unused local
+imports), use the ``--tidy-local-imports`` flag:
+
+.. code:: bash
+
+   $ tidy-imports --tidy-local-imports foo.py
+
+You can make this the default for a project via ``pyproject.toml`` (see
+`Per-Project configuration of tidy-imports`_).
+
+Ignoring specific imports
+-------------------------
+
+To keep a particular import that would otherwise be removed as unused, add
+the ``# tidy-imports: ignore-import`` comment pragma to that line:
+
+.. code:: python
+
+   import os  # tidy-imports: ignore-import
+
+This works for both top-level and local imports, and for ``from`` style imports:
+
+.. code:: python
+
+   from mypackage import _setup_hooks  # tidy-imports: ignore-import
+
+   def foo():
+       import pdb  # tidy-imports: ignore-import
+       ...
+
 Quick start: import libraries
 =============================
 
@@ -446,6 +480,7 @@ can assign a boolean to ``xxx``. For example::
     add_missing=true
     from_spaces=7
     remove_unused=false
+    tidy_local_imports=true
 
 To exclude files from ``tidy-imports``, add an exclusion pattern to
 ``tool.pyflyby.tidy-imports.exclude``:

@@ -176,7 +176,9 @@ def _clean_code(code: str) -> str:
     return '\n'.join(cleaned)
 
 
-def _apply_fix_unused_and_missing_imports(code: str) -> str:
+def _apply_fix_unused_and_missing_imports(
+    code: str, tidy_local_imports: bool = True
+) -> str:
     """Apply fix_unused_and_missing_imports to code and return result as string.
 
     The input code can use --::removed::-- markers at the end of lines to document
@@ -185,7 +187,9 @@ def _apply_fix_unused_and_missing_imports(code: str) -> str:
     cleaned_code = _clean_code(code)
     input_block = PythonBlock(dedent(cleaned_code).lstrip())
     db = ImportDB("")
-    output = fix_unused_and_missing_imports(input_block, db=db)
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, tidy_local_imports=tidy_local_imports
+    )
     return str(output)
 
 
@@ -282,64 +286,127 @@ def test_line_contains_import(line, import_str, expected):
 
 
 @pytest.mark.parametrize(
-    ("input_str", "expected_str"),
+    ("code", "tidy_local", "expect_present", "expect_absent"),
     [
         pytest.param(
             """\
-def module_code():
-    import i_do_not_exist
-x = 1
+def foo():
+    import os
+    import sys
+    return os.getenv('FOO')
 """,
-            """\
-def module_code():
-    pass
-x = 1
-""",
-            id="sole_import_in_function_body_replaced_with_pass",
-        ),
-        pytest.param(
-            """\
-class Foo:
-    import unused
-x = 1
-""",
-            """\
-class Foo:
-    pass
-x = 1
-""",
-            id="sole_import_in_class_body_replaced_with_pass",
-        ),
-        pytest.param(
-            """\
-def outer():
-    def inner():
-        import unused
-    return inner()
-""",
-            """\
-def outer():
-    def inner():
-        pass
-    return inner()
-""",
-            id="sole_import_in_nested_function_replaced_with_pass",
+            False,
+            ["import sys", "import os"],
+            [],
+            id="default_keeps_unused_local",
         ),
         pytest.param(
             """\
 def foo():
-    import unused
-    return 42
+    import os
+    import sys
+    return os.getenv('FOO')
 """,
-            """\
-def foo():
-    return 42
-""",
-            id="non_sole_import_removed_without_pass",
+            True,
+            ["import os"],
+            ["import sys"],
+            id="opt_in_removes_unused_local",
         ),
     ],
 )
-def test_fix_unused_sole_import_inserts_pass(input_str: str, expected_str: str) -> None:
-    """Removing the sole import from a block body inserts ``pass`` to keep syntax valid."""
-    output = _apply_fix_unused_and_missing_imports(input_str)
-    assert output == expected_str
+def test_tidy_local_imports_flag(
+    subtests, code, tidy_local, expect_present, expect_absent
+):
+    """Test that tidy_local_imports default (False) keeps local imports untouched,
+    and opt-in (True) removes unused ones."""
+    input_block = PythonBlock(dedent(code).lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, tidy_local_imports=tidy_local
+    )
+    result = str(output)
+    for s in expect_present:
+        with subtests.test(msg="present", i=s):
+            assert s in result, f"expected {s!r} to be present"
+    for s in expect_absent:
+        with subtests.test(msg="absent", i=s):
+            assert s not in result, f"expected {s!r} to be absent"
+
+
+@pytest.mark.parametrize(
+    ("code", "tidy_local", "expect_present", "expect_absent"),
+    [
+        pytest.param(
+            """\
+import os  # tidy-imports: ignore-import
+import sys
+print(sys.version)
+""",
+            False,
+            ["import os", "import sys"],
+            [],
+            id="top_level_pragma_keeps_unused",
+        ),
+        pytest.param(
+            """\
+def foo():
+    import os  # tidy-imports: ignore-import
+    import sys
+    return sys.version
+""",
+            True,
+            ["import os", "import sys"],
+            [],
+            id="local_pragma_keeps_unused",
+        ),
+        pytest.param(
+            """\
+import os  # tidy-imports: ignore-import
+import json
+print(os.getcwd())
+""",
+            False,
+            ["import os"],
+            ["import json"],
+            id="pragma_only_protects_annotated_line",
+        ),
+        pytest.param(
+            """\
+from os import path  # tidy-imports: ignore-import
+x = 1
+""",
+            False,
+            ["from os import path"],
+            [],
+            id="pragma_from_import",
+        ),
+        pytest.param(
+            """\
+class MyClass:
+    def method(self):
+        import os  # tidy-imports: ignore-import
+        return 42
+""",
+            True,
+            ["import os"],
+            [],
+            id="pragma_local_class_method",
+        ),
+    ],
+)
+def test_ignore_import_pragma(
+    subtests, code, tidy_local, expect_present, expect_absent
+):
+    """Test that '# tidy-imports: ignore-import' prevents removal."""
+    input_block = PythonBlock(dedent(code).lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, tidy_local_imports=tidy_local
+    )
+    result = str(output)
+    for s in expect_present:
+        with subtests.test(msg="present", i=s):
+            assert s in result, f"expected {s!r} to be present"
+    for s in expect_absent:
+        with subtests.test(msg="absent", i=s):
+            assert s not in result, f"expected {s!r} to be absent"

@@ -1261,7 +1261,7 @@ def test_fix_unused_and_missing_imports_local_semicolon_chained_1():
         ).lstrip()
     )
     db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
+    output = fix_unused_and_missing_imports(input, db=db, tidy_local_imports=True)
     expected = PythonBlock(
         dedent(
             """
@@ -1303,7 +1303,7 @@ def test_fix_unused_and_missing_imports_local_semicolon_multiple_imports():
         ).lstrip()
     )
     db = ImportDB("")
-    output = fix_unused_and_missing_imports(input, db=db)
+    output = fix_unused_and_missing_imports(input, db=db, tidy_local_imports=True)
     assert "import os" in str(output)
     assert "import sys" in str(output)
 
