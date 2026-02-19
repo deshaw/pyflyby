@@ -85,6 +85,25 @@ def foo():
 """,
             id="remove_shadowed_global",
         ),
+        pytest.param(
+            """\
+def foo():
+    from os.path import (
+        join,
+        exists,
+    )
+    return join('a', 'b'), exists('/tmp')
+""",
+            """\
+def foo():
+    from os.path import (
+        join,
+        exists,
+    )
+    return join('a', 'b'), exists('/tmp')
+""",
+            id="multiline_local_import_all_used_no_crash",
+        ),
     ],
 )
 def test_fix_unused_imports_local_scopes(input_str, expected_str):

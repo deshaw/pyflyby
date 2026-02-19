@@ -12,7 +12,8 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importclns      import ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
-                                        ImportStatement)
+                                        ImportStatement,
+                                        NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
@@ -28,7 +29,9 @@ _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
 
-def _group_consecutive_imports(body: list) -> list[list]:
+def _group_consecutive_imports(
+    body: list[ast.stmt],
+) -> list[list[Union[ast.Import, ast.ImportFrom]]]:
     """Group consecutive import statements from an AST body.
 
     Parameters
@@ -273,7 +276,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         logger.debug("preprocess: extracted %d total import blocks", len(self.import_blocks))
 
     def _create_import_block_from_group(
-        self, group: list, lines: list, start_line: int, end_line: int
+        self,
+        group: list[Union[ast.Import, ast.ImportFrom]],
+        lines: list[str],
+        start_line: int,
+        end_line: int,
     ) -> None:
         """Create an import block from a group of import statements.
 
@@ -282,34 +289,49 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         Parameters
         ----------
-        group : list
-            List of consecutive import AST nodes
-        lines : list
-            Lines of the full source text
+        group : list[ast.Import | ast.ImportFrom]
+            Consecutive import AST nodes to extract.
+        lines : list[str]
+            All source lines of the file (1-indexed via ``lines[lineno - 1]``).
         start_line : int
-            Starting line number of the group
+            First line number of the group (1-indexed).
         end_line : int
-            Ending line number of the group
+            Last line number of the group, accounting for multiline imports.
         """
         import_text_parts = []
         semicolon_suffixes = {}
 
         for node in group:
             lineno = node.lineno
-            line: str = lines[lineno - 1]
+            end_lineno = getattr(node, "end_lineno", lineno)
 
             if hasattr(node, "col_offset") and hasattr(node, "end_col_offset"):
-                # WARNING offsets seem to be in number of bytes!
-                import_stmt = line.encode()[
-                    node.col_offset : node.end_col_offset
-                ].decode()
-                remaining = line.encode()[node.end_col_offset :].decode().lstrip()
-                if remaining and remaining.startswith(";"):
+                # WARNING: col_offset/end_col_offset are in bytes, not characters.
+                if end_lineno > lineno:
+                    # Multiline import (e.g. "from foo import (\n    a,\n    b\n)").
+                    # end_col_offset refers to the last line, not the first, so we
+                    # must collect all source lines and trim each end independently.
+                    first = lines[lineno - 1].encode()
+                    last = lines[end_lineno - 1].encode()
+                    node_lines = [first[node.col_offset :].decode()]
+                    for mid in range(lineno + 1, end_lineno):
+                        node_lines.append(lines[mid - 1])
+                    node_lines.append(last[: node.end_col_offset].decode())
+                    import_stmt = "\n".join(node_lines)
+                    remaining = last[node.end_col_offset :].decode().lstrip()
+                else:
+                    line: str = lines[lineno - 1]
+                    import_stmt = line.encode()[
+                        node.col_offset : node.end_col_offset
+                    ].decode()
+                    remaining = line.encode()[node.end_col_offset :].decode().lstrip()
+
+                if remaining.startswith(";"):
                     suffix = remaining[1:].lstrip()
                     if suffix:
                         semicolon_suffixes[lineno] = suffix
             else:
-                import_stmt = line
+                import_stmt = lines[lineno - 1]
 
             import_text_parts.append(import_stmt)
 
@@ -318,7 +340,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             try:
                 import_block = PythonBlock(import_text)
                 trans = SourceToSourceImportBlockTransformation(import_block)
-            except (SyntaxError, ValueError) as e:
+            except (SyntaxError, ValueError, NonImportStatementError) as e:
                 logger.debug(
                     "Failed to create import block for lines %d-%d: %s",
                     start_line,
@@ -371,7 +393,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         for group in import_groups:
             start_line = group[0].lineno
-            end_line = group[-1].lineno
+            end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
             self._create_import_block_from_group(group, lines, start_line, end_line)
 
         # Recursively check nested function/class definitions
