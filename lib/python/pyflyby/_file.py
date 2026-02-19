@@ -359,9 +359,9 @@ class FileText:
     startpos: FilePos
     _lines: Optional[Tuple[str, ...]] = None
 
-    def __new__(cls, arg, filename=None, startpos=None):
+    def __init__(self, arg: FileText | Filename | str, filename=None, startpos=None):
         """
-        Return a new ``FileText`` instance.
+        Initialize a ``FileText`` instance.
 
         :type arg:
           ``FileText``, ``Filename``, ``str``
@@ -377,33 +377,39 @@ class FileText:
         :param startpos:
           Starting file position (lineno & colno) of this ``FileText``, if not
           already given by ``arg``.
-        :rtype:
-          ``FileText``
         """
         if isinstance(filename, str):
             filename = Filename(filename)
-        if isinstance(arg, cls):
-            if filename is startpos is None:
-                return arg
-            return arg.alter(filename=filename, startpos=startpos)
+        if isinstance(arg, FileText):
+            # This is just a copy; one day make sure it never happens
+            # assert False
+            self._lines = arg._lines
+            self.filename = filename if filename is not None else arg.filename
+            self.startpos = FilePos(startpos) if startpos is not None else arg.startpos
         elif isinstance(arg, Filename):
-            return cls(read_file(arg), filename=filename, startpos=startpos)
+            ft = read_file(arg)
+            self._lines = ft._lines
+            self.filename = filename if filename is not None else ft.filename
+            self.startpos = FilePos(startpos) if startpos is not None else ft.startpos
         elif isinstance(arg, str):
-            self = object.__new__(cls)
-            self._lines = tuple(arg.split('\n'))
+            assert isinstance(filename, (Filename, NoneType))
+            self._lines = tuple(arg.split("\n"))
+            self.filename = filename
+            self.startpos = FilePos(startpos)
         else:
             from pyflyby._modules import ModuleHandle
             from pyflyby._parse import PythonBlock
             if isinstance(arg, (ModuleHandle, PythonBlock)):
-                return FileText(arg.text, filename=filename, startpos=startpos)
-            raise TypeError("%s: unexpected %s"
-                            % (cls.__name__, type(arg).__name__))
-
-        assert isinstance(filename, (Filename, NoneType))
-        startpos = FilePos(startpos)
-        self.filename = filename
-        self.startpos = startpos
-        return self
+                ft = arg.text
+                self._lines = ft._lines
+                self.filename = filename if filename is not None else ft.filename
+                self.startpos = (
+                    FilePos(startpos) if startpos is not None else ft.startpos
+                )
+            else:
+                raise TypeError(
+                    "%s: unexpected %s" % (type(self).__name__, type(arg).__name__)
+                )
 
     def get_comments(self) -> list[Optional[str]]:
         """Return the comment string for each line (if any).
@@ -465,24 +471,6 @@ class FileText:
     @classmethod
     def from_filename(cls, filename):
         return cls.from_lines(Filename(filename))
-
-    def alter(self, filename: Optional[Filename] = None, startpos=None):
-        if filename is not None:
-            assert isinstance(filename, Filename)
-        else:
-            filename = self.filename
-        if startpos is not None:
-            startpos = FilePos(startpos)
-        else:
-            startpos = self.startpos
-        if filename == self.filename and startpos == self.startpos:
-            return self
-        else:
-            result = object.__new__(type(self))
-            result._lines   = self._lines
-            result.filename = filename
-            result.startpos = startpos
-            return result
 
     @cached_property
     def endpos(self):
