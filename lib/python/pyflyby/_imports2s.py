@@ -194,6 +194,48 @@ class NoImportBlockError(Exception):
 class ImportAlreadyExistsError(Exception):
     pass
 
+
+def _maybe_insert_pass(
+    lines: list[str], idx: int, indent: int, lineno: int
+) -> None:
+    """Insert a ``pass`` statement at *idx* when removing a line would leave a
+    block-opener (a line ending with ``:``) without a body.
+
+    After a line has been deleted at position *idx*, this function walks
+    backwards to find the nearest non-empty preceding line.  If that line ends
+    with ``:`` (a compound-statement header such as ``def``, ``class``,
+    ``if``, etc.) and the next non-empty line after *idx* is at an equal or
+    lower indentation level, the block body is gone and a ``pass`` statement
+    is inserted at *idx* using *indent* spaces.
+
+    :param lines: Source lines of the block, already modified (the import line
+        has been deleted before this call).
+    :param idx: Index into *lines* where the deleted line used to be.
+    :param indent: Column offset (number of leading spaces) of the deleted line,
+        used to indent the inserted ``pass``.
+    :param lineno: Absolute line number in the file (used only for logging).
+    """
+    prev_idx = idx - 1
+    while prev_idx >= 0 and lines[prev_idx].strip() == "":
+        prev_idx -= 1
+    if prev_idx < 0:
+        return
+    prev_line = lines[prev_idx]
+    if not prev_line.rstrip().endswith(":"):
+        return
+    prev_indent = len(prev_line) - len(prev_line.lstrip())
+    next_idx = idx
+    while next_idx < len(lines) and lines[next_idx].strip() == "":
+        next_idx += 1
+    body_gone = (
+        next_idx >= len(lines)
+        or (len(lines[next_idx]) - len(lines[next_idx].lstrip())) <= prev_indent
+    )
+    if body_gone:
+        lines.insert(idx, " " * indent + "pass")
+        logger.debug("Inserted 'pass' at line %d to preserve empty block", lineno)
+
+
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
@@ -589,6 +631,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         return imp
 
     def _remove_local_import_from_blocks(self, imp, lineno):
+
         """
         Remove a local import from the actual code blocks.
         This modifies the _output of blocks in self.blocks to remove the import line.
@@ -627,8 +670,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                         offset,
                         line_to_remove.strip(),
                     )
-                    # Remove this line
+                    removed_indent = len(line_to_remove) - len(line_to_remove.lstrip())
                     del lines[relative_lineno]
+                    _maybe_insert_pass(lines, relative_lineno, removed_indent, lineno)
 
                     # Track that we removed a line from this block
                     self._removed_lines_per_block[block_idx] = offset + 1
