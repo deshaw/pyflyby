@@ -682,8 +682,14 @@ def read_file(filename: Filename) -> FileText:
     if filename == Filename.STDIN:
         data = sys.stdin.read()
     else:
-        with io.open(str(filename), 'r') as f:
-            data = f.read()
+        try:
+            with io.open(str(filename), 'r') as f:
+                data = f.read()
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError(
+                e.encoding, e.object, e.start, e.end,
+                f"{e.reason} (while reading {filename})"
+            ) from None
     return FileText(data, filename=filename)
 
 
