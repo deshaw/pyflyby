@@ -472,7 +472,7 @@ def action_nothing(m):
     try:
         # side effect
         m.output_content
-    except Exception as e:
+    except Exception:
         logger.error("Error with file %r", m.filename)
 
 
