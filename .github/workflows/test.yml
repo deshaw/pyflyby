@@ -92,3 +92,43 @@ jobs:
     - uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+
+  cpython-smoke:
+    name: tidy-imports smoke test on CPython
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install pyflyby
+        run: |
+          uv python install 3.14
+          uv venv
+          uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+          uv pip install --no-build-isolation -ve .
+
+      - name: Shallow-clone CPython
+        run: git clone --depth=1 --quiet https://github.com/python/cpython.git /tmp/cpython
+
+      - name: Run tidy-imports on all CPython .py files
+        run: |
+          failed=()
+          while IFS= read -r -d '' f; do
+            exit_code=0
+            uv run tidy-imports "$f" > /dev/null 2>&1 || exit_code=$?
+            # 0 = no change, 1 = would modify — both are fine; anything else is a crash
+            if [ "$exit_code" -gt 1 ]; then
+              echo "CRASH (exit $exit_code): $f"
+              failed+=("$f")
+            fi
+          done < <(find /tmp/cpython -name '*.py' -print0)
+
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "tidy-imports crashed on ${#failed[@]} file(s)." >&2
+            exit 1
+          fi
