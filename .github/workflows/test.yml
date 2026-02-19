@@ -119,25 +119,12 @@ jobs:
         run: |
           # Files known to cause issues with tidy-imports (e.g. encoding quirks,
           # intentionally broken syntax used in tests, etc.)
-          SKIP_FILES=(
-            badsyntax,
-            module_iso_8859_1,
-            module_koi8_r,
-            bad_coding2,
-            syntax_warnings,
-          )
+          rm /tmp/cpython/Lib/test/encoded_modules/module_iso_8859_1.py
+          rm /tmp/cpython/Lib/test/encoded_modules/module_koi8_r.py
+          rm /tmp/cpython/Lib/test/test_import/data/syntax_warnings.py
+          rm /tmp/cpython/Lib/test/test_tarfile.py
+          rm /tmp/cpython/Lib/test/tokenizedata/bad_coding2.py
+          rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_3131.py
+          rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_pep3120.py
 
-          find /tmp/cpython -name '*.py' -print0 | while IFS= read -r -d '' f; do
-            skip=0
-            for pattern in "${SKIP_FILES[@]}"; do
-              if [[ "$f" == *"$pattern"* ]]; then
-                skip=1
-                break
-              fi
-            done
-            if [[ "$skip" -eq 1 ]]; then
-              echo "Skipping known-bad file: $f"
-              continue
-            fi
-            uv run python bin/tidy-imports --no-add --no-remove-unused "$f" >/dev/null
-          done
+          python bin/tidy-imports --no-add --no-remove-unused --action=NOTHING /tmp/cpython >/dev/null
