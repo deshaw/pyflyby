@@ -12,7 +12,8 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._importclns      import ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
-                                        ImportStatement)
+                                        ImportStatement,
+                                        NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
@@ -28,7 +29,9 @@ _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
 
-def _group_consecutive_imports(body: list) -> list[list]:
+def _group_consecutive_imports(
+    body: list[ast.stmt],
+) -> list[list[Union[ast.Import, ast.ImportFrom]]]:
     """Group consecutive import statements from an AST body.
 
     Parameters
@@ -194,6 +197,48 @@ class NoImportBlockError(Exception):
 class ImportAlreadyExistsError(Exception):
     pass
 
+
+def _maybe_insert_pass(
+    lines: list[str], idx: int, indent: int, lineno: int
+) -> None:
+    """Insert a ``pass`` statement at *idx* when removing a line would leave a
+    block-opener (a line ending with ``:``) without a body.
+
+    After a line has been deleted at position *idx*, this function walks
+    backwards to find the nearest non-empty preceding line.  If that line ends
+    with ``:`` (a compound-statement header such as ``def``, ``class``,
+    ``if``, etc.) and the next non-empty line after *idx* is at an equal or
+    lower indentation level, the block body is gone and a ``pass`` statement
+    is inserted at *idx* using *indent* spaces.
+
+    :param lines: Source lines of the block, already modified (the import line
+        has been deleted before this call).
+    :param idx: Index into *lines* where the deleted line used to be.
+    :param indent: Column offset (number of leading spaces) of the deleted line,
+        used to indent the inserted ``pass``.
+    :param lineno: Absolute line number in the file (used only for logging).
+    """
+    prev_idx = idx - 1
+    while prev_idx >= 0 and lines[prev_idx].strip() == "":
+        prev_idx -= 1
+    if prev_idx < 0:
+        return
+    prev_line = lines[prev_idx]
+    if not prev_line.rstrip().endswith(":"):
+        return
+    prev_indent = len(prev_line) - len(prev_line.lstrip())
+    next_idx = idx
+    while next_idx < len(lines) and lines[next_idx].strip() == "":
+        next_idx += 1
+    body_gone = (
+        next_idx >= len(lines)
+        or (len(lines[next_idx]) - len(lines[next_idx].lstrip())) <= prev_indent
+    )
+    if body_gone:
+        lines.insert(idx, " " * indent + "pass")
+        logger.debug("Inserted 'pass' at line %d to preserve empty block", lineno)
+
+
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
@@ -231,7 +276,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         logger.debug("preprocess: extracted %d total import blocks", len(self.import_blocks))
 
     def _create_import_block_from_group(
-        self, group: list, lines: list, start_line: int, end_line: int
+        self,
+        group: list[Union[ast.Import, ast.ImportFrom]],
+        lines: list[str],
+        start_line: int,
+        end_line: int,
     ) -> None:
         """Create an import block from a group of import statements.
 
@@ -240,34 +289,49 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         Parameters
         ----------
-        group : list
-            List of consecutive import AST nodes
-        lines : list
-            Lines of the full source text
+        group : list[ast.Import | ast.ImportFrom]
+            Consecutive import AST nodes to extract.
+        lines : list[str]
+            All source lines of the file (1-indexed via ``lines[lineno - 1]``).
         start_line : int
-            Starting line number of the group
+            First line number of the group (1-indexed).
         end_line : int
-            Ending line number of the group
+            Last line number of the group, accounting for multiline imports.
         """
         import_text_parts = []
         semicolon_suffixes = {}
 
         for node in group:
             lineno = node.lineno
-            line: str = lines[lineno - 1]
+            end_lineno = getattr(node, "end_lineno", lineno)
 
             if hasattr(node, "col_offset") and hasattr(node, "end_col_offset"):
-                # WARNING offsets seem to be in number of bytes!
-                import_stmt = line.encode()[
-                    node.col_offset : node.end_col_offset
-                ].decode()
-                remaining = line.encode()[node.end_col_offset :].decode().lstrip()
-                if remaining and remaining.startswith(";"):
+                # WARNING: col_offset/end_col_offset are in bytes, not characters.
+                if end_lineno > lineno:
+                    # Multiline import (e.g. "from foo import (\n    a,\n    b\n)").
+                    # end_col_offset refers to the last line, not the first, so we
+                    # must collect all source lines and trim each end independently.
+                    first = lines[lineno - 1].encode()
+                    last = lines[end_lineno - 1].encode()
+                    node_lines = [first[node.col_offset :].decode()]
+                    for mid in range(lineno + 1, end_lineno):
+                        node_lines.append(lines[mid - 1])
+                    node_lines.append(last[: node.end_col_offset].decode())
+                    import_stmt = "\n".join(node_lines)
+                    remaining = last[node.end_col_offset :].decode().lstrip()
+                else:
+                    line: str = lines[lineno - 1]
+                    import_stmt = line.encode()[
+                        node.col_offset : node.end_col_offset
+                    ].decode()
+                    remaining = line.encode()[node.end_col_offset :].decode().lstrip()
+
+                if remaining.startswith(";"):
                     suffix = remaining[1:].lstrip()
                     if suffix:
                         semicolon_suffixes[lineno] = suffix
             else:
-                import_stmt = line
+                import_stmt = lines[lineno - 1]
 
             import_text_parts.append(import_stmt)
 
@@ -276,7 +340,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             try:
                 import_block = PythonBlock(import_text)
                 trans = SourceToSourceImportBlockTransformation(import_block)
-            except (SyntaxError, ValueError) as e:
+            except (SyntaxError, ValueError, NonImportStatementError) as e:
                 logger.debug(
                     "Failed to create import block for lines %d-%d: %s",
                     start_line,
@@ -329,7 +393,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         for group in import_groups:
             start_line = group[0].lineno
-            end_line = group[-1].lineno
+            end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
             self._create_import_block_from_group(group, lines, start_line, end_line)
 
         # Recursively check nested function/class definitions
@@ -589,6 +653,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         return imp
 
     def _remove_local_import_from_blocks(self, imp, lineno):
+
         """
         Remove a local import from the actual code blocks.
         This modifies the _output of blocks in self.blocks to remove the import line.
@@ -627,8 +692,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                         offset,
                         line_to_remove.strip(),
                     )
-                    # Remove this line
+                    removed_indent = len(line_to_remove) - len(line_to_remove.lstrip())
                     del lines[relative_lineno]
+                    _maybe_insert_pass(lines, relative_lineno, removed_indent, lineno)
 
                     # Track that we removed a line from this block
                     self._removed_lines_per_block[block_idx] = offset + 1

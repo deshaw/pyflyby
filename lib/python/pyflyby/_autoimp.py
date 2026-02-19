@@ -711,6 +711,19 @@ class _MissingImportFinder:
             return
         if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
             and node.targets[0].id == '__all__'):
+            _DYNAMIC_ALL_TYPES = (
+                ast.ListComp,
+                ast.SetComp,
+                ast.BinOp,
+                ast.Call,
+                ast.IfExp,
+            )
+            if isinstance(node.value, _DYNAMIC_ALL_TYPES):
+                logger.info(
+                    "Can't handle dynamic __all__ (%s); skipping",
+                    type(node.value).__name__,
+                )
+                return
             if not isinstance(node.value, (ast.List, ast.Tuple)):
                 logger.warning("Don't know how to handle __all__ as (%s)" % node.value)
                 return

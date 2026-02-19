@@ -92,3 +92,39 @@ jobs:
     - uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+
+  cpython-smoke:
+    name: tidy-imports smoke test on CPython
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install pyflyby
+        run: |
+          uv python install 3.14
+          uv venv
+          uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
+          uv pip install --no-build-isolation -ve .
+
+      - name: Shallow-clone CPython
+        run: git clone --depth=1 --quiet https://github.com/python/cpython.git /tmp/cpython
+
+      - name: Run tidy-imports on all CPython .py files
+        run: |
+          # Files known to cause issues with tidy-imports (e.g. encoding quirks,
+          # intentionally broken syntax used in tests, etc.)
+          rm /tmp/cpython/Lib/test/encoded_modules/module_iso_8859_1.py
+          rm /tmp/cpython/Lib/test/encoded_modules/module_koi8_r.py
+          rm /tmp/cpython/Lib/test/test_import/data/syntax_warnings.py
+          rm /tmp/cpython/Lib/test/test_tarfile.py
+          rm /tmp/cpython/Lib/test/tokenizedata/bad_coding2.py
+          rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_3131.py
+          rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_pep3120.py
+
+          uv run python bin/tidy-imports --no-add --no-remove-unused --action=NOTHING /tmp/cpython >/dev/null

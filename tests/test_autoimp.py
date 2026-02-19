@@ -1894,7 +1894,6 @@ def test_all_exports_2():
     assert unused == []
 
 
-
 def test_load_symbol_1():
     assert load_symbol("os.path.join", {"os": os}) is os.path.join
 

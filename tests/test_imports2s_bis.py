@@ -85,6 +85,25 @@ def foo():
 """,
             id="remove_shadowed_global",
         ),
+        pytest.param(
+            """\
+def foo():
+    from os.path import (
+        join,
+        exists,
+    )
+    return join('a', 'b'), exists('/tmp')
+""",
+            """\
+def foo():
+    from os.path import (
+        join,
+        exists,
+    )
+    return join('a', 'b'), exists('/tmp')
+""",
+            id="multiline_local_import_all_used_no_crash",
+        ),
     ],
 )
 def test_fix_unused_imports_local_scopes(input_str, expected_str):
@@ -260,3 +279,67 @@ def test_line_contains_import(line, import_str, expected):
     transformer = SourceToSourceFileImportsTransformation("import sys\n")
     imp = Import(import_str)
     assert transformer._line_contains_import(line, imp) == expected
+
+
+@pytest.mark.parametrize(
+    ("input_str", "expected_str"),
+    [
+        pytest.param(
+            """\
+def module_code():
+    import i_do_not_exist
+x = 1
+""",
+            """\
+def module_code():
+    pass
+x = 1
+""",
+            id="sole_import_in_function_body_replaced_with_pass",
+        ),
+        pytest.param(
+            """\
+class Foo:
+    import unused
+x = 1
+""",
+            """\
+class Foo:
+    pass
+x = 1
+""",
+            id="sole_import_in_class_body_replaced_with_pass",
+        ),
+        pytest.param(
+            """\
+def outer():
+    def inner():
+        import unused
+    return inner()
+""",
+            """\
+def outer():
+    def inner():
+        pass
+    return inner()
+""",
+            id="sole_import_in_nested_function_replaced_with_pass",
+        ),
+        pytest.param(
+            """\
+def foo():
+    import unused
+    return 42
+""",
+            """\
+def foo():
+    return 42
+""",
+            id="non_sole_import_removed_without_pass",
+        ),
+    ],
+)
+def test_fix_unused_sole_import_inserts_pass(input_str: str, expected_str: str) -> None:
+    """Removing the sole import from a block body inserts ``pass`` to keep syntax valid."""
+    output = _apply_fix_unused_and_missing_imports(input_str)
+    assert output == expected_str

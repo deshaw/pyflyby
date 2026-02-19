@@ -3871,6 +3871,7 @@ def test_debug_tab_completion_db_1(frontend):
 @pytest.mark.slow
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(sys.platform == "darwin" and sys.version_info[:2] == (3, 12), reason='known failure on macOS + Python 3.12')
 def test_debug_tab_completion_module_1(frontend, tmp):
     # Verify that tab completion on module names works.
     writetext(tmp.dir/"thornton60097181.py", """

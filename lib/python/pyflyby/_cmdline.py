@@ -104,11 +104,13 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 return action_exit1
             elif V == "CHANGEDEXIT1":
                 return action_changedexit1
+            elif V == "NOTHING":
+                return action_nothing
             else:
                 raise Exception(
                     "Bad argument %r to --action; "
-                    "expected PRINT or REPLACE or QUERY or IFCHANGED or EXIT1 "
-                    "or CHANGEDEXIT1 or EXECUTE:..." % (v,)
+                    "expected PRINT,REPLACE,QUERY,IFCHANGED,EXIT1,"
+                    "CHANGEDEXIT1,EXECUTE or NOTHING:..." % (v,)
                 )
 
         def set_actions(actions):
@@ -127,7 +129,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         group.add_option(
             "--actions", type='string', action='callback',
             callback=action_callback,
-            metavar="PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1|CHANGEDEXIT1:EXECUTE:mycommand",
+            metavar="PRINT|REPLACE|IFCHANGED|QUERY|DIFF|EXIT1|CHANGEDEXIT1|NOTHING|EXECUTE:mycommand",
             help=hfmt(
                 """
                    Comma-separated list of action(s) to take.  If PRINT, print
@@ -138,7 +140,8 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                    If IFCHANGED, then continue actions only if file was
                    changed.  If EXIT1, then exit with exit code 1 after all
                    files/actions are processed.  If CHANGEDEXIT1, then exit
-                   with exit code 1 if any file was changed."""
+                   with exit code 1 if any file was changed. NOTHING can be used
+                   to do nothing and test tidy-import does not crash"""
             ),
         )
         group.add_option(
@@ -463,6 +466,14 @@ def process_actions(filenames:List[str], actions, modify_function,
         raise SystemExit(msg)
     else:
         raise SystemExit(exit_code)
+
+
+def action_nothing(m):
+    try:
+        # side effect
+        m.output_content
+    except Exception:
+        logger.error("Error with file %r", m.filename)
 
 
 def action_print(m):
