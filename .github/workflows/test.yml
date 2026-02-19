@@ -127,4 +127,4 @@ jobs:
           rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_3131.py
           rm /tmp/cpython/Lib/test/tokenizedata/badsyntax_pep3120.py
 
-          python bin/tidy-imports --no-add --no-remove-unused --action=NOTHING /tmp/cpython >/dev/null
+          uv run python bin/tidy-imports --no-add --no-remove-unused --action=NOTHING /tmp/cpython >/dev/null
