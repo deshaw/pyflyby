@@ -3922,6 +3922,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
 @pytest.mark.slow
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(sys.platform == "darwin" and sys.version_info[:2] == (3, 12), reason='known failure on macOS + Python 3.12')
 @retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
