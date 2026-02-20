@@ -4,13 +4,42 @@
 
 
 
+from __future__ import print_function
+
 import builtins
 from   contextlib               import nullcontext
 import logging
-from   logging                  import Handler, Logger
+from   logging                  import Formatter, Handler, Logger
 import os
 from   prompt_toolkit           import patch_stdout
 import sys
+
+
+class _PyflybyFormatter(Formatter):
+    _ANSI_RESET = "\033[0m"
+    _COLORS = {
+        "blue": "\033[34m",
+        "yellow": "\033[33m",
+        "red": "\033[31m",
+    }
+
+    def _color_for_level(self, levelno):
+        if levelno >= logging.ERROR:
+            return self._COLORS["red"]
+        elif levelno >= logging.WARNING:
+            return self._COLORS["yellow"]
+        else:
+            return self._COLORS["blue"]
+
+    def formatInteractive(self, record):
+        color = self._color_for_level(record.levelno)
+        prefix = "%s%s[PYFLYBY]%s " % (self._ANSI_RESET, color, self._ANSI_RESET)
+        msg = super().format(record)
+        return "".join(["%s%s\n" % (prefix, line) for line in msg.splitlines()])
+
+    def formatPlain(self, record):
+        msg = super().format(record)
+        return "".join(["[PYFLYBY] %s\n" % line for line in msg.splitlines()])
 
 
 class _PyflybyHandler(Handler):
@@ -18,20 +47,20 @@ class _PyflybyHandler(Handler):
     _pre_log_function = None
     _logged_anything_during_context = False
 
-    _interactive_prefix    = "\033[0m\033[33m[PYFLYBY]\033[0m "
-    _noninteractive_prefix = "[PYFLYBY] "
+    def __init__(self):
+        super().__init__()
+        self.setFormatter(_PyflybyFormatter())
 
     def emit(self, record):
         try:
+            formatter = self.formatter
             if _is_ipython() or _is_interactive(sys.stderr):
-                prefix = self._interactive_prefix
+                msg = formatter.formatInteractive(record)
                 patch_stdout_c = patch_stdout.patch_stdout(raw=True)
             else:
-                prefix = self._noninteractive_prefix
+                msg = formatter.formatPlain(record)
                 patch_stdout_c = nullcontext()
 
-            msg = self.format(record)
-            msg = ''.join(["%s%s\n" % (prefix, line) for line in msg.splitlines()])
             with patch_stdout_c:
                 sys.stderr.write(msg)
                 sys.stderr.flush()
@@ -75,8 +104,7 @@ class PyflybyLogger(Logger):
 
     def __init__(self, name, level):
         Logger.__init__(self, name)
-        handler = _PyflybyHandler()
-        self.addHandler(handler)
+        self.addHandler(_PyflybyHandler())
         self.set_level(level)
 
     def set_level(self, level):
