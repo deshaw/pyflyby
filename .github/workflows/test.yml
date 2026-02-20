@@ -30,6 +30,8 @@ jobs:
     - name: Install gdb
       if: matrix.os == 'ubuntu-latest'
       run: |
+          sudo apt update
+          sudo apt-get --fix-missing
           sudo apt install gdb -y
 
     - name: Install uv
