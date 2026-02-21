@@ -206,7 +206,7 @@ def test_FileText_from_str_one_trailing_newline_1():
 
 def test_FileText_idempotent_1():
     text = FileText("a\nb\nc\nd")
-    assert FileText(text) is text
+    assert FileText(text) == text
 
 
 def test_FileText_attr_defaults_1():

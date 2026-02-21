@@ -314,9 +314,6 @@ class ModuleHandle(object):
     def text(self):
         return FileText(self.filename)
 
-    def __text__(self):
-        return self.text
-
     @cached_property
     def block(self):
         from pyflyby._parse import PythonBlock
