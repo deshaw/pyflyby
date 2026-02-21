@@ -393,7 +393,7 @@ class SaveframeReader:
                         # a dict where keys would be the frame indices and values
                         # would the dicts containing the queried variables and
                         # their values for that frame.
-                        if not key_item in frame_idx_to_variables_map:
+                        if key_item not in frame_idx_to_variables_map:
                             frame_idx_to_variables_map[key_item] = {}
                         frame_idx_to_variables_map[key_item][variable] = variable_value
             if not frame_idx_to_variables_map:
