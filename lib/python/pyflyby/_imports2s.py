@@ -16,7 +16,7 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
-from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, _has_ignore_pragma, memoize
 import re
 
 from   typing                   import Literal, Optional, Union
@@ -28,16 +28,6 @@ _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 # AST node types for import statements
 _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
-
-def _has_ignore_import_pragma(lines: list, lineno: int) -> bool:
-    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma.
-
-    This is space sensitive.
-    """
-    idx = lineno - 1
-    if idx < 0 or idx > len(lines):
-        return False
-    return "# tidy-imports: ignore-import" in lines[idx]
 
 
 def _group_consecutive_imports(
@@ -407,7 +397,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             filtered_group = [
                 node
                 for node in group
-                if not _has_ignore_import_pragma(lines, node.lineno)
+                if not _has_ignore_pragma(lines, node.lineno)
             ]
             if not filtered_group:
                 continue

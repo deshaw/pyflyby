@@ -20,6 +20,7 @@ from   pyflyby._idents          import (BadDottedIdentifierError,
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
+from   pyflyby._util            import _has_ignore_pragma
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
                                         infer_compile_mode)
@@ -477,7 +478,7 @@ class _MissingImportFinder:
         # Stack of scope names (for functions/classes) to track where imports are defined
         self._scope_name_stack: List[str] = []
         # Source lines for pragma checking (set by scan_for_import_issues)
-        self._source_lines: Optional[list] = None
+        self._source_lines: Optional[list[str]] = None
 
     def find_missing_imports(self, node):
         self._scan_node(node)
@@ -494,21 +495,6 @@ class _MissingImportFinder:
         finally:
             self.scopestack = oldscopestack
 
-    def _has_ignore_pragma(self, lineno: int) -> bool:
-        """Check if the given line has a ``# tidy-imports: ignore-import`` pragma."""
-        if self._source_lines is None or lineno is None:
-            return False
-        idx = lineno - 1
-        if 0 <= idx < len(self._source_lines):
-            line = self._source_lines[idx]
-            # Look for the pragma in a trailing comment
-            if "tidy-imports:" in line:
-                comment_start = line.find("#")
-                if comment_start >= 0:
-                    comment = line[comment_start:]
-                    if "ignore-import" in comment:
-                        return True
-        return False
 
     def scan_for_import_issues(self, codeblock: PythonBlock) -> tuple[list, list]:
         assert isinstance(codeblock, PythonBlock)
@@ -1077,7 +1063,7 @@ class _MissingImportFinder:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
-        if is_star or modulename == "__future__" or not self.find_unused_imports or self._has_ignore_pragma(self._lineno):
+        if is_star or modulename == "__future__" or not self.find_unused_imports or _has_ignore_pragma(self._source_lines, self._lineno):
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))
