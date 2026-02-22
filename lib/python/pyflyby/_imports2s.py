@@ -30,16 +30,14 @@ _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
 
 def _has_ignore_import_pragma(lines: list, lineno: int) -> bool:
-    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma."""
+    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma.
+
+    This is space sensitive.
+    """
     idx = lineno - 1
-    if 0 <= idx < len(lines):
-        line = lines[idx]
-        comment_start = line.find("#")
-        if comment_start >= 0:
-            comment = line[comment_start:]
-            if "tidy-imports:" in comment and "ignore-import" in comment:
-                return True
-    return False
+    if idx < 0 or idx > len(lines):
+        return False
+    return "# tidy-imports: ignore-import" in lines[idx]
 
 
 def _group_consecutive_imports(
