@@ -515,7 +515,6 @@ class _MissingImportFinder:
         # See global `scan_for_import_issues`
         if not isinstance(codeblock, PythonBlock):
             codeblock = PythonBlock(codeblock)
-        # Store source lines for pragma checking
         self._source_lines = str(codeblock.text).split("\n")
         node = codeblock.ast_node
         self._scan_node(node)
