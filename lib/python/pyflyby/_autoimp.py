@@ -20,10 +20,10 @@ from   pyflyby._idents          import (BadDottedIdentifierError,
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
-from   pyflyby._util            import _has_ignore_pragma
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
                                         infer_compile_mode)
+from   pyflyby._util            import _has_ignore_pragma
 
 import sys
 import types

@@ -16,7 +16,8 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
-from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, _has_ignore_pragma, memoize
+from   pyflyby._util            import (ImportPathCtx, Inf, NullCtx,
+                                        _has_ignore_pragma, memoize)
 import re
 
 from   typing                   import Literal, Optional, Union
