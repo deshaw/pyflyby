@@ -23,6 +23,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
                                         infer_compile_mode)
+from   pyflyby._util            import _has_ignore_pragma
 
 import sys
 import types
@@ -476,6 +477,8 @@ class _MissingImportFinder:
         self._in_class_def = 0
         # Stack of scope names (for functions/classes) to track where imports are defined
         self._scope_name_stack: List[str] = []
+        # Source lines for pragma checking (set by scan_for_import_issues)
+        self._source_lines: Optional[list[str]] = None
 
     def find_missing_imports(self, node):
         self._scan_node(node)
@@ -492,11 +495,13 @@ class _MissingImportFinder:
         finally:
             self.scopestack = oldscopestack
 
+
     def scan_for_import_issues(self, codeblock: PythonBlock) -> tuple[list, list]:
         assert isinstance(codeblock, PythonBlock)
         # See global `scan_for_import_issues`
         if not isinstance(codeblock, PythonBlock):
             codeblock = PythonBlock(codeblock)
+        self._source_lines = str(codeblock.text).split("\n")
         node = codeblock.ast_node
         self._scan_node(node)
         # Get missing imports now, before handling docstrings.  We don't want
@@ -1058,7 +1063,7 @@ class _MissingImportFinder:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
-        if is_star or modulename == "__future__" or not self.find_unused_imports:
+        if is_star or modulename == "__future__" or not self.find_unused_imports or _has_ignore_pragma(self._source_lines, self._lineno):
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))

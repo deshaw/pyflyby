@@ -16,7 +16,8 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
-from   pyflyby._util            import ImportPathCtx, Inf, NullCtx, memoize
+from   pyflyby._util            import (ImportPathCtx, Inf, NullCtx,
+                                        _has_ignore_pragma, memoize)
 import re
 
 from   typing                   import Literal, Optional, Union
@@ -244,7 +245,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
     _removed_lines_per_block: defaultdict[int, int]
     _original_block_startpos: dict[int, int]
-    tidy_local_imports: bool = True
+    tidy_local_imports: bool = False
 
     def preprocess(self) -> None:
         # Group into blocks of imports and non-imports.  Get a sequence of all
@@ -392,9 +393,18 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         lines = full_text.split("\n")
 
         for group in import_groups:
-            start_line = group[0].lineno
+            group_no_ignore_pragma = [
+                node
+                for node in group
+                if not _has_ignore_pragma(lines, node.lineno)
+            ]
+            if not group_no_ignore_pragma:
+                continue
+            start_line = group_no_ignore_pragma[0].lineno
             end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
-            self._create_import_block_from_group(group, lines, start_line, end_line)
+            self._create_import_block_from_group(
+                group_no_ignore_pragma, lines, start_line, end_line
+            )
 
         # Recursively check nested function/class definitions
         for body_item in body:
@@ -875,12 +885,20 @@ def fix_unused_and_missing_imports(
     add_mandatory: bool = True,
     db: Optional[ImportDB] = None,
     params=None,
-    tidy_local_imports: bool = True,
+    tidy_local_imports: bool = False,
 ) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
 
     Also formats imports.
+
+    By default only top-level imports are tidied.  Set ``tidy_local_imports=True``
+    to also remove unused imports inside function and class bodies.
+
+    Individual imports can be excluded from removal by adding
+    ``# tidy-imports: ignore-import`` as a trailing comment.
+    This is whitespace sentitive between and must be a single space after the
+    `#`, and after the `:`
 
     In the example below, ``m1`` and ``m3`` are unused, so are automatically
     removed.  ``np`` was undefined, so an ``import numpy as np`` was
@@ -900,6 +918,9 @@ def fix_unused_and_missing_imports(
 
     :type codeblock:
       `PythonBlock` or convertible (``str``)
+    :param tidy_local_imports:
+      If ``True``, also tidy imports within function and class bodies.
+      Defaults to ``False``.
     :rtype:
       `PythonBlock`
     """

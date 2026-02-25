@@ -20,6 +20,16 @@ from   functools                import (cache as memoize,
 __all__ = ["cached_attribute", "memoize"]
 
 
+def _has_ignore_pragma(lines: list[str] | None, lineno: int | None) -> bool:
+    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma."""
+    if lines is None or lineno is None:
+        return False
+    idx = lineno - 1
+    if not (0 <= idx < len(lines)):
+        return False
+    return "# tidy-imports: ignore-import" in lines[idx]
+
+
 class WrappedAttributeError(Exception):
     pass
 

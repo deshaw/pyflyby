@@ -12,9 +12,8 @@ Automatically improves python import statements.
 If filenames are given on the command line, rewrites them.  Otherwise, if
 stdin is not a tty, read from stdin and write to stdout.
 
-Top-level and local (within function/class bodies) import statements are
-touched by default. Use --no-tidy-local-imports to disable tidying of local
-imports.
+Only top-level import statements are tidied by default. Use
+--tidy-local-imports to also tidy imports within function and class bodies.
 
 """
 
@@ -109,11 +108,17 @@ def _addopts(parser):
                         help=hfmt('''
                             Equivalent to --no-add-missing
                             --no-add-mandatory.'''))
-    parser.add_option('--no-tidy-local-imports', dest='tidy_local_imports',
-                        default=True, action='store_false',
+    parser.add_option('--tidy-local-imports', dest='tidy_local_imports',
+                        default=False, action='store_true',
                         help=hfmt('''
-                            Don't tidy imports within function and class
-                            bodies. Temporary until this is considered stable.'''))
+                            Also tidy imports within function and class
+                            bodies (removing unused local imports).
+                            Disabled by default.'''))
+    parser.add_option('--no-tidy-local-imports', dest='tidy_local_imports',
+                        action='store_false',
+                        help=hfmt('''
+                            (Default) Don't tidy imports within function and
+                            class bodies.'''))
 def main() -> None:
 
     config = _get_pyproj_toml_config()

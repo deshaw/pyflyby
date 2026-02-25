@@ -40,7 +40,6 @@ from   pyflyby._version         import __version__
 
 # Deprecated:
 from   pyflyby._dbg             import (breakpoint, debug_exception,
-                                        debug_statement,
                                         enable_exception_handler,
                                         enable_signal_handler_breakpoint,
                                         waitpoint)
