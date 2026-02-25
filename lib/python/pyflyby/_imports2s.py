@@ -30,7 +30,6 @@ _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _IMPORT_TYPES = (ast.Import, ast.ImportFrom)
 
 
-
 def _group_consecutive_imports(
     body: list[ast.stmt],
 ) -> list[list[Union[ast.Import, ast.ImportFrom]]]:
