@@ -394,18 +394,17 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         lines = full_text.split("\n")
 
         for group in import_groups:
-            # Filter out imports that have the ignore pragma
-            filtered_group = [
+            group_no_ignore_pragma = [
                 node
                 for node in group
                 if not _has_ignore_pragma(lines, node.lineno)
             ]
-            if not filtered_group:
+            if not group_no_ignore_pragma:
                 continue
-            start_line = filtered_group[0].lineno
+            start_line = group_no_ignore_pragma[0].lineno
             end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
             self._create_import_block_from_group(
-                filtered_group, lines, start_line, end_line
+                group_no_ignore_pragma, lines, start_line, end_line
             )
 
         # Recursively check nested function/class definitions
@@ -899,6 +898,8 @@ def fix_unused_and_missing_imports(
 
     Individual imports can be excluded from removal by adding
     ``# tidy-imports: ignore-import`` as a trailing comment.
+    This is whitespace sentitive between and must be a single space after the
+    `#`, and after the `:`
 
     In the example below, ``m1`` and ``m3`` are unused, so are automatically
     removed.  ``np`` was undefined, so an ``import numpy as np`` was
