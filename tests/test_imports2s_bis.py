@@ -227,6 +227,76 @@ result = os.getcwd()  # Global scope usage
     assert output == expected
 
 
+@pytest.mark.parametrize("tidy_local_imports", (False, True))
+@pytest.mark.parametrize(
+    ("input_code", "expected_code"),
+    [
+        pytest.param(
+            """\
+def f():
+    import math
+    x = math.inf + inf
+""",
+            """\
+from numpy import inf
+
+def f():
+    import math
+    x = math.inf + inf
+""",
+            id="no_global_imports_with_local",
+        ),
+        pytest.param(
+            """\
+import os
+
+def f():
+    import math
+    x = math.inf + inf
+""",
+            """\
+import os
+from numpy import inf
+
+def f():
+    import math
+    x = math.inf + inf
+""",
+            id="existing_global_imports_with_local",
+        ),
+        pytest.param(
+            """\
+def f():
+    x = inf
+""",
+            """\
+from numpy import inf
+
+def f():
+    x = inf
+""",
+            id="no_global_no_local_imports",
+        ),
+    ],
+)
+def test_add_missing_imports_with_local_imports(
+    input_code, expected_code, tidy_local_imports
+):
+    """Regression test: missing imports must be added at module level even when
+    only local imports exist and tidy_local_imports is enabled.
+
+    """
+    input_block = PythonBlock(dedent(input_code).lstrip())
+    db = ImportDB("from numpy import inf")
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, add_missing=True, remove_unused=False,
+        add_mandatory=False, tidy_local_imports=True,
+    )
+    result = str(output)
+    expected = dedent(expected_code).lstrip()
+    assert result == expected
+
+
 @pytest.mark.parametrize(
     "line,import_str,expected",
     [
