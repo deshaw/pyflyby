@@ -737,14 +737,17 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           `SourceToSourceImportBlockTransformation`
         """
         # Create a data structure that annotates blocks with data by which
-        # we'll sort.
+        # we'll sort.  Only consider global import blocks, not local ones
+        # (wrapped in _LocalImportBlockWrapper), since new imports should
+        # always be added at the module level.
         annotated_blocks = [
             ( (max([0] + [len(imp.prefix_match(oimp))
                           for oimp in block.importset.imports]),
                block.input.endpos.lineno),
               block )
             for block in self.import_blocks
-            if block.input.endpos.lineno <= max_lineno+1 ]
+            if not isinstance(block, _LocalImportBlockWrapper)
+            and block.input.endpos.lineno <= max_lineno+1 ]
         if not annotated_blocks:
             raise NoImportBlockError()
         annotated_blocks.sort(key=lambda x: x[0])

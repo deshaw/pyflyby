@@ -35,6 +35,10 @@ autodoc_mock_imports = [
     "prompt_toolkit",
 ]
 
+suppress_warnings = [
+    "sphinx_autodoc_typehints.forward_reference",
+]
+
 html_theme_options = {
     'collapse_navigation': False,
     'navigation_depth': -1,
