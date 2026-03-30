@@ -90,7 +90,7 @@ jobs:
       with:
         name: pytest-timing-${{ matrix.os }}-${{ matrix.python-version }}
         path: ./report-*.json
-    - uses: codecov/codecov-action@v5
+    - uses: codecov/codecov-action@v6
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
