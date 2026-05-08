@@ -1,6 +1,7 @@
 name: Run tests
 
 on: [push, pull_request]
+permissions: {}
 
 jobs:
   test:
@@ -26,7 +27,9 @@ jobs:
       ENVNAME: ${{matrix.os}}-${{matrix.python-version}}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      with:
+        persist-credentials: false
     - name: Install gdb
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -34,7 +37,7 @@ jobs:
           sudo apt install gdb -y
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       with:
         enable-cache: true
         cache-dependency-glob: |
@@ -85,12 +88,12 @@ jobs:
       run: |
         uv run emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
 
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       name: upload pytest timing reports as json
       with:
         name: pytest-timing-${{ matrix.os }}-${{ matrix.python-version }}
         path: ./report-*.json
-    - uses: codecov/codecov-action@v5
+    - uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -98,10 +101,12 @@ jobs:
     name: tidy-imports smoke test on CPython
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
