@@ -47,7 +47,7 @@ from   typing                   import FrozenSet
 
 from   pyflyby._importclns      import Import, ImportSet
 
-module_dict = {}
+module_dict: dict[str, str] = {}
 
 PYFLYBY_LAZY_LOAD_PREFIX = "from pyflyby_autoimport_"
 
