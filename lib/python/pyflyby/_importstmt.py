@@ -625,10 +625,15 @@ class ImportStatement:
 
         comment = self.get_valid_comment()
         if comment is not None:
-            # Only append to text on the first line
+            # Append to the last non-empty line so the comment is preserved
+            # even when the import wraps onto a backslash-continued line
+            # (e.g. ``from very.long.module \\\n    import x``).
             lines = res.split('\n')
-            if len(lines) == 2:
-                lines[0] += f" #{comment}"
+            last_idx = len(lines) - 1
+            while last_idx >= 0 and not lines[last_idx].strip():
+                last_idx -= 1
+            if last_idx >= 0:
+                lines[last_idx] += f" #{comment}"
                 res = "\n".join(lines)
 
         if params.use_black:

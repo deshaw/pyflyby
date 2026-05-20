@@ -462,6 +462,27 @@ class MyClass:
             [],
             id="pragma_local_class_method",
         ),
+        pytest.param(
+            """\
+from foo.bar import baz  # tidy-imports: ignore-import
+from aaaaa.bbbbb.ccccc.ddddd.eee import ggggg  # tidy-imports: ignore-import
+""",
+            False,
+            ["from foo.bar", "baz", "aaaaa.bbbbb.ccccc.ddddd.eee", "ggggg"],
+            [],
+            id="pragma_long_from_import_wraps",
+        ),
+        pytest.param(
+            """\
+def foo():
+    from aaaaa.bbbbb.ccccc.ddddd.eee import ggggg  # tidy-imports: ignore-import
+    return 42
+""",
+            True,
+            ["aaaaa.bbbbb.ccccc.ddddd.eee", "ggggg"],
+            [],
+            id="pragma_long_local_from_import",
+        ),
     ],
 )
 def test_ignore_import_pragma(

@@ -1063,7 +1063,14 @@ class _MissingImportFinder:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
-        if is_star or modulename == "__future__" or not self.find_unused_imports or _has_ignore_pragma(self._source_lines, self._lineno):
+        alias_lineno = getattr(node, "lineno", None)
+        alias_end_lineno = getattr(node, "end_lineno", alias_lineno)
+        ignore_pragma = _has_ignore_pragma(
+            self._source_lines, self._lineno, alias_end_lineno
+        ) or _has_ignore_pragma(
+            self._source_lines, alias_lineno, alias_end_lineno
+        )
+        if is_star or modulename == "__future__" or not self.find_unused_imports or ignore_pragma:
             value = None
         else:
             imp = Import.from_split((modulename, node.name, name))

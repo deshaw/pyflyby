@@ -20,14 +20,28 @@ from   functools                import (cache as memoize,
 __all__ = ["cached_attribute", "memoize"]
 
 
-def _has_ignore_pragma(lines: list[str] | None, lineno: int | None) -> bool:
-    """Check if the given line has a ``# tidy-imports: ignore-import`` pragma."""
+def _has_ignore_pragma(
+    lines: "list[str] | None",
+    lineno: "int | None",
+    end_lineno: "int | None" = None,
+) -> bool:
+    """Check if any line in ``[lineno, end_lineno]`` has a
+    ``# tidy-imports: ignore-import`` pragma.
+
+    A backslash-continued or parenthesized import may span several lines, and
+    the pragma comment can appear on any of them (most commonly on the line
+    that actually contains the imported name).  When ``end_lineno`` is omitted
+    only ``lineno`` is checked.
+    """
     if lines is None or lineno is None:
         return False
-    idx = lineno - 1
-    if not (0 <= idx < len(lines)):
-        return False
-    return "# tidy-imports: ignore-import" in lines[idx]
+    if end_lineno is None or end_lineno < lineno:
+        end_lineno = lineno
+    for ln in range(lineno, end_lineno + 1):
+        idx = ln - 1
+        if 0 <= idx < len(lines) and "# tidy-imports: ignore-import" in lines[idx]:
+            return True
+    return False
 
 
 class WrappedAttributeError(Exception):
