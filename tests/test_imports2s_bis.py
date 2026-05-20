@@ -483,6 +483,29 @@ def foo():
             [],
             id="pragma_long_local_from_import",
         ),
+        pytest.param(
+            """\
+from foo import (
+    kept,    # tidy-imports: ignore-import
+    dropped,
+)
+""",
+            False,
+            ["kept"],
+            ["dropped"],
+            id="pragma_paren_group_per_alias",
+            marks=pytest.mark.skip(
+                reason=(
+                    "Per-alias pragmas inside a parenthesized "
+                    "'from x import (a, b)' group are not yet honoured: "
+                    "ImportStatement.get_valid_comment() drops comments for "
+                    "multi-alias statements during the initial reformat pass, "
+                    "so the pragma is gone before _has_ignore_pragma runs. "
+                    "The alias-scoped check in _visit_StoreImport is the "
+                    "correct semantics for when that limitation is lifted."
+                ),
+            ),
+        ),
     ],
 )
 def test_ignore_import_pragma(

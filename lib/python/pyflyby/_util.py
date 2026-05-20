@@ -35,7 +35,7 @@ def _has_ignore_pragma(
     """
     if lines is None or lineno is None:
         return False
-    if end_lineno is None or end_lineno < lineno:
+    if end_lineno is None:
         end_lineno = lineno
     for ln in range(lineno, end_lineno + 1):
         idx = ln - 1

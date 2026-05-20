@@ -1063,11 +1063,13 @@ class _MissingImportFinder:
             # Handle leading prefixes so we don't think they're unused
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
                 self._visit_Store(str(prefix), None)
-        alias_lineno = getattr(node, "lineno", None)
+        # Only honour pragmas on the alias's own line(s).  Scanning the whole
+        # parent ``ImportFrom`` range would over-protect siblings in a
+        # parenthesized ``from x import (a, b)`` group when only one alias is
+        # annotated.
+        alias_lineno = getattr(node, "lineno", self._lineno)
         alias_end_lineno = getattr(node, "end_lineno", alias_lineno)
         ignore_pragma = _has_ignore_pragma(
-            self._source_lines, self._lineno, alias_end_lineno
-        ) or _has_ignore_pragma(
             self._source_lines, alias_lineno, alias_end_lineno
         )
         if is_star or modulename == "__future__" or not self.find_unused_imports or ignore_pragma:
