@@ -26,7 +26,8 @@ import requests
 
 import pyflyby
 from   pyflyby._file            import Filename
-from   pyflyby._util            import EnvVarCtx, cached_attribute
+from   pyflyby._util            import cached_attribute
+from   tests._test_utils        import EnvVarCtx
 from   typing                   import Union
 
 is_free_threaded = (sys.version_info >= (3, 13)) and (sys._is_gil_enabled() is False)

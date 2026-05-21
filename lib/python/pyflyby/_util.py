@@ -30,10 +30,6 @@ def _has_ignore_pragma(lines: list[str] | None, lineno: int | None) -> bool:
     return "# tidy-imports: ignore-import" in lines[idx]
 
 
-class WrappedAttributeError(Exception):
-    pass
-
-
 def stable_unique(items):
     """
     Return a copy of ``items`` without duplicates.  The order of other items is
@@ -108,14 +104,6 @@ Inf = float('Inf')
 
 
 @contextmanager
-def NullCtx():
-    """
-    Context manager that does nothing.
-    """
-    yield
-
-
-@contextmanager
 def ImportPathCtx(path_additions):
     """
     Context manager that temporarily prepends ``sys.path`` with ``path_additions``.
@@ -141,26 +129,6 @@ def CwdCtx(path):
         yield
     finally:
         os.chdir(old_cwd)
-
-
-@contextmanager
-def EnvVarCtx(**kwargs):
-    """
-    Context manager that temporarily modifies os.environ.
-    """
-    unset = object()
-    old = {}
-    try:
-        for k, v in kwargs.items():
-            old[k] = os.environ.get(k, unset)
-            os.environ[k] = v
-        yield
-    finally:
-        for k, v in old.items():
-            if v is unset:
-                del os.environ[k]
-            else:
-                os.environ[k] = v
 
 
 @contextmanager

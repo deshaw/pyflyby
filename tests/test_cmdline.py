@@ -14,7 +14,8 @@ import tempfile
 from   textwrap                 import dedent
 
 from   pyflyby._cmdline         import _get_pyproj_toml_config
-from   pyflyby._util            import CwdCtx, EnvVarCtx
+from   pyflyby._util            import CwdCtx
+from   tests._test_utils        import EnvVarCtx
 
 import pytest
 

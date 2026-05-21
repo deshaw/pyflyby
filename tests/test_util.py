@@ -5,17 +5,19 @@
 
 
 
+from   contextlib               import nullcontext
 import os
 import sys
 import tempfile
 
 import pytest
 
-from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx, EnvVarCtx,
+from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         ExcludeImplicitCwdFromPathCtx,
-                                        ImportPathCtx, NullCtx, advise, cmp,
-                                        indent, longest_common_prefix, nested,
+                                        ImportPathCtx, advise, cmp, indent,
+                                        longest_common_prefix, nested,
                                         partition, prefixes, stable_unique)
+from   tests._test_utils        import EnvVarCtx
 
 
 def test_stable_unique_1():
@@ -101,11 +103,6 @@ def test_indent_trailing_newline():
     assert indent('a\nb', '#') == '#a\n#b\n'
 
 
-def test_nullctx():
-    with NullCtx() as v:
-        assert v is None
-
-
 def test_import_path_ctx_single():
     sentinel = "/__pyflyby_test_sentinel_path__"
     assert sentinel not in sys.path
@@ -178,7 +175,7 @@ def test_cmp():
 
 
 def test_nested_context_managers():
-    with nested(NullCtx(), NullCtx()) as ctxes:
+    with nested(nullcontext(), nullcontext()) as ctxes:
         assert len(ctxes) == 2
 
 

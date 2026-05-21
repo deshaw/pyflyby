@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import ast
 from   collections              import defaultdict
+from   contextlib               import nullcontext
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
@@ -16,7 +17,7 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         NonImportStatementError)
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock, PythonStatement
-from   pyflyby._util            import (ImportPathCtx, Inf, NullCtx,
+from   pyflyby._util            import (ImportPathCtx, Inf,
                                         _has_ignore_pragma, memoize)
 import re
 
@@ -875,9 +876,9 @@ def ImportPathForRelativeImportsCtx(codeblock):
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
     if not codeblock.filename:
-        return NullCtx()
+        return nullcontext()
     if codeblock.flags & CompilerFlags("absolute_import"):
-        return NullCtx()
+        return nullcontext()
     return ImportPathCtx(str(codeblock.filename.dir))
 
 
