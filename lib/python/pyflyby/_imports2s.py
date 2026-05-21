@@ -397,7 +397,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             group_no_ignore_pragma = [
                 node
                 for node in group
-                if not _has_ignore_pragma(lines, node.lineno)
+                if not _has_ignore_pragma(
+                    lines, node.lineno, getattr(node, "end_lineno", node.lineno)
+                )
             ]
             if not group_no_ignore_pragma:
                 continue

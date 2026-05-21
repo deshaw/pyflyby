@@ -579,14 +579,12 @@ class ImportStatement:
         """
         Pretty-print into a single string.
 
-        ImportStatement objects represent python import statements, which can span
-        multiple lines or multiple aliases. Here we append comments
-
-        - If the output is one line
-        - If there is only one comment
-
-        This way we avoid worrying about combining comments from multiple lines,
-        or where to place comments if the resulting output is more than one line
+        ImportStatement objects represent python import statements, which can
+        span multiple lines or multiple aliases.  When the statement has a
+        single, unambiguous trailing comment (see ``get_valid_comment``), it is
+        appended to the last rendered line so that pragmas like
+        ``# tidy-imports: ignore-import`` survive reformatting even when the
+        import wraps onto a backslash continuation.
 
         :type params:
           `FormatParams`
@@ -625,11 +623,11 @@ class ImportStatement:
 
         comment = self.get_valid_comment()
         if comment is not None:
-            # Only append to text on the first line
-            lines = res.split('\n')
-            if len(lines) == 2:
-                lines[0] += f" #{comment}"
-                res = "\n".join(lines)
+            # ``pyfill`` always terminates with exactly one '\n'; splice the
+            # comment in just before it so it lands on the last rendered line
+            # (which, for a wrapped import, is the ``import x`` continuation).
+            assert res.endswith("\n")
+            res = res[:-1] + f" #{comment}\n"
 
         if params.use_black:
             res = self.run_black(res, params)
