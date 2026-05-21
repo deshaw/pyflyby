@@ -20,6 +20,7 @@ import pytest
 
 from   pyflyby._dbg             import inject
 from   pyflyby._file            import Filename
+from   pyflyby._py              import LoggedList
 from   pyflyby._util            import cached_attribute
 
 from   tests.test_interactive   import _build_pythonpath
@@ -2857,6 +2858,35 @@ def test_inject_insufficient_permissions():
     with pytest.raises(Exception):
         inject(child.pid, [])
 
+
+def test_logged_list_getitem_marks_accessed():
+    ll = LoggedList(["a", "b", "c"])
+    assert ll[1] == "b"
+    assert ll.unaccessed == ["a", "c"]
+
+
+def test_logged_list_slice_marks_accessed():
+    ll = LoggedList(["a", "b", "c", "d"])
+    assert ll[1:3] == ["b", "c"]
+    assert ll.unaccessed == ["a", "d"]
+
+
+def test_logged_list_iter_marks_all_accessed():
+    ll = LoggedList(["a", "b", "c"])
+    list(ll)
+    assert ll.unaccessed == []
+
+
+def test_logged_list_len_does_not_mark():
+    ll = LoggedList(["a", "b"])
+    assert len(ll) == 2
+    assert ll.unaccessed == ["a", "b"]
+
+
+def test_logged_list_repr_marks_all():
+    ll = LoggedList(["a", "b"])
+    repr(ll)
+    assert ll.unaccessed == []
 
 
 # TODO: test timeit, time
