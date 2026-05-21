@@ -14,7 +14,7 @@ from   textwrap                 import dedent
 from   pyflyby._importclns      import ImportMap, ImportSet
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
-from   pyflyby._util            import EnvVarCtx
+from   tests._test_utils        import EnvVarCtx
 
 from   contextlib               import contextmanager
 
