@@ -2,9 +2,9 @@
 
 
 import os
+import pytest
 import re
 import sys
-import pytest
 
 
 _already_ran_setup = False

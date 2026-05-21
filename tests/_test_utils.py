@@ -4,8 +4,8 @@ Test-only helpers shared across the pyflyby test suite.
 """
 
 
-import os
 from   contextlib               import contextmanager
+import os
 
 
 @contextmanager

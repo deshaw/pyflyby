@@ -52,7 +52,7 @@ jobs:
         # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
         # for details.
         uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --no-build-isolation -ve .[test]
+        uv pip install --no-build-isolation -ve ".[test]"
     - name: test release build
       run: |
         uv run python -m build
@@ -76,7 +76,7 @@ jobs:
                --doctest-modules\
                --maxfail=3\
                --json-report\
-               --json-report-file=report-${ENVNAME}.json\
+               --json-report-file="report-${ENVNAME}.json"\
                lib tests
 
     - name: Set up Emacs

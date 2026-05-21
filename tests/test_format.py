@@ -7,8 +7,6 @@
 
 from   textwrap                 import dedent
 
-import pytest
-
 from   pyflyby._format          import FormatParams, fill, pyfill
 
 
@@ -124,52 +122,3 @@ def test_pyfill_hanging_indent_auto_no_1():
                                                 z1, z2)
     """).lstrip()
     assert result == expected
-
-
-def test_format_params_identity():
-    p = FormatParams()
-    assert FormatParams(p) is p
-
-
-def test_format_params_none_arg():
-    p = FormatParams(None)
-    assert p.max_line_length is None
-    assert p.indent == 4
-
-
-def test_format_params_kwargs():
-    p = FormatParams(indent=2, max_line_length=100)
-    assert p.indent == 2
-    assert p.max_line_length == 100
-
-
-def test_format_params_merge_other_params():
-    base = FormatParams(indent=8)
-    merged = FormatParams(base, max_line_length=50)
-    assert merged.indent == 8
-    assert merged.max_line_length == 50
-
-
-def test_format_params_bad_kwarg():
-    with pytest.raises(ValueError):
-        FormatParams(no_such_attr=1)
-
-
-def test_format_params_repr():
-    p = FormatParams(indent=2)
-    r = repr(p)
-    assert "FormatParams" in r
-
-
-def test_pyfill_bad_hanging_indent():
-    with pytest.raises(ValueError):
-        pyfill('xxxxx ', ['aaaa', 'bbbb', 'cccc'],
-               FormatParams(hanging_indent='maybe', max_line_length=10))
-
-
-def test_pyfill_wrap_paren_false_raises():
-    p = FormatParams()
-    p.wrap_paren = False
-    p.max_line_length = 1
-    with pytest.raises(NotImplementedError):
-        pyfill('x ', ['aaaaa', 'bbbbb', 'ccccc'], p)

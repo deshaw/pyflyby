@@ -8,8 +8,8 @@ import sys
 
 import pytest
 
-from   pyflyby._dynimp          import (DictFinder, DictLoader, _add_import,
-                                        add_import, inject, module_dict)
+from   pyflyby._dynimp          import (DictFinder, DictLoader, add_import,
+                                        inject, module_dict)
 
 
 def test_dict_loader_create_module():
