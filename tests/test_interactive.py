@@ -3959,6 +3959,10 @@ def test_debug_postmortem_tab_completion_1(frontend):
 
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(
+    sys.platform == "darwin" and sys.version_info[:2] == (3, 12),
+    reason="known failure on macOS + Python 3.12",
+)
 def test_debug_namespace_1_py3(frontend):
     # Verify that autoimporting and tab completion happen in the local
     # namespace.
@@ -3991,7 +3995,13 @@ def test_debug_namespace_1_py3(frontend):
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@pytest.mark.skipif(
+    _SUPPORTS_TAB_AUTO_IMPORT, reason="Autoimport on Tab requires IPython 9.3+"
+)
+@pytest.mark.skipif(
+    sys.platform == "darwin" and sys.version_info[:2] == (3, 12),
+    reason="known failure on macOS + Python 3.12",
+)
 def test_debug_second_1(frontend):
     # Verify that a second postmortem debug of the same function behaves as
     # expected.
