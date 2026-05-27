@@ -1,7 +1,14 @@
 name: actionlint
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
 permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   actionlint:
