@@ -20,10 +20,11 @@ from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import (ImportPathCtx, Inf, _has_ignore_pragma,
                                         memoize)
 import re
+import sys
 
 from   typing                   import Literal, Optional, Union
 
-from   textwrap                 import indent
+from   textwrap                 import dedent, indent
 
 # AST node types for function and class definitions
 _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -1171,17 +1172,268 @@ def replace_star_imports(codeblock, params=None):
     return transformer.output(params=params)
 
 
-def transform_imports(codeblock, transformations, params=None):
+class _NoImportBlockTransformer:
+    """
+    AST-aware textual rewriter for a single block of (non-top-level-import)
+    code.  See `_transform_noimport_block` for the behavior contract.
+
+    All state is set up in `__init__`; call `run` once to produce the rewritten
+    `PythonBlock`.
+    """
+
+    # Map of dotted-name prefixes to their replacements, e.g. {"a.b": "x.y"}.
+    _transformations: dict[str, str]
+    # Whether to also rewrite inside string literals.
+    _transform_strings: bool
+    # The (position-normalized) block being transformed.
+    _block: PythonBlock
+    # ``_transformations`` with keys pre-split into components, longest first.
+    _key_specs: list[tuple[tuple[str, ...], str]]
+    # UTF-8 encoding of the block source; edits splice on bytes.
+    _data: bytes
+    # Byte offset of the start of each (1-based) line.
+    _line_starts: list[int]
+    # Pending edits as (start_byte, end_byte, replacement_bytes).
+    _edits: list[tuple[int, int, bytes]]
+
+    def __init__(
+        self,
+        block: PythonBlock,
+        transformations: dict[str, str],
+        transform_strings: bool,
+    ) -> None:
+        self._transformations = transformations
+        self._transform_strings = transform_strings
+        # Re-wrap so the AST node positions start at line 1 / column 0,
+        # regardless of where this block sits in the original file (a
+        # sub-block's ``ast_node`` otherwise reports absolute, file-relative
+        # line numbers).  ``PythonBlock`` dedents the source before parsing, so
+        # the resulting ``ast_node`` positions are relative to the *dedented*
+        # text; dedent here too so that ``_data``/``_line_starts`` (which we
+        # splice against using those positions) stay in sync.  For normal
+        # top-level blocks the first line is already at column 0 and dedent is
+        # a no-op.
+        source = dedent(block.text.joined)
+        self._block = PythonBlock(source, flags=block.flags)
+        if not self._block.parsable:
+            raise SyntaxError(
+                "transform_imports: could not parse code block:\n%s" % (source,)
+            )
+        # Pre-split keys into components for component-wise prefix matching,
+        # longest first so the most specific transformation wins.
+        self._key_specs = sorted(
+            ((tuple(k.split(".")), v) for k, v in transformations.items()),
+            key=lambda kv: len(kv[0]),
+            reverse=True,
+        )
+        self._data = source.encode("utf-8")
+        # Byte offset of the start of each (1-based) line.  ``ast`` reports
+        # ``col_offset`` as a UTF-8 byte offset, so we splice on bytes.
+        self._line_starts = [0]
+        for i, byte in enumerate(self._data):
+            # Iterating ``bytes`` yields ``int``; compare to the newline ordinal.
+            if byte == ord(b"\n"):
+                self._line_starts.append(i + 1)
+        self._edits = []
+
+    def run(self) -> PythonBlock:
+        """
+        Walk the AST collecting edits, then apply them and return the
+        rewritten block.  Returns the (re-wrapped) input unchanged if no
+        references matched.
+        """
+        self._visit(self._block.ast_node)
+        if not self._edits:
+            return self._block
+        # Apply edits right-to-left so earlier byte offsets stay valid.
+        self._edits.sort(key=lambda e: e[0], reverse=True)
+        out = self._data
+        for start, end, replacement in self._edits:
+            out = out[:start] + replacement + out[end:]
+        return PythonBlock(out.decode("utf-8"), flags=self._block.flags)
+
+    def _regex_replace(self, text: str) -> str:
+        """
+        Apply each transformation to ``text`` as a word-boundary regex
+        substitution.  Used for spans that contain only dotted names (local
+        imports) or that we deliberately rewrite verbatim (strings).
+        """
+        for k, v in self._transformations.items():
+            text = re.sub(r"\b%s\b" % (re.escape(k),), v, text)
+        return text
+
+    def _abspos(self, lineno: int, col_offset: int) -> int:
+        """Return the absolute byte offset of a (1-based ``lineno``,
+        ``col_offset``) AST position."""
+        return self._line_starts[lineno - 1] + col_offset
+
+    def _match_key(
+        self,
+        components: list[str],
+    ) -> Optional[tuple[tuple[str, ...], str]]:
+        """
+        Return the (components, replacement) of the longest transformation key
+        that is a component-wise prefix of ``components``, or None if none
+        matches.
+        """
+        for kc, v in self._key_specs:
+            if len(kc) <= len(components) and tuple(components[: len(kc)]) == kc:
+                return kc, v
+        return None
+
+    def _node_start(self, node: Union[ast.stmt, ast.expr]) -> int:
+        """Return the absolute byte offset of ``node``'s start position."""
+        return self._abspos(node.lineno, node.col_offset)
+
+    def _node_end(self, node: Union[ast.stmt, ast.expr]) -> int:
+        """Return the absolute byte offset of ``node``'s end position."""
+        # Nodes parsed from source always carry end positions.
+        assert node.end_lineno is not None and node.end_col_offset is not None
+        return self._abspos(node.end_lineno, node.end_col_offset)
+
+    def _add_regex_edit(self, node: Union[ast.stmt, ast.expr]) -> None:
+        """Queue a `_regex_replace` rewrite over ``node``'s own source span."""
+        start = self._node_start(node)
+        end = self._node_end(node)
+        chunk = self._regex_replace(self._data[start:end].decode("utf-8"))
+        self._edits.append((start, end, chunk.encode("utf-8")))
+
+    def _add_name_edit(
+        self,
+        node: Union[ast.stmt, ast.expr],
+        end_node: Union[ast.stmt, ast.expr],
+        v: str,
+    ) -> None:
+        """Queue a replacement of the span from ``node``'s start through
+        ``end_node``'s end with the literal ``v``."""
+        start = self._node_start(node)
+        end = self._node_end(end_node)
+        self._edits.append((start, end, v.encode("utf-8")))
+
+    def _handle_attribute_chain(self, node: ast.Attribute) -> None:
+        """
+        Rewrite a head-anchored dotted-name reference.  ``node`` is the
+        outermost `ast.Attribute` of a chain; if the chain's base is not a bare
+        name, recurse into it instead.
+        """
+        attrs_top_to_bottom = []
+        n: ast.AST = node
+        while isinstance(n, ast.Attribute):
+            attrs_top_to_bottom.append(n)
+            n = n.value
+        if not isinstance(n, ast.Name):
+            # The chain doesn't start at a bare name (e.g. ``f().bar`` or
+            # ``(a + b).c``); recurse into the base for nested references.
+            self._visit(n)
+            return
+        head = n
+        attrs_bottom_to_top = attrs_top_to_bottom[::-1]
+        components = [head.id] + [a.attr for a in attrs_bottom_to_top]
+        m = self._match_key(components)
+        if m is None:
+            return
+        kc, v = m
+        # The matched prefix spans from the head name through the
+        # (len(kc) - 1)th attribute access.
+        end_node = head if len(kc) == 1 else attrs_bottom_to_top[len(kc) - 2]
+        self._add_name_edit(head, end_node, v)
+
+    def _visit(self, node: ast.AST) -> None:
+        """
+        Recursively walk ``node``, queuing edits for matching name references,
+        attribute chains, local imports, and (when ``transform_strings``)
+        string literals.
+        """
+        if isinstance(node, ast.Attribute):
+            self._handle_attribute_chain(node)
+        elif isinstance(node, ast.Name):
+            m = self._match_key([node.id])
+            if m is not None:
+                self._add_name_edit(node, node, m[1])
+        elif isinstance(node, _IMPORT_TYPES):
+            # Local import; safe to rewrite textually (only dotted names).
+            self._add_regex_edit(node)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if self._transform_strings:
+                self._add_regex_edit(node)
+        elif isinstance(node, ast.JoinedStr):
+            if sys.version_info >= (3, 12):
+                for value in node.values:
+                    if isinstance(value, ast.FormattedValue):
+                        self._visit(value.value)
+                        if value.format_spec is not None:
+                            self._visit(value.format_spec)
+                    elif (
+                        isinstance(value, ast.Constant)
+                        and isinstance(value.value, str)
+                        and self._transform_strings
+                    ):
+                        self._add_regex_edit(value)
+            elif self._transform_strings:
+                # Before Python 3.12, the positions of an f-string's internal
+                # nodes are unreliable (PEP 701), so we can only treat the whole
+                # f-string opaquely (and only when transforming strings).
+                self._add_regex_edit(node)
+        else:
+            for child in ast.iter_child_nodes(node):
+                self._visit(child)
+
+
+def _transform_noimport_block(
+    block: PythonBlock,
+    transformations: dict[str, str],
+    transform_strings: bool,
+) -> PythonBlock:
+    """
+    Apply ``transformations`` to a block of (non-top-level-import) code.
+
+    Unlike top-level import blocks -- which are parsed and rewritten exactly --
+    the rest of the code body can only be transformed heuristically.  We do so
+    in an AST-aware way:
+
+      - References to dotted names are matched head-anchored and component-wise,
+        so e.g. ``foo.bar`` is rewritten in ``foo.bar`` and ``foo.bar.baz`` but
+        *not* in ``x.foo.bar`` (where ``foo.bar`` is an attribute of some other
+        object ``x``).
+      - String literals are left alone by default, so the contents of e.g.
+        ``"foo.bar"`` are not altered.  Pass ``transform_strings=True`` to
+        additionally rewrite inside string literals (including docstrings and
+        f-string text).
+      - Comments are never modified.
+      - Local (e.g. function-body) ``import`` statements are rewritten with the
+        same crude textual replacement used for top-level imports; this is safe
+        because import statements contain only dotted names.
+
+    Note: on Python < 3.12 the positions of an f-string's internal nodes are
+    unreliable (PEP 701), so f-strings are treated opaquely there -- their
+    expression parts are not rewritten, and their text is only rewritten (as a
+    whole) when ``transform_strings`` is true.  On Python >= 3.12, f-string
+    expression parts are rewritten like any other code.
+
+    See https://github.com/deshaw/pyflyby/issues/175.
+
+    :type block:
+      `PythonBlock`
+    :rtype:
+      `PythonBlock`
+    """
+    assert isinstance(block, PythonBlock), block
+    return _NoImportBlockTransformer(block, transformations, transform_strings).run()
+
+
+def transform_imports(codeblock, transformations, params=None, transform_strings=False):
     """
     Transform imports as specified by ``transformations``.
 
     transform_imports() perfectly replaces all imports in top-level import
     blocks.
 
-    For the rest of the code body, transform_imports() does a crude textual
-    string replacement.  This is imperfect but handles most cases.  There may
-    be some false positives, but this is difficult to avoid.  Generally we do
-    want to do replacements even within in strings and comments.
+    For the rest of the code body, transform_imports() does an AST-aware
+    replacement: references to the dotted names being transformed are rewritten,
+    but string literals and comments are left alone, and attribute chains are
+    only rewritten when they are head-anchored (so ``x.foo.bar`` is not
+    rewritten by ``foo.bar``).  See `_transform_noimport_block` and
+    https://github.com/deshaw/pyflyby/issues/175.
 
       >>> result = transform_imports("from m import x", {"m.x": "m.y.z"})
       >>> print(result.text.joined.strip())
@@ -1193,6 +1445,12 @@ def transform_imports(codeblock, transformations, params=None):
       ``dict`` from ``str`` to ``str``
     :param transformations:
       A map of import prefixes to replace, e.g. {"aa.bb": "xx.yy"}
+    :type transform_strings:
+      ``bool``
+    :param transform_strings:
+      If true, also rewrite matches inside string literals (including
+      docstrings and f-string text).  Off by default so that e.g. the contents
+      of ``"foo.bar"`` are not altered.
     :rtype:
       `PythonBlock`
     """
@@ -1208,14 +1466,6 @@ def transform_imports(codeblock, transformations, params=None):
         for k, v in transformations.items():
             imp = imp.replace(k, v)
         return imp
-    def transform_block(block):
-        # Do a crude string replacement in the PythonBlock.
-        if not isinstance(block, PythonBlock):
-            block = PythonBlock(block)
-        s = block.text.joined
-        for k, v in transformations.items():
-            s = re.sub("\\b%s\\b" % (re.escape(k)), v, s)
-        return PythonBlock(s, flags=block.flags)
     # Loop over transformer blocks.
     for block in transformer.blocks:
         if isinstance(block, SourceToSourceImportBlockTransformation):
@@ -1223,7 +1473,9 @@ def transform_imports(codeblock, transformations, params=None):
             output_imports = [ transform_import(imp) for imp in input_imports ]
             block.importset = ImportSet(output_imports, ignore_shadowed=True)
         else:
-            block._output = transform_block(block.input)
+            block._output = _transform_noimport_block(
+                block.input, transformations, transform_strings
+            )
     return transformer.output(params=params)
 
 
