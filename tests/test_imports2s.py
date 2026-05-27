@@ -920,6 +920,95 @@ def test_transform_imports_1():
     assert output == expected
 
 
+# Behavior of the AST-aware no-import-block rewriter.  See
+# `_transform_noimport_block` and https://github.com/deshaw/pyflyby/issues/175.
+_fstring_skipif = pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="f-string node positions are unreliable before 3.12")
+
+
+@pytest.mark.parametrize(
+    "input_code, transformations, transform_strings, expected",
+    [
+        # Non-docstring string contents are not altered by default.
+        pytest.param(
+            'obj = "alpha.beta"\nobj.alpha.beta\n',
+            {"alpha.beta": "gamma.delta"}, False,
+            'obj = "alpha.beta"\nobj.alpha.beta\n',
+            id="string_literal_unchanged"),
+        # ``alpha.beta`` is an attribute of the unrelated local ``obj`` here, so
+        # it must not be transformed.
+        pytest.param(
+            'obj.alpha.beta\n', {"alpha.beta": "gamma.delta"}, False,
+            'obj.alpha.beta\n',
+            id="attribute_chain_not_head_anchored"),
+        pytest.param(
+            'alpha.beta\nalpha.beta.run()\n', {"alpha.beta": "gamma.delta"}, False,
+            'gamma.delta\ngamma.delta.run()\n',
+            id="head_anchored_reference"),
+        # ``mod.sunset`` must not be matched by the key ``mod.sun``.
+        pytest.param(
+            'print(mod.sun, mod.sunset)\n', {"mod.sun": "pkg.moon"}, False,
+            'print(pkg.moon, mod.sunset)\n',
+            id="component_boundary"),
+        # With transform_strings=True, string contents are rewritten, but the
+        # attribute chain on the unrelated local ``obj`` is still left alone.
+        pytest.param(
+            'obj = "alpha.beta"\nobj.alpha.beta\n',
+            {"alpha.beta": "gamma.delta"}, True,
+            'obj = "gamma.delta"\nobj.alpha.beta\n',
+            id="strings_opt_in"),
+        # A docstring is only rewritten when transforming strings.
+        pytest.param(
+            'def f():\n    "uses alpha.beta"\n    return alpha.beta\n',
+            {"alpha.beta": "gamma.delta"}, False,
+            'def f():\n    "uses alpha.beta"\n    return gamma.delta\n',
+            id="docstring_default"),
+        pytest.param(
+            'def f():\n    "uses alpha.beta"\n    return alpha.beta\n',
+            {"alpha.beta": "gamma.delta"}, True,
+            'def f():\n    "uses gamma.delta"\n    return gamma.delta\n',
+            id="docstring_opt_in"),
+        # Comments are never modified.
+        pytest.param(
+            '# see alpha.beta\nalpha.beta()\n', {"alpha.beta": "gamma.delta"}, True,
+            '# see alpha.beta\ngamma.delta()\n',
+            id="comment_unchanged"),
+        # Local imports contain only dotted names, so are rewritten textually.
+        pytest.param(
+            'def f():\n    import alpha.beta\n    return alpha.beta\n',
+            {"alpha.beta": "gamma.delta"}, False,
+            'def f():\n    import gamma.delta\n    return gamma.delta\n',
+            id="local_import"),
+        # ``ast`` reports col_offset as a UTF-8 byte offset; make sure splicing
+        # handles non-ASCII source correctly.
+        pytest.param(
+            's = "éé"\nalpha.beta()\n', {"alpha.beta": "gamma.delta"}, False,
+            's = "éé"\ngamma.delta()\n',
+            id="non_ascii_offsets"),
+        pytest.param(
+            '(alpha\n .beta\n .extra)\n', {"alpha.beta": "gamma.delta"}, False,
+            '(gamma.delta\n .extra)\n',
+            id="multiline_chain"),
+        # Expression parts of an f-string are code and are always transformed;
+        # the literal text part is only transformed with transform_strings=True.
+        pytest.param(
+            'f"{alpha.beta} alpha.beta"\n', {"alpha.beta": "gamma.delta"}, False,
+            'f"{gamma.delta} alpha.beta"\n',
+            id="fstring_expression_default", marks=_fstring_skipif),
+        pytest.param(
+            'f"{alpha.beta} alpha.beta"\n', {"alpha.beta": "gamma.delta"}, True,
+            'f"{gamma.delta} gamma.delta"\n',
+            id="fstring_expression_opt_in", marks=_fstring_skipif),
+    ],
+)
+def test_transform_imports_noimport_block(
+        input_code, transformations, transform_strings, expected):
+    output = transform_imports(input_code, transformations,
+                               transform_strings=transform_strings)
+    assert output.text.joined == expected
+
+
 def test_canonicalize_imports_1():
     input = PythonBlock(
         dedent(

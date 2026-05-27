@@ -36,10 +36,17 @@ def main():
                           help=hfmt('''
                                 Replace OLD with NEW in imports.
                                 May be specified multiple times.'''))
+        parser.add_option('--transform-strings', dest='transform_strings',
+                          default=False, action='store_true',
+                          help=hfmt('''
+                                When using --transform, also replace matches
+                                inside string literals (including docstrings
+                                and f-string text).  Off by default.'''))
     options, args = parse_args(
         addopts, import_format_params=True, modify_action_params=True)
     def modify(x):
-        return transform_imports(x, transformations, params=options.params)
+        return transform_imports(x, transformations, params=options.params,
+                                 transform_strings=options.transform_strings)
     process_actions(args, options.actions, modify)
 
 

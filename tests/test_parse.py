@@ -558,7 +558,7 @@ def test_PythonBlock_flags_type_comment_fail_transform():
     """
     See https://github.com/deshaw/pyflyby/issues/171
 
-    
+
     $ python3.7 tidy-imports --print test.py
     def f():
         # type: () -> None

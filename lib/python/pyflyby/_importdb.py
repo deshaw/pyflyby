@@ -217,7 +217,7 @@ class ImportDB:
             return cls._from_data(arg, [], [], [])
         return cls._from_code(arg) # PythonBlock, Filename, etc
 
-    
+
 
 
     @classmethod

@@ -100,6 +100,17 @@ def _addopts(parser):
                         help=hfmt('''
                             Replace OLD with NEW in imports.
                             May be specified multiple times.'''))
+    parser.add_option('--transform-strings', dest='transform_strings',
+                        default=False, action='store_true',
+                        help=hfmt('''
+                            When using --transform, also replace matches inside
+                            string literals (including docstrings and f-string
+                            text).  Off by default.'''))
+    parser.add_option('--no-transform-strings', dest='transform_strings',
+                        action='store_false',
+                        help=hfmt('''
+                            (Default) Don't replace matches inside string
+                            literals when using --transform.'''))
     def no_add_callback(option, opt_str, value, group):
         group.values.add_missing = False
         group.values.add_mandatory = False
@@ -140,7 +151,8 @@ def main() -> None:
     def modify(block:PythonBlock) -> PythonBlock:
         if options.transformations:
             block = transform_imports(block, options.transformations,
-                                  params=options.params)
+                                  params=options.params,
+                                  transform_strings=options.transform_strings)
         if options.replace_star_imports:
             block = replace_star_imports(block, params=options.params)
         block = fix_unused_and_missing_imports(
