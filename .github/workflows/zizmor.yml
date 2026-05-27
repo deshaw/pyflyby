@@ -2,8 +2,9 @@ name: zizmor
 
 on:
   push:
-    branches: [master]
+    branches: ["master"]
   pull_request:
+    branches: ["**"]
 permissions: {}
 
 concurrency:
