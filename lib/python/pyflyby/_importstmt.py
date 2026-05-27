@@ -2,6 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
 
 
 import ast
@@ -16,11 +17,12 @@ from   pyflyby._util            import (Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
 
-from   typing                   import Dict, Optional, Tuple, Union
+from   typing                   import (Any, Dict, List, Optional, Sequence,
+                                        Tuple, Union)
 
 
 
-def read_black_config() -> Dict:
+def read_black_config() -> Dict[str, Any]:
     """Read the black configuration from ``pyproject.toml``"""
     from black.files import find_pyproject_toml, parse_pyproject_toml
 
@@ -28,7 +30,7 @@ def read_black_config() -> Dict:
 
     raw_config = parse_pyproject_toml(pyproject_path) if pyproject_path else {}
 
-    config = {}
+    config: Dict[str, Any] = {}
     for key in [
         "line_length",
         "skip_magic_trailing_comma",
@@ -128,7 +130,7 @@ class Import:
     import_as:str
     comment: Optional[str] = None
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Any) -> "Import":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, ImportSplit):
@@ -140,7 +142,9 @@ class Import:
         raise TypeError
 
     @classmethod
-    def from_parts(cls, fullname, import_as, comment=None):
+    def from_parts(
+        cls, fullname: str, import_as: str, comment: Optional[str] = None
+    ) -> "Import":
         assert isinstance(fullname, str)
         assert isinstance(import_as, str)
         self = object.__new__(cls)
@@ -150,7 +154,7 @@ class Import:
         return self
 
     @classmethod
-    def _from_statement(cls, statement):
+    def _from_statement(cls, statement: Any) -> "Import":
         """
         :type statement:
           `ImportStatement` or convertible (`PythonStatement`, ``str``)
@@ -165,7 +169,7 @@ class Import:
         return imports[0]
 
     @classmethod
-    def _from_identifier_or_statement(cls, arg):
+    def _from_identifier_or_statement(cls, arg: str) -> "Import":
         """
         Parse either a raw identifier or a statement.
 
@@ -184,7 +188,7 @@ class Import:
             return cls._from_statement(arg)
 
     @cached_attribute
-    def split(self):
+    def split(self) -> "ImportSplit":
         """
         Split this `Import` into a ``ImportSplit`` which represents the
         token-level ``module_name``, ``member_name``, ``import_as``.
@@ -223,13 +227,17 @@ class Import:
             module_name = ''
             member_name = qname
         module_name = prefix + module_name
-        import_as = self.import_as
+        import_as: Optional[str] = self.import_as
         if import_as == member_name:
             import_as = None
         return ImportSplit(module_name or None, member_name, import_as)
 
     @classmethod
-    def from_split(cls, impsplit, comment=None):
+    def from_split(
+        cls,
+        impsplit: Union["ImportSplit", Tuple[Optional[str], str, Optional[str]]],
+        comment: Optional[str] = None,
+    ) -> "Import":
         """
         Construct an `Import` instance from ``module_name``, ``member_name``,
         ``import_as``.
@@ -253,7 +261,7 @@ class Import:
         # canonicalize to 'from foo import bar as baz'.
         return result
 
-    def prefix_match(self, imp):
+    def prefix_match(self, imp: "Import") -> Tuple[str, ...]:
         """
         Return the longest common prefix between ``self`` and ``imp``.
 
@@ -270,7 +278,7 @@ class Import:
         n2 = imp.fullname.split('.')
         return tuple(longest_common_prefix(n1, n2))
 
-    def replace(self, prefix, replacement):
+    def replace(self, prefix: str, replacement: str) -> "Import":
         """
         Return a new ``Import`` that replaces ``prefix`` with ``replacement``.
 
@@ -297,7 +305,7 @@ class Import:
                                '.'.join(import_as_parts))
 
     @cached_attribute
-    def flags(self):
+    def flags(self) -> CompilerFlags:
         """
         If this is a __future__ import, then the compiler_flag associated with
         it.  Otherwise, 0.
@@ -308,47 +316,47 @@ class Import:
             return CompilerFlags.from_int(0)
 
     @property
-    def _data(self):
+    def _data(self) -> Tuple[str, str]:
         return (self.fullname, self.import_as)
 
-    def pretty_print(self, params=FormatParams()):
+    def pretty_print(self, params: FormatParams = FormatParams()) -> str:
         return ImportStatement([self]).pretty_print(params)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.pretty_print(FormatParams(max_line_length=Inf)).rstrip()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, str(self))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._data)
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> Any:
         if self is other:
             return 0
         if not isinstance(other, Import):
             return NotImplemented
         return cmp(self._data, other._data)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> Any:
         if self is other:
             return True
         if not isinstance(other, Import):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> Any:
         if self is other:
             return False
         if not isinstance(other, Import):
             return NotImplemented
         return self._data < other._data
 
-def _validate_alias(arg) -> Tuple[str, Optional[str]]:
+def _validate_alias(arg: Tuple[str, Optional[str]]) -> Tuple[str, Optional[str]]:
     """
     Ensure each alias is a tuple (str, None|str), and return it.
 
@@ -374,7 +382,7 @@ class ImportStatement:
     fromname : Optional[str]
     comments : Optional[list[Optional[str]]] = None
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Any) -> "ImportStatement":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, str):
@@ -395,8 +403,8 @@ class ImportStatement:
         cls,
         fromname: Optional[str],
         aliases: Tuple[Tuple[str, Optional[str]], ...],
-        comments: Optional[list[Optional[str]]] = None,
-    ):
+        comments: Optional[List[Optional[str]]] = None,
+    ) -> "ImportStatement":
         assert isinstance(aliases, tuple)
         assert len(aliases) > 0
 
@@ -407,7 +415,7 @@ class ImportStatement:
         return self
 
     @classmethod
-    def _from_str(cls, code:str, /):
+    def _from_str(cls, code:str, /) -> "ImportStatement":
         """
           >>> ImportStatement._from_str("from foo  import bar, bar2, bar")
           ImportStatement('from foo import bar, bar2, bar')
@@ -437,7 +445,7 @@ class ImportStatement:
         )
 
     @classmethod
-    def _from_statement(cls, statement):
+    def _from_statement(cls, statement: Any) -> "ImportStatement":
         stmt = PythonStatement.from_statement(statement)
         return cls._from_ast_node(
             stmt.ast_node,
@@ -445,7 +453,9 @@ class ImportStatement:
         )
 
     @classmethod
-    def _from_ast_node(cls, node, comments: Optional[list[Optional[str]]] = None):
+    def _from_ast_node(
+        cls, node: Any, comments: Optional[List[Optional[str]]] = None
+    ) -> "ImportStatement":
         """
         Construct an `ImportStatement` from an `ast` node.
 
@@ -469,7 +479,7 @@ class ImportStatement:
         return cls.from_parts(fromname, aliases, comments)
 
     @classmethod
-    def _from_imports(cls, imports):
+    def _from_imports(cls, imports: Sequence["Import"]) -> "ImportStatement":
         """
         Construct an `ImportStatement` from a sequence of ``Import`` s.  They
         must all have the same ``fromname``.
@@ -495,7 +505,7 @@ class ImportStatement:
         )
 
     @cached_attribute
-    def imports(self):
+    def imports(self) -> Tuple["Import", ...]:
         """
         Return a sequence of `Import` s.
 
@@ -516,7 +526,7 @@ class ImportStatement:
             )
         return tuple(result)
 
-    def get_valid_comment(self):
+    def get_valid_comment(self) -> Optional[str]:
         """Get the comment for the ImportStatment, if possible.
 
         A comment is only valid if there is a single comment.
@@ -554,7 +564,7 @@ class ImportStatement:
         return tuple(self.aliases[0][0].split('.'))
 
 
-    def _cmp(self):
+    def _cmp(self) -> Tuple[str, int, Optional[str]]:
         """
         Comparison function for sorting.
 
@@ -567,15 +577,16 @@ class ImportStatement:
         return (self.module[0], 0 if self.fromname is not None else 1, self.fromname)
 
     @cached_attribute
-    def flags(self):
+    def flags(self) -> CompilerFlags:
         """
         If this is a __future__ import, then the bitwise-ORed of the
         compiler_flag values associated with the features.  Otherwise, 0.
         """
         return CompilerFlags(*[imp.flags for imp in self.imports])
 
-    def pretty_print(self, params=FormatParams(),
-                     import_column=None, from_spaces=1):
+    def pretty_print(self, params: FormatParams = FormatParams(),
+                     import_column: Optional[int] = None,
+                     from_spaces: int = 1) -> str:
         """
         Pretty-print into a single string.
 
@@ -685,37 +696,37 @@ class ImportStatement:
         return format_str(contents_for_black, mode=FileMode(**mode))
 
     @property
-    def _data(self):
+    def _data(self) -> Tuple[Optional[str], Tuple[Tuple[str, Optional[str]], ...]]:
         return (self.fromname, self.aliases)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.pretty_print(FormatParams(max_line_length=Inf)).rstrip()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, str(self))
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> Any:
         if self is other:
             return 0
         if not isinstance(other, ImportStatement):
             return NotImplemented
         return cmp(self._data, other._data)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> Any:
         if self is other:
             return True
         if not isinstance(other, ImportStatement):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> Any:
         if not isinstance(other, ImportStatement):
             return NotImplemented
         return self._data < other._data
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._data)

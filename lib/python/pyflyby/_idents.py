@@ -2,6 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
 
 
 from   functools                import total_ordering
@@ -10,11 +11,12 @@ import re
 
 from   pyflyby._util            import cached_attribute, cmp
 
-from   typing                   import Dict, Optional, Tuple
+from   typing                   import (Any, Dict, Iterator, List, Optional,
+                                        Tuple, Union)
 
 
 # TODO: use DottedIdentifier.prefixes
-def dotted_prefixes(dotted_name, reverse=False):
+def dotted_prefixes(dotted_name: str, reverse: bool = False) -> List[str]:
     """
     Return the prefixes of a dotted name.
 
@@ -41,7 +43,7 @@ def dotted_prefixes(dotted_name, reverse=False):
     return result
 
 
-def is_identifier(s: str, dotted: bool = False, prefix: bool = False):
+def is_identifier(s: str, dotted: bool = False, prefix: bool = False) -> bool:
     """
     Return whether ``s`` is a valid Python identifier name.
 
@@ -111,7 +113,7 @@ def is_identifier(s: str, dotted: bool = False, prefix: bool = False):
     return s.isidentifier() and not iskeyword(s)
 
 
-def brace_identifiers(text):
+def brace_identifiers(text: Union[str, bytes]) -> Iterator[str]:
     """
     Parse a string and yield all tokens of the form "{some_token}".
 
@@ -135,7 +137,11 @@ class DottedIdentifier:
     parts: Tuple[str, ...]
     scope_info: Optional[Dict]
 
-    def __new__(cls, arg, scope_info=None):
+    def __new__(
+        cls,
+        arg: Union["DottedIdentifier", str, Tuple[str, ...], List[str]],
+        scope_info: Optional[Dict] = None,
+    ) -> "DottedIdentifier":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, str):
@@ -146,7 +152,9 @@ class DottedIdentifier:
                         % (type(arg).__name__,))
 
     @classmethod
-    def _from_name(cls, name, scope_info=None):
+    def _from_name(
+        cls, name: str, scope_info: Optional[Dict] = None
+    ) -> "DottedIdentifier":
         self = object.__new__(cls)
         self.name = str(name)
         # TODO: change magic methods to compare with scopestack included
@@ -161,52 +169,52 @@ class DottedIdentifier:
         return self
 
     @cached_attribute
-    def parent(self):
+    def parent(self) -> Optional["DottedIdentifier"]:
         if len(self.parts) > 1:
             return DottedIdentifier('.'.join(self.parts[:-1]))
         else:
             return None
 
     @cached_attribute
-    def prefixes(self):
+    def prefixes(self) -> Tuple["DottedIdentifier", ...]:
         parts = self.parts
         idxes = range(1, len(parts)+1)
         result = ['.'.join(parts[:i]) for i in idxes]
         return tuple(DottedIdentifier(x) for x in result)
 
-    def startswith(self, o):
+    def startswith(self, o: Any) -> bool:
         o = type(self)(o)
         return self.parts[:len(o.parts)] == o.parts
 
-    def __getitem__(self, x):
+    def __getitem__(self, x: Union[int, slice]) -> "DottedIdentifier":
         return type(self)(self.parts[x])
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.parts)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator["DottedIdentifier"]:
         return (type(self)(x) for x in self.parts)
 
-    def __add__(self, suffix):
+    def __add__(self, suffix: Any) -> "DottedIdentifier":
         return type(self)("%s.%s" % (self, suffix))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, self.name)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, DottedIdentifier):
             return NotImplemented
         return self.name == other.name
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         if self is other:
             return False
         if not isinstance(other, DottedIdentifier):
@@ -214,12 +222,12 @@ class DottedIdentifier:
         return self.name != other.name
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, DottedIdentifier):
             return NotImplemented
         return self.name < other.name
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> int:
         if self is other:
             return 0
         if not isinstance(other, DottedIdentifier):

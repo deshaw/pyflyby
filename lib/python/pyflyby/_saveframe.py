@@ -20,6 +20,9 @@ import re
 import stat
 import sys
 import traceback
+import types
+from   typing                   import (Any, Dict, Iterator, List, Optional,
+                                        Tuple, Union)
 
 """
 The protocol used while pickling the frame's data.
@@ -49,7 +52,7 @@ class ExceptionInfo:
     exception_class_name: str
     exception_class_qualname: str
     exception_object: object
-    traceback: list
+    traceback: Union[List[str], str]
 
 
 @dataclass
@@ -62,7 +65,7 @@ class FrameMetadata:
     lineno: int
     function_name: str
     function_qualname: str
-    function_object: bytes
+    function_object: Union[bytes, str]
     module_name: str
     code: str
     frame_identifier: str
@@ -78,7 +81,7 @@ class FrameFormat(Enum):
     RANGE = "RANGE"
 
 
-def _get_saveframe_logger():
+def _get_saveframe_logger() -> logging.Logger:
     """
     Get the logger used for the saveframe utility.
     """
@@ -101,7 +104,7 @@ _SAVEFRAME_LOGGER = _get_saveframe_logger()
 
 
 @contextmanager
-def _open_file(filename, mode):
+def _open_file(filename: str, mode: str) -> Iterator[Any]:
     """
     A context manager to open the ``filename`` with ``mode``.
     This function ignores the ``umask`` while creating the file.
@@ -126,7 +129,7 @@ def _open_file(filename, mode):
         os.umask(old_umask)
 
 
-def _get_exception_info(exception_obj):
+def _get_exception_info(exception_obj: BaseException) -> ExceptionInfo:
     """
     Get the metadata information for the ``exception_obj``.
 
@@ -135,6 +138,7 @@ def _get_exception_info(exception_obj):
     :return:
       An `ExceptionInfo` object.
     """
+    tb: Union[List[str], str]
     try:
         tb = (
             traceback.format_exception(
@@ -154,7 +158,7 @@ def _get_exception_info(exception_obj):
     return exception_info
 
 
-def _get_qualname(frame):
+def _get_qualname(frame: types.FrameType) -> str:
     """
     Get fully qualified name of the function for the ``frame``.
 
@@ -163,7 +167,7 @@ def _get_qualname(frame):
     return (frame.f_code.co_qualname if hasattr(frame.f_code, "co_qualname")
             else frame.f_code.co_name)
 
-def _get_frame_repr(frame):
+def _get_frame_repr(frame: types.FrameType) -> str:
     """
     Construct repr for the ``frame``. This is used in the info messages.
 
@@ -176,7 +180,10 @@ def _get_frame_repr(frame):
             f"Function: {_get_qualname(frame)}'")
 
 
-def _get_frame_local_variables_data(frame, variables, exclude_variables):
+def _get_frame_local_variables_data(
+        frame: types.FrameType,
+        variables: Optional[Tuple[str, ...]],
+        exclude_variables: Optional[Tuple[str, ...]]) -> Dict[str, bytes]:
     """
     Get the local variables data of the ``frame``.
 
@@ -191,7 +198,7 @@ def _get_frame_local_variables_data(frame, variables, exclude_variables):
       name and the value as the pickled local variable value.
     """
     # A dict to store the local variables to be saved.
-    local_variables_to_save = {}
+    local_variables_to_save: Dict[str, bytes] = {}
     all_local_variables = frame.f_locals
     for variable in all_local_variables:
         # Discard the variables that starts with '__' like '__eq__', etc., to
@@ -215,7 +222,7 @@ def _get_frame_local_variables_data(frame, variables, exclude_variables):
     return local_variables_to_save
 
 
-def _get_frame_function_object(frame):
+def _get_frame_function_object(frame: types.FrameType) -> Any:
     """
     Get the function object of the frame.
 
@@ -267,7 +274,7 @@ def _get_frame_function_object(frame):
         return return_msg
 
 
-def _get_frame_module_name(frame):
+def _get_frame_module_name(frame: types.FrameType) -> str:
     """
     Get the module name of the ``frame``.
 
@@ -290,7 +297,7 @@ def _get_frame_module_name(frame):
         return "Module name not found"
 
 
-def _get_frame_code_line(frame):
+def _get_frame_code_line(frame: types.FrameType) -> str:
     """
     Get the code line of the ``frame``.
 
@@ -308,7 +315,8 @@ def _get_frame_code_line(frame):
     return code_line
 
 
-def _get_frame_metadata(frame_idx, frame_obj):
+def _get_frame_metadata(
+        frame_idx: int, frame_obj: types.FrameType) -> FrameMetadata:
     """
     Get metadata for the frame ``frame_obj``.
 
@@ -320,6 +328,7 @@ def _get_frame_metadata(frame_idx, frame_obj):
       A `FrameMetadata` object.
     """
     frame_function_object = _get_frame_function_object(frame_obj)
+    pickled_function: Union[bytes, str]
     try:
         if isinstance(frame_function_object, str):
             # Function object couldn't be found.
@@ -348,7 +357,10 @@ def _get_frame_metadata(frame_idx, frame_obj):
     )
     return frame_metadata
 
-def _get_all_matching_frames(frame, all_frames):
+def _get_all_matching_frames(
+        frame: List[Any],
+        all_frames: List[types.FrameType],
+) -> List[Tuple[int, types.FrameType]]:
     """
     Get all the frames from ``all_frames`` that match the ``frame``.
 
@@ -370,7 +382,7 @@ def _get_all_matching_frames(frame, all_frames):
         # ('first_frame..'). Return the first frame from the bottom as the last
         # frame.
         return [(1, all_frames[0])]
-    all_matching_frames = []
+    all_matching_frames: List[Tuple[int, types.FrameType]] = []
     filename_regex, lineno, func_name = frame
     for idx, frame_obj in enumerate(all_frames):
         if re.search(filename_regex, frame_obj.f_code.co_filename) is None:
@@ -384,7 +396,10 @@ def _get_all_matching_frames(frame, all_frames):
     return all_matching_frames
 
 
-def _get_frames_to_save(frames, all_frames):
+def _get_frames_to_save(
+        frames: Tuple[Union[None, int, List[List[Any]]], Optional[FrameFormat]],
+        all_frames: List[types.FrameType],
+) -> List[Tuple[int, types.FrameType]]:
     """
     Get the frames we want to save from ``all_frames`` as per ``frames``.
 
@@ -398,34 +413,34 @@ def _get_frames_to_save(frames, all_frames):
       elements, where the first element is the frame index (starting from the
       bottom of the stack trace) and the second element is the frame object.
     """
-    frames, frame_type = frames
-    filtered_frames = []
+    frames, frame_type = frames  # type: ignore[assignment]
+    filtered_frames: List[Tuple[int, types.FrameType]] = []
     if frame_type is None:
         # No frame passed by the user, return the first frame from the bottom
         # of the stack trace.
         return [(1, all_frames[0])]
     elif frame_type == FrameFormat.NUM:
-        if len(all_frames) < frames:
+        if len(all_frames) < frames:  # type: ignore[operator]
             _SAVEFRAME_LOGGER.info(
                 "Number of frames to dump are %s, but there are only %s frames "
                 "in the error stack. So dumping all the frames.",
                 frames, len(all_frames))
-            frames = len(all_frames)
-        return [(idx+1, all_frames[idx]) for idx in range(frames)]
+            frames = len(all_frames)  # type: ignore[assignment]
+        return [(idx+1, all_frames[idx]) for idx in range(frames)]  # type: ignore[call-overload]
     elif frame_type == FrameFormat.LIST:
         for frame in frames:
-            filtered_frames.extend(_get_all_matching_frames(frame, all_frames))
+            filtered_frames.extend(_get_all_matching_frames(frame, all_frames))  # type: ignore[arg-type]
     elif frame_type == FrameFormat.RANGE:
         # Handle 'first_frame..last_frame' and 'first_frame..' formats.
         # Find all the matching frames for the first_frame and last_frame.
-        first_matching_frames = _get_all_matching_frames(frames[0], all_frames)
+        first_matching_frames = _get_all_matching_frames(frames[0], all_frames)  # type: ignore[arg-type]
         if len(first_matching_frames) == 0:
             raise ValueError(f"No frame in the traceback matched the frame: "
-                             f"{':'.join(map(str, frames[0]))!a}")
-        last_matching_frames = _get_all_matching_frames(frames[1], all_frames)
+                             f"{':'.join(map(str, frames[0]))!a}")  # type: ignore[arg-type]
+        last_matching_frames = _get_all_matching_frames(frames[1], all_frames)  # type: ignore[arg-type]
         if len(last_matching_frames) == 0:
             raise ValueError(f"No frame in the traceback matched the frame: "
-                             f"{':'.join(map(str, frames[1]))!a}")
+                             f"{':'.join(map(str, frames[1]))!a}")  # type: ignore[call-overload]
         # Take out the minimum and maximum indexes of the matching frames.
         first_idxs = (first_matching_frames[0][0], first_matching_frames[-1][0])
         last_idxs = (last_matching_frames[0][0], last_matching_frames[-1][0])
@@ -438,24 +453,25 @@ def _get_frames_to_save(frames, all_frames):
             (abs(first_idxs[1] - last_idxs[1]), (first_idxs[1], last_idxs[1])),
         ]
         _, max_distance_pair = max(distances, key=lambda x: x[0])
-        max_distance_pair = sorted(max_distance_pair)
+        max_distance_pair = sorted(max_distance_pair)  # type: ignore[assignment]
         for idx in range(max_distance_pair[0], max_distance_pair[1] + 1):
             filtered_frames.append((idx, all_frames[idx-1]))
 
     # Only keep the unique frames and sort them using their index.
     filtered_frames = sorted(filtered_frames, key=lambda f: f[0])
-    seen_frames = set()
-    unique_filtered_frames = []
+    seen_frames: set = set()
+    unique_filtered_frames: List[Tuple[int, types.FrameType]] = []
     # In chained exceptions, we can get the same frame at multiple indexes, so
     # get the unique frames without considering the index.
-    for frame in filtered_frames:
-        if frame[1] not in seen_frames:
-            unique_filtered_frames.append(frame)
-            seen_frames.add(frame[1])
+    for frame in filtered_frames:  # type: ignore[assignment]
+        if frame[1] not in seen_frames:  # type: ignore[index]
+            unique_filtered_frames.append(frame)  # type: ignore[arg-type]
+            seen_frames.add(frame[1])  # type: ignore[index]
     return unique_filtered_frames
 
 
-def _get_all_frames_from_exception_obj(exception_obj):
+def _get_all_frames_from_exception_obj(
+        exception_obj: BaseException) -> List[types.FrameType]:
     """
     Get all the frame objects from the exception object. It also handles chained
     exceptions.
@@ -467,11 +483,11 @@ def _get_all_frames_from_exception_obj(exception_obj):
       are stored in bottom-to-top order, with the bottom frame (the error frame)
       at index 0.
     """
-    current_exception = exception_obj
-    all_frames = []
+    current_exception: Optional[BaseException] = exception_obj
+    all_frames: List[types.FrameType] = []
     while current_exception:
         traceback = current_exception.__traceback__
-        current_tb_frames = []
+        current_tb_frames: List[types.FrameType] = []
         while traceback:
             current_tb_frames.append(traceback.tb_frame)
             traceback = traceback.tb_next
@@ -481,7 +497,8 @@ def _get_all_frames_from_exception_obj(exception_obj):
     return all_frames
 
 
-def _get_all_frames_from_current_frame(current_frame):
+def _get_all_frames_from_current_frame(
+        current_frame: Optional[types.FrameType]) -> List[types.FrameType]:
     """
     Get all frame objects starting from the current frame up the call stack.
 
@@ -491,7 +508,7 @@ def _get_all_frames_from_current_frame(current_frame):
       A list of all frame objects in bottom-to-top order, with the bottom frame
       (current frame) at index 0.
     """
-    all_frames = []
+    all_frames: List[types.FrameType] = []
     while current_frame:
         func_name = current_frame.f_code.co_name
         # We've reached the python internal frames. Break the loop.
@@ -503,8 +520,12 @@ def _get_all_frames_from_current_frame(current_frame):
 
 
 def _save_frames_and_exception_info_to_file(
-        filename, frames, variables, exclude_variables, *,
-        exception_obj=None, current_frame=None):
+        filename: str,
+        frames: Tuple[Union[None, int, List[List[Any]]], Optional[FrameFormat]],
+        variables: Optional[Tuple[str, ...]],
+        exclude_variables: Optional[Tuple[str, ...]], *,
+        exception_obj: Optional[BaseException] = None,
+        current_frame: Optional[types.FrameType] = None) -> None:
     """
     Save the frames and exception information in the file ``filename``.
 
@@ -561,7 +582,7 @@ def _save_frames_and_exception_info_to_file(
       the required info; the traceback, all the frame objects, etc.
     """
     # Mapping that stores all the information to save.
-    frames_and_exception_info = {}
+    frames_and_exception_info: Dict[Any, Any] = {}
     if exception_obj:
         # Get the list of frame objects from the exception object.
         all_frames = _get_all_frames_from_exception_obj(
@@ -593,7 +614,7 @@ def _save_frames_and_exception_info_to_file(
     _SAVEFRAME_LOGGER.info("Done!!")
 
 
-def _is_dir_and_ancestors_world_traversable(directory):
+def _is_dir_and_ancestors_world_traversable(directory: str) -> bool:
     """
     Is the ``directory`` and all its ancestors world traversable.
 
@@ -614,7 +635,7 @@ def _is_dir_and_ancestors_world_traversable(directory):
         os.path.dirname(directory))
 
 
-def _validate_filename(filename, utility):
+def _validate_filename(filename: Optional[str], utility: str) -> str:
     """
     Validate the value of ``filename``.
 
@@ -672,7 +693,10 @@ def _validate_filename(filename, utility):
     return filename
 
 
-def _validate_frames(frames, utility):
+def _validate_frames(
+        frames: Union[None, int, str, List[str], Tuple[str, ...]],
+        utility: str,
+) -> Tuple[Union[None, int, List[List[Any]]], Optional[FrameFormat]]:
     """
     Validate the value of ``frames``.
 
@@ -717,7 +741,7 @@ def _validate_frames(frames, utility):
     _SAVEFRAME_LOGGER.info("Validating frames: %a", frames)
     try:
         # Handle frames as an integer.
-        return int(frames), FrameFormat.NUM
+        return int(frames), FrameFormat.NUM  # type: ignore[arg-type]
     except (ValueError, TypeError):
         pass
     # Boolean to denote if the `frames` parameter is passed in the range format.
@@ -735,10 +759,10 @@ def _validate_frames(frames, utility):
                     f"contains character ','. If you are trying to pass multiple "
                     f"frames, pass them as separate items in the list.")
         frames = ','.join(frames)
-    all_frames = [frame.strip() for frame in frames.split(',')]
+    all_frames = [frame.strip() for frame in frames.split(',')]  # type: ignore[union-attr]
     # Handle the single frame and the range of frame formats.
     if len(all_frames) == 1:
-        all_frames = [frame.strip() for frame in frames.split('..')]
+        all_frames = [frame.strip() for frame in frames.split('..')]  # type: ignore[union-attr]
         if len(all_frames) > 2:
             raise ValueError(
                 f"Error while validating frames: {frames!a}. If you want to pass a "
@@ -748,9 +772,9 @@ def _validate_frames(frames, utility):
         else:
             is_range = False
 
-    parsed_frames = []
+    parsed_frames: List[List[Any]] = []
     for idx, frame in enumerate(all_frames):
-        frame_parts = frame.split(':')
+        frame_parts: List[Any] = frame.split(':')
         # Handle 'first_frame..' format (case 4.).
         if idx == 1 and len(frame_parts) == 1 and frame_parts[0] == '' and is_range:
             parsed_frames.append(frame_parts)
@@ -777,7 +801,7 @@ def _validate_frames(frames, utility):
     return parsed_frames, FrameFormat.RANGE if is_range else FrameFormat.LIST
 
 
-def _is_variable_name_valid(name):
+def _is_variable_name_valid(name: str) -> bool:
     """
     Is ``name`` a valid variable name.
 
@@ -793,7 +817,9 @@ def _is_variable_name_valid(name):
     return True
 
 
-def _validate_variables(variables, utility):
+def _validate_variables(
+        variables: Union[None, str, List[str], Tuple[str, ...]],
+        utility: str) -> Optional[Tuple[str, ...]]:
     """
     Validate the value of ``variables``.
 
@@ -809,7 +835,7 @@ def _validate_variables(variables, utility):
       A tuple of filtered variables post validation.
     """
     if variables is None:
-        return
+        return  # type: ignore[return-value]
     _SAVEFRAME_LOGGER.info("Validating variables: %a", variables)
     if isinstance(variables, str) and ',' in variables and utility == 'function':
         raise ValueError(
@@ -837,7 +863,15 @@ def _validate_variables(variables, utility):
 
 
 def _validate_saveframe_arguments(
-        filename, frames, variables, exclude_variables, utility='function'):
+        filename: Optional[str],
+        frames: Union[None, int, str, List[str], Tuple[str, ...]],
+        variables: Union[None, str, List[str], Tuple[str, ...]],
+        exclude_variables: Union[None, str, List[str], Tuple[str, ...]],
+        utility: str = 'function',
+) -> Tuple[str,
+           Tuple[Union[None, int, List[List[Any]]], Optional[FrameFormat]],
+           Optional[Tuple[str, ...]],
+           Optional[Tuple[str, ...]]]:
     """
     Validate and sanitize the parameters supported by the `saveframe` function.
 
@@ -865,7 +899,7 @@ def _validate_saveframe_arguments(
             f"Invalid value for parameter 'utility': {utility!a}. Allowed values "
             f"are: {allowed_utility_values}")
     filename = _validate_filename(filename, utility)
-    frames =_validate_frames(frames, utility)
+    frames =_validate_frames(frames, utility)  # type: ignore[assignment]
     if variables and exclude_variables:
         raise ValueError(
             f"Cannot pass both {'`variables`' if utility == 'function' else '--variables'} "
@@ -881,11 +915,14 @@ def _validate_saveframe_arguments(
             '`exclude_variables`' if utility == 'function' else '--exclude_variables',
             'parameter' if utility == 'function' else 'argument')
 
-    return filename, frames, variables, exclude_variables
+    return filename, frames, variables, exclude_variables  # type: ignore[return-value]
 
 
-def saveframe(filename=None, frames=None, variables=None, exclude_variables=None,
-              current_frame=False):
+def saveframe(filename: Optional[str] = None,
+              frames: Union[None, int, str, List[str], Tuple[str, ...]] = None,
+              variables: Union[None, str, List[str], Tuple[str, ...]] = None,
+              exclude_variables: Union[None, str, List[str], Tuple[str, ...]] = None,
+              current_frame: bool = False) -> str:
     """
     Utility to save information for debugging / reproducing an issue.
 
@@ -1110,8 +1147,8 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
       The file path in which the frame info is saved.
     """
     save_current_frame = current_frame
-    _current_frame = None
-    exception_obj = None
+    _current_frame: Optional[types.FrameType] = None
+    exception_obj: Optional[BaseException] = None
     exception_raised = False
 
     # Handle save_current_frame=True: capture the caller's frame directly
@@ -1161,13 +1198,13 @@ def saveframe(filename=None, frames=None, variables=None, exclude_variables=None
                 "Use current_frame=True to save the current call stack.")
 
     _SAVEFRAME_LOGGER.info("Validating arguments passed.")
-    filename, frames, variables, exclude_variables = _validate_saveframe_arguments(
+    filename, frames, variables, exclude_variables = _validate_saveframe_arguments(  # type: ignore[assignment]
         filename, frames, variables, exclude_variables)
     if exception_raised and exception_obj:
         _SAVEFRAME_LOGGER.info(
             "Saving frames and metadata for the exception: %a", exception_obj)
     _save_frames_and_exception_info_to_file(
-        filename=filename, frames=frames, variables=variables,
+        filename=filename, frames=frames, variables=variables,  # type: ignore[arg-type]
         exclude_variables=exclude_variables,
         exception_obj=exception_obj, current_frame=_current_frame)
     return filename

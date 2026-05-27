@@ -2,6 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
 
 
 from   builtins                 import input
@@ -12,7 +13,9 @@ import signal
 import sys
 from   textwrap                 import dedent
 import traceback
-from   typing                   import List
+from   typing                   import (TYPE_CHECKING, Any, Callable, Dict,
+                                        List, NoReturn, Optional, Sequence,
+                                        Tuple, Union)
 
 
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,
@@ -27,19 +30,23 @@ else:
     from tomllib import loads
 
 
+# An "action" callable applied to a `Modifier` (see ``process_actions``).
+_Action = Callable[["Modifier"], Any]
+
+
 class ConfigurationError(Exception):
     """Exception class indicating a configuration error."""
 
 
-def hfmt(s):
+def hfmt(s: str) -> str:
     return dedent(s).strip()
 
-def maindoc():
+def maindoc() -> str:
     import __main__
     return (__main__.__doc__ or '').strip()
 
 
-def _sigpipe_handler(*args):
+def _sigpipe_handler(*args: Any) -> None:
     # The parent process piped our stdout and closed the pipe before we
     # finished writing, e.g. "tidy-imports ... | head" or "tidy-imports ... |
     # less".  Exit quietly - squelch the "close failed in file object
@@ -48,6 +55,11 @@ def _sigpipe_handler(*args):
 
 
 def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+    # NOTE: left unannotated intentionally.  This body pervasively assigns to
+    # ``parser.values.<attr>``; typeshed types ``OptionParser.values`` as
+    # ``Optional[Values]``, so annotating this function makes mypy flag every
+    # such access as ``union-attr``.  Narrowing those would require asserts or
+    # casts (runtime changes), which are out of scope for a type-only pass.
     """
     Do setup for a top-level script and parse arguments.
     """
@@ -302,11 +314,14 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     return options, args
 
 
-def _default_on_error(filename):
+def _default_on_error(filename: Filename) -> None:
     raise SystemExit("bad filename %s" % (filename,))
 
 
-def filename_args(args: List[str], on_error=_default_on_error):
+def filename_args(
+    args: List[str],
+    on_error: Callable[[Filename], Any] = _default_on_error,
+) -> List[Filename]:
     """
     Return list of filenames given command-line arguments.
 
@@ -323,7 +338,7 @@ def filename_args(args: List[str], on_error=_default_on_error):
         syntax()
 
 
-def print_version_and_exit(extra=None):
+def print_version_and_exit(extra: Optional[str] = None) -> NoReturn:
     from pyflyby._version import __version__
     msg = "pyflyby %s" % (__version__,)
     progname = os.path.realpath(sys.argv[0])
@@ -335,7 +350,7 @@ def print_version_and_exit(extra=None):
     raise SystemExit(0)
 
 
-def syntax(message=None, usage=None):
+def syntax(message: Optional[str] = None, usage: Optional[str] = None) -> NoReturn:
     if message:
         logger.error(message)
     outmsg = ((usage or maindoc()) +
@@ -353,22 +368,27 @@ class Exit1(Exception):
 
 
 class Modifier(object):
-    def __init__(self, modifier, filename):
+    modifier: Callable[[FileText], Any]
+    filename: Filename
+
+    def __init__(
+        self, modifier: Callable[[FileText], Any], filename: Filename
+    ) -> None:
         self.modifier = modifier
         self.filename = filename
-        self._tmpfiles = []
+        self._tmpfiles: List[Any] = []
 
     @cached_attribute
-    def input_content(self):
+    def input_content(self) -> FileText:
         return read_file(self.filename)
 
     # TODO: refactor to avoid having these heavy-weight things inside a
     # cached_attribute, which causes annoyance while debugging.
     @cached_attribute
-    def output_content(self):
+    def output_content(self) -> FileText:
         return FileText(self.modifier(self.input_content), filename=self.filename)
 
-    def _tempfile(self):
+    def _tempfile(self) -> Tuple[Any, Filename]:
         from tempfile import NamedTemporaryFile
         f = NamedTemporaryFile()
         self._tmpfiles.append(f)
@@ -376,14 +396,14 @@ class Modifier(object):
 
 
     @cached_attribute
-    def output_content_filename(self):
+    def output_content_filename(self) -> Filename:
         f, fname = self._tempfile()
         f.write(bytes(self.output_content.joined, "utf-8"))
         f.flush()
         return fname
 
     @cached_attribute
-    def input_content_filename(self):
+    def input_content_filename(self) -> Filename:
         if isinstance(self.filename, Filename):
             return self.filename
         # If the input was stdin, and the user wants a diff, then we need to
@@ -394,21 +414,26 @@ class Modifier(object):
         return fname
 
 
-    def __del__(self):
+    def __del__(self) -> None:
         for f in self._tmpfiles:
             f.close()
 
 
-def process_actions(filenames:List[str], actions, modify_function,
-                    reraise_exceptions=(), exclude=()):
+def process_actions(
+    filenames: List[str],
+    actions: Sequence[_Action],
+    modify_function: Callable[[FileText], Any],
+    reraise_exceptions: Tuple[type[BaseException], ...] = (),
+    exclude: Sequence[Any] = (),
+) -> NoReturn:
 
     if not isinstance(exclude, (list, tuple)):
         raise ConfigurationError(
             "Exclusions must be a list of filenames/patterns to exclude."
         )
 
-    errors = []
-    def on_error_filename_arg(arg):
+    errors: List[str] = []
+    def on_error_filename_arg(arg: Filename) -> None:
         print("%s: bad filename %s" % (sys.argv[0], arg), file=sys.stderr)
         errors.append("%s: bad filename" % (arg,))
     filename_objs = filename_args(filenames, on_error=on_error_filename_arg)
@@ -468,7 +493,7 @@ def process_actions(filenames:List[str], actions, modify_function,
         raise SystemExit(exit_code)
 
 
-def action_nothing(m):
+def action_nothing(m: Modifier) -> None:
     try:
         # side effect
         m.output_content
@@ -476,18 +501,18 @@ def action_nothing(m):
         logger.error("Error with file %r", m.filename)
 
 
-def action_print(m):
+def action_print(m: Modifier) -> None:
     output_content = m.output_content
     sys.stdout.write(output_content.joined)
 
 
-def action_ifchanged(m):
+def action_ifchanged(m: Modifier) -> None:
     if m.output_content.joined == m.input_content.joined:
         logger.debug("unmodified: %s", m.filename)
         raise AbortActions
 
 
-def action_replace(m):
+def action_replace(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         raise Exception("Can't replace stdio in-place")
     if m.output_content.joined != m.input_content.joined:
@@ -497,21 +522,21 @@ def action_replace(m):
     atomic_write_file(m.filename, m.output_content)
 
 
-def action_exit1(m):
+def action_exit1(m: Modifier) -> NoReturn:
     logger.debug("action_exit1")
     raise Exit1
 
 
-def action_changedexit1(m):
+def action_changedexit1(m: Modifier) -> None:
     """Exit with code 1 if there were changes."""
     if m.output_content.joined != m.input_content.joined:
         logger.debug("file changed: %s", m.filename)
         raise Exit1
 
 
-def action_external_command(command):
+def action_external_command(command: str) -> _Action:
     import subprocess
-    def action(m):
+    def action(m: Modifier) -> None:
         bindir = os.path.dirname(os.path.realpath(sys.argv[0]))
         env = os.environ
         env['PATH'] = env['PATH'] + ":" + bindir
@@ -523,8 +548,8 @@ def action_external_command(command):
     return action
 
 
-def action_query(prompt="Proceed?"):
-    def action(m):
+def action_query(prompt: str = "Proceed?") -> _Action:
+    def action(m: Modifier) -> Optional[bool]:
         p = prompt.format(filename=m.filename)
         print()
         print("%s [y/N] " % (p), end="")
@@ -556,7 +581,7 @@ symlinks_help = """\
 
 # Warning, the symlink actions will only work if they are run first.
 # Otherwise, output_content may already be cached
-def symlink_error(m):
+def symlink_error(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
     if m.filename.islink:
@@ -565,35 +590,35 @@ Error: %s appears to be a symlink. Use one of the following options to allow sym
 %s
 """ % (m.filename, indent(symlinks_help, '    ')))
 
-def symlink_follow(m):
+def symlink_follow(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         return
     if m.filename.islink:
         logger.info("Following symlink %s" % m.filename)
         m.filename = m.filename.realpath
 
-def symlink_skip(m):
+def symlink_skip(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
     if m.filename.islink:
         logger.info("Skipping symlink %s" % m.filename)
         raise AbortActions
 
-def symlink_replace(m):
+def symlink_replace(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
     if m.filename.islink:
         logger.info("Replacing symlink %s" % m.filename)
         # The current behavior automatically replaces symlinks, so do nothing
 
-symlink_callbacks = {
+symlink_callbacks: Dict[str, _Action] = {
     'error': symlink_error,
     'follow': symlink_follow,
     'skip': symlink_skip,
     'replace': symlink_replace,
 }
 
-def _get_pyproj_toml_file():
+def _get_pyproj_toml_file() -> Optional[Path]:
     """Try to find the location of the current project pyproject.toml
     in cwd or parents directories.
 
@@ -608,7 +633,7 @@ def _get_pyproj_toml_file():
 
     return None
 
-def _get_pyproj_toml_config():
+def _get_pyproj_toml_config() -> Optional[Dict[str, Any]]:
     """Return the toml contents of the current pyproject.toml.
 
     If no pyproject.toml can be found in cwd or parent directories,

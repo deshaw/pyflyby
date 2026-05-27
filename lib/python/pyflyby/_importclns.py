@@ -18,8 +18,9 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
-from   typing                   import (ClassVar, Dict, FrozenSet, Sequence,
-                                        Union)
+from   typing                   import (Any, ClassVar, Dict, FrozenSet,
+                                        Iterable, Iterator, List, Optional,
+                                        Sequence, Tuple, Union)
 
 if sys.version_info < (3, 12):
     from typing_extensions          import Self
@@ -57,7 +58,12 @@ class ImportSet:
     _EMPTY: ClassVar[ImportSet]
     _importset: FrozenSet[Import]
 
-    def __new__(cls, arg, ignore_nonimports=False, ignore_shadowed=False):
+    def __new__(
+        cls,
+        arg: Any,
+        ignore_nonimports: bool = False,
+        ignore_shadowed: bool = False,
+    ) -> "ImportSet":
         """
         Return as an `ImportSet`.
 
@@ -89,7 +95,9 @@ class ImportSet:
         return type(self)._from_imports(list(self._importset | other._importset))
 
     @classmethod
-    def _from_imports(cls, imports: Sequence[Import], ignore_shadowed: bool = False):
+    def _from_imports(
+        cls, imports: Sequence[Import], ignore_shadowed: bool = False
+    ) -> Self:
         """
         :type imports:
           Sequence of `Import` s
@@ -122,7 +130,7 @@ class ImportSet:
         return self
 
     @classmethod
-    def _from_args(cls, args, ignore_nonimports:bool=False, ignore_shadowed=False) -> Self:
+    def _from_args(cls, args: Any, ignore_nonimports:bool=False, ignore_shadowed: bool=False) -> Self:
         """
         :type args:
           ``tuple`` or ``list`` of `ImportStatement` s, `PythonStatement` s,
@@ -174,7 +182,7 @@ class ImportSet:
                             "Got non-import statement %r" % (statement,))
         return cls._from_imports(imports, ignore_shadowed=ignore_shadowed)
 
-    def with_imports(self, other):
+    def with_imports(self, other: Any) -> "ImportSet":
         """
         Return a new `ImportSet` that is the union of ``self`` and
         ``new_imports``.
@@ -193,7 +201,7 @@ class ImportSet:
         other = ImportSet(other)
         return type(self)._from_imports(list(self._importset | other._importset))
 
-    def without_imports(self, removals):
+    def without_imports(self, removals: Any) -> "ImportSet":
         """
         Return a copy of self without the given imports.
 
@@ -231,7 +239,7 @@ class ImportSet:
         return type(self)._from_imports(new_imports)
 
     @cached_attribute
-    def _by_module_name(self):
+    def _by_module_name(self) -> Tuple[Dict[str, FrozenSet[Import]], ...]:
         """
         :return:
           (mapping from name to __future__ imports,
@@ -254,7 +262,9 @@ class ImportSet:
             for imports in [ftr_imports, pkg_imports, frm_imports]
         )
 
-    def get_statements(self, separate_from_imports=True):
+    def get_statements(
+        self, separate_from_imports: bool = True
+    ) -> Tuple[ImportStatement, ...]:
         """
         Canonicalized `ImportStatement` s.
         These have been merged by module and sorted.
@@ -279,9 +289,9 @@ class ImportSet:
         :rtype:
           ``tuple`` of `ImportStatement` s
         """
-        groups = self._by_module_name
+        groups: Sequence[Dict[Any, FrozenSet[Import]]] = self._by_module_name
         if not separate_from_imports:
-            def union_dicts(*dicts):
+            def union_dicts(*dicts: Dict[Any, FrozenSet[Import]]) -> Dict[Any, FrozenSet[Import]]:
                 result = {}
                 for label, dct in enumerate(dicts):
                     for k, v in dct.items():
@@ -301,7 +311,7 @@ class ImportSet:
         return tuple(result)
 
     @cached_attribute
-    def statements(self):
+    def statements(self) -> Tuple[ImportStatement, ...]:
         """
         Canonicalized `ImportStatement` s.
         These have been merged by module and sorted.
@@ -312,7 +322,7 @@ class ImportSet:
         return self.get_statements(separate_from_imports=True)
 
     @cached_attribute
-    def imports(self):
+    def imports(self) -> Tuple[Import, ...]:
         """
         Canonicalized imports, in the same order as ``self.statements``.
 
@@ -326,7 +336,7 @@ class ImportSet:
             for imp in sorted(imports))
 
     @cached_attribute
-    def by_import_as(self):
+    def by_import_as(self) -> Dict[str, Tuple[Import, ...]]:
         """
         Map from ``import_as`` to `Import`.
 
@@ -342,7 +352,7 @@ class ImportSet:
         return dict((k, tuple(sorted(stable_unique(v)))) for k, v in d.items())
 
     @cached_attribute
-    def member_names(self):
+    def member_names(self) -> Dict[str, Tuple[str, ...]]:
         r"""
         Map from parent module/package ``fullname`` to known member names.
 
@@ -371,7 +381,7 @@ class ImportSet:
         return dict((k, tuple(sorted(v))) for k, v in d.items())
 
     @cached_attribute
-    def conflicting_imports(self):
+    def conflicting_imports(self) -> Tuple[str, ...]:
         r"""
         Returns imports that conflict with each other.
 
@@ -387,20 +397,24 @@ class ImportSet:
         return tuple(k for k, v in self.by_import_as.items() if len(v) > 1 and k != "*")
 
     @cached_attribute
-    def flags(self):
+    def flags(self) -> CompilerFlags:
         """
         If this contains __future__ imports, then the bitwise-ORed of the
         compiler_flag values associated with the features.  Otherwise, 0.
         """
-        imports = self._by_module_name[0].get("__future__", [])
+        imports: Iterable[Import] = self._by_module_name[0].get("__future__", [])
         return CompilerFlags(*[imp.flags for imp in imports])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         printed = self.pretty_print(allow_conflicts=True)
         lines = "".join("  "+line for line in printed.splitlines(True))
         return "%s('''\n%s''')" % (type(self).__name__, lines)
 
-    def pretty_print(self, params=None, allow_conflicts=False):
+    def pretty_print(
+        self,
+        params: Optional[ImportFormatParams] = None,
+        allow_conflicts: bool = False,
+    ) -> str:
         """
         Pretty-print a block of import statements into a single string.
 
@@ -420,9 +434,9 @@ class ImportSet:
                         [imp.fullname for imp in self.by_import_as[i]], i)
                     for i in self.conflicting_imports))
         from_spaces = max(1, params.from_spaces)
-        def do_align(statement):
+        def do_align(statement: ImportStatement) -> bool:
             return statement.fromname != '__future__' or params.align_future
-        def pp(statement, import_column):
+        def pp(statement: ImportStatement, import_column: Optional[int]) -> str:
             if do_align(statement):
                 return statement.pretty_print(
                     params=params, import_column=import_column,
@@ -432,7 +446,7 @@ class ImportSet:
                     params=params, import_column=None, from_spaces=1)
         statements = self.get_statements(
             separate_from_imports=params.separate_from_imports)
-        def isint(x): return isinstance(x, int) and not isinstance(x, bool)
+        def isint(x: Any) -> bool: return isinstance(x, int) and not isinstance(x, bool)
         if not statements:
             import_column = None
         elif isinstance(params.align_imports, bool):
@@ -441,7 +455,7 @@ class ImportSet:
                     s for s in statements if s.fromname and do_align(s)]
                 if fromimp_stmts:
                     import_column = (
-                        max(len(s.fromname) for s in fromimp_stmts)
+                        max(len(s.fromname) for s in fromimp_stmts)  # type: ignore[arg-type]
                         + from_spaces + 5)
                 else:
                     import_column = None
@@ -463,7 +477,7 @@ class ImportSet:
                 # Optimization.
                 import_column = next(iter(candidates))
             else:
-                def argmin(map):
+                def argmin(map: Dict[int, int]) -> int:
                     items = iter(sorted(map.items()))
                     min_k, min_v = next(items)
                     for k, v in items:
@@ -471,7 +485,7 @@ class ImportSet:
                             min_k = k
                             min_v = v
                     return min_k
-                def count_lines(import_column):
+                def count_lines(import_column: int) -> int:
                     return sum(
                         s.pretty_print(
                             params=params, import_column=import_column,
@@ -489,39 +503,39 @@ class ImportSet:
                 % (type(params.align_imports).__name__,))
         return ''.join(pp(statement, import_column) for statement in statements)
 
-    def __contains__(self, x) -> bool:
+    def __contains__(self, x: Any) -> bool:
         return x in self._importset
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, ImportSet):
             return NotImplemented
         return self._importset == other._importset
 
-    def __ne__(self, other) -> bool:
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> Any:
         if not isinstance(other, ImportSet):
             return NotImplemented
         return self._importset < other._importset
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> Any:
         if self is other:
             return 0
         if not isinstance(other, ImportSet):
             return NotImplemented
         return cmp(self._importset, other._importset)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._importset)
 
     def __len__(self) -> int:
         return len(self.imports)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Import]:
         return iter(self.imports)
 
 
@@ -540,9 +554,9 @@ class ImportMap(object):
     """
 
     _data: Dict
-    _EMPTY : ClassVar[ImportSet]
+    _EMPTY : ClassVar[ImportMap]
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Any) -> "ImportMap":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, (tuple, list)):
@@ -553,13 +567,13 @@ class ImportMap(object):
             return cls._from_map(arg)
         raise TypeError("ImportMap: expected a dict, not a %s" % (type(arg).__name__,))
 
-    def __or__(self, other):
+    def __or__(self, other: "ImportMap") -> "ImportMap":
         assert isinstance(other, ImportMap)
         assert set(self._data.keys()).intersection(other._data.keys()) == set(), set(self._data.keys()).intersection(other._data.keys())
         return self._merge([self, other])
 
     @classmethod
-    def _from_map(cls, arg):
+    def _from_map(cls, arg: Dict[Any, Any]) -> "ImportMap":
         data = dict((Import(k).fullname, Import(v).fullname)
                     for k, v in arg.items())
         self = object.__new__(cls)
@@ -567,7 +581,7 @@ class ImportMap(object):
         return self
 
     @classmethod
-    def _merge(cls, maps):
+    def _merge(cls, maps: Sequence[Any]) -> "ImportMap":
         maps = [cls(m) for m in maps]
         maps = [m for m in maps if m]
         if not maps:
@@ -577,32 +591,32 @@ class ImportMap(object):
             data.update(map_._data)
         return cls(data)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: Any) -> str:
         k = Import(k).fullname
         return self._data.__getitem__(k)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._data)
 
-    def items(self):
+    def items(self) -> Any:
         return self._data.items()
 
-    def iteritems(self):
+    def iteritems(self) -> Any:
         return self._data.items()
 
-    def iterkeys(self):
+    def iterkeys(self) -> Iterator[str]:
         return iter(self._data.keys())
 
-    def keys(self):
+    def keys(self) -> Any:
         return self._data.keys()
 
-    def values(self):
+    def values(self) -> Any:
         return self._data.values()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._data)
 
-    def without_imports(self, removals):
+    def without_imports(self, removals: Any) -> "ImportMap":
         """
         Return a copy of self without the given imports.
         Matches both keys and values.
@@ -617,36 +631,36 @@ class ImportMap(object):
             return self # Space optimization
         return cls(dict(result))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = ", ".join("%r: %r" % (k,v) for k,v in sorted(self.items()))
         return "ImportMap({%s})" % s
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, ImportMap):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> Any:
         if not isinstance(other, ImportMap):
             return NotImplemented
-        return self._data < other._data
+        return self._data < other._data  # type: ignore[operator]
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> Any:
         if self is other:
             return 0
         if not isinstance(other, ImportMap):
             return NotImplemented
         return cmp(self._data, other._data)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         h = hash(self._data)
-        self.__hash__ = lambda: h
+        self.__hash__ = lambda: h  # type: ignore[method-assign]
         return h
 
 

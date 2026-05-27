@@ -2,17 +2,20 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
+
+from   typing                   import Any, Optional, Sequence, Tuple, Union
 
 
 class FormatParams(object):
-    max_line_length = None
-    max_line_length_default = 79
-    wrap_paren = True
-    indent = 4
-    hanging_indent = 'never'
-    use_black = False
+    max_line_length: Optional[int] = None
+    max_line_length_default: int = 79
+    wrap_paren: bool = True
+    indent: int = 4
+    hanging_indent: str = 'never'
+    use_black: bool = False
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> FormatParams:
         if not kwargs and len(args) == 1 and isinstance(args[0], cls):
             return args[0]
         self = object.__new__(cls)
@@ -37,12 +40,18 @@ class FormatParams(object):
                     raise ValueError("bad kwarg %r" % (key,))
         return self
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.__dict__}>'
 
 
-def fill(tokens, sep=(", ", ""), prefix="", suffix="", newline="\n",
-         max_line_length=80):
+def fill(
+    tokens: Sequence[str],
+    sep: Union[str, Tuple[str, str]] = (", ", ""),
+    prefix: Union[str, Tuple[str, str]] = "",
+    suffix: Union[str, Tuple[str, str]] = "",
+    newline: str = "\n",
+    max_line_length: int = 80,
+) -> str:
     r"""
     Given a sequences of strings, fill them into a single string with up to
     ``max_line_length`` characters each.
@@ -100,7 +109,7 @@ def fill(tokens, sep=(", ", ""), prefix="", suffix="", newline="\n",
     return ''.join(lines)
 
 
-def pyfill(prefix, tokens, params=FormatParams()):
+def pyfill(prefix: str, tokens: Sequence[str], params: FormatParams = FormatParams()) -> str:
     """
     Fill a Python statement.
 

@@ -131,6 +131,8 @@ XXX test
 
 
 
+from __future__ import annotations
+
 import ast
 import os
 import re
@@ -142,6 +144,9 @@ from   importlib                import reload as reload_module
 
 import inspect
 from   pyflyby._log             import logger
+
+from   typing                   import (Any, Callable, Dict, List, Optional,
+                                        Tuple, Union)
 
 
 # Keep track of when the process was started.
@@ -161,9 +166,11 @@ class UnknownModuleError(ImportError):
     pass
 
 
-def livepatch(old, new, modname=None,
-              visit_stack=(), cache=None, assume_type=None,
-              heed_hook=True):
+def livepatch(old: Any, new: Any, modname: Optional[str] = None,
+              visit_stack: Tuple[int, ...] = (),
+              cache: Optional[Dict[Tuple[int, int], Any]] = None,
+              assume_type: Optional[type] = None,
+              heed_hook: bool = True) -> Any:
     """
     Livepatch ``old`` with contents of ``new``.
 
@@ -208,7 +215,7 @@ def livepatch(old, new, modname=None,
     except KeyError:
         pass
     visit_stack += (id(old),)
-    def do_livepatch():
+    def do_livepatch() -> Any:
         new_modname = _get_definition_module(new)
         if modname and new_modname and new_modname != modname:
             # Ignore objects that have been imported from another module.
@@ -276,14 +283,14 @@ def livepatch(old, new, modname=None,
             cache=cache,
             visit_stack=visit_stack)
         # Find out which optional kwargs the hook wants.
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         argspec = inspect.getfullargspec(hook)
         argnames = argspec.args
         if hasattr(hook, "__func__"):
             # Skip 'self' arg.
             argnames = argnames[1:]
         # Pick kwargs that are wanted and available.
-        args = []
+        args: List[Any] = []
         kwargs = {}
         for n in argnames:
             try:
@@ -310,7 +317,10 @@ def livepatch(old, new, modname=None,
     return result
 
 
-def _livepatch__module(old_mod, new_mod, modname, cache, visit_stack):
+def _livepatch__module(old_mod: types.ModuleType, new_mod: types.ModuleType,
+                       modname: Optional[str],
+                       cache: Dict[Tuple[int, int], Any],
+                       visit_stack: Tuple[int, ...]) -> types.ModuleType:
     """
     Livepatch a module.
     """
@@ -321,7 +331,10 @@ def _livepatch__module(old_mod, new_mod, modname, cache, visit_stack):
     return old_mod
 
 
-def _livepatch__dict(old_dict, new_dict, modname, cache, visit_stack):
+def _livepatch__dict(old_dict: Dict[Any, Any], new_dict: Dict[Any, Any],
+                     modname: Optional[str],
+                     cache: Dict[Tuple[int, int], Any],
+                     visit_stack: Tuple[int, ...]) -> Dict[Any, Any]:
     """
     Livepatch a dict.
     """
@@ -345,7 +358,10 @@ def _livepatch__dict(old_dict, new_dict, modname, cache, visit_stack):
     return old_dict
 
 
-def _livepatch__function(old_func, new_func, modname, cache, visit_stack):
+def _livepatch__function(old_func: Any, new_func: Any,
+                         modname: Optional[str],
+                         cache: Dict[Tuple[int, int], Any],
+                         visit_stack: Tuple[int, ...]) -> Any:
     """
     Livepatch a function.
     """
@@ -395,7 +411,10 @@ def _livepatch__function(old_func, new_func, modname, cache, visit_stack):
     return old_func
 
 
-def _livepatch__method(old_method, new_method, modname, cache, visit_stack):
+def _livepatch__method(old_method: Any, new_method: Any,
+                       modname: Optional[str],
+                       cache: Dict[Tuple[int, int], Any],
+                       visit_stack: Tuple[int, ...]) -> Any:
     """
     Livepatch a method.
     """
@@ -405,7 +424,10 @@ def _livepatch__method(old_method, new_method, modname, cache, visit_stack):
     return old_method
 
 
-def _livepatch__setattr(oldobj, newobj, name, modname, cache, visit_stack):
+def _livepatch__setattr(oldobj: Any, newobj: Any, name: str,
+                        modname: Optional[str],
+                        cache: Dict[Tuple[int, int], Any],
+                        visit_stack: Tuple[int, ...]) -> None:
     """
     Livepatch something via setattr, i.e.::
 
@@ -439,7 +461,10 @@ def _livepatch__setattr(oldobj, newobj, name, modname, cache, visit_stack):
     setattr(oldobj, name, newval)
 
 
-def _livepatch__class(oldclass, newclass, modname, cache, visit_stack):
+def _livepatch__class(oldclass: type, newclass: type,
+                      modname: Optional[str],
+                      cache: Dict[Tuple[int, int], Any],
+                      visit_stack: Tuple[int, ...]) -> type:
     """
     Livepatch a class.
 
@@ -484,7 +509,10 @@ def _livepatch__class(oldclass, newclass, modname, cache, visit_stack):
     return oldclass
 
 
-def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
+def _livepatch__object(oldobj: Any, newobj: Any,
+                       modname: Optional[str],
+                       cache: Dict[Tuple[int, int], Any],
+                       visit_stack: Tuple[int, ...]) -> Any:
     """
     Livepatch a general object.
     """
@@ -506,7 +534,7 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
             elif hasold and not hasnew:
                 delattr(oldobj, name)
             elif not hasold and hasnew:
-                setattr(oldobj, getattr(newobj, name))
+                setattr(oldobj, getattr(newobj, name))  # type: ignore[call-arg]
             elif not hasold and not hasnew:
                 pass
             else:
@@ -520,7 +548,7 @@ def _livepatch__object(oldobj, newobj, modname, cache, visit_stack):
     else:
         return newobj
 
-_LIVEPATCH_DISPATCH_TABLE = {
+_LIVEPATCH_DISPATCH_TABLE: Dict[type, Callable[..., Any]] = {
     object            : _livepatch__object,
     dict              : _livepatch__dict,
     type              : _livepatch__class,
@@ -530,7 +558,7 @@ _LIVEPATCH_DISPATCH_TABLE = {
 }
 
 
-def _get_definition_module(obj):
+def _get_definition_module(obj: Any) -> Optional[str]:
     """
     Get the name of the module that an object is defined in, or ``None`` if
     unknown.
@@ -552,7 +580,7 @@ def _get_definition_module(obj):
         return None
 
 
-def _format_age(t):
+def _format_age(t: float) -> str:
     secs = time.time() - t
     if secs > 120:
         return "%dm%ds" %(secs//60, secs%60)
@@ -560,8 +588,8 @@ def _format_age(t):
         return "%ds" %(secs,)
 
 
-def _interpret_module(arg):
-    def mod_fn(module):
+def _interpret_module(arg: Any) -> types.ModuleType:
+    def mod_fn(module: Any) -> Optional[str]:
         return getattr(module, "__file__", None)
 
     if isinstance(arg, str):
@@ -616,7 +644,8 @@ def _interpret_module(arg):
                     % (type(arg).__name__))
 
 
-def _xreload_module(module, filename, force=False):
+def _xreload_module(module: types.ModuleType, filename: Optional[str],
+                    force: bool = False) -> Optional[types.ModuleType]:
     """
     Reload a module in place, using livepatch.
 
@@ -656,7 +685,7 @@ def _xreload_module(module, filename, force=False):
             return None
         # Keep track of previously imported source.  If the file's timestamp
         # was touched, but the content unchanged, we can avoid reloading.
-        cached_lines = linecache.cache.get(filename, (None,None,None,None))[2]
+        cached_lines = linecache.cache.get(filename, (None,None,None,None))[2]  # type: ignore[misc]
     else:
         cached_lines = None
     # Re-read source for module from disk, and update the linecache.
@@ -671,17 +700,17 @@ def _xreload_module(module, filename, force=False):
                 module.__name__, _format_age(mtime), filename)
     # Compile into AST.  We do this as a separate step from compiling to byte
     # code so that we can get the module docstring.
-    astnode = compile(source, filename, "exec", ast.PyCF_ONLY_AST, 1)
+    astnode = compile(source, filename, "exec", ast.PyCF_ONLY_AST, 1)  # type: ignore[call-overload]
     # Get the new docstring.
     try:
-        if sys.versin_info > (3,10):
+        if sys.versin_info > (3,10):  # type: ignore[attr-defined]
             doc = astnode.body[0].value.value
         else:
             doc = astnode.body[0].value.s
     except (AttributeError, IndexError):
         doc = None
     # Compile into code.
-    code = compile(astnode, filename, "exec", 0, 1)
+    code = compile(astnode, filename, "exec", 0, 1)  # type: ignore[call-overload]
     # Execute the code.  We do so in a temporary namespace so that if this
     # fails, nothing changes.  It's important to set __name__ so that relative
     # imports work correctly.
@@ -720,17 +749,17 @@ def _xreload_module(module, filename, force=False):
         if saved_mod is MISSING:
             del sys.modules[module.__name__]
         else:
-            sys.modules[module.__name__] = saved_mod
+            sys.modules[module.__name__] = saved_mod  # type: ignore[assignment]
         raise
     # Update the time we last loaded the module.  We intentionally use mtime
     # here instead of time.time().  If we are on NFS, it's possible for the
     # filer's mtime and time.time() to not be synchronized.  We will be
     # comparing to mtime next time, so if we use only mtime, we'll be fine.
-    module.__loadtime__ = mtime
+    module.__loadtime__ = mtime  # type: ignore[attr-defined]
     return module
 
 
-def _get_module_py_file(module):
+def _get_module_py_file(module: Any) -> Optional[str]:
     filename = getattr(module, "__file__", None)
     if not filename:
         return None
@@ -738,7 +767,7 @@ def _get_module_py_file(module):
     return filename
 
 
-def xreload(*args):
+def xreload(*args: Any) -> None:
     """
     Reload module(s).
 
@@ -784,7 +813,7 @@ def xreload(*args):
     # intentionally do this after the above check so that xreload([]) does
     # nothing.
     if len(args) == 1 and isinstance(args[0], (tuple, list)):
-        args = args[0]
+        args = args[0]  # type: ignore[assignment]
     for arg in args:
         module = _interpret_module(arg)
         # Get the *.py filename for this module.

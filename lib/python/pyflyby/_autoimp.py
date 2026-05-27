@@ -28,12 +28,13 @@ from   pyflyby._util            import _has_ignore_pragma
 import sys
 import types
 from   types                    import EllipsisType, NoneType
-from   typing                   import (Any, Dict, List, Optional, Set, Tuple,
+from   typing                   import (TYPE_CHECKING, Any, Callable, Dict,
+                                        Iterator, List, Optional, Set, Tuple,
                                         Union)
 
 
 if sys.version_info >= (3, 13):
-    def f():
+    def f() -> Any:
         return sys._getframe().f_locals
 
     FrameLocalsProxyType = type(f())
@@ -57,7 +58,7 @@ class _ClassScope(dict):
     pass
 
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "_ClassScope(" + repr(super()) + ")"
 
 
@@ -77,7 +78,14 @@ class ScopeStack(Sequence):
 
     _cached_has_star_import = False
 
-    def __init__(self, arg, _class_delayed=None):
+    _tup: Tuple[Dict[str, Any], ...]
+    _class_delayed: Dict[str, Any]
+
+    def __init__(
+        self,
+        arg: Union["ScopeStack", Dict[str, Any], Sequence[Dict[str, Any]]],
+        _class_delayed: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Interpret argument as a ``ScopeStack``.
 
@@ -121,7 +129,7 @@ class ScopeStack(Sequence):
             _class_delayed = {}
         self._class_delayed = _class_delayed
 
-    def __contains__(self, item):
+    def __contains__(self, item: object) -> bool:
         if isinstance(item, DottedIdentifier):
             item = item.name
         if isinstance(item, str):
@@ -131,12 +139,12 @@ class ScopeStack(Sequence):
 
         return False
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Union[int, slice]) -> Any:
         if isinstance(item, slice):
             return self.__class__(self._tup[item])
         return self._tup[item]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._tup)
 
     def _with_new_scope(
@@ -173,7 +181,7 @@ class ScopeStack(Sequence):
         result = cls(scopes + (new_scope,), _class_delayed=self._class_delayed)
         return result
 
-    def clone_top(self):
+    def clone_top(self) -> ScopeStack:
         """
         Return a new ``ScopeStack`` referencing the same namespaces as ``self``,
         but cloning the topmost namespace (and aliasing the others).
@@ -183,7 +191,7 @@ class ScopeStack(Sequence):
         cls = type(self)
         return cls(scopes)
 
-    def merged_to_two(self):
+    def merged_to_two(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Return a 2-tuple of dicts.
 
@@ -229,7 +237,7 @@ class ScopeStack(Sequence):
             # there might be a star import later.
             return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         scopes_reprs = [
             "{:2}".format(i) + " : " + repr(namespace)
             for i, namespace in enumerate(self)
@@ -368,14 +376,18 @@ class _UseChecker:
 
     used: bool = False
     name: str
-    source: str
-    lineno: int
+    source: Any
+    lineno: Optional[int]
     scope_name: Optional[str] = None
     used_in_scopes: List[Optional[str]] = field(default_factory=list)
 
     def __init__(
-        self, name: str, source: str, lineno: int, scope_name: Optional[str] = None
-    ):
+        self,
+        name: str,
+        source: Any,
+        lineno: Optional[int],
+        scope_name: Optional[str] = None,
+    ) -> None:
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
@@ -383,13 +395,13 @@ class _UseChecker:
         self.used_in_scopes = []
         logger.debug("Create _UseChecker : %r", self)
 
-    def mark_used_in_scope(self, using_scope_name: Optional[str]):
+    def mark_used_in_scope(self, using_scope_name: Optional[str]) -> None:
         """Mark this import as used in a specific scope."""
         self.used = True
         if using_scope_name not in self.used_in_scopes:
             self.used_in_scopes.append(using_scope_name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used} scope_name:{self.scope_name!r} used_in_scopes:{self.used_in_scopes!r}>"
 
 
@@ -424,7 +436,7 @@ class _MissingImportFinder:
       - scope_name (Optional[str]): The name of the scope where the import is defined
         (e.g., "MyClass.my_method"), or None for module-level imports
     """
-    unused_imports: List[Tuple[int, str, Optional[str]]]
+    unused_imports: List[Tuple[Optional[int], Any, Optional[str]]]
 
     """Function bodies that we need to check after defining names in this function scope.
 
@@ -437,7 +449,13 @@ class _MissingImportFinder:
     """
     _deferred_load_checks: list[tuple[str, ScopeStack, Optional[int], Optional[str]]]
 
-    def __init__(self, scopestack, *, find_unused_imports:bool, parse_docstrings:bool):
+    def __init__(
+        self,
+        scopestack: Union[ScopeStack, Dict[str, Any], Sequence[Dict[str, Any]]],
+        *,
+        find_unused_imports: bool,
+        parse_docstrings: bool,
+    ) -> None:
         """
         Construct the AST visitor.
 
@@ -480,11 +498,11 @@ class _MissingImportFinder:
         # Source lines for pragma checking (set by scan_for_import_issues)
         self._source_lines: Optional[list[str]] = None
 
-    def find_missing_imports(self, node):
+    def find_missing_imports(self, node: ast.AST) -> List[DottedIdentifier]:
         self._scan_node(node)
         return sorted(set(imp for lineno,imp in self.missing_imports))
 
-    def _scan_node(self, node):
+    def _scan_node(self, node: ast.AST) -> None:
         oldscopestack = self.scopestack
         myglobals = self.scopestack[-1]
         try:
@@ -496,7 +514,12 @@ class _MissingImportFinder:
             self.scopestack = oldscopestack
 
 
-    def scan_for_import_issues(self, codeblock: PythonBlock) -> tuple[list, list]:
+    def scan_for_import_issues(
+        self, codeblock: PythonBlock
+    ) -> Tuple[
+        List[Tuple[Optional[int], DottedIdentifier]],
+        List[Tuple[Optional[int], Any, Optional[str]]],
+    ]:
         assert isinstance(codeblock, PythonBlock)
         # See global `scan_for_import_issues`
         if not isinstance(codeblock, PythonBlock):
@@ -540,7 +563,7 @@ class _MissingImportFinder:
             if literal_brace_identifiers:
                 for ident in literal_brace_identifiers:
                     try:
-                        ident = DottedIdentifier(ident)
+                        ident = DottedIdentifier(ident)  # type: ignore[assignment]
                     except BadDottedIdentifierError:
                         continue
                     current_scope = (
@@ -564,7 +587,7 @@ class _MissingImportFinder:
         logger.debug("missing: %s, unused: %s", missing_imports, self.unused_imports)
         return missing_imports, self.unused_imports
 
-    def visit(self, node):
+    def visit(self, node: Union[ast.AST, Sequence[ast.AST]]) -> Any:
         """
         Visit a node.
 
@@ -594,7 +617,7 @@ class _MissingImportFinder:
         else:
             raise TypeError("unexpected %s" % (type(node).__name__,))
 
-    def generic_visit(self, node):
+    def generic_visit(self, node: ast.AST) -> None:
         """
         Generic visitor that visits all of the node's field values, in the
         order declared by ``node._fields``.
@@ -628,12 +651,12 @@ class _MissingImportFinder:
     @contextlib.contextmanager
     def _NewScopeCtx(
         self,
-        include_class_scopes=False,
-        new_class_scope=False,
-        unhide_classdef=False,
-        check_unused_imports=True,
+        include_class_scopes: bool = False,
+        new_class_scope: bool = False,
+        unhide_classdef: bool = False,
+        check_unused_imports: bool = True,
         scope_name: Optional[str] = None,
-    ):
+    ) -> Iterator[None]:
         """
         Context manager that temporarily pushes a new empty namespace onto the
         stack of namespaces.
@@ -675,7 +698,7 @@ class _MissingImportFinder:
                 self._scope_name_stack.pop()
 
     @contextlib.contextmanager
-    def _UpScopeCtx(self):
+    def _UpScopeCtx(self) -> Iterator[None]:
         """
         Context manager that temporarily moves up one in the scope stack
         """
@@ -690,7 +713,7 @@ class _MissingImportFinder:
             assert self.scopestack is new_scopestack
             self.scopestack = prev_scopestack
 
-    def visit_Assign(self, node):
+    def visit_Assign(self, node: ast.Assign) -> None:
         # Visit an assignment statement (lhs = rhs).  This implementation of
         # visit_Assign is just like the generic one, but we make sure we visit
         # node.value (RHS of assignment operator), then node.targets (LHS of
@@ -711,7 +734,7 @@ class _MissingImportFinder:
         self.visit(node.targets)
         self._visit__all__(node)
 
-    def _visit__all__(self, node):
+    def _visit__all__(self, node: ast.Assign) -> None:
         if self._in_FunctionDef:
             return
         if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
@@ -736,9 +759,9 @@ class _MissingImportFinder:
                 logger.warning("Don't know how to handle __all__ with list elements other than str")
                 return
             for e in node.value.elts:
-                self._visit_Load_defered_global(e.value)
+                self._visit_Load_defered_global(e.value)  # type: ignore[attr-defined]
 
-    def visit_ClassDef(self, node):
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         logger.debug("visit_ClassDef(%r)", node)
         if sys.version_info > (3,12):
             # we don't visit type_params, so autoimport won't work yet for type annotations
@@ -764,10 +787,12 @@ class _MissingImportFinder:
         self._remove_from_missing_imports(node.name)
         self._visit_Store(node.name)
 
-    def visit_AsyncFunctionDef(self, node):
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         return self.visit_FunctionDef(node)
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> None:
         # Visit a function definition.
         #   - Visit args and decorator list normally.
         #   - Visit function body in a special mode where we defer checking
@@ -799,7 +824,7 @@ class _MissingImportFinder:
             self._in_FunctionDef = old_in_FunctionDef
         self._visit_Store(node.name)
 
-    def visit_Lambda(self, node):
+    def visit_Lambda(self, node: ast.Lambda) -> None:
         # Like FunctionDef, but without the decorator_list or name.
         assert node._fields == ('args', 'body'), node._fields
         with self._NewScopeCtx(include_class_scopes=True):
@@ -810,7 +835,7 @@ class _MissingImportFinder:
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
 
-    def _visit_typecomment(self, typecomment: str) -> None:
+    def _visit_typecomment(self, typecomment: Optional[str]) -> None:
         """
         Warning, when a type comment the node is a string, not an ast node.
         We also get two types of type comments:
@@ -841,7 +866,7 @@ class _MissingImportFinder:
 
         self.visit(node)
 
-    def visit_arguments(self, node) -> None:
+    def visit_arguments(self, node: ast.arguments) -> None:
         assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
         # Argument/parameter list.  Note that the defaults should be
         # considered "Load"s from the upper scope, and the argument names are
@@ -872,7 +897,7 @@ class _MissingImportFinder:
         else:
             self._visit_Store(node.kwarg)
 
-    def visit_ExceptHandler(self, node) -> None:
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
         assert node._fields == ('type', 'name', 'body')
         if node.type:
             self.visit(node.type)
@@ -880,7 +905,7 @@ class _MissingImportFinder:
             self._visit_Store(node.name)
         self.visit(node.body)
 
-    def visit_Dict(self, node):
+    def visit_Dict(self, node: ast.Dict) -> None:
         assert node._fields == ('keys', 'values')
         # In Python 3, keys can be None, indicating a ** expression
         for key in node.keys:
@@ -888,11 +913,11 @@ class _MissingImportFinder:
                 self.visit(key)
         self.visit(node.values)
 
-    def visit_comprehension(self, node):
+    def visit_comprehension(self, node: ast.comprehension) -> None:
         # Visit a "comprehension" node, which is a component of list
         # comprehensions and generator expressions.
         self.visit(node.iter)
-        def visit_target(target):
+        def visit_target(target: ast.expr) -> None:
             if isinstance(target, ast.Name):
                 self._visit_Store(target.id)
             elif isinstance(target, (ast.Tuple, ast.List)):
@@ -907,7 +932,7 @@ class _MissingImportFinder:
         visit_target(node.target)
         self.visit(node.ifs)
 
-    def visit_ListComp(self, node):
+    def visit_ListComp(self, node: ast.ListComp) -> None:
         # Visit a list comprehension node.
         # This is basically the same as the generic visit, except that we
         # visit the comprehension node(s) before the elt node.
@@ -921,7 +946,7 @@ class _MissingImportFinder:
             self.visit(node.generators)
             self.visit(node.elt)
 
-    def visit_DictComp(self, node):
+    def visit_DictComp(self, node: ast.DictComp) -> None:
         # Visit a dict comprehension node.
         # This is similar to the generic visit, except:
         #  - We visit the comprehension node(s) before the elt node.
@@ -934,7 +959,7 @@ class _MissingImportFinder:
             self.visit(node.key)
             self.visit(node.value)
 
-    def visit_SetComp(self, node):
+    def visit_SetComp(self, node: ast.SetComp) -> None:
         # Visit a set comprehension node.
         # We do enter a new scope.  A set comprehension
         # does _not_ leak variables out of its scope (unlike py2 list
@@ -943,7 +968,7 @@ class _MissingImportFinder:
             self.visit(node.generators)
             self.visit(node.elt)
 
-    def visit_GeneratorExp(self, node):
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
         # Visit a generator expression node.
         # We do enter a new scope.  A generator
         # expression does _not_ leak variables out of its scope (unlike py2
@@ -952,13 +977,13 @@ class _MissingImportFinder:
             self.visit(node.generators)
             self.visit(node.elt)
 
-    def visit_ImportFrom(self, node):
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         modulename = "." * node.level + (node.module or "")
         logger.debug("visit_ImportFrom(%r, ...)", modulename)
         for alias_node in node.names:
             self.visit_alias(alias_node, modulename)
 
-    def visit_alias(self, node, modulename=None):
+    def visit_alias(self, node: ast.alias, modulename: Optional[str] = None) -> None:
         # Visit an import alias node.
         # TODO: Currently we treat 'import foo' the same as if the user did
         # 'foo = 123', i.e. we treat it as a black box (non-module).  This is
@@ -969,58 +994,58 @@ class _MissingImportFinder:
         self._visit_StoreImport(node, modulename)
         self.generic_visit(node)
 
-    def visit_match_case(self, node: ast.match_case):
+    def visit_match_case(self, node: ast.match_case) -> None:
         logger.debug("visit_match_case(%r)", node)
         return self.generic_visit(node)
 
-    def visit_Match(self, node: ast.Match):
+    def visit_Match(self, node: ast.Match) -> None:
         logger.debug("visit_Match(%r)", node)
         return self.generic_visit(node)
 
-    def visit_MatchMapping(self, node: ast.MatchMapping):
+    def visit_MatchMapping(self, node: ast.MatchMapping) -> None:
         logger.debug("visit_MatchMapping(%r)", node)
         if node.rest is not None:
             self._visit_Store(node.rest)
         return self.generic_visit(node)
 
-    def visit_MatchStar(self, node: ast.MatchStar):
+    def visit_MatchStar(self, node: ast.MatchStar) -> None:
         logger.debug("visit_MatchStar(%r)", node)
         if node.name is not None:
             self._visit_Store(node.name)
         return self.generic_visit(node)
 
-    def visit_MatchAs(self, node: MatchAs):
+    def visit_MatchAs(self, node: MatchAs) -> None:
         logger.debug("visit_MatchAs(%r)", node)
         if node.name is None:
             return
         return self._visit_Store(node.name)
 
-    def visit_Call(self, node:ast.Call):
+    def visit_Call(self, node:ast.Call) -> None:
         logger.debug("visit_Call(%r)", node)
         return self.generic_visit(node)
 
-    def visit_Pass(self, node:ast.Pass):
+    def visit_Pass(self, node:ast.Pass) -> None:
         logger.debug("visit_Pass(%r)", node)
         return self.generic_visit(node)
 
-    def visit_Constant(self, node:ast.Constant):
+    def visit_Constant(self, node:ast.Constant) -> None:
         logger.debug("visit_Constant(%r)", node)
         return self.generic_visit(node)
 
-    def visit_Module(self, node:ast.Module):
+    def visit_Module(self, node:ast.Module) -> None:
         logger.debug("visit_Module(%r)", node)
         return self.generic_visit(node)
 
-    def visit_Expr(self, node:ast.Expr):
+    def visit_Expr(self, node:ast.Expr) -> None:
         logger.debug("visit_Expr(%r)", node)
         return self.generic_visit(node)
 
 
-    def visit_Name(self, node):
+    def visit_Name(self, node: ast.Name) -> None:
         logger.debug("visit_Name(%r)", node.id)
         self._visit_fullname(node.id, node.ctx)
 
-    def visit_arg(self, node):
+    def visit_arg(self, node: ast.arg) -> None:
         assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         if node.annotation:
             self.visit(node.annotation)
@@ -1028,9 +1053,9 @@ class _MissingImportFinder:
         self._visit_fullname(node.arg, ast.Param())
         self._visit_typecomment(node.type_comment)
 
-    def visit_Attribute(self, node):
-        name_revparts = []
-        n = node
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        name_revparts: List[str] = []
+        n: ast.expr = node
         while isinstance(n, ast.Attribute):
             name_revparts.append(n.attr)
             n = n.value
@@ -1046,13 +1071,13 @@ class _MissingImportFinder:
         logger.debug("visit_Attribute(%r): fullname=%r, ctx=%r", node.attr, fullname, node.ctx)
         self._visit_fullname(fullname, node.ctx)
 
-    def _visit_fullname(self, fullname, ctx):
+    def _visit_fullname(self, fullname: str, ctx: ast.expr_context) -> None:
         if isinstance(ctx, (ast.Store, ast.Param)):
             self._visit_Store(fullname)
         elif isinstance(ctx, ast.Load):
             self._visit_Load(fullname)
 
-    def _visit_StoreImport(self, node, modulename):
+    def _visit_StoreImport(self, node: ast.alias, modulename: Optional[str]) -> None:
         name = node.asname or node.name
         logger.debug("_visit_StoreImport(asname=%r, name=%r)", node.asname, node.name)
         is_star = node.name == "*"
@@ -1082,7 +1107,11 @@ class _MissingImportFinder:
             value = _UseChecker(name, imp, self._lineno, scope_name=scope_name)
         self._visit_Store(name, value)
 
-    def _visit_Store(self, fullname: str, value: Optional[_UseChecker] = None):
+    def _visit_Store(
+        self,
+        fullname: Optional[Union[str, ast.arg]],
+        value: Optional[_UseChecker] = None,
+    ) -> None:
         """
         Visit a Store action, check for unused import
         and add current value to the last scope.
@@ -1123,7 +1152,7 @@ class _MissingImportFinder:
                     self.unused_imports.append((oldvalue.lineno, oldvalue.source, oldvalue.scope_name))
         scope[fullname] = value
 
-    def _remove_from_missing_imports(self, fullname):
+    def _remove_from_missing_imports(self, fullname: str) -> None:
         for missing_import in list(self.missing_imports):
             # If it was defined inside a class method, then it wouldn't have been added to
             # the missing imports anyways (except in that case of annotations)
@@ -1134,9 +1163,9 @@ class _MissingImportFinder:
             missing_ident = missing_import[1]
             if not missing_ident.startswith(fullname):
                 continue
-            scopestack = missing_ident.scope_info['scopestack']
+            scopestack = missing_ident.scope_info['scopestack']  # type: ignore[index]
             in_class_scope = isinstance(scopestack[-1], _ClassScope)
-            inside_class = missing_ident.scope_info.get('_in_class_def')
+            inside_class = missing_ident.scope_info.get('_in_class_def')  # type: ignore[union-attr]
             # Remove if it's in class scope or not inside a class definition
             # Also remove if it's a simple identifier (forward reference in type annotation)
             # that matches the class name, regardless of scope
@@ -1145,13 +1174,13 @@ class _MissingImportFinder:
             if in_class_scope or not inside_class or is_simple_identifier:
                 self.missing_imports.remove(missing_import)
 
-    def _get_scope_info(self):
+    def _get_scope_info(self) -> Dict[str, Any]:
         return {
             "scopestack": self.scopestack,
             "_in_class_def": self._in_class_def,
         }
 
-    def visit_Delete(self, node):
+    def visit_Delete(self, node: ast.Delete) -> None:
         scope = self.scopestack[-1]
         for target in node.targets:
             if isinstance(target, ast.Name):
@@ -1175,7 +1204,7 @@ class _MissingImportFinder:
         # Don't call generic_visit(node) here.  Reason: We already visit the
         # parts above, if relevant.
 
-    def _visit_Load_defered_global(self, fullname:str):
+    def _visit_Load_defered_global(self, fullname:str) -> None:
         """
         Some things will be resolved in global scope later.
         """
@@ -1189,7 +1218,7 @@ class _MissingImportFinder:
             self._deferred_load_checks.append(data)
 
 
-    def _visit_Load_defered(self, fullname):
+    def _visit_Load_defered(self, fullname: str) -> None:
         logger.debug("_visit_Load_defered(%r)", fullname)
         current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
         if symbol_needs_import(
@@ -1198,13 +1227,13 @@ class _MissingImportFinder:
             data = (fullname, self.scopestack.clone_top(), self._lineno, current_scope)
             self._deferred_load_checks.append(data)
 
-    def _visit_Load_immediate(self, fullname):
+    def _visit_Load_immediate(self, fullname: str) -> None:
         logger.debug("_visit_Load_immediate(%r)", fullname)
         self._check_load(fullname, self.scopestack, self._lineno)
 
 
 
-    def _visit_Load(self, fullname):
+    def _visit_Load(self, fullname: str) -> None:
         logger.debug("_visit_Load(%r)", fullname)
         if self._in_FunctionDef:
             self._visit_Load_defered(fullname)
@@ -1236,7 +1265,12 @@ class _MissingImportFinder:
             # stack.
             self._visit_Load_immediate(fullname)
 
-    def _check_load(self, fullname, scopestack, lineno):
+    def _check_load(
+        self,
+        fullname: Union[str, DottedIdentifier],
+        scopestack: ScopeStack,
+        lineno: Optional[int],
+    ) -> None:
         """
         Check if the symbol needs import.  (As a side effect, if the object
         is a _UseChecker, this will mark it as used.
@@ -1254,7 +1288,7 @@ class _MissingImportFinder:
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
 
-    def _finish_deferred_load_checks(self):
+    def _finish_deferred_load_checks(self) -> None:
         for item in self._deferred_load_checks:
             # Handle both old 3-tuple and new 4-tuple format for compatibility
             if len(item) == 4:
@@ -1269,7 +1303,7 @@ class _MissingImportFinder:
                 self._check_load(fullname, scopestack, lineno)
         self._deferred_load_checks = []
 
-    def _scan_unused_imports(self):
+    def _scan_unused_imports(self) -> None:
         # If requested, then check which of our imports were unused.
         # For now we only scan the top level.  If we wanted to support
         # non-global unused-import checking, then we should check this
@@ -1287,7 +1321,9 @@ class _MissingImportFinder:
             unused_imports.append((value.lineno, value.source, value.scope_name))
         unused_imports.sort()
 
-    def analyze_cross_scope_redundancies(self) -> List[Tuple[int, str, Optional[str]]]:
+    def analyze_cross_scope_redundancies(
+        self,
+    ) -> List[Tuple[Optional[int], Any, Optional[str]]]:
         """
         Analyze imports across scopes to find redundancies (Phase 3).
 
@@ -1296,7 +1332,7 @@ class _MissingImportFinder:
         """
         if not self.find_unused_imports:
             return []
-        redundant_imports: List[Tuple[int, str, Optional[str]]] = []
+        redundant_imports: List[Tuple[Optional[int], Any, Optional[str]]] = []
 
         # Collect all _UseChecker objects from all scopes
         all_imports: Dict[str, List[_UseChecker]] = {}
@@ -1346,10 +1382,13 @@ class _MissingImportFinder:
 
 
 def scan_for_import_issues(
-    codeblock: PythonBlock,
+    codeblock: Union[PythonBlock, str, FileText, Filename],
     find_unused_imports: bool = True,
     parse_docstrings: bool = False,
-):
+) -> Tuple[
+    List[Tuple[Optional[int], DottedIdentifier]],
+    List[Tuple[Optional[int], Any, Optional[str]]],
+]:
     """
     Find missing and unused imports, by lineno.
 
@@ -1386,7 +1425,10 @@ def scan_for_import_issues(
     return finder.scan_for_import_issues(codeblock)
 
 
-def _find_missing_imports_in_ast(node, namespaces):
+def _find_missing_imports_in_ast(
+    node: ast.AST,
+    namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+) -> List[DottedIdentifier]:
     """
     Find missing imports in an AST node.
     Helper function to `find_missing_imports`.
@@ -1419,7 +1461,10 @@ def _find_missing_imports_in_ast(node, namespaces):
 # implementation details, whereas the AST is well-defined by the language.
 
 
-def _find_missing_imports_in_code(co, namespaces):
+def _find_missing_imports_in_code(
+    co: types.CodeType,
+    namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+) -> List[DottedIdentifier]:
     """
     Find missing imports in a code object.
     Helper function to `find_missing_imports`.
@@ -1439,7 +1484,7 @@ def _find_missing_imports_in_code(co, namespaces):
     :rtype:
       ``list`` of ``str``
     """
-    loads_without_stores = set()
+    loads_without_stores: Set[str] = set()
     _find_loads_without_stores_in_code(co, loads_without_stores)
     missing_imports = [
         DottedIdentifier(fullname) for fullname in sorted(loads_without_stores)
@@ -1448,7 +1493,9 @@ def _find_missing_imports_in_code(co, namespaces):
     return missing_imports
 
 
-def _find_loads_without_stores_in_code(co, loads_without_stores):
+def _find_loads_without_stores_in_code(
+    co: types.CodeType, loads_without_stores: Set[str]
+) -> None:
     """
     Find global LOADs without corresponding STOREs, by disassembling code.
     Recursive helper for `_find_missing_imports_in_code`.
@@ -1721,14 +1768,14 @@ def _find_loads_without_stores_in_code(co, loads_without_stores):
 
 if sys.version_info >= (3,12):
     from dis import hasarg
-    def take_arg(op):
+    def take_arg(op: int) -> bool:
         return op in hasarg
 else:
-    def take_arg(op):
+    def take_arg(op: int) -> bool:
         from opcode import HAVE_ARGUMENT
         return op >= HAVE_ARGUMENT
 
-def _find_earliest_backjump_label(bytecode):
+def _find_earliest_backjump_label(bytecode: bytes) -> int:
     """
     Find the earliest target of a backward jump.
 
@@ -1799,7 +1846,10 @@ def _find_earliest_backjump_label(bytecode):
     return earliest_backjump_label
 
 
-def find_missing_imports(arg, namespaces):
+def find_missing_imports(
+    arg: Any,
+    namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+) -> List[DottedIdentifier]:
     """
     Find symbols in the given code that require import.
 
@@ -1928,7 +1978,9 @@ def find_missing_imports(arg, namespaces):
             % (type(arg).__name__,))
 
 
-def get_known_import(fullname, db=None):
+def get_known_import(
+    fullname: Union[str, DottedIdentifier], db: Any = None
+) -> Optional[Tuple[Import, ...]]:
     """
     Get the deepest known import.
 
@@ -1969,7 +2021,7 @@ Set of imports we've already attempted and failed.
 """
 
 
-def clear_failed_imports_cache():
+def clear_failed_imports_cache() -> None:
     """
     Clear the cache of previously failed imports.
     """
@@ -1979,7 +2031,7 @@ def clear_failed_imports_cache():
         _IMPORT_FAILED.clear()
 
 
-def _try_import(imp, namespace):
+def _try_import(imp: Union[Import, str], namespace: Dict[str, Any]) -> bool:
     """
     Try to execute an import.  Import the result into the namespace
     ``namespace``.
@@ -2021,7 +2073,7 @@ def _try_import(imp, namespace):
     # the user had for some reason done "import fool as foo".  So we (1)
     # import into a scratch namespace, (2) check that the top-level matches,
     # then (3) copy into the user's namespace if it didn't already exist.
-    scratch_namespace = {}
+    scratch_namespace: Dict[str, Any] = {}
     try:
         exec(stmt, scratch_namespace)
         imported = scratch_namespace[name0]
@@ -2046,7 +2098,13 @@ def _try_import(imp, namespace):
     return True
 
 
-def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_import_hook=None):
+def auto_import_symbol(
+    fullname: Union[str, DottedIdentifier],
+    namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+    db: Any = None,
+    autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+    post_import_hook: Optional[Callable[[Import], Any]] = None,
+) -> bool:
     """
     Try to auto-import a single name.
 
@@ -2169,7 +2227,15 @@ def auto_import_symbol(fullname, namespaces, db=None, autoimported=None, post_im
     return True
 
 
-def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=None, *, extra_db=None):
+def auto_import(
+    arg: Any,
+    namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+    db: Any = None,
+    autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+    post_import_hook: Optional[Callable[[Import], Any]] = None,
+    *,
+    extra_db: Any = None,
+) -> bool:
     """
     Parse ``arg`` for symbols that need to be imported and automatically import
     them.
@@ -2208,6 +2274,7 @@ def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=No
       auto-imported; ``False`` if any auto-imports failed.
     """
     namespaces = ScopeStack(namespaces)
+    filename: Any
     if isinstance(arg, PythonBlock):
         filename = arg.filename
     else:
@@ -2231,9 +2298,11 @@ def auto_import(arg, namespaces, db=None, autoimported=None, post_import_hook=No
     return ok
 
 
-def auto_eval(arg, filename=None, mode=None,
-              flags=None, auto_flags=True, globals=None, locals=None,
-              db=None):
+def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
+              flags: Any = None, auto_flags: bool = True,
+              globals: Optional[Dict[str, Any]] = None,
+              locals: Optional[Dict[str, Any]] = None,
+              db: Any = None) -> Any:
     """
     Evaluate/execute the given code, automatically importing as needed.
 
@@ -2338,7 +2407,7 @@ def auto_eval(arg, filename=None, mode=None,
 
 class LoadSymbolError(Exception):
 
-    def __str__(self):
+    def __str__(self) -> str:
         r = ": ".join(map(str, self.args))
         e = getattr(self, "__cause__", None)
         if e:
@@ -2346,8 +2415,10 @@ class LoadSymbolError(Exception):
         return r
 
 
-def load_symbol(fullname, namespaces, autoimport=False, db=None,
-                autoimported=None):
+def load_symbol(fullname: str,
+                namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+                autoimport: bool = False, db: Any = None,
+                autoimported: Optional[Dict[DottedIdentifier, bool]] = None) -> Any:
     """
     Load the symbol ``fullname``.
 

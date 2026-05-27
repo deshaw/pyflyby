@@ -10,10 +10,12 @@ Usage:
     python -m pyflyby.check_parse <path>
 """
 
+from __future__ import annotations
+
 import ast
 from   pathlib                  import Path
 import sys
-from   typing                   import List, Tuple
+from   typing                   import List, Tuple, Union
 import warnings
 
 from   pyflyby._parse           import PythonBlock
@@ -91,7 +93,7 @@ def parse_file(file_path: Path) -> Tuple[bool, str]:
     return True, ""
 
 
-def check_parse_main():
+def check_parse_main() -> Union[int, str]:
     """Main entry point for check-parse command.
 
     Returns:
