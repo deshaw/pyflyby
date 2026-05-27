@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import sys
 
@@ -19,8 +19,8 @@ from   pyflyby._util            import (cached_attribute, cmp, partition,
                                         stable_unique)
 
 from   typing                   import (Any, ClassVar, Dict, FrozenSet,
-                                        Iterable, Iterator, List, Optional,
-                                        Sequence, Tuple, Union)
+                                        Iterable, Iterator, Optional, Sequence,
+                                        Tuple, Union)
 
 if sys.version_info < (3, 12):
     from typing_extensions          import Self

@@ -2,8 +2,7 @@
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
-from __future__ import print_function
+from __future__ import annotations, print_function
 
 import ast
 from   collections              import defaultdict
@@ -24,7 +23,7 @@ import re
 import sys
 
 from   typing                   import (Any, ContextManager, Dict, List,
-                                        Literal, Optional, Tuple, Union)
+                                        Literal, Optional, Union)
 
 from   textwrap                 import dedent, indent
 

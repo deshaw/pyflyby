@@ -5,7 +5,7 @@ This module provides the ``SaveframeReader`` class, which is used to read data
 saved by the ``saveframe`` utility.
 """
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import logging
 import pickle

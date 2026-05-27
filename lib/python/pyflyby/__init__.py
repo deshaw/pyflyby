@@ -4,6 +4,8 @@
 
 
 
+from __future__ import print_function
+
 from   pyflyby._autoimp         import (auto_eval, auto_import,
                                         find_missing_imports)
 from   pyflyby._dbg             import (add_debug_functions_to_builtins,

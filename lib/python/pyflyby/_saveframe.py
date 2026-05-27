@@ -5,7 +5,7 @@ Provides a utility to save the info for debugging / reproducing any issue.
 Checkout the doc of the `saveframe` function for more info.
 """
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 from   contextlib               import contextmanager
 from   dataclasses              import dataclass

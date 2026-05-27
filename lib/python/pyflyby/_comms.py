@@ -1,6 +1,5 @@
 
-from __future__ import annotations
-from __future__ import print_function
+from __future__ import annotations, print_function
 
 from   pyflyby._imports2s       import (SourceToSourceFileImportsTransformation,
                                         SourceToSourceImportBlockTransformation,
@@ -11,8 +10,7 @@ from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 
-from   typing                   import (Any, Dict, List, Optional, Tuple,
-                                        Union)
+from   typing                   import Any, Dict, List, Optional, Tuple, Union
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and

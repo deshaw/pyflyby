@@ -35,9 +35,10 @@ import sys
 from   textwrap                 import dedent
 import types
 from   types                    import NoneType
-from   typing                   import (TYPE_CHECKING, Any, Callable, Dict,
-                                        Generator, Iterable, Iterator, List,
-                                        Literal, Optional, Tuple, Union, cast)
+from   typing                   import (Any, Callable, Dict, Generator,
+                                        Iterable, Iterator, List, Literal,
+                                        Optional, TYPE_CHECKING, Tuple, Union,
+                                        cast)
 import warnings
 
 if TYPE_CHECKING:
@@ -572,7 +573,8 @@ def _split_code_lines(
     assert ast_nodes[-1].startpos < text.endpos
     if text.startpos != ast_nodes[0].startpos:
         # Starting noncode lines.
-        yield ([], text[text.startpos:ast_nodes[0].startpos])
+        # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
+        yield ([], text[text.startpos:ast_nodes[0].startpos])  # type: ignore[misc]
     end_sentinel = _DummyAst_Node()
     end_sentinel.startpos = text.endpos
     for node, next_node in zip(ast_nodes, ast_nodes[1:] + [end_sentinel]):
@@ -593,7 +595,8 @@ def _split_code_lines(
             # Advance past whitespace an inline comment, if any.  Do NOT
             # advance past other code that could be on the same line, nor past
             # blank lines and comments on subsequent lines.
-            line = text[endpos : min(text.endpos, FilePos(endpos.lineno+1,1))]
+            # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
+            line = text[endpos : min(text.endpos, FilePos(endpos.lineno+1,1))]  # type: ignore[misc]
             if _is_comment_or_blank(line):
                 endpos = FilePos(endpos.lineno+1, 1)
         else:

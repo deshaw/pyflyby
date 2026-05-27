@@ -11,7 +11,7 @@ from __future__ import print_function
 import builtins
 from   contextlib               import nullcontext
 import logging
-from   logging                  import Formatter, Handler, Logger, LogRecord
+from   logging                  import Formatter, Handler, LogRecord, Logger
 import os
 from   prompt_toolkit           import patch_stdout
 import sys

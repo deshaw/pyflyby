@@ -10,7 +10,7 @@ Usage:
     python -m pyflyby.check_parse <path>
 """
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import ast
 from   pathlib                  import Path

@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 
 from   builtins                 import input
@@ -13,9 +13,8 @@ import signal
 import sys
 from   textwrap                 import dedent
 import traceback
-from   typing                   import (TYPE_CHECKING, Any, Callable, Dict,
-                                        List, NoReturn, Optional, Sequence,
-                                        Tuple, Union)
+from   typing                   import (Any, Callable, Dict, List, NoReturn,
+                                        Optional, Sequence, Tuple)
 
 
 from   pyflyby._file            import (FileText, Filename, atomic_write_file,

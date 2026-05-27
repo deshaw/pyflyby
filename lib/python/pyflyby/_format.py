@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 from   typing                   import Any, Optional, Sequence, Tuple, Union
 

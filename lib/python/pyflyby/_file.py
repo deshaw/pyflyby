@@ -1,14 +1,14 @@
 # pyflyby/_file.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 from   functools                import cached_property, total_ordering
 import io
 import os
 import re
 import sys
-from   typing                   import (Any, Callable, ClassVar, Iterable, List,
+from   typing                   import (Any, Callable, ClassVar, List,
                                         Optional, Tuple, Union)
 
 from   pyflyby._util            import cmp, memoize

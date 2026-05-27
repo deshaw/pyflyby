@@ -131,7 +131,7 @@ XXX test
 
 
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import ast
 import os
@@ -146,7 +146,7 @@ import inspect
 from   pyflyby._log             import logger
 
 from   typing                   import (Any, Callable, Dict, List, Optional,
-                                        Tuple, Union)
+                                        Tuple)
 
 
 # Keep track of when the process was started.

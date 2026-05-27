@@ -28,9 +28,8 @@ from   pyflyby._util            import _has_ignore_pragma
 import sys
 import types
 from   types                    import EllipsisType, NoneType
-from   typing                   import (TYPE_CHECKING, Any, Callable, Dict,
-                                        Iterator, List, Optional, Set, Tuple,
-                                        Union)
+from   typing                   import (Any, Callable, Dict, Iterator, List,
+                                        Optional, Set, Tuple, Union)
 
 
 if sys.version_info >= (3, 13):

@@ -4,10 +4,10 @@
 
 # Deprecated stub for backwards compatibility.
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
-from   pyflyby._importdb        import ImportDB
 from   pyflyby._importclns      import ImportSet
+from   pyflyby._importdb        import ImportDB
 
 
 def global_known_imports() -> ImportSet:

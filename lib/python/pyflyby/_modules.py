@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import ast
 from   functools                import cached_property, total_ordering
@@ -28,8 +28,8 @@ import re
 import shutil
 import sys
 import types
-from   typing                   import (TYPE_CHECKING, Any, Dict, Generator,
-                                        List, Optional, Tuple, Union)
+from   typing                   import (Any, Dict, Generator, List, Optional,
+                                        TYPE_CHECKING, Tuple, Union)
 
 if TYPE_CHECKING:
     from   pyflyby._importclns   import ImportSet

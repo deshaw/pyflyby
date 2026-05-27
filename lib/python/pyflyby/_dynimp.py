@@ -38,7 +38,7 @@ executed and the relevant variable imported.
 
 
 """
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import importlib.abc
 import importlib.util
@@ -46,8 +46,8 @@ import sys
 
 from   textwrap                 import dedent
 from   types                    import ModuleType
-from   typing                   import (TYPE_CHECKING, Any, FrozenSet, Optional,
-                                        Sequence)
+from   typing                   import (Any, FrozenSet, Optional, Sequence,
+                                        TYPE_CHECKING)
 
 from   pyflyby._importclns      import Import, ImportSet
 
