@@ -5,9 +5,6 @@
 .. image:: https://badge.fury.io/py/pyflyby.svg
    :target: https://pypi.org/project/pyflyby/
 
-.. image:: https://travis-ci.org/deshaw/pyflyby.png?branch=master
-   :target: https://travis-ci.org/deshaw/pyflyby
-
 Pyflyby is a set of Python programming productivity tools for Python.
 
 For command-line interaction:
