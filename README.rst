@@ -50,10 +50,10 @@ Quick start: Autoimporter + IPython
    [PYFLYBY] import re
    Out[1]: 'hello'
 
-   In [2]: chisqprob(arange(5), 2)
+   In [2]: scoreatpercentile(arange(5), 50)
    [PYFLYBY] from numpy import arange
-   [PYFLYBY] from scipy.stats import chisqprob
-   Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+   [PYFLYBY] from scipy.stats import scoreatpercentile
+   Out[2]: 2.0
 
 To load pyflyby into an existing IPython session as a 1-off:
 
@@ -78,7 +78,7 @@ or
    $ ipython
    In [1]: b64decode('aGVsbG8=')
    [PYFLYBY] from base64 import b64decode
-   Out[1]: 'hello'
+   Out[1]: b'hello'
 
 Auto importer lazy variables
 ----------------------------
@@ -119,9 +119,9 @@ Quick start: ``py`` command-line multi-tool
   $ py b64decode aGVsbG8=
   [PYFLYBY] from base64 import b64decode
   [PYFLYBY] b64decode('aGVsbG8=', altchars=None)
-  'hello'
+  b'hello'
 
-  $ py log2 sys.maxint
+  $ py log2 sys.maxsize
   [PYFLYBY] from numpy import log2
   [PYFLYBY] import sys
   [PYFLYBY] log2(9223372036854775807)
@@ -148,19 +148,17 @@ For example:
 
 .. code::
 
-   $ echo 're.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)' > foo.py
+   $ echo 're.search("[a-z]+", "....hello..."), scoreatpercentile(arange(5), 50)' > foo.py
 
    $ tidy-imports foo.py
    --- /tmp/foo.py
    +++ /tmp/foo.py
-   @@ -1 +1,9 @@
-   +from __future__ import absolute_import, division, with_statement
-   +
+   @@ -1 +1,5 @@
    +from   numpy                    import arange
-   +from   scipy.stats              import chisqprob
+   +from   scipy.stats              import scoreatpercentile
    +import re
    +
-    re.search("[a-z]+", "....hello..."), chisqprob(arange(5), 2)
+    re.search("[a-z]+", "....hello..."), scoreatpercentile(arange(5), 50)
 
    Replace /tmp/foo.py? [y/N]
 
@@ -230,10 +228,10 @@ Example::
   [PYFLYBY] import re
   Out[1]: 'hello'
 
-  In [2]: chisqprob(arange(5), 2)
+  In [2]: scoreatpercentile(arange(5), 50)
   [PYFLYBY] from numpy import arange
-  [PYFLYBY] from scipy.stats import chisqprob
-  Out[2]: [ 1.      0.6065  0.3679  0.2231  0.1353]
+  [PYFLYBY] from scipy.stats import scoreatpercentile
+  Out[2]: 2.0
 
   In [3]: np.sin(arandom(5))
   [PYFLYBY] from numpy.random import random as arandom
@@ -276,7 +274,7 @@ Other IPython magic commands work as well::
   [PYFLYBY] from numpy import pi
   100000 loops, best of 3: 2.51 us per loop
 
-  $ echo 'print arange(4)' > foo.py
+  $ echo 'print(arange(4))' > foo.py
   $ ipython
   In [1]: %run foo.py
   [PYFLYBY] from numpy import arange
@@ -316,7 +314,7 @@ Find-imports, ``tidy-imports``, and autoimport consult the database of known
 imports to figure out where to get an import.  For example, if the
 imports database contains::
 
-    from numpy import arange, NaN
+    from numpy import arange, nan
 
 then when you type the following in IPython::
 
@@ -393,7 +391,7 @@ database of known imports.
 
 You can put the following in any file reachable from ``$PYFLYBY_PATH``::
 
-  __forget_imports__ = ["from numpy import NaN"]
+  __forget_imports__ = ["from numpy import nan"]
 
 This is useful if you want to use a set of imports maintained by someone else
 except for a few particular imports.
@@ -571,7 +569,7 @@ Release
 
 4. Build the SDIST::
 
-    python setup.py sdist
+    python -m build --sdist
 
 5. Optional Repack the Sdist to make sure the ZIP only contain SOURCE_DATE_EPOCH
    date using IPython tools::
