@@ -2,8 +2,9 @@
 # Copyright (C) 2011, 2012, 2013, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import annotations
 
-
+from __future__ import print_function
 import __future__
 import ast
 from   functools                import reduce
@@ -11,11 +12,11 @@ import operator
 import warnings
 
 from   pyflyby._util            import cached_attribute
-from   typing                   import Tuple
+from   typing                   import Any, Dict, Sequence, Tuple, Union
 
 # Initialize mappings from compiler_flag to feature name and vice versa.
-_FLAG2NAME = {}
-_NAME2FLAG = {}
+_FLAG2NAME: Dict[int, str] = {}
+_NAME2FLAG: Dict[str, int] = {}
 for name in __future__.all_feature_names:
     flag = getattr(__future__, name).compiler_flag
     _FLAG2NAME[flag] = name
@@ -50,10 +51,10 @@ class CompilerFlags(int):
     """
 
     # technically both those are compiler flags, but we can't use Self. May need typing_extensions ?
-    _ZERO:int
-    _UNKNOWN: int
+    _ZERO: "CompilerFlags"
+    _UNKNOWN: "CompilerFlags"
 
-    def __new__(cls, *args):
+    def __new__(cls, *args: Any) -> "CompilerFlags":
         """
         Construct a new ``CompilerFlags`` instance.
 
@@ -108,7 +109,7 @@ class CompilerFlags(int):
             return cls.from_int(reduce(operator.or_, flags))
 
     @classmethod
-    def from_int(cls, arg):
+    def from_int(cls, arg: int) -> "CompilerFlags":
         if arg == -1:
             return cls._UNKNOWN  # Instance optimization
         if arg == 0:
@@ -121,7 +122,7 @@ class CompilerFlags(int):
         return self
 
     @classmethod
-    def from_str(cls, arg:str):
+    def from_str(cls, arg:str) -> "CompilerFlags":
         try:
             flag = _NAME2FLAG[arg]
         except KeyError:
@@ -130,7 +131,7 @@ class CompilerFlags(int):
         return cls.from_int(flag)
 
     @classmethod
-    def from_ast(cls, nodes):
+    def from_ast(cls, nodes: Union[ast.AST, Sequence[ast.AST]]) -> "CompilerFlags":
         """
         Parse the compiler flags from AST node(s).
 
@@ -163,7 +164,7 @@ class CompilerFlags(int):
             for f, n in _FLAGNAME_ITEMS
             if f & self)
 
-    def __or__(self, o):
+    def __or__(self, o: Any) -> "CompilerFlags":
         if o == 0:
             return self
         if not isinstance(o, CompilerFlags):
@@ -172,32 +173,32 @@ class CompilerFlags(int):
             return o
         return CompilerFlags.from_int(int(self) | int(o))
 
-    def __ror__(self, o):
+    def __ror__(self, o: Any) -> "CompilerFlags":
         return self | o
 
-    def __and__(self, o):
+    def __and__(self, o: Any) -> "CompilerFlags":
         if not isinstance(o, int):
             o = CompilerFlags(o)
         return CompilerFlags.from_int(int(self) & int(o))
 
-    def __rand__(self, o):
+    def __rand__(self, o: Any) -> "CompilerFlags":
         return self & o
 
-    def __xor__(self, o):
+    def __xor__(self, o: Any) -> "CompilerFlags":
         if not isinstance(o, CompilerFlags):
             o = CompilerFlags.from_int(o)
         return CompilerFlags.from_int(int(self) ^ int(o))
 
-    def __rxor__(self, o):
+    def __rxor__(self, o: Any) -> "CompilerFlags":
         return self ^ o
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "CompilerFlags(%s)" % (hex(self),)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return hex(self)
 
-    def __interactive_display__(self):
+    def __interactive_display__(self) -> str:
         s = repr(self)
         if self != 0:
             s += " # from __future__ import " + ", ".join(self.names)

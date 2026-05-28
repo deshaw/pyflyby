@@ -2,7 +2,7 @@
 # Copyright (C) 2011-2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import print_function
+from __future__ import annotations, print_function
 
 import ast
 from   collections              import defaultdict
@@ -10,7 +10,7 @@ from   contextlib               import nullcontext
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
-from   pyflyby._importclns      import ImportSet, NoSuchImportError
+from   pyflyby._importclns      import ImportMap, ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
@@ -22,9 +22,15 @@ from   pyflyby._util            import (ImportPathCtx, Inf, _has_ignore_pragma,
 import re
 import sys
 
-from   typing                   import Literal, Optional, Union
+from   typing                   import (Any, ContextManager, Dict, List,
+                                        Literal, Optional, Union)
 
 from   textwrap                 import dedent, indent
+
+# A mapping of dotted-name prefixes to replacements.  ``transform_imports`` and
+# friends accept either a plain ``dict`` or an `ImportMap` (e.g. a database's
+# ``canonical_imports``); both expose ``.items()``/``.keys()``.
+_Transformations = Union[Dict[str, str], ImportMap]
 
 # AST node types for function and class definitions
 _FUNCTION_OR_CLASS_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -68,7 +74,7 @@ class SourceToSourceTransformationBase:
 
     input: PythonBlock
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Any) -> "SourceToSourceTransformationBase":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, (PythonBlock, FileText, Filename, str)):
@@ -77,7 +83,9 @@ class SourceToSourceTransformationBase:
                         % (cls.__name__, type(arg).__name__))
 
     @classmethod
-    def _from_source_code(cls, codeblock):
+    def _from_source_code(
+        cls, codeblock: Any
+    ) -> "SourceToSourceTransformationBase":
         # TODO: don't do that.
         self = object.__new__(cls)
         if isinstance(codeblock, PythonBlock):
@@ -91,24 +99,24 @@ class SourceToSourceTransformationBase:
         self.preprocess()
         return self
 
-    def preprocess(self):
+    def preprocess(self) -> None:
         pass
 
-    def pretty_print(self, params=None):
+    def pretty_print(self, params: Any = None) -> Union[FileText, str]:
         raise NotImplementedError
 
-    def output(self, params=None) -> PythonBlock:
+    def output(self, params: Any = None) -> PythonBlock:
         """
         Pretty-print and return as a `PythonBlock`.
 
         :rtype:
           `PythonBlock`
         """
-        result = self.pretty_print(params=params)
+        result: Union[FileText, str, PythonBlock] = self.pretty_print(params=params)
         result = PythonBlock(result, filename=self.input.filename)
         return result
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__}\n{indent(str(self.pretty_print()),'    ')}\n at 0x{hex(id(self))}>"
 
 
@@ -116,23 +124,26 @@ class SourceToSourceTransformation(SourceToSourceTransformationBase):
 
     _output: PythonBlock
 
-    def preprocess(self):
+    def preprocess(self) -> None:
         assert isinstance(self.input, PythonBlock), self.input
         self._output = self.input
 
-    def pretty_print(self, params=None):
+    def pretty_print(self, params: Any = None) -> FileText:
         return self._output.text
 
 
 class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
-    def preprocess(self):
+
+    importset: ImportSet
+
+    def preprocess(self) -> None:
         self.importset = ImportSet(self.input, ignore_shadowed=True)
 
-    def pretty_print(self, params=None):
+    def pretty_print(self, params: Any = None) -> str:
         params = ImportFormatParams(params)
         return self.importset.pretty_print(params)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         # Guard against partially initialized object...
         import_set = getattr(self, "importset", None)
         return f"<SourceToSourceImportBlockTransformation {import_set!r} @{hex(id(self))}>"
@@ -156,6 +167,11 @@ class _LocalImportBlockWrapper:
     """
 
     transform: SourceToSourceImportBlockTransformation
+    # ``importset`` is reachable both via ``__getattr__`` delegation to
+    # ``transform`` and by direct assignment (see
+    # ``SourceToSourceFileImportsTransformation.remove_import``); declare it so
+    # that those reads/writes type-check against the import-block union.
+    importset: ImportSet
     start_lineno: int
     end_lineno: int
     _original_imports: set[Import]
@@ -177,7 +193,7 @@ class _LocalImportBlockWrapper:
         self._id = hex(id(self))
         self._semicolon_suffixes = semicolon_suffixes or {}
 
-    def __getattr__(self, name: str) -> object:
+    def __getattr__(self, name: str) -> Any:
         # Delegate all other attribute access to the wrapped transform
         return getattr(self.transform, name)
 
@@ -415,7 +431,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             if isinstance(body_item, _FUNCTION_OR_CLASS_TYPES):
                 self._extract_imports_from_statement(body_item)
 
-    def pretty_print(self, params=None):
+    def pretty_print(self, params: Any = None) -> FileText:
         params = ImportFormatParams(params)
         result = [block.pretty_print(params=params) for block in self.blocks]
         output = FileText.concatenate(result)
@@ -638,7 +654,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             raise LineNumberAmbiguousError(lineno)
         return results[0]
 
-    def remove_import(self, imp, lineno):
+    def remove_import(self, imp: Import, lineno: Any) -> Import:
         """
         Remove the given import.
 
@@ -666,7 +682,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         return imp
 
-    def _remove_local_import_from_blocks(self, imp, lineno):
+    def _remove_local_import_from_blocks(self, imp: Import, lineno: int) -> None:
 
         """
         Remove a local import from the actual code blocks.
@@ -727,7 +743,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                     )
                 break
 
-    def select_import_block_by_closest_prefix_match(self, imp, max_lineno):
+    def select_import_block_by_closest_prefix_match(
+        self, imp: Import, max_lineno: Union[int, float]
+    ) -> SourceToSourceImportBlockTransformation:
         """
         Heuristically pick an import block that ``imp`` "fits" best into.  The
         selection is based on the block that contains the import with the
@@ -764,7 +782,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 raise NoImportBlockError
         return annotated_blocks[-1][1]
 
-    def insert_new_blocks_after_comments(self, blocks):
+    def insert_new_blocks_after_comments(self, blocks: List[Any]) -> None:
         blocks = [SourceToSourceTransformationBase(block) for block in blocks]
         if isinstance(self.blocks[0], SourceToSourceImportBlockTransformation):
             # Kludge.  We should add an "output" attribute to
@@ -795,7 +813,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             # First block is entirely comments, so just insert after it.
             self.blocks[1:1] = blocks
 
-    def insert_new_import_block(self):
+    def insert_new_import_block(self) -> SourceToSourceImportBlockTransformation:
         """
         Adds a new empty imports block.  It is added before the first
         non-comment statement.  Intended to be used when the input contains no
@@ -808,7 +826,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         self.import_blocks.insert(0, block)
         return block
 
-    def add_import(self, imp, lineno=Inf):
+    def add_import(self, imp: Import, lineno: Any = Inf) -> None:
         """
         Add the specified import.  Picks an existing global import block to
         add to, or if none found, creates a new one near the beginning of the
@@ -829,7 +847,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         block.importset = block.importset.with_imports([imp])
 
 
-def reformat_import_statements(codeblock, params=None):
+def reformat_import_statements(
+    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
+) -> PythonBlock:
     r"""
     Reformat each top-level block of import statements within a block of code.
     Blank lines, comments, etc. are left alone and separate blocks of imports.
@@ -868,7 +888,9 @@ def reformat_import_statements(codeblock, params=None):
         SourceToSourceFileImportsTransformation.tidy_local_imports = original_tidy_local
 
 
-def ImportPathForRelativeImportsCtx(codeblock):
+def ImportPathForRelativeImportsCtx(
+    codeblock: Union[PythonBlock, FileText, Filename, str]
+) -> ContextManager[Any]:
     """
     Context manager that temporarily modifies ``sys.path`` so that relative
     imports for the given ``codeblock`` work as expected.
@@ -891,7 +913,7 @@ def fix_unused_and_missing_imports(
     remove_unused: Union[Literal["AUTOMATIC"], bool] = "AUTOMATIC",
     add_mandatory: bool = True,
     db: Optional[ImportDB] = None,
-    params=None,
+    params: Any = None,
     tidy_local_imports: bool = False,
 ) -> PythonBlock:
     r"""
@@ -1049,7 +1071,9 @@ def fix_unused_and_missing_imports(
     return transformer.output(params=params)
 
 
-def remove_broken_imports(codeblock, params=None):
+def remove_broken_imports(
+    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
+) -> PythonBlock:
     """
     Try to execute each import, and remove the ones that don't work.
 
@@ -1066,9 +1090,9 @@ def remove_broken_imports(codeblock, params=None):
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
-        broken = []
+        broken: List[Import] = []
         for imp in list(block.importset.imports):
-            ns = {}
+            ns: Dict[str, Any] = {}
             try:
                 exec(imp.pretty_print(), ns)
             except Exception as e:
@@ -1079,7 +1103,9 @@ def remove_broken_imports(codeblock, params=None):
     return transformer.output(params=params)
 
 
-def replace_star_imports(codeblock, params=None):
+def replace_star_imports(
+    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
+) -> PythonBlock:
     r"""
     Replace lines such as::
 
@@ -1182,7 +1208,7 @@ class _NoImportBlockTransformer:
     """
 
     # Map of dotted-name prefixes to their replacements, e.g. {"a.b": "x.y"}.
-    _transformations: dict[str, str]
+    _transformations: _Transformations
     # Whether to also rewrite inside string literals.
     _transform_strings: bool
     # The (position-normalized) block being transformed.
@@ -1199,7 +1225,7 @@ class _NoImportBlockTransformer:
     def __init__(
         self,
         block: PythonBlock,
-        transformations: dict[str, str],
+        transformations: _Transformations,
         transform_strings: bool,
     ) -> None:
         self._transformations = transformations
@@ -1381,7 +1407,7 @@ class _NoImportBlockTransformer:
 
 def _transform_noimport_block(
     block: PythonBlock,
-    transformations: dict[str, str],
+    transformations: _Transformations,
     transform_strings: bool,
 ) -> PythonBlock:
     """
@@ -1421,7 +1447,12 @@ def _transform_noimport_block(
     return _NoImportBlockTransformer(block, transformations, transform_strings).run()
 
 
-def transform_imports(codeblock, transformations, params=None, transform_strings=False):
+def transform_imports(
+    codeblock: Union[PythonBlock, FileText, Filename, str],
+    transformations: _Transformations,
+    params: Any = None,
+    transform_strings: bool = False,
+) -> PythonBlock:
     """
     Transform imports as specified by ``transformations``.
 
@@ -1459,7 +1490,7 @@ def transform_imports(codeblock, transformations, params=None, transform_strings
     params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     @memoize
-    def transform_import(imp):
+    def transform_import(imp: Import) -> Import:
         # Transform a block of imports.
         # TODO: optimize
         # TODO: handle transformations containing both a.b=>x and a.b.c=>y
@@ -1479,7 +1510,11 @@ def transform_imports(codeblock, transformations, params=None, transform_strings
     return transformer.output(params=params)
 
 
-def canonicalize_imports(codeblock, params=None, db=None):
+def canonicalize_imports(
+    codeblock: Union[PythonBlock, FileText, Filename, str],
+    params: Any = None,
+    db: Optional[ImportDB] = None,
+) -> PythonBlock:
     """
     Transform ``codeblock`` as specified by ``__canonical_imports__`` in the
     global import library.

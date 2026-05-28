@@ -13,6 +13,8 @@
 
 
 
+from __future__ import print_function
+
 from   pyflyby._interactive     import enable_auto_importer
 
 install_auto_importer = enable_auto_importer

@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import ast
 from   functools                import cached_property, total_ordering
@@ -28,7 +28,12 @@ import re
 import shutil
 import sys
 import types
-from   typing                   import Any, Dict, Generator, Union
+from   typing                   import (Any, Dict, Generator, List, Optional,
+                                        TYPE_CHECKING, Tuple, Union)
+
+if TYPE_CHECKING:
+    from   pyflyby._importclns   import ImportSet
+    from   pyflyby._parse        import PythonBlock
 
 class ErrorDuringImportError(ImportError):
     """
@@ -38,7 +43,7 @@ class ErrorDuringImportError(ImportError):
     exist.
     """
 
-def rebuild_import_cache():
+def rebuild_import_cache() -> None:
     """Force the import cache to be rebuilt.
 
     The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
@@ -50,7 +55,7 @@ def rebuild_import_cache():
     _fast_iter_modules()
 
 
-def _remove_import_cache_dir(path: pathlib.Path):
+def _remove_import_cache_dir(path: pathlib.Path) -> None:
     """Remove an import cache directory.
 
     Import cache directories exist in <user cache dir>/pyflyby/, and they should
@@ -75,7 +80,7 @@ def _remove_import_cache_dir(path: pathlib.Path):
 
 
 @memoize
-def import_module(module_name):
+def import_module(module_name: Any) -> types.ModuleType:
     module_name = str(module_name)
     logger.debug("Importing %r", module_name)
     try:
@@ -103,10 +108,10 @@ def import_module(module_name):
         #     non-existent module vs a problematic module, and returns a
         #     function that uses the working discriminators.
         real_importerror1 = type(e) is ImportError
-        real_importerror2 = (sys.exc_info()[2].tb_frame.f_locals is locals())
+        real_importerror2 = (sys.exc_info()[2].tb_frame.f_locals is locals())  # type: ignore[union-attr]
         m = re.match("^No module named (.*)$", str(e))
         real_importerror3 = (m and m.group(1) == module_name
-                             or module_name.endswith("."+m.group(1)))
+                             or module_name.endswith("."+m.group(1)))  # type: ignore[union-attr]
         logger.debug("import_module(%r): real ImportError: %s %s %s",
                      module_name,
                      real_importerror1, real_importerror2, real_importerror3)
@@ -121,7 +126,9 @@ def import_module(module_name):
             % (module_name, type(e).__name__, e)) from e
 
 
-def _my_iter_modules(path, prefix=''):
+def _my_iter_modules(
+    path: Any, prefix: str = ''
+) -> Generator[tuple[str, bool], None, None]:
     # Modified version of pkgutil.ImpImporter.iter_modules(), patched to
     # handle inaccessible subdirectories.
     if path is None:
@@ -131,7 +138,7 @@ def _my_iter_modules(path, prefix=''):
     except OSError:
         return # silently ignore inaccessible paths
     filenames.sort()  # handle packages before same-named modules
-    yielded = {}
+    yielded: Dict[str, int] = {}
     import inspect
     for fn in filenames:
         modname = inspect.getmodulename(fn)
@@ -156,7 +163,7 @@ def _my_iter_modules(path, prefix=''):
             yield prefix + modname, ispkg
 
 
-def pyc_to_py(filename):
+def pyc_to_py(filename: str) -> str:
     if filename.endswith(".pyc") or filename.endswith(".pyo"):
         filename = filename[:-1]
     return filename
@@ -170,7 +177,7 @@ class ModuleHandle(object):
 
     name: DottedIdentifier
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Any) -> "ModuleHandle":
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, Filename):
@@ -184,7 +191,7 @@ class ModuleHandle(object):
     _cls_cache:Dict[Any, Any] = {}
 
     @classmethod
-    def _from_modulename(cls, modulename):
+    def _from_modulename(cls, modulename: Any) -> "ModuleHandle":
         modulename = DottedIdentifier(modulename)
         try:
             return cls._cls_cache[modulename]
@@ -196,7 +203,7 @@ class ModuleHandle(object):
         return self
 
     @classmethod
-    def _from_module(cls, module):
+    def _from_module(cls, module: types.ModuleType) -> "ModuleHandle":
         if not isinstance(module, types.ModuleType):
             raise TypeError
         self = cls._from_modulename(module.__name__)
@@ -204,23 +211,23 @@ class ModuleHandle(object):
         return self
 
     @classmethod
-    def _from_filename(cls, filename):
+    def _from_filename(cls, filename: Any) -> "ModuleHandle":
         filename = Filename(filename)
         raise NotImplementedError(
             "TODO: look at sys.path to guess module name")
 
     @cached_property
-    def parent(self):
+    def parent(self) -> Optional["ModuleHandle"]:
         if not self.name.parent:
             return None
         return ModuleHandle(self.name.parent)
 
     @cached_property
-    def ancestors(self):
+    def ancestors(self) -> Tuple["ModuleHandle", ...]:
         return tuple(ModuleHandle(m) for m in self.name.prefixes)
 
     @cached_property
-    def module(self):
+    def module(self) -> types.ModuleType:
         """
         Return the module instance.
 
@@ -239,7 +246,7 @@ class ModuleHandle(object):
         return import_module(self.name)
 
     @cached_property
-    def exists(self):
+    def exists(self) -> bool:
         """
         Return whether the module exists, according to pkgutil.
         Note that this doesn't work for things that are only known by using
@@ -264,7 +271,7 @@ class ModuleHandle(object):
         return pkg is not None
 
     @cached_property
-    def filename(self):
+    def filename(self) -> Optional[Filename]:
         """
         Return the filename, if appropriate.
 
@@ -311,11 +318,11 @@ class ModuleHandle(object):
         return Filename(pyc_to_py(filename))
 
     @cached_property
-    def text(self):
-        return FileText(self.filename)
+    def text(self) -> FileText:
+        return FileText(self.filename)  # type: ignore[arg-type]
 
     @cached_property
-    def block(self):
+    def block(self) -> "PythonBlock":
         from pyflyby._parse import PythonBlock
         return PythonBlock(self.text)
 
@@ -337,7 +344,7 @@ class ModuleHandle(object):
             return [mod.name for mod in _fast_iter_modules() if is_identifier(mod.name)]
 
     @cached_property
-    def submodules(self):
+    def submodules(self) -> Tuple["ModuleHandle", ...]:
         """
         Enumerate the importable submodules of this module.
 
@@ -364,7 +371,7 @@ class ModuleHandle(object):
                      for m in sorted(set(submodule_names)))
 
     @staticmethod
-    def _member_from_node(node):
+    def _member_from_node(node: ast.AST) -> List[str]:
         extractors = {
             # Top-level assignments (as opposed to member assignments
             # whose targets are of type ast.Attribute).
@@ -377,7 +384,7 @@ class ModuleHandle(object):
         return []
 
     @cached_property
-    def exports(self):
+    def exports(self) -> Optional["ImportSet"]:
         """
         Get symbols exported by this module.
 
@@ -394,7 +401,7 @@ class ModuleHandle(object):
         filename = getattr(self, 'filename', None)
         if not filename or not filename.exists:
             # Try to load the module to get the filename
-            filename = Filename(self.module.__file__)
+            filename = Filename(self.module.__file__)  # type: ignore[arg-type]
         text = FileText(filename)
 
         ast_mod = ast.parse(str(text), str(filename)).body
@@ -437,7 +444,7 @@ class ModuleHandle(object):
             imp_nodes = [n for n in ast_mod if isinstance(n, ast.ImportFrom)]
             for imp_node in imp_nodes:
                 if imp_node.level == 0:
-                    from_mod = DottedIdentifier(imp_node.module)
+                    from_mod = DottedIdentifier(imp_node.module)  # type: ignore[arg-type]
                     if not from_mod.startswith(self.name):
                         continue
                 elif imp_node.level == 1 and \
@@ -449,60 +456,60 @@ class ModuleHandle(object):
                         from_mod += imp_node.module
                 else:
                     continue
-                for n in imp_node.names:
-                    m  = n.asname or n.name
-                    if n.name != "*" and not ModuleHandle(from_mod + m).exists:
+                for n in imp_node.names:  # type: ignore[assignment]
+                    m  = n.asname or n.name  # type: ignore[attr-defined]
+                    if n.name != "*" and not ModuleHandle(from_mod + m).exists:  # type: ignore[attr-defined]
                         members.append(m)
 
         # Filter by non-private.
         members = [n for n in members if not n.startswith("_")]
 
         # Filter out artificially added "deep" members.
-        members = tuple([(n, None) for n in members if "." not in n])
+        members = tuple([(n, None) for n in members if "." not in n])  # type: ignore[assignment]
         if not members:
             return None
         return ImportSet(
-            [ ImportStatement.from_parts(str(self.name), members) ])
+            [ ImportStatement.from_parts(str(self.name), members) ])  # type: ignore[arg-type]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, str(self.name))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __cmp__(self, o):
+    def __cmp__(self, o: Any) -> Any:
         if self is o:
             return 0
         if not isinstance(o, ModuleHandle):
             return NotImplemented
         return cmp(self.name, o.name)
 
-    def __eq__(self, o):
+    def __eq__(self, o: Any) -> Any:
         if self is o:
             return True
         if not isinstance(o, ModuleHandle):
             return NotImplemented
         return self.name == o.name
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, o):
+    def __lt__(self, o: Any) -> Any:
         if not isinstance(o, ModuleHandle):
             return NotImplemented
         return self.name < o.name
 
-    def __getitem__(self, x):
+    def __getitem__(self, x: Any) -> "ModuleHandle":
         if isinstance(x, slice):
             return type(self)(self.name[x])
         raise TypeError
 
     @classmethod
-    def containing(cls, identifier):
+    def containing(cls, identifier: Any) -> "ModuleHandle":
         """
         Try to find the module that defines a name such as ``a.b.c`` by trying
         to import ``a``, ``a.b``, and ``a.b.c``.

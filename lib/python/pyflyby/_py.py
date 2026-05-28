@@ -278,6 +278,8 @@ Examples
 
 """
 
+from __future__ import print_function
+
 import ast
 import builtins
 from   contextlib               import contextmanager

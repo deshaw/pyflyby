@@ -1,7 +1,7 @@
 """
 This module contain utility functions to sort imports in a Python Block.
 """
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 from   collections              import Counter
 from   dataclasses              import dataclass

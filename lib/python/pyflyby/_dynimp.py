@@ -38,20 +38,27 @@ executed and the relevant variable imported.
 
 
 """
+from __future__ import annotations, print_function
+
 import importlib.abc
 import importlib.util
 import sys
 
 from   textwrap                 import dedent
-from   typing                   import FrozenSet
+from   types                    import ModuleType
+from   typing                   import (Any, FrozenSet, Optional, Sequence,
+                                        TYPE_CHECKING)
 
 from   pyflyby._importclns      import Import, ImportSet
+
+if TYPE_CHECKING:
+    from importlib.machinery import ModuleSpec
 
 module_dict: dict[str, str] = {}
 
 PYFLYBY_LAZY_LOAD_PREFIX = "from pyflyby_autoimport_"
 
-def add_import(names: str, code: str, *, strict: bool = True):
+def add_import(names: str, code: str, *, strict: bool = True) -> None:
     """
     Add a runtime generated import module
 
@@ -89,7 +96,7 @@ def add_import(names: str, code: str, *, strict: bool = True):
     return _add_import(ip, names, code)
 
 
-def _raise_if_problem():
+def _raise_if_problem() -> Any:
     try:
         import IPython
     except ModuleNotFoundError as e:
@@ -106,7 +113,7 @@ def _raise_if_problem():
     return ip
 
 
-def _add_import(ip, names: str, code: str) -> None:
+def _add_import(ip: Any, names: str, code: str) -> None:
     """
     private version of add_import
     """
@@ -124,14 +131,14 @@ class DictLoader(importlib.abc.Loader):
     """
     A dict based loader for in-memory module definition.
     """
-    def __init__(self, module_name, module_code):
-        self.module_name = module_name
-        self.module_code = module_code
+    def __init__(self, module_name: str, module_code: str) -> None:
+        self.module_name: str = module_name
+        self.module_code: str = module_code
 
-    def create_module(self, spec):
+    def create_module(self, spec: ModuleSpec) -> Optional[ModuleType]:
         return None  # Use default module creation semantics
 
-    def exec_module(self, module):
+    def exec_module(self, module: ModuleType) -> None:
         """
         we exec module code directly in memory
         """
@@ -142,7 +149,12 @@ class DictFinder(importlib.abc.MetaPathFinder):
     """
     A meta path finder for abode DictLoader
     """
-    def find_spec(self, fullname, path, target=None):
+    def find_spec(
+        self,
+        fullname: str,
+        path: Optional[Sequence[str]],
+        target: Optional[ModuleType] = None,
+    ) -> Optional[ModuleSpec]:
         if fullname in module_dict:
             module_code = module_dict[fullname]
             loader = DictLoader(fullname, module_code)
@@ -150,5 +162,5 @@ class DictFinder(importlib.abc.MetaPathFinder):
         return None
 
 
-def inject():
+def inject() -> None:
     sys.meta_path.insert(0, DictFinder())

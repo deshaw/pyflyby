@@ -4,6 +4,8 @@
 
 
 
+from __future__ import print_function
+
 if __name__ == "__main__":
     from pyflyby._py import py_main
     py_main()

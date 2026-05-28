@@ -2,18 +2,18 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 
 
 from   collections              import defaultdict
 import os
 import re
-import sys
 
 from   pathlib                  import Path
 
-from   typing                   import Any, Dict, List, Tuple, Union
+from   typing                   import (Any, Dict, List, Optional, Sequence,
+                                        Tuple, Union)
 
 from   pyflyby._file            import (Filename, UnsafeFilenameError,
                                         expand_py_files_from_args)
@@ -24,15 +24,10 @@ from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
-if sys.version_info <= (3, 12):
-    from typing_extensions import Self
-else:
-    from typing import Self
-
 
 @memoize
-def _find_etc_dirs():
-    result = []
+def _find_etc_dirs() -> List[Filename]:
+    result: List[Filename] = []
     dirs = Filename(__file__).real.dir.ancestors[:-1]
     for dir in dirs:
         candidate = dir / "etc/pyflyby"
@@ -45,7 +40,7 @@ def _find_etc_dirs():
     return result
 
 
-def _get_env_var(env_var_name, default):
+def _get_env_var(env_var_name: str, default: Sequence[str]) -> Sequence[str]:
     '''
     Get an environment variable and split on ":", replacing ``-`` with the
     default.
@@ -65,7 +60,9 @@ def _get_env_var(env_var_name, default):
     return value
 
 
-def _get_python_path(env_var_name, default_path, target_dirname):
+def _get_python_path(
+    env_var_name: str, default_path: Sequence[str], target_dirname: Filename
+) -> Tuple[Filename, ...]:
     '''
     Expand an environment variable specifying pyflyby input config files.
 
@@ -93,24 +90,24 @@ def _get_python_path(env_var_name, default_path, target_dirname):
             "want to use the current directory."
             .format(env_var_name=env_var_name, p=p))
     pathnames = [os.path.expanduser(p) for p in pathnames]
-    pathnames = _expand_tripledots(pathnames, target_dirname)
+    pathnames = _expand_tripledots(pathnames, target_dirname)  # type: ignore[assignment]
     for fn in pathnames:
         assert isinstance(fn, Filename)
     pathnames = stable_unique(pathnames)
     for p in pathnames:
         assert isinstance(p, Filename)
-    pathnames = expand_py_files_from_args(pathnames)
+    pathnames = expand_py_files_from_args(pathnames)  # type: ignore[arg-type, assignment]
     if not pathnames:
         logger.warning(
             "No import libraries found (%s=%r, default=%r)"
             % (env_var_name, os.environ.get(env_var_name), default_path))
-    return tuple(pathnames)
+    return tuple(pathnames)  # type: ignore[arg-type]
 
 
 # TODO: stop memoizing here after using StatCache.  Actually just inline into
 # _ancestors_on_same_partition
 @memoize
-def _get_st_dev(filename: Filename):
+def _get_st_dev(filename: Filename) -> Optional[int]:
     assert isinstance(filename, Filename)
     try:
         return os.stat(str(filename)).st_dev
@@ -118,7 +115,7 @@ def _get_st_dev(filename: Filename):
         return None
 
 
-def _ancestors_on_same_partition(filename):
+def _ancestors_on_same_partition(filename: Filename) -> List[Filename]:
     """
     Generate ancestors of ``filename`` that exist and are on the same partition
     as the first existing ancestor of ``filename``.
@@ -133,8 +130,8 @@ def _ancestors_on_same_partition(filename):
     :rtype:
       ``list`` of ``Filename``
     """
-    result = []
-    dev = None
+    result: List[Filename] = []
+    dev: Optional[int] = None
     for f in filename.ancestors:
         this_dev = _get_st_dev(f)
         if this_dev is None:
@@ -147,7 +144,9 @@ def _ancestors_on_same_partition(filename):
     return result
 
 
-def _expand_tripledots(pathnames, target_dirname):
+def _expand_tripledots(
+    pathnames: Union[str, List[str]], target_dirname: Filename
+) -> List[Filename]:
     """
     Expand pathnames of the form ``".../foo/bar"`` as "../../foo/bar",
     "../foo/bar", "./foo/bar" etc., up to the oldest ancestor with the same
@@ -169,13 +168,13 @@ def _expand_tripledots(pathnames, target_dirname):
     assert isinstance(target_dirname, Filename)
     if not isinstance(pathnames, (tuple, list)):
         pathnames = [pathnames]
-    result = []
+    result: List[Filename] = []
     for pathname in pathnames:
         if not pathname.startswith(".../"):
             result.append(Filename(pathname))
             continue
         suffix = pathname[4:]
-        expanded = []
+        expanded: List[Filename] = []
         for p in _ancestors_on_same_partition(target_dirname):
             try:
                 expanded.append(p / suffix)
@@ -207,7 +206,7 @@ class ImportDB:
 
     _default_cache: Dict[Any, Any] = {}
 
-    def __new__(cls, *args):
+    def __new__(cls, *args: Any) -> "ImportDB":
         if len(args) != 1:
             raise TypeError
         arg, = args
@@ -221,7 +220,7 @@ class ImportDB:
 
 
     @classmethod
-    def clear_default_cache(cls):
+    def clear_default_cache(cls) -> None:
         """
         Clear the class cache of default ImportDBs.
 
@@ -244,7 +243,7 @@ class ImportDB:
         cls._default_cache.clear()
 
     @classmethod
-    def get_default(cls, target_filename: Union[Filename, str], /):
+    def get_default(cls, target_filename: Optional[Union[Filename, str]], /) -> "ImportDB":
         """
         Return the default import library for the given target filename.
 
@@ -352,15 +351,17 @@ class ImportDB:
         return result
 
     @classmethod
-    def interpret_arg(cls, arg, target_filename) -> ImportDB:
+    def interpret_arg(
+        cls, arg: Any, target_filename: Optional[Union[Filename, str]]
+    ) -> ImportDB:
         if arg is None:
             return cls.get_default(target_filename)
         else:
             return cls(arg)
 
     @classmethod
-    def _from_data(cls, known_imports, mandatory_imports,
-                   canonical_imports, forget_imports):
+    def _from_data(cls, known_imports: Any, mandatory_imports: Any,
+                   canonical_imports: Any, forget_imports: Any) -> "ImportDB":
         self = object.__new__(cls)
         self.forget_imports    = ImportSet(forget_imports   )
         self.known_imports     = ImportSet(known_imports    ).without_imports(forget_imports)
@@ -369,7 +370,7 @@ class ImportDB:
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
 
-    def __or__(self, other:'Self') -> 'Self':
+    def __or__(self, other: "ImportDB") -> "ImportDB":
         assert isinstance(other, ImportDB)
         return self._from_data(
                 known_imports = self.known_imports | other.known_imports,
@@ -380,7 +381,7 @@ class ImportDB:
 
 
     @classmethod
-    def _from_code(cls, blocks):
+    def _from_code(cls, blocks: Any) -> "ImportDB":
         """
         Load an import database from code.
 
@@ -416,10 +417,10 @@ class ImportDB:
         """
         if not isinstance(blocks, (tuple, list)):
             blocks = [blocks]
-        known_imports     = []
-        mandatory_imports = []
-        canonical_imports = []
-        forget_imports    = []
+        known_imports: List[Import]          = []
+        mandatory_imports: List[ImportSet]   = []
+        canonical_imports: List[ImportMap]   = []
+        forget_imports: List[ImportSet]      = []
         blocks = [PythonBlock(b) for b in blocks]
         for block in blocks:
             for statement in block.statements:
@@ -451,7 +452,7 @@ class ImportDB:
                               forget_imports)
 
     @classmethod
-    def _parse_import_set(cls, arg):
+    def _parse_import_set(cls, arg: Any) -> ImportSet:
         if isinstance(arg, str):
             arg = [arg]
         if not isinstance(arg, (tuple, list)):
@@ -463,7 +464,7 @@ class ImportDB:
         return ImportSet(arg)
 
     @classmethod
-    def _parse_import_map(cls, arg):
+    def _parse_import_map(cls, arg: Any) -> ImportMap:
         if isinstance(arg, str):
             arg = [arg]
         if not isinstance(arg, dict):
@@ -510,12 +511,12 @@ class ImportDB:
         return dict( (k, tuple(sorted(v - set(self.forget_imports.imports))))
                      for k, v in d.items())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         printed = self.pretty_print()
         lines = "".join("  "+line for line in printed.splitlines(True))
         return "%s('''\n%s''')" % (type(self).__name__, lines)
 
-    def pretty_print(self):
+    def pretty_print(self) -> str:
         s = self.known_imports.pretty_print()
         if self.mandatory_imports:
             s += "\n__mandatory_imports__ = [\n"

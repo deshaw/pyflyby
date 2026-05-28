@@ -5,10 +5,12 @@ This module provides the ``SaveframeReader`` class, which is used to read data
 saved by the ``saveframe`` utility.
 """
 
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import logging
 import pickle
+
+from   typing                   import Any, Dict, List, Optional, Tuple, Union
 
 from   pyflyby._saveframe       import ExceptionInfo, FrameMetadata
 
@@ -106,7 +108,7 @@ class SaveframeReader:
     Raw data can be extracted using ``SaveframeReader.data`` property.
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename: str) -> None:
         """
         Initializes the ``SaveframeReader`` class.
 
@@ -114,6 +116,7 @@ class SaveframeReader:
           The file path where the ``saveframe`` data is stored.
         """
         self._filename = filename
+        self._data: Dict[Any, Any]
         with open(filename, 'rb') as f:
             self._data = pickle.load(f)
         if not isinstance(self._data, dict):
@@ -124,7 +127,7 @@ class SaveframeReader:
 
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         """
         The file path where the ``saveframe`` data is stored.
         """
@@ -132,7 +135,7 @@ class SaveframeReader:
 
 
     @property
-    def data(self):
+    def data(self) -> Dict[Any, Any]:
         """
         Returns the raw ``saveframe`` data as a Python dictionary.
         """
@@ -140,7 +143,7 @@ class SaveframeReader:
 
 
     @property
-    def metadata(self):
+    def metadata(self) -> List[str]:
         """
         Returns a list of all metadata items present in the data.
 
@@ -151,14 +154,14 @@ class SaveframeReader:
         To obtain the value of a specific metadata field, use the
         `SaveframeReader.get_metadata` method.
         """
-        metadata = []
+        metadata: List[str] = []
         metadata.extend([field for field in FrameMetadata.__dataclass_fields__])
         metadata.extend([field for field in ExceptionInfo.__dataclass_fields__])
         return metadata
 
 
     @property
-    def variables(self):
+    def variables(self) -> Dict[int, List[str]]:
         """
         Returns the local variables present in each frame.
 
@@ -176,7 +179,7 @@ class SaveframeReader:
         To obtain the value of specific variable(s), use the
         `SaveframeReader.get_variables` method.
         """
-        frame_idx_to_variables_map = {}
+        frame_idx_to_variables_map: Dict[int, List[str]] = {}
         for key_item in self._data:
             if not isinstance(key_item, int):
                 continue
@@ -185,7 +188,8 @@ class SaveframeReader:
         return frame_idx_to_variables_map
 
 
-    def get_metadata(self, metadata, *, frame_idx=None):
+    def get_metadata(self, metadata: str, *,
+                     frame_idx: Optional[int] = None) -> Any:
         """
         Retrieve the value of a specific metadata field.
 
@@ -237,7 +241,7 @@ class SaveframeReader:
             return self._data[metadata]
         # frame_idx is not passed.
         if frame_idx is None:
-            frame_idx_to_metadata_value_map = {}
+            frame_idx_to_metadata_value_map: Dict[Any, Any] = {}
             for key_item in self._data:
                 if key_item in exception_metadata:
                     continue
@@ -280,7 +284,9 @@ class SaveframeReader:
                 f"are: {allowed_frame_idx}.")
 
 
-    def get_variables(self, variables, *, frame_idx=None):
+    def get_variables(self,
+                      variables: Union[str, List[str], Tuple[str, ...]], *,
+                      frame_idx: Optional[int] = None) -> Any:
         """
         Retrieve the value of local variable(s) from specific frames.
 
@@ -360,7 +366,7 @@ class SaveframeReader:
         if len(variables) == 0:
             raise ValueError("No 'variables' passed.")
 
-        def _get_variable_value_on_unpickle_error(err):
+        def _get_variable_value_on_unpickle_error(err: Exception) -> str:
             """
             Get variable's value when it fails to unpickle due to error ``err``.
             """
@@ -368,7 +374,7 @@ class SaveframeReader:
 
         # frame_idx is not passed.
         if frame_idx is None:
-            frame_idx_to_variables_map = {}
+            frame_idx_to_variables_map: Dict[int, Any] = {}
             for key_item in self._data:
                 if not isinstance(key_item, int):
                     continue
@@ -417,7 +423,7 @@ class SaveframeReader:
             raise ValueError(
                 f"Invalid value for 'frame_idx': '{frame_idx}'. Allowed values "
                 f"are: {allowed_frame_idx}.")
-        variable_key_to_value_map = {}
+        variable_key_to_value_map: Dict[str, Any] = {}
         for variable in variables:
             try:
                 variable_value = variables_map[variable]
@@ -441,8 +447,8 @@ class SaveframeReader:
         return variable_key_to_value_map
 
 
-    def __str__(self):
-        frames_info = []
+    def __str__(self) -> str:
+        frames_info: List[str] = []
         for frame_idx, frame_data in self._data.items():
             if isinstance(frame_idx, int):
                 frame_info = (
@@ -467,5 +473,5 @@ class SaveframeReader:
 
         return "Frames:\n" + "\n".join(frames_info) + "\n" + exception_info
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(\nfilename: {self._filename!a} \n\n{str(self)})"

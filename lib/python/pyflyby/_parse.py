@@ -35,9 +35,14 @@ import sys
 from   textwrap                 import dedent
 import types
 from   types                    import NoneType
-from   typing                   import (Any, List, Literal, Optional, Tuple,
-                                        Union, cast)
+from   typing                   import (Any, Callable, Dict, Generator,
+                                        Iterable, Iterator, List, Literal,
+                                        Optional, TYPE_CHECKING, Tuple, Union,
+                                        cast)
 import warnings
+
+if TYPE_CHECKING:
+    from types import CodeType
 
 
 _sentinel = object()
@@ -48,7 +53,7 @@ else:
     TemplateStr = None  # type: ignore
 
 
-def _is_comment_or_blank(line, /):
+def _is_comment_or_blank(line: Any, /) -> bool:
     """
     Returns whether a line of python code contains only a comment is blank.
 
@@ -61,14 +66,14 @@ def _is_comment_or_blank(line, /):
     return re.sub("#.*", "", line).rstrip() == ""
 
 
-def _is_ast_str_or_byte(node) -> bool:
+def _is_ast_str_or_byte(node: Any) -> bool:
     """
     utility function that test if node is an ast.Str|ast.Bytes in Python < 3.12,
     and if it is a ast.Constant, with node.value being a str in newer version.
     """
     return _is_ast_str(node) or _is_ast_bytes(node)
 
-def _is_ast_bytes(node) -> bool:
+def _is_ast_bytes(node: Any) -> bool:
     """
     utility function that test if node is an ast.Str in Python < 3.12,
     and if it is a ast.Constant, with node.value being a str in newer version.
@@ -79,7 +84,7 @@ def _is_ast_bytes(node) -> bool:
         return (isinstance(node, ast.Constant) and isinstance(node.value , bytes))
 
 
-def _is_ast_str(node) -> bool:
+def _is_ast_str(node: Any) -> bool:
     """
     utility function that test if node is an ast.Str in Python < 3.12,
     and if it is a ast.Constant, with node.value being a str in newer version.
@@ -89,16 +94,16 @@ def _is_ast_str(node) -> bool:
     else:
         return (isinstance(node, ast.Constant) and isinstance(node.value , str))
 
-def _ast_str_literal_value(node):
+def _ast_str_literal_value(node: Any) -> Any:
     if _is_ast_str_or_byte(node):
         return node.s
     if isinstance(node, ast.Expr) and _is_ast_str_or_byte(node.value):
-        return node.value.value
+        return node.value.value  # type: ignore[attr-defined]
     else:
         return None
 
 
-def _flatten_ast_nodes(arg):
+def _flatten_ast_nodes(arg: Any) -> Iterator[Any]:
     if arg is None:
         pass
     elif isinstance(arg, ast.AST):
@@ -115,7 +120,7 @@ def _flatten_ast_nodes(arg):
             "_flatten_ast_nodes: unexpected %s" % (type(arg).__name__,))
 
 
-def _iter_child_nodes_in_order(node):
+def _iter_child_nodes_in_order(node: Any) -> Iterator[Any]:
     """
     Yield all direct child nodes of ``node``, that is, all fields that are nodes
     and all items of fields that are lists of nodes.
@@ -131,7 +136,7 @@ def _iter_child_nodes_in_order(node):
     return _flatten_ast_nodes(_iter_child_nodes_in_order_internal_1(node))
 
 
-def _iter_child_nodes_in_order_internal_1(node):
+def _iter_child_nodes_in_order_internal_1(node: Any) -> Iterator[Any]:
     if isinstance(node, str):
         # this happen for type comments which are not ast nodes but str
         # they do not have children. We yield nothing.
@@ -197,9 +202,9 @@ def _iter_child_nodes_in_order_internal_1(node):
     elif isinstance(node, ast.Call):
         # call arguments order are lost by ast, re-order them
         yield node.func
-        args = sorted([(k.value.lineno, k.value.col_offset, k) for k in node.keywords]+
+        args = sorted([(k.value.lineno, k.value.col_offset, k) for k in node.keywords]+  # type: ignore[assignment]
                       [(k.lineno,k.col_offset, k) for k in node.args])
-        yield [a[2] for a in args]
+        yield [a[2] for a in args]  # type: ignore[index]
     elif isinstance(node, ast.ClassDef):
         if sys.version_info > (3, 12):
             assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'), node._fields
@@ -231,7 +236,7 @@ def _iter_child_nodes_in_order_internal_1(node):
         yield ast.iter_child_nodes(node)
 
 
-def _walk_ast_nodes_in_order(node):
+def _walk_ast_nodes_in_order(node: Any) -> Iterator[Any]:
     """
     Recursively yield all child nodes of ``node``, in the same order that the
     node appears in the source.
@@ -249,7 +254,9 @@ def _walk_ast_nodes_in_order(node):
         todo.extend(reversed(list(_iter_child_nodes_in_order(node))))
 
 
-def _flags_to_try(source:str, flags, auto_flags, mode):
+def _flags_to_try(
+    source: str, flags: Any, auto_flags: bool, mode: str
+) -> Iterator[CompilerFlags]:
     """
     Flags to try for ``auto_flags``.
 
@@ -263,7 +270,9 @@ def _flags_to_try(source:str, flags, auto_flags, mode):
     return
 
 
-def _parse_ast_nodes(text:FileText, flags:CompilerFlags, auto_flags:bool, mode:str):
+def _parse_ast_nodes(
+    text: FileText, flags: Any, auto_flags: bool, mode: str
+) -> AnnotatedModule:
     """
     Parse a block of lines into an AST.
 
@@ -314,7 +323,7 @@ def _parse_ast_nodes(text:FileText, flags:CompilerFlags, auto_flags:bool, mode:s
 
 
 
-def _test_parse_string_literal(text:str, flags:CompilerFlags):
+def _test_parse_string_literal(text: str, flags: Any) -> Any:
     r"""
     Attempt to parse ``text``.  If it parses cleanly to a single string
     literal, return its value.  Otherwise return ``None``.
@@ -331,7 +340,7 @@ def _test_parse_string_literal(text:str, flags:CompilerFlags):
     body = module_node.body
     if not _is_ast_str_or_byte(body):
         return None
-    return body.value
+    return body.value  # type: ignore[attr-defined]
 
 
 AstNodeContext = namedtuple("AstNodeContext", "parent field index")
@@ -359,7 +368,11 @@ def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
 
 
 def _annotate_ast_startpos(
-    ast_node: ast.AST, parent_ast_node, minpos: FilePos, text: FileText, flags
+    ast_node: ast.AST,
+    parent_ast_node: Optional[ast.AST],
+    minpos: FilePos,
+    text: FileText,
+    flags: CompilerFlags,
 ) -> bool:
     r"""
     Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
@@ -535,7 +548,9 @@ def _annotate_ast_startpos(
     raise ValueError("Couldn't find exact position of %s" % (ast.dump(ast_node)))
 
 
-def _split_code_lines(ast_nodes, text):
+def _split_code_lines(
+    ast_nodes: Any, text: FileText
+) -> Iterator[Tuple[List[Any], Any]]:
     """
     Split the given ``ast_nodes`` and corresponding ``text`` by code/noncode
     statement.
@@ -558,7 +573,8 @@ def _split_code_lines(ast_nodes, text):
     assert ast_nodes[-1].startpos < text.endpos
     if text.startpos != ast_nodes[0].startpos:
         # Starting noncode lines.
-        yield ([], text[text.startpos:ast_nodes[0].startpos])
+        # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
+        yield ([], text[text.startpos:ast_nodes[0].startpos])  # type: ignore[misc]
     end_sentinel = _DummyAst_Node()
     end_sentinel.startpos = text.endpos
     for node, next_node in zip(ast_nodes, ast_nodes[1:] + [end_sentinel]):
@@ -579,7 +595,8 @@ def _split_code_lines(ast_nodes, text):
             # Advance past whitespace an inline comment, if any.  Do NOT
             # advance past other code that could be on the same line, nor past
             # blank lines and comments on subsequent lines.
-            line = text[endpos : min(text.endpos, FilePos(endpos.lineno+1,1))]
+            # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
+            line = text[endpos : min(text.endpos, FilePos(endpos.lineno+1,1))]  # type: ignore[misc]
             if _is_comment_or_blank(line):
                 endpos = FilePos(endpos.lineno+1, 1)
         else:
@@ -595,7 +612,7 @@ def _split_code_lines(ast_nodes, text):
                     # TODO: do this in a more principled way.
                     if _is_comment_or_blank(text[endpos.lineno]):
                         assert startpos.lineno < endpos.lineno
-                        if not text[endpos.lineno-1].endswith("\\"):
+                        if not text[endpos.lineno-1].endswith("\\"):  # type: ignore[union-attr]
                             endpos = FilePos(endpos.lineno,1)
                 else:
                     # We're not at end of file, yet the next node starts in
@@ -609,7 +626,7 @@ def _split_code_lines(ast_nodes, text):
             if endpos.colno == 1:
                 while (endpos.lineno-1 > startpos.lineno and
                        _is_comment_or_blank(text[endpos.lineno-1]) and
-                       (not text[endpos.lineno-2].endswith("\\") or
+                       (not text[endpos.lineno-2].endswith("\\") or  # type: ignore[union-attr]
                         _is_comment_or_blank(text[endpos.lineno-2]))):
                     endpos = FilePos(endpos.lineno-1, 1)
         assert startpos < endpos <= next_startpos
@@ -641,7 +658,7 @@ def infer_compile_mode(arg:ast.AST) -> Literal['exec','eval','single']:
 
 
 class _DummyAst_Node:
-    pass
+    startpos: FilePos
 
 
 class PythonStatement:
@@ -658,7 +675,12 @@ class PythonStatement:
 
     block: "PythonBlock"
 
-    def __new__(cls, arg:Union[FileText, str], filename=None, startpos=None):
+    def __new__(
+        cls,
+        arg: Union[FileText, str],
+        filename: Optional[Filename] = None,
+        startpos: Optional[FilePos] = None,
+    ) -> "PythonStatement":
 
         if not isinstance(arg, (FileText, str)):
             raise TypeError("PythonStatement: unexpected %s" % type(arg).__name__)
@@ -668,7 +690,7 @@ class PythonStatement:
         return cls.from_block(block)
 
     @classmethod
-    def from_statement(cls, statement):
+    def from_statement(cls, statement: "PythonStatement") -> "PythonStatement":
         assert isinstance(statement, cls), (statement, cls)
         return statement
 
@@ -694,7 +716,7 @@ class PythonStatement:
 
 
     @classmethod
-    def _construct_from_block(cls, block:PythonBlock):
+    def _construct_from_block(cls, block:PythonBlock) -> "PythonStatement":
         # Only to be used by PythonBlock.
         assert isinstance(block, PythonBlock), repr(block)
         self = object.__new__(cls)
@@ -720,7 +742,7 @@ class PythonStatement:
         return self.text.filename
 
     @property
-    def startpos(self):
+    def startpos(self) -> FilePos:
         """
         :rtype:
           `FilePos`
@@ -728,7 +750,7 @@ class PythonStatement:
         return self.text.startpos
 
     @property
-    def flags(self):
+    def flags(self) -> CompilerFlags:
         """
         :rtype:
           `CompilerFlags`
@@ -736,7 +758,7 @@ class PythonStatement:
         return self.block.flags
 
     @property
-    def ast_node(self):
+    def ast_node(self) -> Optional[ast.AST]:
         """
         A single AST node representing this statement, or ``None`` if this
         object only represents comments/blanks.
@@ -752,32 +774,32 @@ class PythonStatement:
         raise AssertionError("More than one AST node in block")
 
     @property
-    def is_blank(self):
+    def is_blank(self) -> bool:
         return self.ast_node is None and self.text.joined.strip() == ''
 
     @property
-    def is_comment(self):
+    def is_comment(self) -> bool:
         return self.ast_node is None and self.text.joined.strip() != ''
 
     @property
-    def is_comment_or_blank(self):
+    def is_comment_or_blank(self) -> bool:
         return self.is_comment or self.is_blank
 
     @property
-    def is_comment_or_blank_or_string_literal(self):
+    def is_comment_or_blank_or_string_literal(self) -> bool:
         return (self.is_comment_or_blank
                 or _ast_str_literal_value(self.ast_node) is not None)
 
     @property
-    def is_import(self):
+    def is_import(self) -> bool:
         return isinstance(self.ast_node, (ast.Import, ast.ImportFrom))
 
     @property
-    def is_single_assign(self):
+    def is_single_assign(self) -> bool:
         n = self.ast_node
         return isinstance(n, ast.Assign) and len(n.targets) == 1
 
-    def get_assignment_literal_value(self):
+    def get_assignment_literal_value(self) -> Tuple[str, Any]:
         """
         If the statement is an assignment, return the name and literal value.
 
@@ -791,46 +813,46 @@ class PythonStatement:
             raise ValueError(
                 "Statement is not an assignment to a single name: %s" % self)
         n = self.ast_node
-        target_name = n.targets[0].id
-        literal_value = ast.literal_eval(n.value)
+        target_name = n.targets[0].id  # type: ignore[union-attr]
+        literal_value = ast.literal_eval(n.value)  # type: ignore[union-attr]
         return (target_name, literal_value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         r = repr(self.block)
         assert r.startswith("PythonBlock(")
         r = "PythonStatement(" + r[12:]
         return r
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, PythonStatement):
             return NotImplemented
         return self.block == other.block
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, PythonStatement):
             return NotImplemented
         return self.block < other.block
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> int:
         if self is other:
             return 0
         if not isinstance(other, PythonStatement):
             return NotImplemented
         return cmp(self.block, other.block)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.block)
 
 
 class AnnotatedAst(ast.AST):
     text: FileText
-    flags: str
+    flags: CompilerFlags
     source_flags: CompilerFlags
     startpos: FilePos
     endpos: FilePos
@@ -838,6 +860,7 @@ class AnnotatedAst(ast.AST):
     col_offset: int
     value: AnnotatedAst
     s: str
+    body: Any
 
 
 class AnnotatedModule(ast.Module, AnnotatedAst):
@@ -871,8 +894,14 @@ class PythonBlock:
     _auto_flags: bool
     _input_flags: Union[int,CompilerFlags]
 
-    def __new__(cls, arg:Any, filename=None, startpos=None, flags=None,
-                auto_flags=None):
+    def __new__(
+        cls,
+        arg: Any,
+        filename: Any = None,
+        startpos: Any = None,
+        flags: Any = None,
+        auto_flags: Optional[bool] = None,
+    ) -> "PythonBlock":
         if isinstance(arg, PythonStatement):
             arg = arg.block
             # Fall through
@@ -890,13 +919,18 @@ class PythonBlock:
                         % (cls.__name__, type(arg).__name__,))
 
     @classmethod
-    def from_filename(cls, filename):
+    def from_filename(cls, filename: Union[Filename, str]) -> "PythonBlock":
         return cls.from_text(Filename(filename))
 
     @classmethod
     def from_text(
-        cls, text, filename=None, startpos=None, flags=None, auto_flags: bool = False
-    ):
+        cls,
+        text: Union[FileText, Filename, str],
+        filename: Any = None,
+        startpos: Any = None,
+        flags: Any = None,
+        auto_flags: Any = False,
+    ) -> "PythonBlock":
         """
         :type text:
           `FileText` or convertible
@@ -927,7 +961,9 @@ class PythonBlock:
         return self
 
     @classmethod
-    def __construct_from_annotated_ast(cls, annotated_ast_nodes, text:FileText, flags):
+    def __construct_from_annotated_ast(
+        cls, annotated_ast_nodes: Any, text: FileText, flags: Any
+    ) -> "PythonBlock":
         # Constructor for internal use by _split_by_statement() or
         # concatenate().
         ast_node = AnnotatedModule(annotated_ast_nodes, type_ignores=[])
@@ -946,7 +982,9 @@ class PythonBlock:
         return self
 
     @classmethod
-    def concatenate(cls, blocks, assume_contiguous=_sentinel):
+    def concatenate(
+        cls, blocks: Iterable[Any], assume_contiguous: Any = _sentinel
+    ) -> "PythonBlock":
         """
         Concatenate a bunch of blocks into one block.
 
@@ -982,19 +1020,19 @@ class PythonBlock:
         return cls.__construct_from_annotated_ast(ast_nodes, text, flags)
 
     @property
-    def filename(self):
+    def filename(self) -> Optional[Filename]:
         return self.text.filename
 
     @property
-    def startpos(self):
+    def startpos(self) -> FilePos:
         return self.text.startpos
 
     @property
-    def endpos(self):
+    def endpos(self) -> FilePos:
         return self.text.endpos
 
     @cached_property
-    def _ast_node_or_parse_exception(self):
+    def _ast_node_or_parse_exception(self) -> Union[AnnotatedModule, Exception]:
         """
         Attempt to parse this block of code into an abstract syntax tree.
         Cached (including exception case).
@@ -1019,7 +1057,7 @@ class PythonBlock:
             return e
 
     @cached_property
-    def parsable(self):
+    def parsable(self) -> bool:
         """
         Whether the contents of this ``PythonBlock`` are parsable as Python
         code, using the given flags.
@@ -1030,7 +1068,7 @@ class PythonBlock:
         return isinstance(self._ast_node_or_parse_exception, ast.AST)
 
     @cached_property
-    def parsable_as_expression(self):
+    def parsable_as_expression(self) -> bool:
         """
         Whether the contents of this ``PythonBlock`` are parsable as a single
         Python expression, using the given flags.
@@ -1041,7 +1079,7 @@ class PythonBlock:
         return self.parsable and self.expression_ast_node is not None
 
     @cached_property
-    def ast_node(self):
+    def ast_node(self) -> AnnotatedModule:
         """
         Parse this block of code into an abstract syntax tree.
 
@@ -1125,7 +1163,7 @@ class PythonBlock:
         else:
             raise ValueError("parse(): invalid mode=%r" % (mode,))
 
-    def compile(self, mode: Optional[str] = None):
+    def compile(self, mode: Optional[str] = None) -> "CodeType":
         """
         Parse into AST and compile AST into code.
 
@@ -1195,7 +1233,7 @@ class PythonBlock:
         return tuple(statements)
 
     @cached_property
-    def source_flags(self):
+    def source_flags(self) -> CompilerFlags:
         """
         If the AST contains __future__ imports, then the compiler_flags
         associated with them.  Otherwise, 0.
@@ -1211,7 +1249,7 @@ class PythonBlock:
         return self.ast_node.source_flags
 
     @cached_property
-    def flags(self):
+    def flags(self) -> CompilerFlags:
         """
         The compiler flags for this code block, including both the input flags
         (possibly automatically guessed), and the flags from "__future__"
@@ -1222,7 +1260,9 @@ class PythonBlock:
         """
         return self.ast_node.flags
 
-    def groupby(self, predicate):
+    def groupby(
+        self, predicate: Callable[[PythonStatement], Any]
+    ) -> Generator[Tuple[Any, "PythonBlock"], None, None]:
         """
         Partition this block of code into smaller blocks of code which
         consecutively have the same ``predicate``.
@@ -1237,7 +1277,7 @@ class PythonBlock:
             blocks = [s.block for s in stmts]
             yield pred, cls.concatenate(blocks)
 
-    def string_literals(self):
+    def string_literals(self) -> Iterator[Any]:
         r"""
         Yield all string literals anywhere in this block.
 
@@ -1255,7 +1295,7 @@ class PythonBlock:
                 assert hasattr(node, 'startpos')
                 yield node
 
-    def _get_docstring_nodes(self):
+    def _get_docstring_nodes(self) -> Iterator[Any]:
         """
         Yield docstring AST nodes.
 
@@ -1293,7 +1333,7 @@ class PythonBlock:
                     _is_ast_str(n2.value)):
                     yield n2.value
 
-    def get_doctests(self):
+    def get_doctests(self) -> List["PythonBlock"]:
         r"""
         Return doctests in this code.
 
@@ -1334,7 +1374,7 @@ class PythonBlock:
                 doctest_blocks.append(block)
         return doctest_blocks
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         r = "%s(%r" % (type(self).__name__, self.text.joined)
         if self.filename:
             r += ", filename=%r" % (str(self.filename),)
@@ -1345,39 +1385,41 @@ class PythonBlock:
         r += ")"
         return r
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.text)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, PythonBlock):
             return NotImplemented
         return self.text == other.text and self.flags == other.flags
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, PythonBlock):
             return NotImplemented
         return (self.text, self.flags) < (other.text, other.flags)
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: Any) -> int:
         if self is other:
             return 0
         if not isinstance(other, PythonBlock):
             return NotImplemented
         return cmp(self.text, other.text) or cmp(self.flags, other.flags)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         h = hash((self.text, self.flags))
-        self.__hash__ = lambda: h
+        self.__hash__ = lambda: h  # type: ignore[method-assign]
         return h
 
 class IgnoreOptionsDocTestParser(DocTestParser):
-    def _find_options(self, source, name, lineno):
+    def _find_options(
+        self, source: str, name: str, lineno: int
+    ) -> Dict[Any, Any]:
         # Ignore doctest options. We don't use them, and we don't want to
         # error on unknown options, which is what the default DocTestParser
         # does.

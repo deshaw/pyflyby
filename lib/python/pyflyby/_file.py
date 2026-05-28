@@ -1,14 +1,15 @@
 # pyflyby/_file.py.
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 from   functools                import cached_property, total_ordering
 import io
 import os
 import re
 import sys
-from   typing                   import ClassVar, List, Optional, Tuple, Union
+from   typing                   import (Any, Callable, ClassVar, List,
+                                        Optional, Tuple, Union)
 
 from   pyflyby._util            import cmp, memoize
 
@@ -33,7 +34,7 @@ class Filename(object):
     _filename: str
     STDIN: Filename
 
-    def __new__(cls, arg):
+    def __new__(cls, arg: Union[Filename, str]) -> Filename:
         if isinstance(arg, cls):
             # TODO make this assert False
             return cls._from_filename(arg._filename)
@@ -42,7 +43,7 @@ class Filename(object):
         raise TypeError
 
     @classmethod
-    def _from_filename(cls, filename: str):
+    def _from_filename(cls, filename: str) -> Filename:
         if not isinstance(filename, str):
             raise TypeError
         filename = os.path.abspath(filename)
@@ -58,35 +59,35 @@ class Filename(object):
         self._filename =  filename
         return self
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._filename
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, self._filename)
 
-    def __truediv__(self, x):
+    def __truediv__(self, x: str) -> Filename:
         return type(self)(os.path.join(self._filename, x))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._filename)
 
-    def __eq__(self, o):
+    def __eq__(self, o: object) -> bool:
         if self is o:
             return True
         if not isinstance(o, Filename):
             return NotImplemented
         return self._filename == o._filename
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, o):
+    def __lt__(self, o: object) -> bool:
         if not isinstance(o, Filename):
             return NotImplemented
         return self._filename < o._filename
 
-    def __cmp__(self, o):
+    def __cmp__(self, o: object) -> int:
         if self is o:
             return 0
         if not isinstance(o, Filename):
@@ -94,7 +95,7 @@ class Filename(object):
         return cmp(self._filename, o._filename)
 
     @cached_property
-    def ext(self):
+    def ext(self) -> Optional[str]:
         """
         Returns the extension of this filename, including the dot.
         Returns ``None`` if no extension.
@@ -108,59 +109,60 @@ class Filename(object):
         return dot + rhs
 
     @cached_property
-    def base(self):
+    def base(self) -> str:
         return os.path.basename(self._filename)
 
     @cached_property
-    def dir(self):
+    def dir(self) -> Filename:
         return type(self)(os.path.dirname(self._filename))
 
     @cached_property
-    def real(self):
+    def real(self) -> Filename:
         return type(self)(os.path.realpath(self._filename))
 
     @property
-    def realpath(self):
+    def realpath(self) -> Filename:
         return type(self)(os.path.realpath(self._filename))
 
     @property
-    def exists(self):
+    def exists(self) -> bool:
         return os.path.exists(self._filename)
 
     @property
-    def islink(self):
+    def islink(self) -> bool:
         return os.path.islink(self._filename)
 
     @property
-    def isdir(self):
+    def isdir(self) -> bool:
         return os.path.isdir(self._filename)
 
     @property
-    def isfile(self):
+    def isfile(self) -> bool:
         return os.path.isfile(self._filename)
 
     @property
-    def isreadable(self):
+    def isreadable(self) -> bool:
         return os.access(self._filename, os.R_OK)
 
     @property
-    def iswritable(self):
+    def iswritable(self) -> bool:
         return os.access(self._filename, os.W_OK)
 
     @property
-    def isexecutable(self):
+    def isexecutable(self) -> bool:
         return os.access(self._filename, os.X_OK)
 
-    def startswith(self, prefix):
+    def startswith(self, prefix: Union[Filename, str]) -> bool:
         prefix = Filename(prefix)
         if self == prefix:
             return True
         return self._filename.startswith("%s/" % (prefix,))
 
-    def list(self, ignore_unsafe=True):
+    def list(self, ignore_unsafe: bool = True) -> List[Filename]:
         filenames = [os.path.join(self._filename, f)
                      for f in sorted(os.listdir(self._filename))]
-        result = []
+        result: List[Filename] = []
+        f: Union[str, Filename]
         for f in filenames:
             try:
                 f = Filename(f)
@@ -173,7 +175,7 @@ class Filename(object):
         return result
 
     @property
-    def ancestors(self):
+    def ancestors(self) -> Tuple[Filename, ...]:
         """
         Return ancestors of self, from self to /.
 
@@ -193,7 +195,7 @@ class Filename(object):
 
 
 @memoize
-def _get_PATH():
+def _get_PATH() -> Tuple[Filename, ...]:
     PATH = os.environ.get("PATH", "").split(os.pathsep)
     result = []
     for path in PATH:
@@ -206,7 +208,7 @@ def _get_PATH():
     return tuple(result)
 
 
-def which(program):
+def which(program: str) -> Optional[Filename]:
     """
     Find ``program`` on $PATH.
 
@@ -243,7 +245,7 @@ class FilePos(object):
 
     _ONE_ONE: ClassVar[FilePos]
 
-    def __new__(cls, *args):
+    def __new__(cls, *args: Any) -> FilePos:
         if len(args) == 0:
             return cls._ONE_ONE
         if len(args) == 1:
@@ -269,7 +271,7 @@ class FilePos(object):
         return cls._from_lc(lineno, colno)
 
     @staticmethod
-    def _intint(args):
+    def _intint(args: Any) -> Tuple[int, int]:
         if (type(args) is tuple and
             len(args) == 2 and
             type(args[0]) is type(args[1]) is int):
@@ -278,13 +280,13 @@ class FilePos(object):
             raise TypeError("Expected (int,int); got %r" % (args,))
 
     @classmethod
-    def _from_lc(cls, lineno:int, colno:int):
+    def _from_lc(cls, lineno:int, colno:int) -> FilePos:
         self = object.__new__(cls)
         self.lineno = lineno
         self.colno  = colno
         return self
 
-    def __add__(self, delta):
+    def __add__(self, delta: Tuple[int, int]) -> FilePos:
         '''
         "Add" a coordinate (line,col) delta to this ``FilePos``.
 
@@ -306,27 +308,27 @@ class FilePos(object):
         else:
             return FilePos(self.lineno + ldelta, 1 + cdelta)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "(%d,%d)" % (self.lineno, self.colno)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "FilePos%s" % (self,)
 
     @property
-    def _data(self):
+    def _data(self) -> Tuple[int, int]:
         return (self.lineno, self.colno)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if self is other:
             return True
         if not isinstance(other, FilePos):
             return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: object) -> int:
         if self is other:
             return 0
         if not isinstance(other, FilePos):
@@ -334,14 +336,14 @@ class FilePos(object):
         return cmp(self._data, other._data)
 
     # The rest are defined by total_ordering
-    def __lt__(self, other):
+    def __lt__(self, other: object):
         if self is other:
             return 0
         if not isinstance(other, FilePos):
             return NotImplemented
         return self._data < other._data
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._data)
 
 
@@ -359,7 +361,12 @@ class FileText:
     startpos: FilePos
     _lines: Optional[Tuple[str, ...]] = None
 
-    def __init__(self, arg: FileText | Filename | str, filename=None, startpos=None):
+    def __init__(
+        self,
+        arg: FileText | Filename | str,
+        filename: Optional[Union[Filename, str]] = None,
+        startpos: Optional[Union[FilePos, Tuple[int, int]]] = None,
+    ) -> None:
         """
         Initialize a ``FileText`` instance.
 
@@ -429,7 +436,12 @@ class FileText:
         return comments
 
     @classmethod
-    def _from_lines(cls, lines, filename: Optional[Filename], startpos: FilePos):
+    def _from_lines(
+        cls,
+        lines: Tuple[str, ...],
+        filename: Optional[Filename],
+        startpos: FilePos,
+    ) -> FileText:
         assert type(lines) is tuple
         assert len(lines) > 0
         assert isinstance(lines[0], str)
@@ -473,7 +485,7 @@ class FileText:
         return cls.from_lines(Filename(filename))
 
     @cached_property
-    def endpos(self):
+    def endpos(self) -> FilePos:
         """
         The position after the last character in the text.
 
@@ -489,7 +501,7 @@ class FileText:
             colno = 1 + len(lines[-1])
         return FilePos(lineno, colno)
 
-    def _lineno_to_index(self, lineno):
+    def _lineno_to_index(self, lineno: int) -> int:
         lineindex = lineno - self.startpos.lineno
         # Check that the lineindex is in range.  We don't allow pointing at
         # the line after the last line because we already ensured that
@@ -501,7 +513,7 @@ class FileText:
                 % (lineno, self.startpos.lineno, self.endpos.lineno))
         return lineindex
 
-    def _colno_to_index(self, lineindex, colno):
+    def _colno_to_index(self, lineindex: int, colno: int) -> int:
         coloffset = self.startpos.colno if lineindex == 0 else 1
         colindex = colno - coloffset
         line = self.lines[lineindex]
@@ -514,7 +526,7 @@ class FileText:
                    coloffset, coloffset+len(line)))
         return colindex
 
-    def __getitem__(self, arg):
+    def __getitem__(self, arg: Union[int, slice]) -> Union[str, FileText]:
         """
         Return the line(s) with the given line number(s).
         If slicing, returns an instance of ``FileText``.
@@ -622,7 +634,7 @@ class FileText:
             filename=args[0].filename if args else None,
             startpos=args[0].startpos if args else None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         r = "%s(%r" % (type(self).__name__, self.joined,)
         if self.filename is not None:
             r += ", filename=%r" % (str(self.filename),)
@@ -631,10 +643,10 @@ class FileText:
         r += ")"
         return r
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.joined
 
-    def __eq__(self, o):
+    def __eq__(self, o: object) -> bool:
         if self is o:
             return True
         if not isinstance(o, FileText):
@@ -643,17 +655,17 @@ class FileText:
                 self.joined   == o.joined   and
                 self.startpos == o.startpos)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
     # The rest are defined by total_ordering
-    def __lt__(self, o):
+    def __lt__(self, o: object) -> bool:
         if not isinstance(o, FileText):
             return NotImplemented
         return ((self.filename, self.joined, self.startpos) <
                    (o   .filename, o   .joined, o   .startpos))
 
-    def __cmp__(self, o):
+    def __cmp__(self, o: object) -> int:
         if self is o:
             return 0
         if not isinstance(o, FileText):
@@ -683,13 +695,13 @@ def read_file(filename: Filename) -> FileText:
     return FileText(data, filename=filename)
 
 
-def write_file(filename: Filename, data):
+def write_file(filename: Filename, data: FileText | Filename | str) -> None:
     assert isinstance(filename, Filename)
     data = FileText(data)
     with open(str(filename), 'w') as f:
         f.write(data.joined)
 
-def atomic_write_file(filename: Filename, data):
+def atomic_write_file(filename: Filename, data: FileText | Filename | str) -> None:
     assert isinstance(filename, Filename)
     data = FileText(data)
     temp_filename = Filename("%s.tmp.%s" % (filename, os.getpid(),))
@@ -704,8 +716,9 @@ def atomic_write_file(filename: Filename, data):
 
 
 def expand_py_files_from_args(
-    pathnames: Union[List[Filename], Filename], on_error=lambda filename: None
-):
+    pathnames: Union[List[Filename], Filename],
+    on_error: Callable[[Filename], Any] = lambda filename: None,
+) -> List[Filename]:
     """
     Enumerate ``*.py`` files, recursively.
 

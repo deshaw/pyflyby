@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-
+from __future__ import annotations, print_function
 
 from   contextlib               import ExitStack, contextmanager
 import inspect
@@ -17,7 +17,13 @@ from   types                    import MappingProxyType as DictProxyType
 from   functools                import (cache as memoize,
                                         cached_property as cached_attribute)
 
+from   typing                   import (Any, Callable, Iterable, Iterator,
+                                        List, Optional, Sequence, Tuple,
+                                        TypeVar, Union)
+
 __all__ = ["cached_attribute", "memoize"]
+
+_T = TypeVar("_T")
 
 
 def _has_ignore_pragma(
@@ -44,7 +50,7 @@ def _has_ignore_pragma(
     return False
 
 
-def stable_unique(items):
+def stable_unique(items: Iterable[_T]) -> List[_T]:
     """
     Return a copy of ``items`` without duplicates.  The order of other items is
     unchanged.
@@ -52,8 +58,8 @@ def stable_unique(items):
       >>> stable_unique([1,4,6,4,6,5,7])
       [1, 4, 6, 5, 7]
     """
-    result = []
-    seen = set()
+    result: List[_T] = []
+    seen: set = set()
     for item in items:
         if item in seen:
             continue
@@ -62,7 +68,7 @@ def stable_unique(items):
     return result
 
 
-def longest_common_prefix(items1, items2):
+def longest_common_prefix(items1: Sequence[_T], items2: Sequence[Any]) -> Sequence[_T]:
     """
     Return the longest common prefix.
 
@@ -80,7 +86,7 @@ def longest_common_prefix(items1, items2):
     return items1[:n]
 
 
-def prefixes(parts):
+def prefixes(parts: Sequence[_T]) -> Iterator[Sequence[_T]]:
     """
       >>> list(prefixes("abcd"))
       ['a', 'ab', 'abc', 'abcd']
@@ -90,7 +96,7 @@ def prefixes(parts):
         yield parts[:i]
 
 
-def indent(lines, prefix):
+def indent(lines: str, prefix: str) -> str:
     r"""
       >>> indent('hello\nworld\n', '@@')
       '@@hello\n@@world\n'
@@ -98,14 +104,16 @@ def indent(lines, prefix):
     return "".join("%s%s\n"%(prefix,line) for line in lines.splitlines(False))
 
 
-def partition(iterable, predicate):
+def partition(
+    iterable: Iterable[_T], predicate: Callable[[_T], Any]
+) -> Tuple[List[_T], List[_T]]:
     """
       >>> partition('12321233221', lambda c: int(c) % 2 == 0)
       (['2', '2', '2', '2', '2'], ['1', '3', '1', '3', '3', '1'])
 
     """
-    falses = []
-    trues = []
+    falses: List[_T] = []
+    trues: List[_T] = []
     for item in iterable:
         if predicate(item):
             trues.append(item)
@@ -118,7 +126,7 @@ Inf = float('Inf')
 
 
 @contextmanager
-def ImportPathCtx(path_additions):
+def ImportPathCtx(path_additions: Union[str, List[str], Tuple[str, ...]]) -> Iterator[None]:
     """
     Context manager that temporarily prepends ``sys.path`` with ``path_additions``.
     """
@@ -133,7 +141,7 @@ def ImportPathCtx(path_additions):
 
 
 @contextmanager
-def CwdCtx(path):
+def CwdCtx(path: Any) -> Iterator[None]:
     """
     Context manager that temporarily enters a new working directory.
     """
@@ -146,7 +154,7 @@ def CwdCtx(path):
 
 
 @contextmanager
-def ExcludeImplicitCwdFromPathCtx():
+def ExcludeImplicitCwdFromPathCtx() -> Iterator[None]:
     """
     Context manager that temporarily removes "." from ``sys.path``.
     """
@@ -168,7 +176,12 @@ class FunctionWithGlobals(object):
     through to the target.
     """
 
-    def __init__(self, function, **variables):
+    __original__: Any
+    __joinpoint__: Any
+    __name__: str
+    __aspect__: Any
+
+    def __init__(self, function: Callable[..., Any], **variables: Any) -> None:
         self.__function = function
         self.__variables = variables
         try:
@@ -176,10 +189,10 @@ class FunctionWithGlobals(object):
         except KeyError:
             pass
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         function = self.__function
         variables = self.__variables
-        undecorated = function
+        undecorated: Any = function
         while True:
             try:
                 undecorated = undecorated.undecorated
@@ -201,11 +214,11 @@ class FunctionWithGlobals(object):
                 else:
                     globals[k] = v
 
-    def __getattr__(self, k):
+    def __getattr__(self, k: str) -> Any:
         return getattr(self.__original__, k)
 
 
-    def __get__(self, inst, cls=None):
+    def __get__(self, inst: Any, cls: Optional[type] = None) -> Any:
         if inst is None:
             return self
         return types.MethodType(self, inst)
@@ -226,19 +239,19 @@ class _WritableDictProxy(object):
     #   - cls.__dict__[k] does do what we want.
     #   - cls.__dict__[k] = v does not work, because dictproxy is read-only.
 
-    def __init__(self, cls):
+    def __init__(self, cls: Any) -> None:
         self._cls = cls
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: str) -> Any:
         return self._cls.__dict__[k]
 
-    def get(self, k, default=None):
+    def get(self, k: str, default: Any = None) -> Any:
         return self._cls.__dict__.get(k, default)
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: str, v: Any) -> None:
         setattr(self._cls, k, v)
 
-    def __delitem__(self, k):
+    def __delitem__(self, k: str) -> None:
         delattr(self._cls, k)
 
 
@@ -282,9 +295,16 @@ class Aspect(object):
       http://en.wikipedia.org/wiki/Aspect-oriented_programming
     """
 
-    _wrapper = None
+    _wrapper: Optional[Callable[..., Any]] = None
+    _joinpoint: Any
+    _qname: str
+    _container: Any
+    _name: str
+    _original: Any
+    _previous: Any
+    _wrapped: Any
 
-    def __init__(self, joinpoint):
+    def __init__(self, joinpoint: Any) -> None:
         spec = joinpoint
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
@@ -359,7 +379,7 @@ class Aspect(object):
                             % (type(joinpoint).__name__,))
         self._wrapped = None
 
-    def advise(self, hook, once=False):
+    def advise(self, hook: Callable[..., Any], once: bool = False) -> Optional["Aspect"]:
         from pyflyby._log import logger
         self._previous = self._container.get(self._name, _UNSET)
         if once and getattr(self._previous, "__aspect__", None) :
@@ -384,7 +404,7 @@ class Aspect(object):
         self._container[self._name] = wrapped
         return self
 
-    def unadvise(self):
+    def unadvise(self) -> None:
         if self._wrapped is None:
             return
         cur = self._container.get(self._name, _UNSET)
@@ -403,7 +423,7 @@ class Aspect(object):
         self._wrapped = None
 
 
-def advise(joinpoint):
+def advise(joinpoint: Any) -> Callable[..., Optional["Aspect"]]:
     """
     Advise ``joinpoint``.
 
@@ -414,22 +434,22 @@ def advise(joinpoint):
 
 
 @contextmanager
-def AdviceCtx(joinpoint, hook):
+def AdviceCtx(joinpoint: Any, hook: Callable[..., Any]) -> Iterator[None]:
     aspect = Aspect(joinpoint)
     advice = aspect.advise(hook)
     try:
         yield
     finally:
-        advice.unadvise()
+        advice.unadvise()  # type: ignore[union-attr]
 
 # For Python 2/3 compatibility. cmp isn't included with six.
-def cmp(a, b):
+def cmp(a: Any, b: Any) -> int:
     return (a > b) - (a < b)
 
 
 # Create a context manager with an arbitrary number of contexts.
 @contextmanager
-def nested(*mgrs):
+def nested(*mgrs: Any) -> Iterator[List[Any]]:
     with ExitStack() as stack:
         ctxes = [stack.enter_context(mgr) for mgr in mgrs]
         yield ctxes

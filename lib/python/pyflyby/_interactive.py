@@ -2,6 +2,8 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
+from __future__ import print_function
+
 import ast
 import builtins
 from   contextlib               import contextmanager
