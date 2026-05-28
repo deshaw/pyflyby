@@ -9,7 +9,6 @@ from __future__ import annotations, print_function
 from   collections              import defaultdict
 import os
 import re
-import sys
 
 from   pathlib                  import Path
 
