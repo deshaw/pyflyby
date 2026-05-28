@@ -25,11 +25,6 @@ from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import cached_attribute, memoize, stable_unique
 
-if sys.version_info <= (3, 12):
-    from typing_extensions import Self
-else:
-    from typing import Self
-
 
 @memoize
 def _find_etc_dirs() -> List[Filename]:
