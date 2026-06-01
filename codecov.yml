@@ -4,10 +4,30 @@ coverage:
       default:
         threshold: 1%
         target: 55%
+        # Keep the project gate scoped to the library only.  The test suite is
+        # also measured (to surface dead test code) but shouldn't inflate the
+        # library coverage target.
+        paths:
+          - "lib/python/pyflyby"
     patch:
       default:
         threshold: 1%
         target: 0%
+
+# Report library vs. test-suite coverage as separate components.  This lets us
+# spot dead test code (test helpers/functions that never execute) without
+# mixing it into the library coverage number.
+component_management:
+  individual_components:
+    - component_id: lib
+      name: lib
+      paths:
+        - "lib/python/pyflyby/**"
+    - component_id: tests
+      name: tests
+      paths:
+        - "tests/**"
+
 codecov:
   notify:
     after_n_builds: 6
