@@ -4,8 +4,6 @@ This module provides a fast implementation of pkgutil._iter_file_finder_modules
 using C++ with pybind11.
 """
 
-from __future__ import print_function
-
 import importlib.machinery
 from   typing                   import Generator, List
 

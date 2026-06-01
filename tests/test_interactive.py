@@ -3209,36 +3209,6 @@ def test_ipython_kernel_console_existing_1():
         """, args=['console'], kernel=kernel)
 
 
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_ipython_kernel_console_multiple_existing_1():
-    # Verify that autoimport and tab completion work in IPython console, when
-    # the auto importer is enabled from a different console.
-    # Start "IPython kernel".
-    with IPythonKernelCtx() as kernel:
-        # Start a separate "ipython console --existing kernel-1234.json".
-        # Verify that the auto importer isn't enabled yet.
-        ipython(
-            """
-            In [1]: b64decode('x')
-            ---------------------------------------------------------------------------
-            NameError                                 Traceback (most recent call last)
-            ... in ...
-            NameError: name 'b64decode' is not defined
-        """,
-            args=["console"],
-            kernel=kernel,
-        )
-        # Enable the auto importer.
-        ipython("""
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()
-        """, args=['console'], kernel=kernel)
-        # Verify that the auto importer and tab completion work.
-        ipython("""
-            In [3]: b64deco\tde('YWxtb25k')
-            [PYFLYBY] from base64 import b64decode
-            Out[3]: b'almond'
-        """, args=['console'], kernel=kernel)
 
 
 @pytest.mark.skip(reason="hangs")
@@ -3279,36 +3249,6 @@ def test_ipython_notebook_1():
         )
 
 
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_ipython_notebook_reconnect_1():
-    # Verify that we can reconnect to the same kernel, and pyflyby is still
-    # enabled.
-    with IPythonNotebookCtx() as kernel:
-        # Verify that the auto importer isn't enabled yet.
-        ipython(
-            """
-            In [1]: b64decode('x')
-            ---------------------------------------------------------------------------
-            NameError                                 Traceback (most recent call last)
-            ... in ...
-            NameError: name 'b64decode' is not defined
-        """,
-            args=["console"],
-            kernel=kernel,
-        )
-        # Enable the auto importer.
-        ipython(
-        """
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()
-        """, args=['console'], kernel=kernel)
-        # Verify that the auto importer and tab completion work.
-        ipython("""
-            In [3]: b64deco\tde('aGF6ZWxudXQ=')
-            [PYFLYBY] from base64 import b64decode
-            Out[3]: b'hazelnut'
-        """, args=['console'], kernel=kernel)
-
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @retry
@@ -3334,64 +3274,6 @@ def test_py_i_interactive_1(tmp):
         In [1]: bool(m32622167.ipython_app)
         Out[1]: True
     """, prog="py", args=['-i', 'import m32622167'], PYTHONPATH=tmp.dir)
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_py_console_1():
-    # Verify that 'py console' works.
-    ipython("""
-        In [1]: b64deco\tde('d2FsbnV0')
-        [PYFLYBY] from base64 import b64decode
-        Out[1]: b'walnut'
-    """, prog="py", args=['console'])
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_py_kernel_1():
-    # Verify that 'py kernel' works.
-    with IPythonKernelCtx(prog="py") as kernel:
-        # Run ipython console.  Note that we don't need to use prog='py' here,
-        # as the autoimport & completion is a property of the kernel.
-        ipython("""
-            In [1]: b64deco\tde('bWFjYWRhbWlh')
-            [PYFLYBY] from base64 import b64decode
-            Out[1]: b'macadamia'
-        """, args=['console'], kernel=kernel)
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_py_console_existing_1():
-    # Verify that 'py console' works as usual (no extra functionality
-    # expected over regular ipython console, but just check that it still
-    # works normally).
-    with IPythonKernelCtx() as kernel:
-        ipython(
-            """
-            In [1]: b64decode('x')
-            ---------------------------------------------------------------------------
-            NameError                                 Traceback (most recent call last)
-            ... in ...
-            NameError: name 'b64decode' is not defined
-        """,
-            prog="py",
-            args=["console"],
-            kernel=kernel,
-        )
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_py_notebook_1():
-    with IPythonNotebookCtx(prog="py") as kernel:
-        # Verify that the auto importer and tab completion work.
-        ipython("""
-            In [1]: b64deco\tde('Y2FzaGV3')
-            [PYFLYBY] from base64 import b64decode
-            Out[1]: b'cashew'
-        """, args=['console'], kernel=kernel)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
@@ -3473,45 +3355,6 @@ def test_installed_in_config_redundant_1(tmp):
         NameError: name 'b64decode' is not defined
     """
     )
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_installed_in_config_ipython_console_1(tmp):
-    # Verify that autoimport works in 'ipython console' when pyflyby is
-    # installed in ipython_config.
-    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    ipython("""
-        In [1]: b64deco\tde('c3BydWNl')
-        [PYFLYBY] from base64 import b64decode
-        Out[1]: b'spruce'
-    """, args=['console'], ipython_dir=tmp.ipython_dir)
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_installed_in_config_ipython_kernel_1(tmp):
-    # Verify that autoimport works in 'ipython kernel' when pyflyby is
-    # installed in ipython_config.
-    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    with IPythonKernelCtx(ipython_dir=tmp.ipython_dir) as kernel:
-        ipython("""
-            In [1]: b64deco\tde('b2Fr')
-            [PYFLYBY] from base64 import b64decode
-            Out[1]: b'oak'
-        """, args=['console'], kernel=kernel)
-
-
-@pytest.mark.skip(reason='fail on python 3')
-@retry
-def test_installed_in_config_ipython_notebook_1(tmp):
-    _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
-    with IPythonNotebookCtx(ipython_dir=tmp.ipython_dir) as kernel:
-        ipython("""
-            In [1]: b64deco\tde('c3ljYW1vcmU=')
-            [PYFLYBY] from base64 import b64decode
-            Out[1]: b'sycamore'
-        """, args=['console'], kernel=kernel)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
