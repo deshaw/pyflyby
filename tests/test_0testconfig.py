@@ -40,13 +40,6 @@ def test_pyflyby_version_1():
     assert expected == result
 
 
-def test_pyflyby_tox_path_1():
-    # If we're inside tox, then check that we've loaded the virtualenv version.
-    if '/.tox/' not in sys.prefix:
-        return
-    assert pyflyby.__file__.startswith(os.path.normpath(sys.prefix))
-
-
 def test_pyflyby_subprocess_file_1():
     # Check that our test setup is getting the right pyflyby.
     cmd = "import os, pyflyby; print(os.path.realpath(pyflyby.__file__))"

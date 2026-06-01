@@ -9,7 +9,7 @@ recursive-include bin *
 include etc/pyflyby/*.py
 recursive-include doc *
 recursive-include tests *
-include .pyflyby tox.ini MANIFEST.in
+include .pyflyby MANIFEST.in
 global-exclude .gitignore
 global-exclude .TRASH/* .TRASH/*/* .TRASH/*/*/*
 global-exclude *.pyc *.pyo
