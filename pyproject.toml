@@ -50,7 +50,7 @@ test = [
     'flaky',
     'hypothesis',
     'ipykernel>=5.4.3',
-    'ipython',
+    'ipython>=8',
     'jupyter',
     'jupyter_console>=6.2',
     'notebook<6.1',
