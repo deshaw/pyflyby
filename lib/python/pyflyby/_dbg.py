@@ -835,17 +835,6 @@ def _abbrev_filename(filename):
     return '/'.join(splt)
 
 
-def syscall_marker(msg):
-    """
-    Execute a dummy syscall that is visible in truss/strace.
-    """
-    try:
-        s = ("/###        %s" % (msg,)).ljust(70)
-        os.stat(s)
-    except OSError:
-        pass
-
-
 _ORIG_PID = os.getpid()
 
 def _signal_handler_debugger(signal_number, interrupted_frame):

@@ -69,24 +69,14 @@ def _get_or_create_ipython_terminal_app():
         import IPython
     except ImportError as e:
         raise NoIPythonPackageError(e)
-    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3.
     try:
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
     except AttributeError:
-        pass
-    else:
-        return TerminalIPythonApp.instance()
-    # The following has been tested on IPython 0.11, 0.12, 0.13.
-    try:
-        TerminalIPythonApp = IPython.frontend.terminal.ipapp.TerminalIPythonApp
-    except AttributeError:
-        pass
-    else:
-        return TerminalIPythonApp.instance()
-    raise RuntimeError(
-        "Couldn't get TerminalIPythonApp class.  "
-        "Is your IPython version too old (or too new)?  "
-        "IPython.__version__=%r" % (IPython.__version__))
+        raise RuntimeError(
+            "Couldn't get TerminalIPythonApp class.  "
+            "Is your IPython version too old (or too new)?  "
+            "IPython.__version__=%r" % (IPython.__version__))
+    return TerminalIPythonApp.instance()
 
 
 def _app_is_initialized(app):
@@ -138,32 +128,14 @@ def _get_or_create_ipython_kernel_app():
       The function that can be called to start the kernel application.
     """
     import IPython
-    # The following has been tested on IPython 4.0
     try:
         from ipykernel.kernelapp import IPKernelApp
     except ImportError:
-        pass
-    else:
-        return IPKernelApp.instance()
-    # The following has been tested on IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3,
-    # 2.4, 3.0, 3.1, 3.2
-    try:
-        from IPython.kernel.zmq.kernelapp import IPKernelApp
-    except ImportError:
-        pass
-    else:
-        return IPKernelApp.instance()
-    # The following has been tested on IPython 0.12, 0.13
-    try:
-        from IPython.zmq.ipkernel import IPKernelApp
-    except ImportError:
-        pass
-    else:
-        return IPKernelApp.instance()
-    raise RuntimeError(
-        "Couldn't get IPKernelApp class.  "
-        "Is your IPython version too old (or too new)?  "
-        "IPython.__version__=%r" % (IPython.__version__))
+        raise RuntimeError(
+            "Couldn't get IPKernelApp class.  "
+            "Is your IPython version too old (or too new)?  "
+            "IPython.__version__=%r" % (IPython.__version__))
+    return IPKernelApp.instance()
 
 
 def get_ipython_terminal_app_with_autoimporter():
@@ -305,15 +277,9 @@ def run_ipython_line_magic(arg):
         app.initialize([])
     ip = app.shell
     if hasattr(ip, "magic"):
-        # IPython 0.11+.
-        # The following has been tested on IPython 0.11, 0.12, 0.13, 1.0, 1.2,
-        # 2.0, 2.1, 2.2, 2.3.
         # TODO: may want to wrap in one or two layers of dummy functions to make
         # sure run_line_magic() doesn't inspect our locals.
         return ip.magic(arg)
-    elif hasattr(ip, "runlines"):
-        # IPython 0.10
-        return ip.runlines(arg)
     else:
         raise RuntimeError(
             "Couldn't run IPython magic.  "
@@ -493,12 +459,7 @@ def _ipython_in_multiline(ip):
       ``bool``
     """
     if hasattr(ip, "input_splitter"):
-        # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.2, 2.0,
-        # 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         return bool(ip.input_splitter.source)
-    elif hasattr(ip, "buffer"):
-        # IPython 0.10
-        return bool(ip.buffer)
     else:
         # IPython version too old or too new?
         return False
@@ -523,38 +484,28 @@ def _get_ipython_app():
         # IPython session.  Don't import it.
         raise NoActiveIPythonAppError(
             "No active IPython application (IPython not even imported yet)")
-    # The following has been tested on IPython 0.11, 0.12, 0.13, 1.0, 1.2,
-    # 2.0, 2.1, 2.2, 2.3.
-    try:
-        App = IPython.core.application.BaseIPythonApplication
-    except AttributeError:
-        pass
-    else:
-        app = App._instance
-        if app is not None:
-            if app.subapp is not None:
-                return app.subapp
-            else:
-                return app
-        # If we're inside an embedded shell, then there will be an active
-        # InteractiveShellEmbed but no application.  In that case, create a
-        # fake application.
-        # (An alternative implementation would be to use
-        # IPython.core.interactiveshell.InteractiveShell._instance.  However,
-        # that doesn't work with older versions of IPython, where the embedded
-        # shell is not a singleton.)
-        if hasattr(builtins, "get_ipython"):
-            shell = builtins.get_ipython()
+    App = IPython.core.application.BaseIPythonApplication
+    app = App._instance
+    if app is not None:
+        if app.subapp is not None:
+            return app.subapp
         else:
-            shell = None
-        if shell is not None:
-            return _DummyIPythonEmbeddedApp(shell)
-        # No active IPython app/shell.
-        raise NoActiveIPythonAppError("No active IPython application")
-    # The following has been tested on IPython 0.10.
-    raise NoActiveIPythonAppError(
-        "Could not figure out how to get active IPython application for IPython version %s"
-        % (IPython.__version__,))
+            return app
+    # If we're inside an embedded shell, then there will be an active
+    # InteractiveShellEmbed but no application.  In that case, create a
+    # fake application.
+    # (An alternative implementation would be to use
+    # IPython.core.interactiveshell.InteractiveShell._instance.  However,
+    # that doesn't work with older versions of IPython, where the embedded
+    # shell is not a singleton.)
+    if hasattr(builtins, "get_ipython"):
+        shell = builtins.get_ipython()
+    else:
+        shell = None
+    if shell is not None:
+        return _DummyIPythonEmbeddedApp(shell)
+    # No active IPython app/shell.
+    raise NoActiveIPythonAppError("No active IPython application")
 
 
 def _ipython_namespaces(ip):
@@ -784,16 +735,8 @@ def _get_IPdb_class():
     except ImportError:
         raise NoIPythonPackageError()
     try:
-        # IPython 0.11+.  Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2,
-        # 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0
         from IPython.core import debugger
         return debugger.Pdb
-    except ImportError:
-        pass
-    try:
-        # IPython 0.10
-        from IPython import Debugger
-        return Debugger.Pdb
     except ImportError:
         pass
     # IPython exists but couldn't figure out how to get Pdb.
@@ -876,16 +819,7 @@ def _get_ipython_color_scheme(app):
       ``str``
     """
     try:
-        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         return app.shell.colors
-    except AttributeError:
-        pass
-    try:
-        # Tested with IPython 0.10.
-        import IPython
-        ipapi = IPython.ipapi.get()
-        return ipapi.options.colors
     except AttributeError:
         pass
     import IPython
@@ -910,15 +844,9 @@ def print_verbose_tb(*exc_info):
         raise TypeError(
             "Expected 3 items for exc_info; got %d" % len(exc_info))
     try:
-        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
         from IPython.core.ultratb import VerboseTB
     except ImportError:
-        try:
-            # Tested with IPython 0.10.
-            from IPython.ultraTB import VerboseTB
-        except ImportError:
-            VerboseTB = None
+        VerboseTB = None
     exc_type, exc_value, exc_tb = exc_info
     # TODO: maybe use ip.showtraceback() instead?
     if VerboseTB is not None:
@@ -947,40 +875,12 @@ def UpdateIPythonStdioCtx():
     """
     Context manager that updates IPython's cached stdin/stdout/stderr handles
     to match the current values of sys.stdin/sys.stdout/sys.stderr.
+
+    This was only needed for IPython < 8, which cached stdio handles in
+    ``IPython.utils.io``.  IPython 8+ no longer does this, so this is now a
+    no-op retained for callers.
     """
-    if "IPython" not in sys.modules:
-        yield
-        return
-
-    import IPython
-
-    if IPython.version_info[:1] >= (8,):
-        yield
-        return
-
-    if "IPython.utils.io" in sys.modules:
-        # Tested with IPython 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0, 2.1, 2.2,
-        # 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
-        module = sys.modules["IPython.utils.io"]
-        container = module
-        IOStream = module.IOStream
-    else:
-        # IPython version too old or too new?
-        # For now just silently do nothing.
-        yield
-        return
-    old_stdin  = container.stdin
-    old_stdout = container.stdout
-    old_stderr = container.stderr
-    try:
-        container.stdin  = IOStream(sys.stdin)
-        container.stdout = IOStream(sys.stdout)
-        container.stderr = IOStream(sys.stderr)
-        yield
-    finally:
-        container.stdin  = old_stdin
-        container.stdout = old_stdout
-        container.stderr = old_stderr
+    yield
 
 
 
@@ -1028,12 +928,10 @@ class AutoImporter:
             return cls._from_app(arg)
         elif "Shell" in clsname:
             # If given an ``InteractiveShell`` argument, then get its parent app.
-            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
-            # 3.2, 4.0.
             if hasattr(arg, 'parent') and getattr(arg.parent, 'shell', None) is arg:
                 app = arg.parent
                 return cls._from_app(app)
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13.
+            # Fall back to matching the shell against the active app.
             app = _get_ipython_app()
             if app.shell is arg:
                 return cls._from_app(app)
@@ -1217,22 +1115,6 @@ class AutoImporter:
                     finally:
                         app_instance_enable_auto_importer.unadvise()
                     self._continue_enable()
-            pending = True
-        if (hasattr(ip, "post_config_initialization") and
-            not hasattr(ip, "rl_next_input")):
-            # IPython 0.10 might not be ready to hook yet because we're called
-            # from the config phase, and certain stuff (like Completer) is set
-            # up in post-config.  Re-run after post_config_initialization.
-            # Kludge: post_config_initialization() sets ip.rl_next_input=None,
-            # so detect whether it's been run by checking for that attribute.
-            @self._advise(ip.post_config_initialization)
-            def post_config_enable_auto_importer():
-                __original__()
-                logger.debug("post_config_initialization() completed")
-                if not hasattr(ip, "rl_next_input"):
-                    # Post-config initialization failed?
-                    return
-                self._continue_enable()
             pending = True
         self._pending_initializers = pending
         return ok
@@ -1422,35 +1304,6 @@ class AutoImporter:
             reset_auto_importer_state.has_side_effect = True
             ip.input_transformers_cleanup.append(reset_auto_importer_state)
             return True
-        elif hasattr(ip, "input_transformer_manager"):
-            # Tested with IPython 1.0, 1.2, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 3.1,
-            # 3.2, 4.0.
-            class ResetAutoImporterState(object):
-                def push(self_, line):
-                    return line
-                def reset(self_):
-                    logger.debug("ResetAutoImporterState.reset()")
-                    self.reset_state_new_cell()
-            t = ResetAutoImporterState()
-            transforms = ip.input_transformer_manager.python_line_transforms
-            transforms.append(t)
-            def unregister_input_transformer():
-                try:
-                    transforms.remove(t)
-                except ValueError:
-                    logger.info(
-                        "Couldn't remove python_line_transformer hook")
-            self._disablers.append(unregister_input_transformer)
-            return True
-        elif hasattr(ip, "input_splitter"):
-            # Tested with IPython 0.13.  Also works with later versions, but
-            # for those versions, we can use a real hook instead of advising.
-            @self._advise(ip.input_splitter.reset)
-            def reset_input_splitter_and_autoimporter_state():
-                logger.debug("reset_input_splitter_and_autoimporter_state()")
-                self.reset_state_new_cell()
-                return __original__()
-            return True
         else:
             logger.debug("Couldn't enable reset hook")
             return False
@@ -1461,16 +1314,9 @@ class AutoImporter:
         """
         # Advise _ofind.
         if hasattr(ip, "_ofind"):
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.2, 2.0, 2.3,
-            # 2.4, 3.0, 3.1, 3.2, 4.0.
             @self._advise(ip._ofind)
             def ofind_with_autoimport(oname, namespaces=None):
                 logger.debug("_ofind(oname=%r, namespaces=%r)", oname, namespaces)
-                is_multiline = False
-                if hasattr(ip, "buffer"):
-                    # In IPython 0.10, _ofind() gets called for each line of a
-                    # multiline input.  Skip them.
-                    is_multiline = len(ip.buffer) > 0
                 if namespaces is None:
                     namespaces = _ipython_namespaces(ip)
                 is_network_request = False
@@ -1487,8 +1333,7 @@ class AutoImporter:
                         break
                     frame = frame.f_back
                 if (
-                    not is_multiline
-                    and is_identifier(oname, dotted=True)
+                    is_identifier(oname, dotted=True)
                     and not is_network_request
                 ):
                     self.auto_import(
@@ -1539,43 +1384,6 @@ class AutoImporter:
                         "Couldn't remove ast_transformer hook - already gone?")
                 self._ast_transformer = None
             self._disablers.append(unregister_ast_transformer)
-            return True
-        elif hasattr(ip, "run_ast_nodes"):
-            # Second choice: advise the run_ast_nodes() function.  Tested with
-            # IPython 0.11, 0.12, 0.13.  This is the most robust way available
-            # for those versions.
-            # (ip.compile.ast_parse also works in IPython 0.12-0.13; no major
-            # flaw, but might as well use the same mechanism that works in
-            # 0.11.)
-            @self._advise(ip.run_ast_nodes)
-            def run_ast_nodes_with_autoimport(nodelist, *args, **kwargs):
-                logger.debug("run_ast_nodes")
-                ast_node = ast.Module(nodelist)
-                self.auto_import(ast_node)
-                return __original__(nodelist, *args, **kwargs)
-            return True
-        elif hasattr(ip, 'compile'):
-            # Third choice: Advise ip.compile.
-            # Tested with IPython 0.10.
-            # We don't hook prefilter because that gets called once per line,
-            # not per multiline code.
-            # We don't hook runsource because that gets called incrementally
-            # with partial multiline source until the source is complete.
-            @self._advise((ip, "compile"))
-            def compile_with_autoimport(source, filename="<input>",
-                                        symbol="single"):
-                result = __original__(source, filename, symbol)
-                if result is None:
-                    # The original ip.compile is an instance of
-                    # codeop.CommandCompiler.  CommandCompiler.__call__
-                    # returns None if the source is a possibly incomplete
-                    # multiline block of code.  In that case we don't
-                    # autoimport yet.
-                    pass
-                else:
-                    # Got full code that our caller, runsource, will execute.
-                    self.auto_import(source)
-                return result
             return True
         else:
             logger.debug("Couldn't enable parse hook")
@@ -1866,9 +1674,6 @@ class AutoImporter:
                         return __original__(code, code_ns, filename,
                                             *args, **kwargs
                         )
-            else:
-                # IPython 0.13 and earlier don't have "%debug <statement>".
-                pass
         else:
             ok = False
         return ok
