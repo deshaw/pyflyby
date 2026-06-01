@@ -7,7 +7,3 @@ py.test tests/test_foo.py -v -k TAG
 py.test --pdb -k TAG
 
 py.test -n NUM    # requires pytest-xdist plugin
-
-
-tox
-tox -e py27-ipy23
