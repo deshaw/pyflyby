@@ -217,6 +217,11 @@ class ImportAlreadyExistsError(Exception):
     pass
 
 
+def _is_future_only_import_block(block: SourceToSourceImportBlockTransformation) -> bool:
+    imports = block.importset.imports
+    return bool(imports) and all(imp.split.module_name == "__future__" for imp in imports)
+
+
 def _maybe_insert_pass(
     lines: list[str], idx: int, indent: int, lineno: int
 ) -> None:
@@ -769,7 +774,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
               block )
             for block in self.import_blocks
             if not isinstance(block, _LocalImportBlockWrapper)
-            and block.input.endpos.lineno <= max_lineno+1 ]
+            and block.input.endpos.lineno <= max_lineno+1
+            and (
+                imp.split.module_name == "__future__"
+                or not _is_future_only_import_block(block)
+            ) ]
         if not annotated_blocks:
             raise NoImportBlockError()
         annotated_blocks.sort(key=lambda x: x[0])
@@ -826,6 +835,43 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         self.import_blocks.insert(0, block)
         return block
 
+    def insert_new_import_block_after_future_imports(self) -> SourceToSourceImportBlockTransformation:
+        future_block_indexes = [
+            idx
+            for idx, block in enumerate(self.blocks)
+            if isinstance(block, SourceToSourceImportBlockTransformation)
+            and _is_future_only_import_block(block)
+        ]
+        if not future_block_indexes:
+            return self.insert_new_import_block()
+
+        block = SourceToSourceImportBlockTransformation("")
+        sepblock_before = SourceToSourceTransformation("")
+        sepblock_before._output = PythonBlock("\n")
+        insert_at = future_block_indexes[-1] + 1
+        next_block = self.blocks[insert_at] if insert_at < len(self.blocks) else None
+        blocks_to_insert: list[SourceToSourceTransformationBase] = [sepblock_before, block]
+        if not (
+            isinstance(next_block, SourceToSourceTransformation)
+            and str(next_block.pretty_print()).startswith("\n")
+        ):
+            sepblock_after = SourceToSourceTransformation("")
+            sepblock_after._output = PythonBlock("\n")
+            blocks_to_insert.append(sepblock_after)
+
+        self.blocks[insert_at:insert_at] = blocks_to_insert
+        future_import_block_indexes = [
+            idx
+            for idx, import_block in enumerate(self.import_blocks)
+            if not isinstance(import_block, _LocalImportBlockWrapper)
+            and _is_future_only_import_block(import_block)
+        ]
+        import_block_insert_at = (
+            future_import_block_indexes[-1] + 1 if future_import_block_indexes else 0
+        )
+        self.import_blocks.insert(import_block_insert_at, block)
+        return block
+
     def add_import(self, imp: Import, lineno: Any = Inf) -> None:
         """
         Add the specified import.  Picks an existing global import block to
@@ -841,7 +887,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             block = self.select_import_block_by_closest_prefix_match(
                 imp, lineno)
         except NoImportBlockError:
-            block = self.insert_new_import_block()
+            if imp.split.module_name == "__future__":
+                block = self.insert_new_import_block()
+            else:
+                block = self.insert_new_import_block_after_future_imports()
         if imp in block.importset.imports:
             raise ImportAlreadyExistsError(imp)
         block.importset = block.importset.with_imports([imp])

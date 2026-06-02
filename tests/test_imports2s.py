@@ -129,6 +129,48 @@ def test_fix_unused_and_missing_imports_1():
     assert output == expected
 
 
+def test_mandatory_future_import_keeps_regular_imports_separate():
+    input = PythonBlock(dedent('''
+        from __future__ import absolute_import
+
+        os
+        sys
+    ''').lstrip(), filename="/foo/test_mandatory_future_import_keeps_regular_imports_separate.py")
+    db = ImportDB("""
+        import os
+        import sys
+        __mandatory_imports__ = ["from __future__ import division"]
+    """)
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from __future__ import absolute_import, division
+
+        import os
+        import sys
+
+        os
+        sys
+    ''').lstrip(), filename="/foo/test_mandatory_future_import_keeps_regular_imports_separate.py")
+    assert output == expected
+
+
+def test_missing_import_after_future_import_without_existing_separator():
+    input = PythonBlock(dedent('''
+        from __future__ import absolute_import
+        os
+    ''').lstrip(), filename="/foo/test_missing_import_after_future_import_without_existing_separator.py")
+    db = ImportDB("import os")
+    output = fix_unused_and_missing_imports(input, db=db)
+    expected = PythonBlock(dedent('''
+        from __future__ import absolute_import
+
+        import os
+
+        os
+    ''').lstrip(), filename="/foo/test_missing_import_after_future_import_without_existing_separator.py")
+    assert output == expected
+
+
 def test_fix_unused_and_missing_imports_unknown_1():
     input = PythonBlock(dedent('''
         os, sys
@@ -1084,6 +1126,7 @@ def test_future_flags_1():
     output = fix_unused_and_missing_imports(input, db=db)
     expected = PythonBlock(dedent('''
         from __future__ import print_function
+
         import sys
 
         print("", file=sys.stdout)
