@@ -48,35 +48,46 @@ def rebuild_import_cache() -> None:
 
     The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
     """
-    for path in pathlib.Path(
+    cache_dir = pathlib.Path(
         platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
-    ).iterdir():
-        _remove_import_cache_dir(path)
+    )
+    if cache_dir.is_dir():
+        for path in cache_dir.iterdir():
+            _remove_import_cache_entry(path)
     _fast_iter_modules()
 
 
-def _remove_import_cache_dir(path: pathlib.Path) -> None:
-    """Remove an import cache directory.
+def _remove_import_cache_entry(path: pathlib.Path) -> None:
+    """Remove an entry from the pyflyby import cache.
 
-    Import cache directories exist in <user cache dir>/pyflyby/, and they should
-    contain just a single file which itself contains a JSON blob of cached import names.
-    We therefore only delete the requested path if it is a directory.
+    The cache lives under ``<user cache dir>/pyflyby/`` and has two kinds of
+    entries:
+
+    - per-importer directories, named by the sha256 of the importer path, and
+    - the ``<mtime_ns>`` cache files inside them, each holding a JSON blob of
+      cached import names.
+
+    `rebuild_import_cache` removes whole per-importer directories, while
+    `_cached_module_finder` removes stale ``<mtime_ns>`` files before writing a
+    fresh one.  Either kind may be passed here, so a directory is removed
+    recursively and a file is unlinked directly.
 
     Parameters
     ----------
     path : pathlib.Path
-        Import cache directory path to remove
+        Import cache entry (file or directory) to remove
     """
-    if path.is_dir():
-        # Only directories are valid import cache entries
-        try:
+    try:
+        if path.is_dir():
             shutil.rmtree(str(path))
-        except Exception as e:
-            logger.error(
-                f"Failed to remove cache directory at {path} - please "
-                "consider removing this directory manually. Error:\n"
-                f"{textwrap.indent(str(e), prefix='  ')}"
-            )
+        else:
+            path.unlink()
+    except Exception as e:
+        logger.error(
+            f"Failed to remove cache entry at {path} - please "
+            "consider removing this manually. Error:\n"
+            f"{textwrap.indent(str(e), prefix='  ')}"
+        )
 
 
 @memoize
@@ -127,7 +138,7 @@ def import_module(module_name: Any) -> types.ModuleType:
 
 
 def _my_iter_modules(
-    path: Any, prefix: str = ''
+    path: Optional[str], prefix: str = ''
 ) -> Generator[tuple[str, bool], None, None]:
     # Modified version of pkgutil.ImpImporter.iter_modules(), patched to
     # handle inaccessible subdirectories.
@@ -617,7 +628,7 @@ def _cached_module_finder(
         # files for the given import path
         cache_dir.mkdir(parents=True, exist_ok=True)
         for path in cache_dir.iterdir():
-            _remove_import_cache_dir(path)
+            _remove_import_cache_entry(path)
 
         if os.environ.get("PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS", "1") != "1":
             logger.info(f"Rebuilding cache for {_format_path(importer.path)}...")

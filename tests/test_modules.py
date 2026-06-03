@@ -12,7 +12,8 @@ from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._log             import logger
 from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
-                                        _iter_file_finder_modules)
+                                        _iter_file_finder_modules,
+                                        rebuild_import_cache)
 import re
 import subprocess
 import sys
@@ -198,6 +199,14 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     assert len(list(tmp_path.iterdir())) == n_cached_paths
     mock_iffm.assert_called_once()
 
+    # Regression: when the importer's mtime changes, a new <mtime_ns> cache file
+    # is written and the stale one must be removed.  Otherwise stale cache files
+    # (which are files, not dirs, inside the per-importer cache directory)
+    # accumulate without bound.  `path` here is the importer whose mtime we just
+    # bumped; its cache directory should hold exactly the one current file.
+    touched_cache_dir = tmp_path / hashlib.sha256(str(path).encode()).hexdigest()
+    assert len(list(touched_cache_dir.iterdir())) == 1
+
 @mock.patch.dict(os.environ, {"PYFLYBY_DISABLE_CACHE": "1"})
 @mock.patch("platformdirs.user_cache_dir")
 def test_import_perms(mock_user_cache_dir, tmp_path):
@@ -214,3 +223,41 @@ def test_import_perms(mock_user_cache_dir, tmp_path):
             list(_fast_iter_modules())
         finally:
             sys.path.remove(restricted)
+
+
+@mock.patch("platformdirs.user_cache_dir")
+def test_rebuild_import_cache(mock_user_cache_dir, tmp_path):
+    """rebuild_import_cache() clears existing cache directories and repopulates."""
+    mock_user_cache_dir.return_value = tmp_path
+    # Seed a stale cache directory; rebuild should remove it.
+    stale = tmp_path / "deadbeef"
+    stale.mkdir()
+    (stale / "modules.json").write_text("{}")
+    with mock.patch("pyflyby._modules._fast_iter_modules") as mock_fim:
+        rebuild_import_cache()
+    assert not stale.exists()      # stale cache dir removed
+    mock_fim.assert_called_once()  # cache repopulated
+
+
+@mock.patch("platformdirs.user_cache_dir")
+def test_rebuild_import_cache_missing_dir(mock_user_cache_dir, tmp_path):
+    """rebuild_import_cache() doesn't crash when the cache dir doesn't exist yet."""
+    mock_user_cache_dir.return_value = tmp_path / "does_not_exist"
+    with mock.patch("pyflyby._modules._fast_iter_modules") as mock_fim:
+        rebuild_import_cache()  # must not raise FileNotFoundError
+    mock_fim.assert_called_once()
+
+
+def test_submodules_oserror_fallback():
+    """When pkgutil.iter_modules raises OSError, ModuleHandle.submodules falls
+    back to _my_iter_modules, which is robust to inaccessible paths."""
+    import pkgutil
+    mh = ModuleHandle("email")
+    # submodules is a cached_property on a cached ModuleHandle; evict any
+    # previously-computed value so it recomputes under the patch below.
+    mh.__dict__.pop("submodules", None)
+    with mock.patch.object(pkgutil, "iter_modules", side_effect=OSError("boom")):
+        submodules = mh.submodules
+    names = {str(m.name) for m in submodules}
+    # email.mime is a subpackage, exercising _my_iter_modules' package branch.
+    assert "email.mime" in names
