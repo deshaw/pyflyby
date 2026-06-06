@@ -850,7 +850,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         sepblock_before._output = PythonBlock("\n")
         insert_at = future_block_indexes[-1] + 1
         next_block = self.blocks[insert_at] if insert_at < len(self.blocks) else None
-        blocks_to_insert: list[SourceToSourceTransformationBase] = [sepblock_before, block]
+        blocks_to_insert: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]] = [
+            sepblock_before,
+            block,
+        ]
         if not (
             isinstance(next_block, SourceToSourceTransformation)
             and str(next_block.pretty_print()).startswith("\n")
