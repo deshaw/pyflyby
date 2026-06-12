@@ -1015,6 +1015,10 @@ class _MissingImportFinder:
 
     def visit_MatchAs(self, node: MatchAs) -> None:
         logger.debug("visit_MatchAs(%r)", node)
+        # Visit the sub-pattern (e.g. the ``Cls()`` in ``case Cls() as x:``)
+        # before binding the capture name.
+        if node.pattern is not None:
+            self.visit(node.pattern)
         if node.name is None:
             return
         return self._visit_Store(node.name)
