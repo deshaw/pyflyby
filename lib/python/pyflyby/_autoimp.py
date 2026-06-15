@@ -733,6 +733,29 @@ class _MissingImportFinder:
         self.visit(node.targets)
         self._visit__all__(node)
 
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        logger.debug("visit_AugAssign(%r)", node)
+        # Visit the RHS before the LHS, for the same reason as visit_Assign.
+        # In addition, the target of an augmented assignment is *read* before
+        # it is written ('x += 1' loads x), so treat a bare-name target as a
+        # Load before the Store.  (For attribute/subscript targets such as
+        # 'x.y += 1' the inner name already has Load context.)
+        self.visit(node.value)
+        if isinstance(node.target, ast.Name):
+            self._visit_Load(node.target.id)
+        self.visit(node.target)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        logger.debug("visit_AnnAssign(%r)", node)
+        # Visit the annotation and the RHS before the target, mirroring
+        # visit_Assign's RHS-then-LHS order ('x: int = x + 1' loads x before
+        # storing it).  The default field order would visit the target
+        # (Store) first.
+        self.visit(node.annotation)
+        if node.value is not None:
+            self.visit(node.value)
+        self.visit(node.target)
+
     def _visit__all__(self, node: ast.Assign) -> None:
         if self._in_FunctionDef:
             return
