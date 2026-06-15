@@ -1440,6 +1440,116 @@ def test_fix_unused_and_missing_imports_local_semicolon_multiple_imports():
     assert "import sys" in str(output)
 
 
+@pytest.mark.parametrize(
+    ("source", "expected_output"),
+    [
+        pytest.param(
+            """
+        def f():
+            from os.path import join, sep
+            return 1
+    """,
+            """
+        def f():
+            return 1
+    """,
+            id="two_unused_same_statement",
+        ),
+        pytest.param(
+            """
+        def f():
+            from os.path import join, sep
+            return join("a", "b")
+    """,
+            """
+        def f():
+            from os.path import join
+            return join("a", "b")
+    """,
+            id="partially_unused_statement",
+        ),
+        pytest.param(
+            """
+        def f():
+            import os; x = 1
+            return x
+    """,
+            """
+        def f():
+            x = 1
+            return x
+    """,
+            id="semicolon_colocated_code",
+        ),
+        pytest.param(
+            """
+        def f():
+            x = 1; import os
+            return x
+    """,
+            """
+        def f():
+            x = 1
+            return x
+    """,
+            id="semicolon_code_before_import",
+        ),
+        pytest.param(
+            """
+        def f():
+            from os.path import (
+                join,
+                sep,
+            )
+            return 1
+    """,
+            """
+        def f():
+            return 1
+    """,
+            id="multiline_unused",
+        ),
+        pytest.param(
+            """
+        def f():
+            from os.path import (
+                join,
+                sep,
+            )
+            return join("a", "b")
+    """,
+            """
+        def f():
+            from os.path import join
+            return join("a", "b")
+    """,
+            id="multiline_partially_unused",
+        ),
+        pytest.param(
+            """
+        def f():
+            import os
+    """,
+            """
+        def f():
+            pass
+    """,
+            id="only_body_gets_pass",
+        ),
+    ],
+)
+def test_fix_unused_and_missing_imports_local_removal(source, expected_output):
+    """Removing unused local imports must not corrupt the surrounding source:
+    it must preserve still-used aliases, co-located semicolon-separated code,
+    and unrelated lines, fully delete parenthesized multiline imports, and
+    insert ``pass`` when a function body is left empty."""
+    input = PythonBlock(dedent(source).lstrip())
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(input, db=db, tidy_local_imports=True)
+    expected = PythonBlock(dedent(expected_output).lstrip())
+    assert output == expected
+
+
 def test_fix_unused_and_missing_imports_local_semicolon_multibyte_chars():
     """Test that semicolon-chained imports work when multi-byte characters
     precede the import on the same line.
