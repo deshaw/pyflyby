@@ -266,7 +266,7 @@ def _maybe_insert_pass(
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
-    _removed_lines_per_block: defaultdict[int, int]
+    _pending_local_removals: list[tuple[Import, int]]
     _original_block_startpos: dict[int, int]
     tidy_local_imports: bool = False
 
@@ -275,8 +275,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         # imports for the transformers to operate on.
         self.blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]] = []
         self.import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]] = []
-        # Track removed lines per block to adjust line numbers
-        self._removed_lines_per_block = defaultdict(int)
+        # Local imports removed via remove_import(); the physical edits are
+        # deferred to pretty_print() so that all removals from one statement
+        # can be applied together (see _apply_local_import_removals).
+        self._pending_local_removals = []
         # Track original startpos for each block (before any modifications)
         self._original_block_startpos = {}
 
@@ -438,6 +440,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
     def pretty_print(self, params: Any = None) -> FileText:
         params = ImportFormatParams(params)
+        # Apply deferred local-import removals before rendering the blocks.
+        self._apply_local_import_removals()
         result = [block.pretty_print(params=params) for block in self.blocks]
         output = FileText.concatenate(result)
 
@@ -681,72 +685,151 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         block.importset = block.importset.without_imports([imp])
 
         if isinstance(block, _LocalImportBlockWrapper):
-            # For local imports, we need to actually modify the source text
-            # Find the block in self.blocks that contains this import and modify it
-            self._remove_local_import_from_blocks(imp, lineno)
+            # For local imports the source text must be edited.  Defer the
+            # edit until pretty_print() so that all removals targeting the
+            # same statement are applied in one rewrite.
+            self._pending_local_removals.append((imp, lineno))
 
         return imp
 
-    def _remove_local_import_from_blocks(self, imp: Import, lineno: int) -> None:
+    def _apply_local_import_removals(self) -> None:
+        """
+        Apply the local-import removals recorded by ``remove_import``.
 
+        The removals are grouped by (block, statement start line) so that all
+        aliases removed from one statement are handled in a single rewrite,
+        and statements are processed bottom-up within each block so that
+        edits never shift the line numbers of statements not yet processed.
         """
-        Remove a local import from the actual code blocks.
-        This modifies the _output of blocks in self.blocks to remove the import line.
-        """
-        # Find the block in self.blocks that contains this line
-        for block_idx, block in enumerate(self.blocks):
-            if not isinstance(block, SourceToSourceTransformation):
-                continue
-            # Use original startpos for comparison (before any modifications)
+        if not self._pending_local_removals:
+            return
+        pending = self._pending_local_removals
+        self._pending_local_removals = []
+
+        # Group the removals by containing block, then by statement start line.
+        by_block: Dict[int, Dict[int, List[Import]]] = defaultdict(
+            lambda: defaultdict(list))
+        for imp, lineno in pending:
+            for block_idx, block in enumerate(self.blocks):
+                if not isinstance(block, SourceToSourceTransformation):
+                    continue
+                original_startpos = self._original_block_startpos.get(
+                    block_idx, block._output.startpos.lineno
+                )
+                if original_startpos <= lineno <= block._output.endpos.lineno:
+                    by_block[block_idx][lineno].append(imp)
+                    break
+            else:
+                logger.warning(
+                    "Couldn't find block containing line %d to remove %r",
+                    lineno, imp)
+
+        for block_idx, by_lineno in by_block.items():
+            block = self.blocks[block_idx]
+            assert isinstance(block, SourceToSourceTransformation)
+            lines = str(block._output.text).split("\n")
             original_startpos = self._original_block_startpos.get(
                 block_idx, block._output.startpos.lineno
             )
+            for lineno in sorted(by_lineno, reverse=True):
+                self._rewrite_local_import_statement(
+                    lines, lineno - original_startpos, by_lineno[lineno], lineno)
+            block._output = PythonBlock(
+                "\n".join(lines), filename=block._output.filename
+            )
 
-            # Check against original positions
-            if original_startpos <= lineno <= block._output.endpos.lineno:
-                # This block contains the line, modify it
-                lines = str(block._output.text).split("\n")
-                logger.debug(
-                    "Block originally starts at line %d, has %d lines",
-                    original_startpos,
-                    len(lines),
-                )
+    def _rewrite_local_import_statement(
+        self, lines: List[str], rel: int, imps: List[Import], lineno: int
+    ) -> None:
+        """
+        Rewrite the import statement starting at ``lines[rel]`` with the
+        imports in ``imps`` removed.  Co-located code -- other aliases in the
+        same statement, semicolon-separated statements on the same line,
+        parenthesized continuation lines -- is preserved; the physical lines
+        are deleted only when nothing else remains on them.
 
-                # Adjust for previously removed lines in this block
-                offset = self._removed_lines_per_block[block_idx]
-
-                # Calculate the relative line number within this block using ORIGINAL startpos
-                relative_lineno = lineno - original_startpos - offset
-
-                if 0 <= relative_lineno < len(lines):
-                    line_to_remove = lines[relative_lineno]
-                    logger.debug(
-                        "Removing line %d (relative %d, offset %d) from block: %s",
-                        lineno,
-                        relative_lineno,
-                        offset,
-                        line_to_remove.strip(),
-                    )
-                    removed_indent = len(line_to_remove) - len(line_to_remove.lstrip())
-                    del lines[relative_lineno]
-                    _maybe_insert_pass(lines, relative_lineno, removed_indent, lineno)
-
-                    # Track that we removed a line from this block
-                    self._removed_lines_per_block[block_idx] = offset + 1
-
-                    # Update the block's output
-                    new_text = "\n".join(lines)
-                    block._output = PythonBlock(
-                        new_text, filename=block._output.filename
-                    )
-                else:
-                    logger.warning(
-                        "Line %d out of range (relative %d, %d lines in block)",
-                        lineno,
-                        relative_lineno,
-                        len(lines),
-                    )
+        :param lines:
+          Source lines of the block, modified in place.
+        :param rel:
+          Index into ``lines`` of the first line of the import statement.
+        :param imps:
+          The `Import` s to remove from the statement.
+        :param lineno:
+          Absolute line number in the file (for logging).
+        """
+        if not (0 <= rel < len(lines)):
+            logger.warning(
+                "Line %d out of range (relative %d, %d lines in block)",
+                lineno, rel, len(lines))
+            return
+        first_line = lines[rel]
+        indent_str = first_line[: len(first_line) - len(first_line.lstrip())]
+        # Find the physical extent of the statement: extend line by line until
+        # the candidate text parses (handles parenthesized multiline imports
+        # and backslash continuations).
+        module = None
+        end = rel
+        for end in range(rel, len(lines)):
+            candidate = "\n".join([first_line.lstrip()] + lines[rel + 1: end + 1])
+            try:
+                module = ast.parse(candidate)
+            except SyntaxError:
+                continue
+            break
+        if module is None:
+            logger.warning(
+                "Couldn't parse statement at line %d; leaving it untouched",
+                lineno)
+            return
+        src_lines = candidate.split("\n")
+        # Find the import node containing the imports to remove.  (The line
+        # may hold several semicolon-separated statements.)
+        target = None
+        target_stmt = None
+        matched: List[Import] = []
+        for node in module.body:
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            stmt = ImportStatement._from_ast_node(node)
+            matched = [imp for imp in imps if imp in stmt.imports]
+            if matched:
+                target = node
+                target_stmt = stmt
                 break
+        if target is None or target_stmt is None:
+            logger.warning(
+                "Couldn't find import(s) %s at line %d; leaving line untouched",
+                ", ".join(map(str, imps)), lineno)
+            return
+        remaining = [imp for imp in target_stmt.imports if imp not in matched]
+        # Splice the rewritten statement between the text surrounding it.
+        # WARNING: col_offset/end_col_offset are in bytes, not characters.
+        assert target.lineno is not None
+        assert target.end_lineno is not None
+        prefix = (src_lines[target.lineno - 1]
+                  .encode()[: target.col_offset].decode())
+        suffix = (src_lines[target.end_lineno - 1]
+                  .encode()[target.end_col_offset:].decode())
+        if remaining:
+            new_text = (
+                prefix + str(ImportStatement._from_imports(remaining)) + suffix)
+        else:
+            before = prefix.rstrip()
+            after = suffix.lstrip()
+            # Drop the semicolon that used to join the import to its neighbor.
+            if before.endswith(";"):
+                before = before[:-1].rstrip()
+            elif after.startswith(";"):
+                after = after[1:].lstrip()
+            if before and after:
+                new_text = before + "; " + after
+            else:
+                new_text = before or after
+        if new_text.strip():
+            lines[rel: end + 1] = [indent_str + new_text]
+        else:
+            del lines[rel: end + 1]
+            _maybe_insert_pass(lines, rel, len(indent_str), lineno)
 
     def select_import_block_by_closest_prefix_match(
         self, imp: Import, max_lineno: Union[int, float]
