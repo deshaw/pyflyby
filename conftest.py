@@ -24,6 +24,34 @@ def pytest_runtest_setup(item):
     _setup_logger()
 
 
+def pytest_assertrepr_compare(config, op, left, right):
+    """
+    Provide a rich, line-by-line diff when an ``assert a == b`` of two
+    ``PythonBlock`` objects fails, instead of pytest's opaque
+    ``<PythonBlock ...> == <PythonBlock ...>``.
+    """
+    if op != "==":
+        return None
+    from pyflyby._parse import PythonBlock
+    if not (isinstance(left, PythonBlock) and isinstance(right, PythonBlock)):
+        return None
+    import difflib
+    lines = ["PythonBlock(left) == PythonBlock(right) failed:"]
+    left_lines = str(left).splitlines()
+    right_lines = str(right).splitlines()
+    if left_lines != right_lines:
+        lines.append("  text differs (- left, + right):")
+        diff = difflib.unified_diff(
+            left_lines, right_lines, lineterm="",
+            fromfile="left", tofile="right")
+        lines.extend("  " + line for line in diff)
+    if left.flags != right.flags:
+        lines.append("  flags differ:")
+        lines.append("    left:  %s" % (left.flags,))
+        lines.append("    right: %s" % (right.flags,))
+    return lines
+
+
 def pytest_report_header(config):
     import IPython
     print("IPython %s" % (IPython.__version__))
