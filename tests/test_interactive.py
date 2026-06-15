@@ -3972,7 +3972,7 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 )
 def test_breakpoint_IOStream_broken():
     # Verify that step functionality isn't broken.
-    if sys.version_info[:3] >= (3, 14, 0):
+    if sys.version_info[:3] >= (3, 14, 0) and sys.version_info[:3] < (3, 14, 6):
         ipython(
             """
             In [1]: # 3.14.0
@@ -3983,6 +3983,24 @@ def test_breakpoint_IOStream_broken():
             > <ipython-input>(1)<module>()
             ipdb> c
         """,
+            frontend="prompt_toolkit",
+        )
+    elif sys.version_info[:3] >= (3, 14, 6):
+            ipython(
+            '''
+            In [1]: # [3.14.6+ ...[
+            In [2]: breakpoint()
+            --Call--
+                [... skipping 12 hidden frame(s)]
+              <ipython-input>(1)<module>()
+            > ...
+                ...
+                ...
+            --> ...     def __call__(self, result=None):
+                ...         """Printing with history cache management.
+                ...
+            ipdb> c
+        ''',
             frontend="prompt_toolkit",
         )
     elif sys.version_info >= (3, 13) and sys.version_info < (3, 14):
