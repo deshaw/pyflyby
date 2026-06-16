@@ -125,8 +125,14 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 )
 
         def set_actions(actions):
-            actions = tuple(actions)
-            parser.values.actions = actions
+            # Preserve the symlink-handling action, which symlink_callback
+            # keeps at the front of the actions tuple (the default
+            # --symlinks=error is injected before the user's arguments, so it
+            # is parsed first); action options replace only the real actions.
+            current = getattr(parser.values, 'actions', None) or ()
+            symlink_actions = tuple(
+                a for a in current if a in symlink_callbacks.values())
+            parser.values.actions = symlink_actions + tuple(actions)
 
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')

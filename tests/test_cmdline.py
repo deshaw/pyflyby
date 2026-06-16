@@ -606,6 +606,59 @@ def test_tidy_imports_symlinks_follow():
     assert 'import x' not in output
     assert 'import x' not in symlink_output
 
+def test_tidy_imports_symlinks_replace_action_default_error():
+    """``tidy-imports -r`` on a symlink must error by default (regression:
+    action options used to drop the default --symlinks=error protection, and
+    --replace then replaced the symlink with a regular file)."""
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        try:
+            proc_output = pipe([BIN_DIR+'/tidy-imports', '-r', symlink_name])
+            assert os.path.islink(symlink_name)
+            with open(f.name) as f2:
+                output = f2.read()
+        finally:
+            os.unlink(symlink_name)
+    assert "Error: %s appears to be a symlink" % symlink_name in proc_output
+    assert output == input
+
+
+@pytest.mark.parametrize("args", [
+    ['--symlinks=follow', '-r'],
+    ['-r', '--symlinks=follow'],
+])
+def test_tidy_imports_symlinks_follow_replace_action(args):
+    """``--symlinks=follow`` must be honored together with ``-r`` regardless
+    of option order (regression: a later action option used to wipe the
+    symlink action, and --symlinks=follow before -r was silently ignored)."""
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        try:
+            proc_output = pipe(
+                [BIN_DIR+'/tidy-imports'] + args + [symlink_name])
+            assert os.path.islink(symlink_name)
+            with open(f.name) as f2:
+                output = f2.read()
+        finally:
+            os.unlink(symlink_name)
+    assert "Following symlink %s" % symlink_name in proc_output
+    assert 'import x' not in output
+
+
 def test_tidy_imports_symlinks_skip():
     input = dedent('''
         import x
