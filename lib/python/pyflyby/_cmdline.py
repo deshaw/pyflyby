@@ -61,6 +61,42 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     # casts (runtime changes), which are out of scope for a type-only pass.
     """
     Do setup for a top-level script and parse arguments.
+
+    Performs common setup for pyflyby command-line tools: installs a SIGPIPE
+    handler, builds an `optparse.OptionParser`, registers the standard options
+    (``--debug``, ``--verbose``, ``--quiet``, ``--version``), optionally adds
+    groups of action and/or pretty-printing options, parses ``sys.argv``, and
+    post-processes the result.
+
+    The ``--uniform``/``--unaligned`` shortcuts and the default ``--symlinks``
+    value are applied after parsing, and (when ``import_format_params`` is set)
+    the import-formatting options are collected into an `ImportFormatParams`
+    instance attached as ``options.params``.
+
+    :type addopts:
+      ``callable`` or ``None``
+    :param addopts:
+      Optional callback invoked as ``addopts(parser)`` to register additional,
+      script-specific options on the parser before arguments are parsed.
+    :type import_format_params:
+      ``bool``
+    :param import_format_params:
+      If true, add the "Pretty-printing options" group (e.g. ``--align-imports``,
+      ``--from-spaces``, ``--width``, ``--black``, ``--hanging-indent``,
+      ``--uniform``, ``--unaligned``) and attach the resulting
+      `ImportFormatParams` as ``options.params``.
+    :type modify_action_params:
+      ``bool``
+    :param modify_action_params:
+      If true, add the "Action options" group (e.g. ``--actions``, ``--print``,
+      ``--diff``, ``--replace``, ``--interactive``) and the ``--symlinks``
+      option, which control what is done with files that would be modified.
+    :rtype:
+      ``tuple`` of (``optparse.Values``, ``list`` of ``str``)
+    :return:
+      A ``(options, args)`` pair, where ``options`` holds the parsed option
+      values and ``args`` is the list of remaining positional arguments
+      (typically filenames).
     """
     ### Setup.
     # Register a SIGPIPE handler.
@@ -125,8 +161,14 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
                 )
 
         def set_actions(actions):
-            actions = tuple(actions)
-            parser.values.actions = actions
+            # Preserve the symlink-handling action, which symlink_callback
+            # keeps at the front of the actions tuple (the default
+            # --symlinks=warn is injected before the user's arguments, so it
+            # is parsed first); action options replace only the real actions.
+            current = getattr(parser.values, 'actions', None) or ()
+            symlink_actions = tuple(
+                a for a in current if a in symlink_callbacks.values())
+            parser.values.actions = symlink_actions + tuple(actions)
 
         def action_callback(option, opt_str, value, parser):
             action_args = value.split(',')
@@ -193,7 +235,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
             '--symlinks', action='callback', nargs=1, type=str,
             dest='symlinks', callback=symlink_callback, help="--symlinks should be one of: " + symlinks_help,
         )
-        parser.set_defaults(symlinks='error')
+        parser.set_defaults(symlinks="warn")
 
     if import_format_params:
         group = optparse.OptionGroup(parser, "Pretty-printing options")
@@ -273,7 +315,7 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     # This is the only way to provide a default value for an option with a
     # callback.
     if modify_action_params:
-        args = ["--symlinks=error"] + sys.argv[1:]
+        args = ["--symlinks=warn"] + sys.argv[1:]
     else:
         args = None
 
@@ -569,12 +611,13 @@ def symlink_callback(option, opt_str, value, parser):
     if value in symlink_callbacks:
         parser.values.actions = (symlink_callbacks[value],) + parser.values.actions
     else:
-        raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', or 'replace'. Got %r" % value)
+        raise optparse.OptionValueError("--symlinks must be one of 'error', 'follow', 'skip', 'warn', or 'replace'. Got %r" % value)
 
 symlinks_help = """\
---symlinks=error (default; gives an error on symlinks),
+--symlinks=error (gives an error on symlinks),
 --symlinks=follow (follows symlinks),
 --symlinks=skip (skips symlinks),
+--symlinks=warn (default; skips symlinks with a warning),
 --symlinks=replace (replaces symlinks with the target file\
 """
 
@@ -603,6 +646,13 @@ def symlink_skip(m: Modifier) -> None:
         logger.info("Skipping symlink %s" % m.filename)
         raise AbortActions
 
+def symlink_warn(m: Modifier) -> None:
+    if m.filename == Filename.STDIN:
+        return symlink_follow(m)
+    if m.filename.islink:
+        logger.warn("Skipping symlink %s" % m.filename)
+        raise AbortActions
+
 def symlink_replace(m: Modifier) -> None:
     if m.filename == Filename.STDIN:
         return symlink_follow(m)
@@ -611,10 +661,11 @@ def symlink_replace(m: Modifier) -> None:
         # The current behavior automatically replaces symlinks, so do nothing
 
 symlink_callbacks: Dict[str, _Action] = {
-    'error': symlink_error,
-    'follow': symlink_follow,
-    'skip': symlink_skip,
-    'replace': symlink_replace,
+    "error": symlink_error,
+    "follow": symlink_follow,
+    "skip": symlink_skip,
+    "warn": symlink_warn,
+    "replace": symlink_replace,
 }
 
 def _get_pyproj_toml_file() -> Optional[Path]:
