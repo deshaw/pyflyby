@@ -30,6 +30,8 @@ from   pyflyby._util            import cached_attribute
 from   tests._test_utils        import EnvVarCtx
 from   typing                   import Union
 
+from   _pytest.outcomes         import OutcomeException as _Failed
+
 is_free_threaded = (sys.version_info >= (3, 13)) and (sys._is_gil_enabled() is False)
 
 
@@ -75,14 +77,6 @@ def wait_for_output_timeout(timeout):
         _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = old_timeout
 
 
-def _get_Failed_class():
-    import _pytest
-    try:
-        return _pytest.outcomes.OutcomeException
-    except AttributeError:
-        return _pytest.runner.Failed
-_Failed = _get_Failed_class()
-
 def assert_fail():
     """
     Assert that pytest.fail() is called in the context.  Used to self-test.
@@ -102,11 +96,8 @@ def pytest_generate_tests(metafunc):
     # IPython 5.0 through 5.3 only allow prompt_toolkit.
     # IPython 5.4 through 6.5 defaults to prompt_toolkit, but allows choosing readline.
     # IPython 7+ breaks rlipython (https://github.com/ipython/rlipython/issues/21).
-    if 'frontend' in metafunc.fixturenames:
-        if _IPYTHON_VERSION >= (7,0):
-            metafunc.parametrize('frontend', [            'prompt_toolkit'])
-        else:
-            raise ImportError("IPython < 8 is unsupported.")
+    if "frontend" in metafunc.fixturenames:
+        metafunc.parametrize("frontend", ["prompt_toolkit"])
 
 
 @pytest.fixture
@@ -158,7 +149,7 @@ def writetext(filename: Filename, text: str, mode: str = "w") -> Filename:
     return filename
 
 
-def assert_match(result, expected, ignore_prompt_number=False):
+def assert_match(result, expected):
     """
     Check that ``result`` matches ``expected``.
     ``expected`` is a pattern where
@@ -181,8 +172,6 @@ def assert_match(result, expected, ignore_prompt_number=False):
             regexp_parts.append(b".*")
             regexp_parts.append(re.escape(s))
     regexp = b"".join(regexp_parts)
-    if ignore_prompt_number:
-        regexp = re.sub(br"(In\\? |Out)\\*\[[0-9]+\\*\]\\?:", br"\1\[[0-9]+\]:", regexp)
     if _IPYTHON_VERSION >= (4,):
         ignore = dedent(r"""
             (\[ZMQTerminalIPythonApp\] Loading IPython extension: storemagic
@@ -980,7 +969,7 @@ def _interpret_frontend_arg(frontend):
     return frontend
 
 
-def ipython(template, **kwargs):
+def ipython(template, *, args=(), kernel=None, **kwargs):
     """
     Run IPython in a pty subprocess.  Send it input and expect output based on
     the template.  Assert that the result matches.
@@ -989,7 +978,6 @@ def ipython(template, **kwargs):
     template = template.replace("... in ...", "... line ...")
     template = dedent(template).strip()
     input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
-    args = kwargs.pop("args", ())
     if isinstance(args, str):
         args = [args]
     args = list(args)
@@ -997,43 +985,12 @@ def ipython(template, **kwargs):
         app = args[0]
     else:
         app = "terminal"
-    kernel = kwargs.pop("kernel", None)
-    if app == "console":
-        if kernel is not None:
-            if _IPYTHON_VERSION >= (3,2):
-                # IPython console 3.2+ kills the kernel upon exit, unless you
-                # explicitly ask to keep it open.  If we're connecting to an
-                # existing kernel, default to keeping it alive upon exit.
-                kwargs.setdefault("exitstr", b"exit(keep_kernel=True)\n")
-                kwargs.setdefault("sendeof", False)
-            elif _IPYTHON_VERSION >= (3,):
-                # IPython console 3.0, 3.1 always kill the kernel upon exit.
-                # There's a purported option exit(keep_kernel=True) but it's not
-                # implemented in these versions.
-                # https://github.com/ipython/ipython/issues/8482
-                # https://github.com/ipython/ipython/pull/8483
-                # Instead of cleanly telling the client to exit, we'll just kill
-                # it with SIGKILL (in the 'finally' clause of IPythonCtx).
-                kwargs.setdefault("exitstr", b"")
-                kwargs.setdefault("sendeof", False)
-                kwargs.setdefault("waiteof", False)
-            else:
-                kwargs.setdefault("sendeof", True)
-                kwargs.setdefault("exitstr", b"" if kwargs['sendeof'] else b"exit()")
-        else:
-            if _IPYTHON_VERSION >= (5,):
-                kwargs.setdefault("sendeof", False)
-            else:
-                kwargs.setdefault("sendeof", True)
-            kwargs.setdefault("exitstr", b"" if kwargs['sendeof'] else b"exit()")
-        kwargs.setdefault("ignore_prompt_number", True)
+    assert kernel is None
+    assert app != "console"
+
     exitstr              = kwargs.pop("exitstr"             , b"exit()\n")
     sendeof              = kwargs.pop("sendeof"             , False)
     waiteof              = kwargs.pop("waiteof"             , True)
-    ignore_prompt_number = kwargs.pop("ignore_prompt_number", False)
-    if kernel is not None:
-        args += [i.decode('utf-8') for i in kernel.kernel_info]
-        kwargs.setdefault("ipython_dir", kernel.ipython_dir)
     print("Input:")
     print("".join("    %s\n"%line for line in input.splitlines()))
     with IPythonCtx(args=args, **kwargs) as child:
@@ -1041,26 +998,7 @@ def ipython(template, **kwargs):
                                    sendeof=sendeof, waiteof=waiteof)
     print("Output:")
     print("".join("    %s\n"%line for line in result.splitlines()))
-    assert_match(result, expected, ignore_prompt_number=ignore_prompt_number)
-
-
-@contextmanager
-def IPythonKernelCtx(**kwargs):
-    """
-    Launch IPython kernel.
-    """
-    __tracebackhide__ = True
-    with IPythonCtx(args='kernel', **kwargs) as child:
-        # Get the kernel info: --existing kernel-1234.json
-        child.expect(
-            r"To connect another client to this kernel, use:\s*"
-            r"(?:\[IPKernelApp\])?\s*(--existing .*?json)",
-            timeout=DEFAULT_TIMEOUT,
-        )
-        kernel_info = child.match.group(1).split()
-        # Yield control to caller.
-        child.kernel_info = kernel_info
-        yield child
+    assert_match(result, expected)
 
 
 def rand_chars(length=8, letters='abcdefghijklmnopqrstuvwxyz'):
@@ -3190,24 +3128,6 @@ def test_ipython_console_1(sendeof):
         [PYFLYBY] from base64 import b64decode
         Out[4]: b'peanut'
     """, args='console', sendeof=sendeof)
-
-
-@pytest.mark.skip(
-    reason="jupyter client is now completely async but JupyterConsole is not"
-)
-def test_ipython_kernel_console_existing_1():
-    # Verify that autoimport and tab completion work in IPython console, when
-    # started independently.
-    # Start "IPython kernel".
-    with IPythonKernelCtx() as kernel:
-        # Start a separate "ipython console --existing kernel-1234.json".
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64deco\tde('bGVndW1l')
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: b'legume'
-        """, args=['console'], kernel=kernel)
-
 
 
 

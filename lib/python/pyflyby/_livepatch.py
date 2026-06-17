@@ -703,7 +703,7 @@ def _xreload_module(module: types.ModuleType, filename: Optional[str],
     astnode = compile(source, filename, "exec", ast.PyCF_ONLY_AST, 1)  # type: ignore[call-overload]
     # Get the new docstring.
     try:
-        if sys.versin_info > (3,10):  # type: ignore[attr-defined]
+        if sys.version_info > (3, 10):  # type: ignore[attr-defined]
             doc = astnode.body[0].value.value
         else:
             doc = astnode.body[0].value.s

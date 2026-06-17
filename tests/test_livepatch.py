@@ -725,7 +725,6 @@ def test_xreload_int_1(tpp):
     assert   freehold == 10309655
     assert m.freehold == 22865923
 
-@pytest.mark.skip
 def test_xreload_auto_1(tpp):
     # Verify that xreload() with no args does reload the modified module.
     writetext(tpp/"horsepower50920658.py", """
@@ -742,7 +741,6 @@ def test_xreload_auto_1(tpp):
     assert watt() == 745
 
 
-@pytest.mark.skip
 def test_xreload_auto_pyc_1(tpp):
     # Verify that xreload() with no args does reload the modified module, even
     # if it was compiled.
@@ -767,7 +765,6 @@ def test_xreload_auto_pyc_1(tpp):
     assert watt() == 25685173
 
 
-@pytest.mark.skip
 def test_xreload_auto_selective_1(tpp):
     # Verify that xreload() doesn't bother reloading files that have been
     # touched but not changed.
