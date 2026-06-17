@@ -144,7 +144,6 @@ def main() -> None:
 
     options, args = parse_args(
         _add_opts_and_defaults,
-        import_format_params=True,
         modify_action_params=True,
     )
 

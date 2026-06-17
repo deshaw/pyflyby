@@ -43,7 +43,7 @@ def main():
                           help=hfmt('''
                                 (Default) Scan only modules listed explicitly
                                 on the command line.'''))
-    options, args = parse_args(addopts, import_format_params=True)
+    options, args = parse_args(addopts)
     if options.expand_known:
         db = ImportDB.get_default(".")
         known = db.known_imports.imports
