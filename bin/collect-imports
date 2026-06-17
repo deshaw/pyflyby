@@ -35,7 +35,7 @@ def main():
                           default=[], action="append",
                           help=hfmt('''
                                 Include only imports under the given package.'''))
-    options, args = parse_args(addopts, import_format_params=True)
+    options, args = parse_args(addopts)
     filenames = filename_args(args)
     importset = ImportSet(filenames, ignore_nonimports=True)
     if options.include:

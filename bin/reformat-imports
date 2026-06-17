@@ -16,8 +16,7 @@ from   pyflyby._imports2s       import reformat_import_statements
 
 
 def main():
-    options, args = parse_args(
-        import_format_params=True, modify_action_params=True)
+    options, args = parse_args(modify_action_params=True)
     def modify(x):
         return reformat_import_statements(x, params=options.params)
     process_actions(args, options.actions, modify)

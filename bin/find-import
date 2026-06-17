@@ -15,7 +15,7 @@ from   pyflyby._log             import logger
 
 
 def main():
-    options, args = parse_args(import_format_params=True)
+    options, args = parse_args()
     if not args:
         syntax()
     db = ImportDB.get_default(".")

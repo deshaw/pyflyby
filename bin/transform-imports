@@ -43,7 +43,7 @@ def main():
                                 inside string literals (including docstrings
                                 and f-string text).  Off by default.'''))
     options, args = parse_args(
-        addopts, import_format_params=True, modify_action_params=True)
+        addopts, modify_action_params=True)
     def modify(x):
         return transform_imports(x, transformations, params=options.params,
                                  transform_strings=options.transform_strings)

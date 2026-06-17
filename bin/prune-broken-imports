@@ -23,8 +23,7 @@ from   pyflyby._imports2s       import remove_broken_imports
 
 
 def main():
-    options, args = parse_args(
-        import_format_params=True, modify_action_params=True)
+    options, args = parse_args(modify_action_params=True)
     def modify(x):
         return remove_broken_imports(x, params=options.params)
     process_actions(args, options.actions, modify)

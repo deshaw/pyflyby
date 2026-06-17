@@ -53,7 +53,7 @@ def _sigpipe_handler(*args: Any) -> None:
     raise SystemExit(1)
 
 
-def parse_args(addopts=None, import_format_params=False, modify_action_params=False):
+def parse_args(addopts=None, modify_action_params=False):
     # NOTE: left unannotated intentionally.  This body pervasively assigns to
     # ``parser.values.<attr>``; typeshed types ``OptionParser.values`` as
     # ``Optional[Values]``, so annotating this function makes mypy flag every
@@ -237,78 +237,77 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
         )
         parser.set_defaults(symlinks="warn")
 
-    if import_format_params:
-        group = optparse.OptionGroup(parser, "Pretty-printing options")
-        group.add_option('--align-imports', '--align', type='str', default="32",
-                         metavar='N',
-                         help=hfmt('''
-                             Whether and how to align the 'import' keyword in
-                             'from modulename import aliases...'.  If 0, then
-                             don't align.  If 1, then align within each block
-                             of imports.  If an integer > 1, then align at
-                             that column, wrapping with a backslash if
-                             necessary.  If a comma-separated list of integers
-                             (tab stops), then pick the column that results in
-                             the fewest number of lines total per block.'''))
-        group.add_option('--from-spaces', type='int', default=3, metavar='N',
-                         help=hfmt('''
-                             The number of spaces after the 'from' keyword.
-                             (Must be at least 1; default is 3.)'''))
-        group.add_option('--separate-from-imports', action='store_true',
-                         default=False,
-                         help=hfmt('''
-                             Separate 'from ... import ...'
-                             statements from 'import ...' statements.'''))
-        group.add_option('--no-separate-from-imports', action='store_false',
-                         dest='separate_from_imports',
-                         help=hfmt('''
-                            (Default) Don't separate 'from ... import ...'
-                            statements from 'import ...' statements.'''))
-        group.add_option('--align-future', action='store_true',
-                         default=False,
-                         help=hfmt('''
-                             Align the 'from __future__ import ...' statement
-                             like others.'''))
-        group.add_option('--no-align-future', action='store_false',
-                         dest='align_future',
-                         help=hfmt('''
-                             (Default) Don't align the 'from __future__ import
-                             ...' statement.'''))
-        group.add_option('--width', type='int', default=None, metavar='N',
-                         help=hfmt('''
-                             Maximum line length (default: 79).'''))
-        group.add_option('--black', action='store_true', default=False,
-                         help=hfmt('''
-                             Use black to format imports. If this option is
-                             used, all other formatting options are ignored,
-                             except width'''))
-        group.add_option('--hanging-indent', type='choice', default='never',
-                         choices=['never','auto','always'],
-                         metavar='never|auto|always',
-                         dest='hanging_indent',
-                         help=hfmt('''
-                             How to wrap import statements that don't fit on
-                             one line.
-                             If --hanging-indent=always, then always indent
-                             imported tokens at column 4 on the next line.
-                             If --hanging-indent=never (default), then align
-                             import tokens after "import (" (by default column
-                             40); do so even if some symbols are so long that
-                             this would exceed the width (by default 79)).
-                             If --hanging-indent=auto, then use hanging indent
-                             only if it is necessary to prevent exceeding the
-                             width (by default 79).
-                         '''))
-        group.add_option('--uniform', '-u', action="store_true",
-                         help=hfmt('''
-                             (Default) Shortcut for --no-separate-from-imports
-                             --from-spaces=3 --align-imports=32.'''))
-        group.add_option('--unaligned', '-n', action="store_true",
-                         help=hfmt('''
-                             Shortcut for --separate-from-imports
-                             --from-spaces=1 --align-imports=0.'''))
+    group = optparse.OptionGroup(parser, "Pretty-printing options")
+    group.add_option('--align-imports', '--align', type='str', default="32",
+                     metavar='N',
+                     help=hfmt('''
+                         Whether and how to align the 'import' keyword in
+                         'from modulename import aliases...'.  If 0, then
+                         don't align.  If 1, then align within each block
+                         of imports.  If an integer > 1, then align at
+                         that column, wrapping with a backslash if
+                         necessary.  If a comma-separated list of integers
+                         (tab stops), then pick the column that results in
+                         the fewest number of lines total per block.'''))
+    group.add_option('--from-spaces', type='int', default=3, metavar='N',
+                     help=hfmt('''
+                         The number of spaces after the 'from' keyword.
+                         (Must be at least 1; default is 3.)'''))
+    group.add_option('--separate-from-imports', action='store_true',
+                     default=False,
+                     help=hfmt('''
+                         Separate 'from ... import ...'
+                         statements from 'import ...' statements.'''))
+    group.add_option('--no-separate-from-imports', action='store_false',
+                     dest='separate_from_imports',
+                     help=hfmt('''
+                        (Default) Don't separate 'from ... import ...'
+                        statements from 'import ...' statements.'''))
+    group.add_option('--align-future', action='store_true',
+                     default=False,
+                     help=hfmt('''
+                         Align the 'from __future__ import ...' statement
+                         like others.'''))
+    group.add_option('--no-align-future', action='store_false',
+                     dest='align_future',
+                     help=hfmt('''
+                         (Default) Don't align the 'from __future__ import
+                         ...' statement.'''))
+    group.add_option('--width', type='int', default=None, metavar='N',
+                     help=hfmt('''
+                         Maximum line length (default: 79).'''))
+    group.add_option('--black', action='store_true', default=False,
+                     help=hfmt('''
+                         Use black to format imports. If this option is
+                         used, all other formatting options are ignored,
+                         except width'''))
+    group.add_option('--hanging-indent', type='choice', default='never',
+                     choices=['never','auto','always'],
+                     metavar='never|auto|always',
+                     dest='hanging_indent',
+                     help=hfmt('''
+                         How to wrap import statements that don't fit on
+                         one line.
+                         If --hanging-indent=always, then always indent
+                         imported tokens at column 4 on the next line.
+                         If --hanging-indent=never (default), then align
+                         import tokens after "import (" (by default column
+                         40); do so even if some symbols are so long that
+                         this would exceed the width (by default 79)).
+                         If --hanging-indent=auto, then use hanging indent
+                         only if it is necessary to prevent exceeding the
+                         width (by default 79).
+                     '''))
+    group.add_option('--uniform', '-u', action="store_true",
+                     help=hfmt('''
+                         (Default) Shortcut for --no-separate-from-imports
+                         --from-spaces=3 --align-imports=32.'''))
+    group.add_option('--unaligned', '-n', action="store_true",
+                     help=hfmt('''
+                         Shortcut for --separate-from-imports
+                         --from-spaces=1 --align-imports=0.'''))
 
-        parser.add_option_group(group)
+    parser.add_option_group(group)
 
     if addopts is not None:
         addopts(parser)
@@ -324,34 +323,33 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     # Set these manually rather than in a callback option because callback
     # options don't get triggered by OptionParser.set_default (which is
     # used when setting values via pyproject.toml)
-    if getattr(options, "unaligned", False):
+    if options.unaligned:
         parser.values.separate_from_imports = True
         parser.values.from_spaces = 1
         parser.values.align_imports = '0'
 
-    if getattr(options, "uniform", False):
+    if options.uniform:
         parser.values.separate_from_imports = False
         parser.values.from_spaces = 3
         parser.values.align_imports = '32'
 
-    if import_format_params:
-        align_imports_args = [int(x.strip())
-                              for x in options.align_imports.split(",")]
-        if len(align_imports_args) == 1 and align_imports_args[0] == 1:
-            align_imports = True
-        elif len(align_imports_args) == 1 and align_imports_args[0] == 0:
-            align_imports = False
-        else:
-            align_imports = tuple(sorted(set(align_imports_args)))
-        options.params = ImportFormatParams(
-            align_imports         =align_imports,
-            from_spaces           =options.from_spaces,
-            separate_from_imports =options.separate_from_imports,
-            max_line_length       =options.width,
-            use_black             =options.black,
-            align_future          =options.align_future,
-            hanging_indent        =options.hanging_indent,
-            )
+    align_imports_args = [int(x.strip())
+                          for x in options.align_imports.split(",")]
+    if len(align_imports_args) == 1 and align_imports_args[0] == 1:
+        align_imports = True
+    elif len(align_imports_args) == 1 and align_imports_args[0] == 0:
+        align_imports = False
+    else:
+        align_imports = tuple(sorted(set(align_imports_args)))
+    options.params = ImportFormatParams(
+        align_imports         =align_imports,
+        from_spaces           =options.from_spaces,
+        separate_from_imports =options.separate_from_imports,
+        max_line_length       =options.width,
+        use_black             =options.black,
+        align_future          =options.align_future,
+        hanging_indent        =options.hanging_indent,
+        )
     return options, args
 
 
