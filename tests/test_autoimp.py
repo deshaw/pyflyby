@@ -1187,6 +1187,36 @@ def test_find_missing_imports_pattern_match_2():
     assert expected == result
 
 
+def test_find_missing_imports_pattern_match_as_pattern():
+    """Names inside a ``case Cls() as x:`` pattern must be detected
+    (regression: visit_MatchAs never visited the inner pattern)."""
+    code = dedent("""
+    match x:
+        case Point() as p:
+            pass
+    """)
+    result   = find_missing_imports(code, [{'x': 1}])
+    result   = _dilist2strlist(result)
+    expected = ['Point']
+    assert expected == result
+
+
+def test_scan_for_import_issues_pattern_match_as_pattern_not_unused():
+    """An import used only inside a ``case Cls() as x:`` pattern must not be
+    reported unused (regression: visit_MatchAs never visited the inner
+    pattern, so tidy-imports deleted a required import)."""
+    code = dedent("""
+    from foo import Point
+    def f(x):
+        match x:
+            case Point() as p:
+                return p
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert unused == []
+    assert missing == []
+
+
 def test_find_missing_imports_pattern_match_star_args():
     """Test that *args in match/case patterns are not flagged as undefined names."""
     code = dedent("""
