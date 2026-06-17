@@ -47,7 +47,7 @@ def flatten(args):
     return result
 
 
-def pipe(command, stdin="", env=None, retretcode="automatic"):
+def pipe(command, stdin="", env=None):
     if command[0] != python:
         command = (python,) + command
     proc = subprocess.Popen(
@@ -60,17 +60,7 @@ def pipe(command, stdin="", env=None, retretcode="automatic"):
     stdout = proc.communicate(stdin)[0].strip().decode('utf-8')
     retcode = proc.returncode
     assert retcode >= 0
-    if retretcode is True:
-        return stdout, retcode
-    elif retretcode is False:
-        return stdout
-    elif retretcode == 'automatic':
-        if retcode:
-            return stdout, retcode
-        else:
-            return stdout
-    else:
-        raise ValueError("invalid retretcode=%r" % (retretcode,))
+    return stdout, retcode
 
 
 @pytest.fixture
@@ -148,27 +138,31 @@ def writetext(filename, text, mode='w'):
 
 def test_0prefix_raw_1():
     # Verify that we're testing the virtualenv we think we are.
-    result = pipe([python, '-c', 'import sys; print(sys.prefix)'])
+    result, retcode = pipe([python, "-c", "import sys; print(sys.prefix)"])
+    assert retcode == 0
     expected = sys.prefix
     assert result == expected
 
 
 def test_0version_1():
     # Verify that we're testing the version we think we are.
-    result = py('-q', '--print', 'sys.version').strip()
+    result, retcode = py("-q", "--print", "sys.version")
+    assert retcode == 0
     expected = sys.version
     assert result == expected
 
 
 def test_0prefix_1():
     # Verify that we're testing the virtualenv we think we are.
-    result = py('-q', '--print', 'sys.prefix').strip()
+    result, retcode = py("-q", "--print", "sys.prefix")
+    assert retcode == 0
     expected = sys.prefix
     assert result == expected
 
 
 def test_eval_1():
-    result = py("--eval", "b64decode('VGhvbXBzb24=')")
+    result, retcode = py("--eval", "b64decode('VGhvbXBzb24=')")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('VGhvbXBzb24=')
@@ -178,7 +172,8 @@ def test_eval_1():
 
 
 def test_eval_single_dash_1():
-    result = py("-eval", "b64decode('V29vc3Rlcg==')")
+    result, retcode = py("-eval", "b64decode('V29vc3Rlcg==')")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('V29vc3Rlcg==')
@@ -188,7 +183,8 @@ def test_eval_single_dash_1():
 
 
 def test_eval_equals_1():
-    result = py("--eval=b64decode('TWVyY2Vy')")
+    result, retcode = py("--eval=b64decode('TWVyY2Vy')")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('TWVyY2Vy')
@@ -198,7 +194,8 @@ def test_eval_equals_1():
 
 
 def test_eval_single_dash_equals_1():
-    result = py("-eval=b64decode('VW5pdmVyc2l0eQ==')")
+    result, retcode = py("-eval=b64decode('VW5pdmVyc2l0eQ==')")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('VW5pdmVyc2l0eQ==')
@@ -208,7 +205,8 @@ def test_eval_single_dash_equals_1():
 
 
 def test_eval_c_1():
-    result = py("-c", "b64decode('QmxlZWNrZXI=')")
+    result, retcode = py("-c", "b64decode('QmxlZWNrZXI=')")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('QmxlZWNrZXI=')
@@ -218,13 +216,15 @@ def test_eval_c_1():
 
 
 def test_eval_quiet_1():
-    result = py("-q", "-c", "b64decode('U3VsbGl2YW4=')")
+    result, retcode = py("-q", "-c", "b64decode('U3VsbGl2YW4=')")
+    assert retcode == 0
     expected = "b'Sullivan'"
     assert result == expected
 
 
 def test_eval_expression_1():
-    result = py("--eval", "calendar.WEDNESDAY")
+    result, retcode = py("--eval", "calendar.WEDNESDAY")
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.WEDNESDAY
@@ -234,13 +234,15 @@ def test_eval_expression_1():
 
 
 def test_eval_expression_quiet_1():
-    result = py("--quiet", "--eval", "calendar.WEDNESDAY")
+    result, retcode = py("--quiet", "--eval", "calendar.WEDNESDAY")
+    assert retcode == 0
     expected = WEDNESDAY
     assert result == expected
 
 
 def test_exec_1():
-    result = py("-c", "if 1: print(b64decode('UHJpbmNl'))")
+    result, retcode = py("-c", "if 1: print(b64decode('UHJpbmNl'))")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] if 1: print(b64decode('UHJpbmNl'))
@@ -250,7 +252,8 @@ def test_exec_1():
 
 
 def test_argv_1():
-    result = py("-c", "sys.argv", "x", "y")
+    result, retcode = py("-c", "sys.argv", "x", "y")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.argv
@@ -260,7 +263,8 @@ def test_argv_1():
 
 
 def test_argv_2():
-    result = py("-c", "sys.argv", "--debug", "-x  x")
+    result, retcode = py("-c", "sys.argv", "--debug", "-x  x")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.argv
@@ -273,7 +277,8 @@ def test_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print(("Boone", sys.argv))\n')
         f.flush()
-        result = py(f.name, "a", "b")
+        result, retcode = py(f.name, "a", "b")
+        assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         ('Boone', [%r, 'a', 'b'])
@@ -294,7 +299,8 @@ def test_file_variants_1(arg):
         f.write('print(("Longfellow", sys.argv))\n')
         f.write("print(__file__)\n")
         f.flush()
-        result = py(f.name, "a", "b")
+        result, retcode = py(f.name, "a", "b")
+        assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         ('Longfellow', [%r, 'a', 'b'])
@@ -304,7 +310,8 @@ def test_file_variants_1(arg):
 
 
 def test_apply_1():
-    result = py("--apply", "str.upper", "'Roosevelt'")
+    result, retcode = py("--apply", "str.upper", "'Roosevelt'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] str.upper('Roosevelt')
         'ROOSEVELT'
@@ -313,7 +320,8 @@ def test_apply_1():
 
 
 def test_apply_stdin_1():
-    result = py("--apply", "str.upper", "-", stdin=b"Eagle")
+    result, retcode = py("--apply", "str.upper", "-", stdin=b"Eagle")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] str.upper('Eagle')
         'EAGLE'
@@ -322,7 +330,8 @@ def test_apply_stdin_1():
 
 
 def test_apply_stdin_more_args_1():
-    result = py("--apply", "str.find", "-", "'k'", stdin=b"Jackson\n")
+    result, retcode = py("--apply", "str.find", "-", "'k'", stdin=b"Jackson\n")
+    assert retcode == 0
     expected = dedent(r"""
         [PYFLYBY] str.find('Jackson\n', 'k')
         3
@@ -331,7 +340,8 @@ def test_apply_stdin_more_args_1():
 
 
 def test_apply_lambda_1():
-    result = py("--apply", "lambda a,b:a*b", "6", "7")
+    result, retcode = py("--apply", "lambda a,b:a*b", "6", "7")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda a,b:a*b)(6, 7)
         42
@@ -340,7 +350,8 @@ def test_apply_lambda_1():
 
 
 def test_apply_lambda_nested_1():
-    result = py("--apply", "(lambda a,b: lambda c,d: a*b*c*d)(2,3)", "5", "11")
+    result, retcode = py("--apply", "(lambda a,b: lambda c,d: a*b*c*d)(2,3)", "5", "11")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda a,b: lambda c,d: a*b*c*d)(2,3)(5, 11)
         330
@@ -349,7 +360,8 @@ def test_apply_lambda_nested_1():
 
 
 def test_apply_args_1():
-    result = py("--apply", "round", "2.984375", "3")
+    result, retcode = py("--apply", "round", "2.984375", "3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, 3)
         2.984
@@ -358,7 +370,8 @@ def test_apply_args_1():
 
 
 def test_apply_kwargs_1():
-    result = py("--apply", "round", "2.984375", "--ndigits=3")
+    result, retcode = py("--apply", "round", "2.984375", "--ndigits=3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
@@ -367,7 +380,8 @@ def test_apply_kwargs_1():
 
 
 def test_apply_kwonlyargs_1():
-    result = py("--apply", "lambda x, *, y: x + y", "2", "--y=3")
+    result, retcode = py("--apply", "lambda x, *, y: x + y", "2", "--y=3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda x, *, y: x + y)(2, y=3)
         5
@@ -376,7 +390,8 @@ def test_apply_kwonlyargs_1():
 
 
 def test_apply_kwonlyargs_2():
-    result = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3")
+    result, retcode = py("--apply", "lambda x, *, y, z=1: x + y + z", "2", "--y=3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda x, *, y, z=1: x + y + z)(2, y=3, z=1)
         6
@@ -385,7 +400,8 @@ def test_apply_kwonlyargs_2():
 
 
 def test_apply_print_function_1():
-    result = py("--apply", "print", "50810461")
+    result, retcode = py("--apply", "print", "50810461")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(50810461)
         50810461
@@ -394,7 +410,8 @@ def test_apply_print_function_1():
 
 
 def test_apply_print_function_string_1():
-    result = py("--apply", "print", "'Bedford'")
+    result, retcode = py("--apply", "print", "'Bedford'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Bedford')
         Bedford
@@ -403,7 +420,8 @@ def test_apply_print_function_string_1():
 
 
 def test_apply_print_function_expression_1():
-    result = py("--apply", "print", "Bedford")
+    result, retcode = py("--apply", "print", "Bedford")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Bedford')
         Bedford
@@ -412,7 +430,8 @@ def test_apply_print_function_expression_1():
 
 
 def test_apply_variant_1():
-    result = py("--call", "round", "2.984375", "3")
+    result, retcode = py("--call", "round", "2.984375", "3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, 3)
         2.984
@@ -421,7 +440,8 @@ def test_apply_variant_1():
 
 
 def test_apply_expression_1():
-    result = py("--call", "3.0.is_integer")
+    result, retcode = py("--call", "3.0.is_integer")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 3.0.is_integer()
         True
@@ -430,7 +450,8 @@ def test_apply_expression_1():
 
 
 def test_argmode_string_1():
-    result = py("--args=string", "--apply", "print", "Barrow")
+    result, retcode = py("--args=string", "--apply", "print", "Barrow")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Barrow')
         Barrow
@@ -439,7 +460,8 @@ def test_argmode_string_1():
 
 
 def test_argmode_string_donteval_module_1():
-    result = py("--args=string", "--apply", "print", "sys")
+    result, retcode = py("--args=string", "--apply", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('sys')
         sys
@@ -448,7 +470,8 @@ def test_argmode_string_donteval_module_1():
 
 
 def test_argmode_string_donteval_expression_1():
-    result = py("--args=string", "--apply", "print", "1+2")
+    result, retcode = py("--args=string", "--apply", "print", "1+2")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('1+2')
         1+2
@@ -466,8 +489,10 @@ def test_argmode_string_donteval_expression_1():
     "--arg-mode=s",
 ])
 def test_argmode_string_variants_1(args):
-    result = py((args+" --apply print sys").split())
-    expected = dedent("""
+    result, retcode = py((args + " --apply print sys").split())
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] print('sys')
         sys
     """).strip()
@@ -475,7 +500,8 @@ def test_argmode_string_variants_1(args):
 
 
 def test_argmode_string_quoted_1():
-    result = py("--args=string", "--apply", "print", "'Jones'")
+    result, retcode = py("--args=string", "--apply", "print", "'Jones'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print("'Jones'")
         'Jones'
@@ -484,7 +510,8 @@ def test_argmode_string_quoted_1():
 
 
 def test_argmode_eval_1():
-    result = py("--args=eval", "--apply", "print", "'Vandam'")
+    result, retcode = py("--args=eval", "--apply", "print", "'Vandam'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Vandam')
         Vandam
@@ -493,7 +520,8 @@ def test_argmode_eval_1():
 
 
 def test_argmode_eval_expression_1():
-    result = py("--args=eval", "--apply", "print", "1+2")
+    result, retcode = py("--args=eval", "--apply", "print", "1+2")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(3)
         3
@@ -508,7 +536,8 @@ def test_argmode_eval_unparsable_1():
 
 
 def test_argmode_eval_modname_1():
-    result = py("--args=eval", "--apply", "print", "sys")
+    result, retcode = py("--args=eval", "--apply", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(<module 'sys' (built-in)>)
@@ -533,8 +562,10 @@ def test_argmode_eval_badname_1():
     "--arg-mode=e",
 ])
 def test_argmode_eval_variants_1(args):
-    result = py((args+" --apply print 5+2").split())
-    expected = dedent("""
+    result, retcode = py((args + " --apply print 5+2").split())
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] print(7)
         7
     """).strip()
@@ -542,7 +573,8 @@ def test_argmode_eval_variants_1(args):
 
 
 def test_argmode_auto_unparsable_1():
-    result = py("--args=auto", "--apply", "print", "1+")
+    result, retcode = py("--args=auto", "--apply", "print", "1+")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('1+')
         1+
@@ -551,7 +583,8 @@ def test_argmode_auto_unparsable_1():
 
 
 def test_argmode_auto_expression_1():
-    result = py("--args=auto", "--apply", "print", "1+2")
+    result, retcode = py("--args=auto", "--apply", "print", "1+2")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(3)
         3
@@ -560,7 +593,8 @@ def test_argmode_auto_expression_1():
 
 
 def test_argmode_auto_goodname_1():
-    result = py("--args=auto", "--apply", "print", "sys")
+    result, retcode = py("--args=auto", "--apply", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(<module 'sys' (built-in)>)
@@ -570,7 +604,8 @@ def test_argmode_auto_goodname_1():
 
 
 def test_argmode_auto_badname_1():
-    result = py("--args=auto", "--apply", "print", "foo71398671")
+    result, retcode = py("--args=auto", "--apply", "print", "foo71398671")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('foo71398671')
         foo71398671
@@ -579,7 +614,8 @@ def test_argmode_auto_badname_1():
 
 
 def test_argmode_auto_each_1():
-    result = py("--args=auto", "--apply", "print", "7_", "7+1")
+    result, retcode = py("--args=auto", "--apply", "print", "7_", "7+1")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('7_', 8)
         7_ 8
@@ -595,8 +631,10 @@ def test_argmode_auto_each_1():
     "",
 ])
 def test_argmode_auto_variants_1(args):
-    result = py((args+" --apply print 7_ 7+1").split())
-    expected = dedent("""
+    result, retcode = py((args + " --apply print 7_ 7+1").split())
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] print('7_', 8)
         7_ 8
     """).strip()
@@ -604,7 +642,8 @@ def test_argmode_auto_variants_1(args):
 
 
 def test_heuristic_eval_1():
-    result = py("1+2")
+    result, retcode = py("1+2")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 1+2
         3
@@ -613,7 +652,8 @@ def test_heuristic_eval_1():
 
 
 def test_heuristic_eval_concat_1():
-    result = py("5 + 7")
+    result, retcode = py("5 + 7")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 5 + 7
         12
@@ -622,7 +662,8 @@ def test_heuristic_eval_concat_1():
 
 
 def test_heuristic_eval_complex_1():
-    result = py("5 + 7j")
+    result, retcode = py("5 + 7j")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 5 + 7j
         (5+7j)
@@ -631,7 +672,8 @@ def test_heuristic_eval_complex_1():
 
 
 def test_heuristic_eval_complex_2():
-    result = py("(5+7j) ** 12")
+    result, retcode = py("(5+7j) ** 12")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (5+7j) ** 12
         (65602966976-150532462080j)
@@ -640,7 +682,8 @@ def test_heuristic_eval_complex_2():
 
 
 def test_heuristic_eval_exponentiation_1():
-    result = py("123**4")
+    result, retcode = py("123**4")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 123**4
         228886641
@@ -649,9 +692,12 @@ def test_heuristic_eval_exponentiation_1():
 
 
 def test_heuristic_eval_with_argv_1():
-    result = py('for x in sys.argv[1:]: print(x.capitalize())',
-                'canal', 'grand')
-    expected = dedent("""
+    result, retcode = py(
+        "for x in sys.argv[1:]: print(x.capitalize())", "canal", "grand"
+    )
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] import sys
         [PYFLYBY] for x in sys.argv[1:]: print(x.capitalize())
         Canal
@@ -661,8 +707,10 @@ def test_heuristic_eval_with_argv_1():
 
 
 def test_heuristic_exec_statement_1():
-    result = py('''if 1: print("Mulberry")''')
-    expected = dedent("""
+    result, retcode = py("""if 1: print("Mulberry")""")
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] if 1: print("Mulberry")
         Mulberry
     """).strip()
@@ -670,8 +718,10 @@ def test_heuristic_exec_statement_1():
 
 
 def test_heuristic_exec_multiline_statement_1():
-    result = py('''if 1:\n  print("Mott")''')
-    expected = dedent("""
+    result, retcode = py("""if 1:\n  print("Mott")""")
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] if 1:
         [PYFLYBY]   print("Mott")
         Mott
@@ -680,7 +730,8 @@ def test_heuristic_exec_multiline_statement_1():
 
 
 def test_heuristic_apply_1():
-    result = py("str.upper", "'Ditmars'")
+    result, retcode = py("str.upper", "'Ditmars'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] str.upper('Ditmars')
         'DITMARS'
@@ -689,7 +740,8 @@ def test_heuristic_apply_1():
 
 
 def test_heuristic_apply_stdin_1():
-    result = py("str.upper", "-", stdin=b"Nassau")
+    result, retcode = py("str.upper", "-", stdin=b"Nassau")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] str.upper('Nassau')
         'NASSAU'
@@ -698,7 +750,8 @@ def test_heuristic_apply_stdin_1():
 
 
 def test_heuristic_apply_stdin_2():
-    result = py("--output=silent", "sys.stdout.write", "-", stdin=b"Downing")
+    result, retcode = py("--output=silent", "sys.stdout.write", "-", stdin=b"Downing")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Downing')
@@ -708,7 +761,8 @@ def test_heuristic_apply_stdin_2():
 
 
 def test_heuristic_apply_stdin_no_eval_1():
-    result = py("--output=silent", "sys.stdout.write", "-", stdin=b"3+4")
+    result, retcode = py("--output=silent", "sys.stdout.write", "-", stdin=b"3+4")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('3+4')
@@ -718,13 +772,17 @@ def test_heuristic_apply_stdin_no_eval_1():
 
 
 def test_heuristic_apply_stdin_quiet_1():
-    result = py("--output=silent", "-q", "sys.stdout.write", "-", stdin=b"Houston")
+    result, retcode = py(
+        "--output=silent", "-q", "sys.stdout.write", "-", stdin=b"Houston"
+    )
+    assert retcode == 0
     expected = "Houston"
     assert result == expected
 
 
 def test_heuristic_apply_lambda_1():
-    result = py("lambda a,b:a*b", "6", "7")
+    result, retcode = py("lambda a,b:a*b", "6", "7")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] lambda a,b:a*b
         [PYFLYBY] (lambda a,b:a*b)(6, 7)
@@ -734,7 +792,8 @@ def test_heuristic_apply_lambda_1():
 
 
 def test_heuristic_apply_lambda_nested_1():
-    result = py("(lambda a,b: lambda c,d: a*b*c*d)(2,3)", "5", "7")
+    result, retcode = py("(lambda a,b: lambda c,d: a*b*c*d)(2,3)", "5", "7")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda a,b: lambda c,d: a*b*c*d)(2,3)
         [PYFLYBY] (lambda a,b: lambda c,d: a*b*c*d)(2,3)(5, 7)
@@ -744,7 +803,8 @@ def test_heuristic_apply_lambda_nested_1():
 
 
 def test_heuristic_apply_builtin_args_1():
-    result = py("round", "2.984375", "3")
+    result, retcode = py("round", "2.984375", "3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, 3)
         2.984
@@ -753,7 +813,8 @@ def test_heuristic_apply_builtin_args_1():
 
 
 def test_heuristic_apply_builtin_args_2():
-    result = py("round", "2.984375")
+    result, retcode = py("round", "2.984375")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375)
         3
@@ -762,7 +823,8 @@ def test_heuristic_apply_builtin_args_2():
 
 
 def test_heuristic_apply_builtin_kwargs_1():
-    result = py("round", "2.984375", "--ndigits=3")
+    result, retcode = py("round", "2.984375", "--ndigits=3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
@@ -771,7 +833,8 @@ def test_heuristic_apply_builtin_kwargs_1():
 
 
 def test_heuristic_apply_builtin_kwargs_separate_arg_1():
-    result = py("round", "2.984375", "--ndigits", "3")
+    result, retcode = py("round", "2.984375", "--ndigits", "3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(2.984375, ndigits=3)
         2.984
@@ -780,7 +843,8 @@ def test_heuristic_apply_builtin_kwargs_separate_arg_1():
 
 
 def test_heuristic_print_1():
-    result = py("print", "4", "5")
+    result, retcode = py("print", "4", "5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(4, 5)
         4 5
@@ -789,7 +853,8 @@ def test_heuristic_print_1():
 
 
 def test_heuristic_apply_expression_1():
-    result = py("3.0.is_integer")
+    result, retcode = py("3.0.is_integer")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 3.0.is_integer()
         True
@@ -798,7 +863,8 @@ def test_heuristic_apply_expression_1():
 
 
 def test_heuristic_apply_expression_2():
-    result = py("sys.stdout.flush")
+    result, retcode = py("sys.stdout.flush")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.flush()
@@ -807,7 +873,8 @@ def test_heuristic_apply_expression_2():
 
 
 def test_heuristic_eval_expression_1():
-    result = py("os.path.sep")
+    result, retcode = py("os.path.sep")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import os.path
         [PYFLYBY] os.path.sep
@@ -817,7 +884,8 @@ def test_heuristic_eval_expression_1():
 
 
 def test_heuristic_eval_expression_nonmodule_1():
-    result = py("os.getcwd.__name__")
+    result, retcode = py("os.getcwd.__name__")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import os
         [PYFLYBY] os.getcwd.__name__
@@ -827,13 +895,15 @@ def test_heuristic_eval_expression_nonmodule_1():
 
 
 def test_heuristic_apply_method_arg_1():
-    result = py("float.is_integer", "3.0")
+    result, retcode = py("float.is_integer", "3.0")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] float.is_integer(3.0)
         True
     """).strip()
     assert result == expected
-    result = py("float.is_integer", "3.5")
+    result, retcode = py("float.is_integer", "3.5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] float.is_integer(3.5)
         False
@@ -876,7 +946,8 @@ else:
     FRIDAY = '4'
 
 def test_apply_pyfunc_posargs_1():
-    result = py("calendar.weekday 2014 7 18".split())
+    result, retcode = py("calendar.weekday 2014 7 18".split())
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 18)
@@ -886,7 +957,8 @@ def test_apply_pyfunc_posargs_1():
 
 
 def test_apply_pyfunc_kwarg_1():
-    result = py("calendar.weekday --year=2014 --month=7 --day=17".split())
+    result, retcode = py("calendar.weekday --year=2014 --month=7 --day=17".split())
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 17)
@@ -896,7 +968,8 @@ def test_apply_pyfunc_kwarg_1():
 
 
 def test_apply_pyfunc_kwarg_disorder_1():
-    result = py("calendar.weekday --day=16 --month=7 --year=2014".split())
+    result, retcode = py("calendar.weekday --day=16 --month=7 --year=2014".split())
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 16)
@@ -906,7 +979,8 @@ def test_apply_pyfunc_kwarg_disorder_1():
 
 
 def test_apply_pyfunc_kwarg_short_1():
-    result = py("calendar.weekday -m 7 -d 15 -y 2014".split())
+    result, retcode = py("calendar.weekday -m 7 -d 15 -y 2014".split())
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 15)
@@ -916,7 +990,8 @@ def test_apply_pyfunc_kwarg_short_1():
 
 
 def test_apply_pyfunc_hybrid_args_disorder_1():
-    result = py("calendar.weekday 2014 -day 15 -month 7".split())
+    result, retcode = py("calendar.weekday 2014 -day 15 -month 7".split())
+    assert retcode == 0
     expected = dedent(f"""
         [PYFLYBY] import calendar
         [PYFLYBY] calendar.weekday(2014, 7, 15)
@@ -965,8 +1040,10 @@ def test_apply_argspec_bad_kwarg_1():
 
 
 def test_apply_dashdash_1():
-    result = py('--apply', 'print', '4.000', '--', '--help', '5.000')
-    expected = dedent("""
+    result, retcode = py("--apply", "print", "4.000", "--", "--help", "5.000")
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] print(4.0, '--help', '5.000')
         4.0 --help 5.000
     """).strip()
@@ -974,7 +1051,8 @@ def test_apply_dashdash_1():
 
 
 def test_apply_namedtuple_1():
-    result = py('namedtuple("ab", "aa bb")', "3", "4")
+    result, retcode = py('namedtuple("ab", "aa bb")', "3", "4")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from collections import namedtuple
         [PYFLYBY] namedtuple("ab", "aa bb")
@@ -985,7 +1063,8 @@ def test_apply_namedtuple_1():
 
 
 def test_repr_str_1():
-    result = py("'Astor'")
+    result, retcode = py("'Astor'")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 'Astor'
         'Astor'
@@ -994,7 +1073,8 @@ def test_repr_str_1():
 
 
 def test_future_division_1():
-    result = py("1/2")
+    result, retcode = py("1/2")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 1/2
         0.5
@@ -1003,7 +1083,8 @@ def test_future_division_1():
 
 
 def test_integer_division_1():
-    result = py("7//3")
+    result, retcode = py("7//3")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 7//3
         2
@@ -1012,7 +1093,8 @@ def test_integer_division_1():
 
 
 def test_print_statement_1():
-    result = py("print(42)")
+    result, retcode = py("print(42)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(42)
         42
@@ -1021,7 +1103,8 @@ def test_print_statement_1():
 
 
 def test_print_statement_sep_1():
-    result = py("print", "43")
+    result, retcode = py("print", "43")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(43)
         43
@@ -1030,7 +1113,8 @@ def test_print_statement_sep_1():
 
 
 def test_print_function_1():
-    result = py("print(44, file=sys.stdout)")
+    result, retcode = py("print(44, file=sys.stdout)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(44, file=sys.stdout)
@@ -1040,7 +1124,8 @@ def test_print_function_1():
 
 
 def test_print_function_tuple_1():
-    result = py("print(5,6)")
+    result, retcode = py("print(5,6)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(5,6)
         5 6
@@ -1050,7 +1135,8 @@ def test_print_function_tuple_1():
 
 def test_write_1():
     with NamedTemporaryFile(mode='w+') as f:
-        output = py("--output=silent", "-q", "open(%r,'w').write"%f.name, "-", stdin=b"Greenwich")
+        output, retcode = py("--output=silent", "-q", "open(%r,'w').write"%f.name, "-", stdin=b"Greenwich")
+        assert retcode == 0
         assert output == ""
         result = f.read()
     expected = "Greenwich"
@@ -1058,9 +1144,11 @@ def test_write_1():
 
 
 def test_print_args_1():
-    with NamedTemporaryFile(mode='w+') as f:
-        output = py("-q", "print", "-", "--file=open(%r,'w')"%f.name,
-                    stdin=b"Spring")
+    with NamedTemporaryFile(mode="w+") as f:
+        output, retcode = py(
+            "-q", "print", "-", "--file=open(%r,'w')" % f.name, stdin=b"Spring"
+        )
+        assert retcode == 0
         assert output == ""
         result = f.read()
     expected = "Spring\n"
@@ -1068,18 +1156,21 @@ def test_print_args_1():
 
 
 def test_program_help_1():
-    output = py("--help")
+    output, retcode = py("--help")
+    assert retcode == 0
     assert "--version" in output
 
 
 def test_program_help_full_1():
     for arg in ["--help", "-help", "help", "--h", "-h", "--?", "-?", "?"]:
-        output = py(arg)
+        output, retcode = py(arg)
+        assert retcode == 0
         assert "--version" in output
 
 
 def test_function_help_1():
-    output = py("base64.b64encode", "--help")
+    output, retcode = py("base64.b64encode", "--help")
+    assert retcode == 0
     assert "s [altchars]" in output
     assert ">>> base64.b64encode(s, altchars=None)" in output
     assert "$ py base64.b64encode s [altchars]" in output
@@ -1091,7 +1182,8 @@ def test_function_help_1():
 
 
 def test_function_help_autoimport_1():
-    output = py("b64encode", "--help")
+    output, retcode = py("b64encode", "--help")
+    assert retcode == 0
     assert "[PYFLYBY] from base64 import b64encode" in output
     assert "s [altchars]" in output
     assert "$ py b64encode s [altchars]" in output
@@ -1099,7 +1191,8 @@ def test_function_help_autoimport_1():
 
 
 def test_function_help_expression_1():
-    output = py("sys.stdout.write", "--help")
+    output, retcode = py("sys.stdout.write", "--help")
+    assert retcode == 0
     assert '>>> sys.stdout.write(' in output
     assert "$ py sys.stdout.write " in output
     if sys.version_info > (3,12):
@@ -1109,19 +1202,22 @@ def test_function_help_expression_1():
 
 
 def test_function_help_quote_need_parens_1():
-    output = py('lambda a,b: a*b', '-h')
+    output, retcode = py("lambda a,b: a*b", "-h")
+    assert retcode == 0
     assert ">>> (lambda a,b: a*b)(a, b)" in output
     assert "$ py 'lambda a,b: a*b' a b" in output
 
 
 def test_function_help_quote_already_have_parens_1():
-    output = py('(lambda a,b: a*b)', '-h')
+    output, retcode = py("(lambda a,b: a*b)", "-h")
+    assert retcode == 0
     assert ">>> (lambda a,b: a*b)(a, b)" in output
     assert "$ py '(lambda a,b: a*b)' a b" in output
 
 
 def test_function_help_quote_nested_lambdas_1():
-    output = py('(lambda a,b: lambda c,d: a*b*c*d)(2,3)', '-h')
+    output, retcode = py("(lambda a,b: lambda c,d: a*b*c*d)(2,3)", "-h")
+    assert retcode == 0
     assert ">>> (lambda a,b: lambda c,d: a*b*c*d)(2,3)(c, d)" in output
     assert "$ py '(lambda a,b: lambda c,d: a*b*c*d)(2,3)' c d" in output
     assert "$ py '(lambda a,b: lambda c,d: a*b*c*d)(2,3)' --c=... --d=..." in output
@@ -1135,8 +1231,10 @@ def test_help_class_init_1(tmp):
     """)
     writetext(tmp.dir/"p", """
         from f80166304 import Greenpoint
-    """)
-    output = py("Greenpoint?", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir/"p")
+    """,
+    )
+    output, retcode = py("Greenpoint?", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir / "p")
+    assert retcode == 0
     assert ">>> Greenpoint(Milton, *Noble, **India)" in output
 
 
@@ -1148,8 +1246,12 @@ def test_help_class_init_oldclass_1(tmp):
     """)
     writetext(tmp.dir/"p", """
         from f20579393 import Williamsburg
-    """)
-    output = py("Williamsburg??", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir/"p")
+    """,
+    )
+    output, retcode = py(
+        "Williamsburg??", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir / "p"
+    )
+    assert retcode == 0
     assert ">>> Williamsburg(Metropolitan, *Morgan, **Bogart)" in output
 
 
@@ -1161,8 +1263,12 @@ def test_help_class_new_1(tmp):
     """)
     writetext(tmp.dir/"p", """
         from f56365338 import Knickerbocker
-    """)
-    output = py("?Knickerbocker", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir/"p")
+    """,
+    )
+    output, retcode = py(
+        "?Knickerbocker", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir / "p"
+    )
+    assert retcode == 0
     assert ">>> Knickerbocker(Wilson, *Madison, **Linden)" in output
 
 
@@ -1201,14 +1307,16 @@ def test_help_class_new_1(tmp):
     "?base64.b64encode",
 ])
 def test_function_help_variants_1(cmdline):
-    output = py(cmdline.split())
+    output, retcode = py(cmdline.split())
+    assert retcode == 0
     assert "s [altchars]" in output
     assert "--version" not in output
     assert "binascii.b2a_base64" not in output
 
 
 def test_function_source_1():
-    output = py("base64.b64encode", "--source")
+    output, retcode = py("base64.b64encode", "--source")
+    assert retcode == 0
     assert "[PYFLYBY] import base64" in output
     assert ">>> base64.b64encode(s, altchars=None)" in output
     assert "$ py base64.b64encode s [altchars]" in output
@@ -1219,7 +1327,8 @@ def test_function_source_1():
 
 
 def test_function_source_autoimport_1():
-    output = py("b64encode", "--source")
+    output, retcode = py("b64encode", "--source")
+    assert retcode == 0
     assert "[PYFLYBY] from base64 import b64encode" in output
     assert ">>> b64encode(s, altchars=None)" in output
     assert "$ py b64encode s [altchars]" in output
@@ -1257,13 +1366,15 @@ def test_function_source_autoimport_1():
     "??base64.b64encode"
 ])
 def test_function_source_variants_1(cmdline):
-    output = py(cmdline.split())
+    output, retcode = py(cmdline.split())
+    assert retcode == 0
     assert "s [altchars]" in output
     assert "binascii.b2a_base64" in output
 
 
 def test_module_help_1():
-    output = py("base64?")
+    output, retcode = py("base64?")
+    assert retcode == 0
     assert "RFC 3548" in output
     assert "import binascii" not in output
 
@@ -1288,13 +1399,15 @@ def test_module_help_1():
     "?base64",
 ])
 def test_module_help_variants_1(args):
-    output = py(args.split())
+    output, retcode = py(args.split())
+    assert retcode == 0
     assert "RFC 3548" in output, output
     assert "import binascii" not in output
 
 
 def test_module_source_1():
-    output = py("base64??")
+    output, retcode = py("base64??")
+    assert retcode == 0
     assert "RFC 3548" in output
     assert "import binascii" in output
 
@@ -1322,7 +1435,8 @@ def test_module_no_help_1():
     "??base64",
 ])
 def test_module_source_variants_1(args):
-    output = py(args.split())
+    output, retcode = py(args.split())
+    assert retcode == 0
     assert "RFC 3548" in output
     assert "import binascii" in output
 
@@ -1346,8 +1460,10 @@ def test_module_source_variants_1(args):
     "-h 3",
 ])
 def test_function_arg_help_1(args):
-    result = py('lambda help: help*4', *(args.split()))
-    expected = dedent("""
+    result, retcode = py("lambda help: help*4", *(args.split()))
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] lambda help: help*4
         [PYFLYBY] (lambda help: help*4)(3)
         12
@@ -1374,8 +1490,10 @@ def test_function_arg_help_1(args):
     "-h 3",
 ])
 def test_function_arg_hello_1(args):
-    result = py('lambda hello: hello*7', *(args.split()))
-    expected = dedent("""
+    result, retcode = py("lambda hello: hello*7", *(args.split()))
+    assert retcode == 0
+    expected = dedent(
+        """
         [PYFLYBY] lambda hello: hello*7
         [PYFLYBY] (lambda hello: hello*7)(3)
         21
@@ -1384,7 +1502,8 @@ def test_function_arg_hello_1(args):
 
 
 def test_function_arg_help_qmark_1():
-    output = py('lambda help: help*4', '-?')
+    output, retcode = py("lambda help: help*4", "-?")
+    assert retcode == 0
     assert "$ py 'lambda help: help*4' help" in output
 
 
@@ -1401,7 +1520,8 @@ def test_function_arg_help_h_1():
 
 
 def test_object_method_help_1():
-    output = py('email.message.Message().get', '--help')
+    output, retcode = py("email.message.Message().get", "--help")
+    assert retcode == 0
     assert "$ py 'email.message.Message().get' name [failobj]" in output
     assert "Get a header value." in output
 
@@ -1426,13 +1546,15 @@ def test_object_method_help_1():
     "?email.message.Message().get",
 ])
 def test_object_method_help_variants_1(args):
-    output = py(args.split())
+    output, retcode = py(args.split())
+    assert retcode == 0
     assert "$ py 'email.message.Message().get' name [failobj]" in output
     assert "Get a header value." in output
 
 
 def test_object_method_source_1():
-    output = py('email.message.Message().get', '--source')
+    output, retcode = py('email.message.Message().get', '--source')
+    assert retcode == 0
     assert "$ py 'email.message.Message().get' name [failobj]" in output
     assert "Get a header value." in output
     assert "name.lower()" in output
@@ -1454,14 +1576,16 @@ def test_object_method_source_1():
     "??email.message.Message().get",
 ])
 def test_object_method_source_variants1(args):
-    output = py(args.split())
+    output, retcode = py(args.split())
+    assert retcode == 0
     assert "$ py 'email.message.Message().get' name [failobj]" in output
     assert "Get a header value." in output
     assert "name.lower()" in output
 
 
 def test_arg_nodashdash_1():
-    result = py('print', '42.0000', 'sys')
+    result, retcode = py('print', '42.0000', 'sys')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>)
@@ -1471,7 +1595,8 @@ def test_arg_nodashdash_1():
 
 
 def test_arg_dashdash_1():
-    result = py('print', '--', '42.0000', 'sys')
+    result, retcode = py('print', '--', '42.0000', 'sys')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('42.0000', 'sys')
     42.0000 sys
@@ -1480,7 +1605,8 @@ def test_arg_dashdash_1():
 
 
 def test_arg_dashdash_2():
-    result = py('print', '42.0000', '--', 'sys')
+    result, retcode = py('print', '42.0000', '--', 'sys')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(42.0, 'sys')
     42.0 sys
@@ -1489,7 +1615,8 @@ def test_arg_dashdash_2():
 
 
 def test_arg_dashdash_3():
-    result = py('print', '42.0000', 'sys', '--')
+    result, retcode = py('print', '42.0000', 'sys', '--')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>)
@@ -1499,7 +1626,8 @@ def test_arg_dashdash_3():
 
 
 def test_arg_dashdash_4():
-    result = py('print', '42.0000', 'sys', '--', '--')
+    result, retcode = py('print', '42.0000', 'sys', '--', '--')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(42.0, <module 'sys' (built-in)>, '--')
@@ -1509,7 +1637,8 @@ def test_arg_dashdash_4():
 
 
 def test_arg_dashdash_help_1():
-    result = py('print', '--', '--help')
+    result, retcode = py('print', '--', '--help')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('--help')
         --help
@@ -1518,7 +1647,8 @@ def test_arg_dashdash_help_1():
 
 
 def test_arg_dashdash_dashdash_1():
-    result = py('print', '--', '--', '42.000')
+    result, retcode = py('print', '--', '--', '42.000')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('--', '42.000')
         -- 42.000
@@ -1527,7 +1657,8 @@ def test_arg_dashdash_dashdash_1():
 
 
 def test_kwargs_no_dashdash_1():
-    result = py("lambda *a,**k: (a,k)", "3.500", "--foo", "7.500")
+    result, retcode = py("lambda *a,**k: (a,k)", "3.500", "--foo", "7.500")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] lambda *a,**k: (a,k)
         [PYFLYBY] (lambda *a,**k: (a,k))(3.5, foo=7.5)
@@ -1537,7 +1668,8 @@ def test_kwargs_no_dashdash_1():
 
 
 def test_kwargs_dashdash_1():
-    result = py("lambda *a,**k: (a,k)", "--", "3.500", "--foo", "7.500")
+    result, retcode = py("lambda *a,**k: (a,k)", "--", "3.500", "--foo", "7.500")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] lambda *a,**k: (a,k)
         [PYFLYBY] (lambda *a,**k: (a,k))('3.500', '--foo', '7.500')
@@ -1547,7 +1679,8 @@ def test_kwargs_dashdash_1():
 
 
 def test_joinstr_1():
-    result = py("3", "+", "5")
+    result, retcode = py("3", "+", "5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] 3 + 5
         8
@@ -1556,7 +1689,8 @@ def test_joinstr_1():
 
 
 def test_print_joinstr_1():
-    result = py("print", "3", "+", "5")
+    result, retcode = py("print", "3", "+", "5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(3, '+', 5)
         3 + 5
@@ -1564,7 +1698,8 @@ def test_print_joinstr_1():
     assert result == expected
 
 def test_print_joinstr_2():
-    result = py("print", "3 + 5")
+    result, retcode = py("print", "3 + 5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print(8)
         8
@@ -1573,7 +1708,8 @@ def test_print_joinstr_2():
 
 
 def test_join_single_arg_1():
-    result = py("print", "sys")
+    result, retcode = py("print", "sys")
+    assert retcode == 0
     # In autocall mode, the arguments are evaluated and the repr() is
     # printed for the [PYFLYBY] line
     expected = dedent("""
@@ -1589,7 +1725,8 @@ def test_join_single_arg_fallback_1():
     # Verify that when heuristically joining, we fall back to heuristic apply.
     # Even though "print foo" is parsable as a joined string, if ``foo`` is not
     # importable, then fallback to "print('foo')".
-    result = py("print", "ardmore23653526")
+    result, retcode = py("print", "ardmore23653526")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('ardmore23653526')
         ardmore23653526
@@ -1598,13 +1735,15 @@ def test_join_single_arg_fallback_1():
 
 
 def test_no_ipython_for_eval_1():
-    result = py("-q", "'os' in sys.modules, 'IPython' in sys.modules")
+    result, retcode = py("-q", "'os' in sys.modules, 'IPython' in sys.modules")
+    assert retcode == 0
     expected = "(True, False)"
     assert result == expected
 
 
 def test_outputmode_interactive_pprint_1():
-    result = py('dict(zip("abcdefghij","ABCDEFGHIJ"))')
+    result, retcode = py('dict(zip("abcdefghij","ABCDEFGHIJ"))')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
         {'a': 'A',
@@ -1622,7 +1761,8 @@ def test_outputmode_interactive_pprint_1():
 
 
 def test_outputmode_interactive_pprint_str_1():
-    result = py('--output=interactive', '"Grove"')
+    result, retcode = py('--output=interactive', '"Grove"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Grove"
         'Grove'
@@ -1631,7 +1771,8 @@ def test_outputmode_interactive_pprint_str_1():
 
 
 def test_outputmode_interactive_none_1():
-    result = py('--output=interactive', 'None')
+    result, retcode = py('--output=interactive', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
@@ -1652,13 +1793,15 @@ def test_outputmode_interactive_none_1():
     "--o i",
 ])
 def test_outputmode_interactive_variants_1(args):
-    result = py((args + ' "Perry"').split())
+    result, retcode = py((args + ' "Perry"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Perry"
         'Perry'
     """).strip()
     assert result == expected
-    result = py((args + " None").split())
+    result, retcode = py((args + " None").split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
@@ -1666,7 +1809,8 @@ def test_outputmode_interactive_variants_1(args):
 
 
 def test_outputmode_str_1():
-    result = py('--output=str', '"Morton"')
+    result, retcode = py('--output=str', '"Morton"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Morton"
         Morton
@@ -1675,7 +1819,8 @@ def test_outputmode_str_1():
 
 
 def test_outputmode_str_date_1():
-    result = py('--output=str', 'datetime.date(2014,7,18)')
+    result, retcode = py('--output=str', 'datetime.date(2014,7,18)')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import datetime
         [PYFLYBY] datetime.date(2014,7,18)
@@ -1685,7 +1830,8 @@ def test_outputmode_str_date_1():
 
 
 def test_outputmode_str_none_1():
-    result = py('--output=str', 'None')
+    result, retcode = py('--output=str', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
         None
@@ -1694,7 +1840,8 @@ def test_outputmode_str_none_1():
 
 
 def test_outputmode_str_str_none_1():
-    result = py('--output=str', '"None"')
+    result, retcode = py('--output=str', '"None"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "None"
         None
@@ -1711,7 +1858,8 @@ def test_outputmode_str_str_none_1():
     "-print",
 ])
 def test_outputmode_str_variants_1(args):
-    result = py((args + ' "Greene"').split())
+    result, retcode = py((args + ' "Greene"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Greene"
         Greene
@@ -1720,7 +1868,8 @@ def test_outputmode_str_variants_1(args):
 
 
 def test_outputmode_silent_1():
-    result = py('--output=silent', '"Bethune"')
+    result, retcode = py('--output=silent', '"Bethune"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Bethune"
     """).strip()
@@ -1728,7 +1877,8 @@ def test_outputmode_silent_1():
 
 
 def test_outputmode_silent_outputonly_1():
-    result = py('--output=silent', 'sys.stdout.write("Gansevoort"), 78844525')
+    result, retcode = py('--output=silent', 'sys.stdout.write("Gansevoort"), 78844525')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write("Gansevoort"), 78844525
@@ -1746,13 +1896,15 @@ def test_outputmode_silent_outputonly_1():
     "-silent",
 ])
 def test_outputmode_silent_variants_1(args):
-    result = py((args + ' "Clarkson"').split())
+    result, retcode = py((args + ' "Clarkson"').split())
+    assert retcode == 0
     expected = '[PYFLYBY] "Clarkson"'
     assert result == expected
 
 
 def test_outputmode_repr_str_1():
-    result = py('--output=repr', '"Moore"')
+    result, retcode = py('--output=repr', '"Moore"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Moore"
         'Moore'
@@ -1761,7 +1913,8 @@ def test_outputmode_repr_str_1():
 
 
 def test_outputmode_repr_date_1():
-    result = py('--output=repr', 'datetime.date(2014,7,18)')
+    result, retcode = py('--output=repr', 'datetime.date(2014,7,18)')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import datetime
         [PYFLYBY] datetime.date(2014,7,18)
@@ -1771,7 +1924,8 @@ def test_outputmode_repr_date_1():
 
 
 def test_outputmode_repr_none_1():
-    result = py('--output=repr', 'None')
+    result, retcode = py('--output=repr', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
         None
@@ -1780,7 +1934,8 @@ def test_outputmode_repr_none_1():
 
 
 def test_outputmode_repr_str_none_1():
-    result = py('--output=repr', '"None"')
+    result, retcode = py('--output=repr', '"None"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "None"
         'None'
@@ -1797,13 +1952,15 @@ def test_outputmode_repr_str_none_1():
     "-repr",
 ])
 def test_outputmode_repr_variants_1(args):
-    result = py((args + ' "Norfolk"').split())
+    result, retcode = py((args + ' "Norfolk"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Norfolk"
         'Norfolk'
     """).strip()
     assert result == expected
-    result = py((args + ' None').split())
+    result, retcode = py((args + ' None').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
         None
@@ -1812,7 +1969,8 @@ def test_outputmode_repr_variants_1(args):
 
 
 def test_outputmode_reprifnotnone_date_1():
-    result = py('--output=repr-if-not-none', 'datetime.date(2014,7,18)')
+    result, retcode = py('--output=repr-if-not-none', 'datetime.date(2014,7,18)')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import datetime
         [PYFLYBY] datetime.date(2014,7,18)
@@ -1822,7 +1980,8 @@ def test_outputmode_reprifnotnone_date_1():
 
 
 def test_outputmode_reprifnotnone_none_1():
-    result = py('--output=repr-if-not-none', 'None')
+    result, retcode = py('--output=repr-if-not-none', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
@@ -1836,13 +1995,15 @@ def test_outputmode_reprifnotnone_none_1():
     "-o rn",
 ])
 def test_outputmode_reprifnotnone_variants_1(args):
-    result = py((args + ' "Suffolk"').split())
+    result, retcode = py((args + ' "Suffolk"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Suffolk"
         'Suffolk'
     """).strip()
     assert result == expected
-    result = py((args + ' None').split())
+    result, retcode = py((args + ' None').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
@@ -1850,7 +2011,8 @@ def test_outputmode_reprifnotnone_variants_1(args):
 
 
 def test_outputmode_pprint_1():
-    result = py('--output=pprint', 'dict(zip("abcdefghij","ABCDEFGHIJ"))')
+    result, retcode = py('--output=pprint', 'dict(zip("abcdefghij","ABCDEFGHIJ"))')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
         {'a': 'A',
@@ -1868,7 +2030,8 @@ def test_outputmode_pprint_1():
 
 
 def test_outputmode_pprint_str_1():
-    result = py('--output=pprint', '"Willett"')
+    result, retcode = py('--output=pprint', '"Willett"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Willett"
         'Willett'
@@ -1877,7 +2040,8 @@ def test_outputmode_pprint_str_1():
 
 
 def test_outputmode_pprint_none_1():
-    result = py('--output=pprint', 'None')
+    result, retcode = py('--output=pprint', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
         None
@@ -1894,19 +2058,22 @@ def test_outputmode_pprint_none_1():
     "-pprint",
 ])
 def test_outputmode_pprint_variants_1(args):
-    result = py((args + ' "Delancey"').split())
+    result, retcode = py((args + ' "Delancey"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Delancey"
         'Delancey'
     """).strip()
     assert result == expected
-    result = py((args + ' None').split())
+    result, retcode = py((args + ' None').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
         None
     """).strip()
     assert result == expected
-    result = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
+    result, retcode = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
         {'a': 'A',
@@ -1924,7 +2091,8 @@ def test_outputmode_pprint_variants_1(args):
 
 
 def test_outputmode_pprintifnotnone_1():
-    result = py('--output=pprint-if-not-none', '"Baruch"')
+    result, retcode = py('--output=pprint-if-not-none', '"Baruch"')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Baruch"
         'Baruch'
@@ -1933,12 +2101,14 @@ def test_outputmode_pprintifnotnone_1():
 
 
 def test_outputmode_pprintifnotnone_none_1():
-    result = py('--output=pprint-if-not-none', 'None')
+    result, retcode = py('--output=pprint-if-not-none', 'None')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
     assert result == expected
-    result = py('--quiet', '--output=pprint-if-not-none', 'None')
+    result, retcode = py('--quiet', '--output=pprint-if-not-none', 'None')
+    assert retcode == 0
     assert "" == result
 
 
@@ -1949,18 +2119,21 @@ def test_outputmode_pprintifnotnone_none_1():
     "-o ppn",
 ])
 def test_outputmode_pprintifnotnone_variants_1(args):
-    result = py((args + ' "Rivington"').split())
+    result, retcode = py((args + ' "Rivington"').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] "Rivington"
         'Rivington'
     """).strip()
     assert result == expected
-    result = py((args + ' None').split())
+    result, retcode = py((args + ' None').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] None
     """).strip()
     assert result == expected
-    result = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
+    result, retcode = py((args + ' dict(zip("abcdefghij","ABCDEFGHIJ"))').split())
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] dict(zip("abcdefghij","ABCDEFGHIJ"))
         {'a': 'A',
@@ -1984,7 +2157,8 @@ def test_outputmode_bad_1():
 
 
 def test_run_module_1():
-    result = py("-m", "base64", "-d", "-", stdin=b"VHJpbml0eQ==")
+    result, retcode = py("-m", "base64", "-d", "-", stdin=b"VHJpbml0eQ==")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Trinity
@@ -2001,7 +2175,8 @@ def test_run_module_1():
     "-mbase64",
 ])
 def test_run_module_variants_1(args):
-    result = py((args + " -d -").split(), stdin=b"VHJvdXRtYW4=")
+    result, retcode = py((args + " -d -").split(), stdin=b"VHJvdXRtYW4=")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Troutman
@@ -2018,8 +2193,9 @@ def test_run_module_argstr_1(tmp):
             import sys
             print("Rector", sys.argv)
     """)
-    result = py("-module12786636", "22524739.000", "math",
+    result, retcode = py("-module12786636", "22524739.000", "math",
                 PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m odule12786636 22524739.000 math
         Rector ['%s/odule12786636.py', '22524739.000', 'math']
@@ -2028,7 +2204,8 @@ def test_run_module_argstr_1(tmp):
 
 
 def test_run_module_under_package_1(tmp):
-    result = py("encodings.rot_13", stdin=b"Tenavgr")
+    result, retcode = py("encodings.rot_13", stdin=b"Tenavgr")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import encodings
         [PYFLYBY] python -m encodings.rot_13
@@ -2038,7 +2215,8 @@ def test_run_module_under_package_1(tmp):
 
 
 def test_heuristic_run_module_1():
-    result = py("base64", "-d", "-", stdin=b"U2VuZWNh")
+    result, retcode = py("base64", "-d", "-", stdin=b"U2VuZWNh")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m base64 -d -
         Seneca
@@ -2047,7 +2225,8 @@ def test_heuristic_run_module_1():
 
 
 def test_heuristic_run_module_under_package_1(tmp):
-    result = py("encodings.rot_13", stdin=b"Qrpxre")
+    result, retcode = py("encodings.rot_13", stdin=b"Qrpxre")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import encodings
         [PYFLYBY] python -m encodings.rot_13
@@ -2071,7 +2250,8 @@ def test_heuristic_run_module_under_package_2(tmp):
         from __future__ import print_function
         print('Huron', __name__)
     """)
-    result = py("bard22402805.douglas.thames", PYTHONPATH=tmp.dir)
+    result, retcode = py("bard22402805.douglas.thames", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import bard22402805
         Davis bard22402805
@@ -2126,8 +2306,9 @@ def test_heuristic_run_module_argstr_1(tmp):
             import sys
             print("Belmont", sys.argv)
     """)
-    result = py("gantry20720070", "26792622.000", "math",
+    result, retcode = py("gantry20720070", "26792622.000", "math",
                 PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m gantry20720070 26792622.000 math
         Belmont ['%s/gantry20720070.py', '26792622.000', 'math']
@@ -2140,7 +2321,8 @@ def test_builtin_no_run_module_1(tmp):
     writetext(tmp.dir/"round.py", """
         print('bad morrison56321353')
     """)
-    result = py("round", "17534159.5", PYTHONPATH=tmp.dir)
+    result, retcode = py("round", "17534159.5", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] round(17534159.5)
         17534160
@@ -2155,7 +2337,8 @@ def test_run_module_no_superfluous_import_1(tmp):
         from __future__ import print_function
         print('Oakwood', __name__)
     """)
-    result = py("-m", "delafield47227231", PYTHONPATH=tmp.dir)
+    result, retcode = py("-m", "delafield47227231", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m delafield47227231
         Oakwood __main__
@@ -2170,7 +2353,8 @@ def test_heuristic_run_module_no_superfluous_import_1(tmp):
         from __future__ import print_function
         print('Bement', __name__)
     """)
-    result = py("pelton58495419", PYTHONPATH=tmp.dir)
+    result, retcode = py("pelton58495419", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m pelton58495419
         Bement __main__
@@ -2185,7 +2369,8 @@ def test_unsafe_pyflyby_path_1(tmp):
     writetext(tmp.dir/"p", """
         from f62242229 import Walton
     """)
-    result = py("Walton", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir/"p")
+    result, retcode = py("Walton", PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.dir/"p")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] from f62242229 import Walton
         [PYFLYBY] Walton
@@ -2211,7 +2396,8 @@ def test_safe_fully_qualified_module_1(tmp):
     writetext(tmp.dir/"f47762194.py", """
         Montefiore = 85883909
     """)
-    result = py("--safe", "f47762194.Montefiore", PYTHONPATH=tmp.dir)
+    result, retcode = py("--safe", "f47762194.Montefiore", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import f47762194
         [PYFLYBY] f47762194.Montefiore
@@ -2221,7 +2407,8 @@ def test_safe_fully_qualified_module_1(tmp):
 
 
 def test_unsafe_args_1():
-    result = py("type", "sys")
+    result, retcode = py("type", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] type(<module 'sys' (built-in)>)
@@ -2231,7 +2418,8 @@ def test_unsafe_args_1():
 
 
 def test_safe_args_1():
-    result = py("--safe", "type", "sys")
+    result, retcode = py("--safe", "type", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] type('sys')
         <class 'str'>
@@ -2240,7 +2428,8 @@ def test_safe_args_1():
 
 
 def test_argmode_string_dashdash_1():
-    result = py("--args=string", "print", "Beekman/", "--", "Spruce/", "--")
+    result, retcode = py("--args=string", "print", "Beekman/", "--", "Spruce/", "--")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Beekman/', 'Spruce/', '--')
         Beekman/ Spruce/ --
@@ -2249,7 +2438,8 @@ def test_argmode_string_dashdash_1():
 
 
 def test_safe_dashdash_1():
-    result = py("--safe", "print", "Oliver/", "--", "Catherine/", "--")
+    result, retcode = py("--safe", "print", "Oliver/", "--", "Catherine/", "--")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Oliver/', 'Catherine/', '--')
         Oliver/ Catherine/ --
@@ -2258,7 +2448,8 @@ def test_safe_dashdash_1():
 
 
 def test_safe_no_concat_1():
-    result = py("--safe", "print", "sys")
+    result, retcode = py("--safe", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('sys')
         sys
@@ -2267,7 +2458,8 @@ def test_safe_no_concat_1():
 
 
 def test_argmode_str_no_concat_1():
-    result = py("--args=str", "print", "sys")
+    result, retcode = py("--args=str", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('sys')
         sys
@@ -2276,7 +2468,8 @@ def test_argmode_str_no_concat_1():
 
 
 def test_argmode_eval_no_concat_1():
-    result = py("--args=eval", "print", "sys")
+    result, retcode = py("--args=eval", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(<module 'sys' (built-in)>)
@@ -2286,7 +2479,8 @@ def test_argmode_eval_no_concat_1():
 
 
 def test_argmode_auto_no_concat_1():
-    result = py("--args=auto", "print", "sys")
+    result, retcode = py("--args=auto", "print", "sys")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] print(<module 'sys' (built-in)>)
@@ -2296,13 +2490,15 @@ def test_argmode_auto_no_concat_1():
 
 
 def test_exec_stdin_print_statement_1():
-    result = py(stdin=b"print('Carnegie')")
+    result, retcode = py(stdin=b"print('Carnegie')")
+    assert retcode == 0
     expected = "Carnegie"
     assert result == expected
 
 
 def test_exec_stdin_print_function_1():
-    result = py(stdin=b"print('Sinai', file=sys.stdout)")
+    result, retcode = py(stdin=b"print('Sinai', file=sys.stdout)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         Sinai
@@ -2311,12 +2507,14 @@ def test_exec_stdin_print_function_1():
 
 
 def test_exec_stdin_noresult_1():
-    result = py(stdin=b"42")
+    result, retcode = py(stdin=b"42")
+    assert retcode == 0
     assert "" == result
 
 
 def test_argv_stdin_noarg_1():
-    result = py(stdin=b"print(sys.argv)")
+    result, retcode = py(stdin=b"print(sys.argv)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         ['']
@@ -2325,7 +2523,8 @@ def test_argv_stdin_noarg_1():
 
 
 def test_argv_stdin_dash_1():
-    result = py("-", stdin=b"print(sys.argv)")
+    result, retcode = py("-", stdin=b"print(sys.argv)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         ['-']
@@ -2334,7 +2533,8 @@ def test_argv_stdin_dash_1():
 
 
 def test_argv_stdin_dash_args_1():
-    result = py("-", "sys", stdin=b"print(sys.argv)")
+    result, retcode = py("-", "sys", stdin=b"print(sys.argv)")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         ['-', 'sys']
@@ -2343,7 +2543,8 @@ def test_argv_stdin_dash_args_1():
 
 
 def test_map_1():
-    result = py("-q", "--map", "print", "2", "4")
+    result, retcode = py("-q", "--map", "print", "2", "4")
+    assert retcode == 0
     expected = dedent("""
         2
         4
@@ -2352,7 +2553,8 @@ def test_map_1():
 
 
 def test_map_2():
-    result = py("--map", "str.capitalize", "hello", "world")
+    result, retcode = py("--map", "str.capitalize", "hello", "world")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] str.capitalize('hello')
         'Hello'
@@ -2363,7 +2565,8 @@ def test_map_2():
 
 
 def test_map_3():
-    result = py("--map", "float.as_integer_ratio", "2.5", "3.5")
+    result, retcode = py("--map", "float.as_integer_ratio", "2.5", "3.5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] float.as_integer_ratio(2.5)
         (5, 2)
@@ -2374,7 +2577,8 @@ def test_map_3():
 
 
 def test_map_eval_1():
-    result = py("-q", "--map", "print", "1/2", "1/4")
+    result, retcode = py("-q", "--map", "print", "1/2", "1/4")
+    assert retcode == 0
     expected = dedent("""
         0.5
         0.25
@@ -2383,7 +2587,8 @@ def test_map_eval_1():
 
 
 def test_map_stringarg_1():
-    result = py("-q", "--args=str", "--map", "print", "1/2", "1/4")
+    result, retcode = py("-q", "--args=str", "--map", "print", "1/2", "1/4")
+    assert retcode == 0
     expected = dedent("""
         1/2
         1/4
@@ -2392,7 +2597,8 @@ def test_map_stringarg_1():
 
 
 def test_map_safe_1():
-    result = py("-q", "--safe", "--map", "print", "1/2", "1/4")
+    result, retcode = py("-q", "--safe", "--map", "print", "1/2", "1/4")
+    assert retcode == 0
     expected = dedent("""
         1/2
         1/4
@@ -2401,7 +2607,8 @@ def test_map_safe_1():
 
 
 def test_map_safe_dashdash_1():
-    result = py("-q", "--safe", "--map", "print", "--", "--", "1/2", "--")
+    result, retcode = py("-q", "--safe", "--map", "print", "--", "--", "1/2", "--")
+    assert retcode == 0
     expected = dedent("""
         --
         1/2
@@ -2411,7 +2618,8 @@ def test_map_safe_dashdash_1():
 
 
 def test_map_dashdash_1():
-    result = py("-q", "--map", "print", "--", "1/2", "1/4")
+    result, retcode = py("-q", "--map", "print", "--", "1/2", "1/4")
+    assert retcode == 0
     expected = dedent("""
         1/2
         1/4
@@ -2420,7 +2628,8 @@ def test_map_dashdash_1():
 
 
 def test_map_dashdash_dashdash_1():
-    result = py("-q", "--map", "print", "--", "--", "1/2", "--", "1/4")
+    result, retcode = py("-q", "--map", "print", "--", "--", "1/2", "--", "1/4")
+    assert retcode == 0
     expected = dedent("""
         --
         1/2
@@ -2431,7 +2640,8 @@ def test_map_dashdash_dashdash_1():
 
 
 def test_map_lambda_1():
-    result = py("--map", "lambda x: x**2", "1", "2", "3", "4", "5")
+    result, retcode = py("--map", "lambda x: x**2", "1", "2", "3", "4", "5")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] (lambda x: x**2)(1)
         1
@@ -2448,12 +2658,14 @@ def test_map_lambda_1():
 
 
 def test_map_empty_1():
-    result = py("-q", "--map", "print")
+    result, retcode = py("-q", "--map", "print")
+    assert retcode == 0
     assert "" == result
 
 
 def test_map_dashdash_empty_1():
-    result = py("-q", "--map", "print", "--")
+    result, retcode = py("-q", "--map", "print", "--")
+    assert retcode == 0
     assert "" == result
 
 
@@ -2464,8 +2676,9 @@ def test_map_missing_function_1():
 
 
 def test_output_exit_1():
-    result = py("--output=exit", "5+7")
-    expected = ("[PYFLYBY] 5+7", 12)
+    result, retcode = py("--output=exit", "5+7")
+    assert retcode == 12
+    expected = "[PYFLYBY] 5+7"
     assert result == expected
 
 
@@ -2477,13 +2690,15 @@ def test_output_exit_1():
     "--output=raise 3+8+1",
 ])
 def test_output_exit_variants_1(args):
-    result = py(("-q " + args).split())
-    expected = ("", 12)
+    result, retcode = py(("-q " + args).split())
+    assert retcode == 12
+    expected = ""
     assert result == expected
 
 
 def test_info_function_simple_1():
-    result = py('--output=silent', 'sys.stdout.write', 'Franklin')
+    result, retcode = py('--output=silent', 'sys.stdout.write', 'Franklin')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Franklin')
@@ -2493,7 +2708,8 @@ def test_info_function_simple_1():
 
 
 def test_info_function_lambda_1():
-    result = py('--output=silent', '(lambda: sys.stdout.write)()', 'Chambers')
+    result, retcode = py('--output=silent', '(lambda: sys.stdout.write)()', 'Chambers')
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] (lambda: sys.stdout.write)()
@@ -2504,7 +2720,8 @@ def test_info_function_lambda_1():
 
 
 def test_name_eval_1():
-    result = py("-c", "__name__")
+    result, retcode = py("-c", "__name__")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] __name__
         '__main__'
@@ -2513,7 +2730,8 @@ def test_name_eval_1():
 
 
 def test_name_heuristic_eval_1():
-    result = py("__name__")
+    result, retcode = py("__name__")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] __name__
         '__main__'
@@ -2522,7 +2740,8 @@ def test_name_heuristic_eval_1():
 
 
 def test_name_heuristic_apply_eval_1():
-    result = py("--output=silent", "sys.stdout.write", "__name__")
+    result, retcode = py("--output=silent", "sys.stdout.write", "__name__")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('__main__')
@@ -2532,7 +2751,8 @@ def test_name_heuristic_apply_eval_1():
 
 
 def test_name_heuristic_join_eval_1():
-    result = py("print", "'Castle'", ",", "__name__")
+    result, retcode = py("print", "'Castle'", ",", "__name__")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] print('Castle', ',', '__main__')
         Castle , __main__
@@ -2541,7 +2761,8 @@ def test_name_heuristic_join_eval_1():
 
 
 def test_name_stdin_1():
-    result = py(stdin=b"print(('Winter', __name__))")
+    result, retcode = py(stdin=b"print(('Winter', __name__))")
+    assert retcode == 0
     expected = dedent("""
         ('Winter', '__main__')
     """).strip()
@@ -2549,7 +2770,8 @@ def test_name_stdin_1():
 
 
 def test_name_dash_stdin_1():
-    result = py("-", stdin=b"print(('Victory', __name__))")
+    result, retcode = py("-", stdin=b"print(('Victory', __name__))")
+    assert retcode == 0
     expected = dedent("""
         ('Victory', '__main__')
     """).strip()
@@ -2560,7 +2782,8 @@ def test_name_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('from __future__ import print_function\nprint("Forest", __name__)\n')
         f.flush()
-        result = py("--file", f.name)
+        result, retcode = py("--file", f.name)
+        assert retcode == 0
     expected = dedent("""
         Forest __main__
     """).strip()
@@ -2571,7 +2794,8 @@ def test_name_heuristic_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('from __future__ import print_function\nprint("Oakland", __name__)\n')
         f.flush()
-        result = py(f.name)
+        result, retcode = py(f.name)
+        assert retcode == 0
     expected = dedent("""
         Oakland __main__
     """).strip()
@@ -2585,7 +2809,8 @@ def test_name_module_1(tmp):
         from __future__ import print_function
         print('Lafayette', __name__)
     """)
-    result = py("-m", "swan80274886", PYTHONPATH=tmp.dir)
+    result, retcode = py("-m", "swan80274886", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m swan80274886
         Lafayette __main__
@@ -2600,7 +2825,8 @@ def test_name_heuristic_module_1(tmp):
         from __future__ import print_function
         print('Hendricks', __name__)
     """)
-    result = py("arnold17339681", PYTHONPATH=tmp.dir)
+    result, retcode = py("arnold17339681", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m arnold17339681
         Hendricks __main__
@@ -2637,7 +2863,8 @@ def test_single_char_arg0_1(tmp, m):
         import sys
         print('Hayward', sys.argv[1])
     """)
-    result = py(m, "42", PYTHONPATH=tmp.dir)
+    result, retcode = py(m, "42", PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] python -m %s 42
         Hayward 42
@@ -2646,7 +2873,8 @@ def test_single_char_arg0_1(tmp, m):
 
 
 def test_auto_arg_goodname_1():
-    result = py("--output=silent", "sys.stdout.write", "os.path.sep")
+    result, retcode = py("--output=silent", "sys.stdout.write", "os.path.sep")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] import os.path
@@ -2657,7 +2885,8 @@ def test_auto_arg_goodname_1():
 
 
 def test_auto_arg_badname_1():
-    result = py("--output=silent", "sys.stdout.write", "Burnside55731946.Valentine")
+    result, retcode = py("--output=silent", "sys.stdout.write", "Burnside55731946.Valentine")
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.stdout.write('Burnside55731946.Valentine')
@@ -2674,8 +2903,9 @@ def test_auto_arg_goodname_property_1(tmp):
                 return 'arden'
         creston = Creston()
     """)
-    result = py("--output=silent", "sys.stdout.write", "quarry47946518.creston.sedgwick",
+    result, retcode = py("--output=silent", "sys.stdout.write", "quarry47946518.creston.sedgwick",
                 PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] import quarry47946518
@@ -2748,8 +2978,9 @@ def test_function_defaults_1(tmp):
         def meserole(a, b, c=X(), d="77610270.000", e=None, f=X()):
             print(a, b, c, d, e, f)
     """)
-    result = py("dobbin69118865.meserole", "java", "'kent'", "--e=paidge",
+    result, retcode = py("dobbin69118865.meserole", "java", "'kent'", "--e=paidge",
                 PYTHONPATH=tmp.dir)
+    assert retcode == 0
     expected = dedent("""
         [PYFLYBY] import dobbin69118865
         [PYFLYBY] dobbin69118865.meserole('java', 'kent', c=<X 1>, d='77610270.000', e='paidge', f=<X 2>)
@@ -2773,7 +3004,8 @@ def test_virtualenv_recognized(tmpdir, monkeypatch):
         monkeypatch.delenv("VIRTUAL_ENV")
         monkeypatch.setenv("PATH", new_path)
 
-    no_venv_stdout = py('print(sys.path)')
+    no_venv_stdout, retcode = py('print(sys.path)')
+    assert retcode == 0
     no_venv_sys_path = ast.literal_eval(no_venv_stdout.split('\n')[-1])
 
     env_dir = os.path.join(tmpdir, "venv")
@@ -2784,7 +3016,8 @@ def test_virtualenv_recognized(tmpdir, monkeypatch):
     monkeypatch.setenv("VIRTUAL_ENV", env_dir)
     monkeypatch.setenv("PATH", env_bin + os.pathsep + os.environ["PATH"])
 
-    venv_stdout = py('print(sys.path)')
+    venv_stdout, retcode = py('print(sys.path)')
+    assert retcode == 0
     venv_sys_path = ast.literal_eval(venv_stdout.split('\n')[-1])
 
     # Check that the appropriate warning is in place when using the venv,
@@ -2837,7 +3070,8 @@ def test_beartype_with_forward_reference_1(tmp):
         # this may appear in traceback, so we obfuscate it
         print(base64.b64decode(b'YmVhcnR5cGVvaw=='))
     """)
-    result = py(str(file))
+    result, retcode = py(str(file))
+    assert retcode == 0
     # The test should succeed and print "OK" without raising errors
     # about __main__ module not being properly set up
     assert "Forward reference" not in result
