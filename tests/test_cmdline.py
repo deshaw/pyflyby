@@ -525,6 +525,8 @@ def test_tidy_imports_query_junk_1():
 
 
 def test_tidy_imports_symlinks_default():
+    """By default (no --symlinks option), a symlink is skipped with a warning
+    and left untouched."""
     input = dedent('''
         import x
     ''')
@@ -547,7 +549,8 @@ def test_tidy_imports_symlinks_default():
             symlink_output = f2.read()
 
     proc_output = child.logfile.getvalue()
-    assert b"Error: %s appears to be a symlink" % symlink_name.encode("utf-8") in proc_output
+    assert b"Skipping symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert b"Error" not in proc_output
     assert output == input
     assert symlink_output == input
 
@@ -606,6 +609,59 @@ def test_tidy_imports_symlinks_follow():
     assert 'import x' not in output
     assert 'import x' not in symlink_output
 
+def test_tidy_imports_symlinks_replace_action_default_warn():
+    """``tidy-imports -r`` on a symlink must skip it with a warning by default
+    (regression: action options used to drop the default --symlinks protection,
+    and --replace then replaced the symlink with a regular file)."""
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        try:
+            proc_output = pipe([BIN_DIR+'/tidy-imports', '-r', symlink_name])
+            assert os.path.islink(symlink_name)
+            with open(f.name) as f2:
+                output = f2.read()
+        finally:
+            os.unlink(symlink_name)
+    assert "Skipping symlink %s" % symlink_name in proc_output
+    assert output == input
+
+
+@pytest.mark.parametrize("args", [
+    ['--symlinks=follow', '-r'],
+    ['-r', '--symlinks=follow'],
+])
+def test_tidy_imports_symlinks_follow_replace_action(args):
+    """``--symlinks=follow`` must be honored together with ``-r`` regardless
+    of option order (regression: a later action option used to wipe the
+    symlink action, and --symlinks=follow before -r was silently ignored)."""
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        try:
+            proc_output = pipe(
+                [BIN_DIR+'/tidy-imports'] + args + [symlink_name])
+            assert os.path.islink(symlink_name)
+            with open(f.name) as f2:
+                output = f2.read()
+        finally:
+            os.unlink(symlink_name)
+    assert "Following symlink %s" % symlink_name in proc_output
+    assert 'import x' not in output
+
+
 def test_tidy_imports_symlinks_skip():
     input = dedent('''
         import x
@@ -617,6 +673,37 @@ def test_tidy_imports_symlinks_skip():
         symlink_name = os.path.join(head, 'symlink-' + tail)
         os.symlink(f.name, symlink_name)
         child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=skip',
+                                                        symlink_name], timeout=5.0)
+        child.logfile = BytesIO()
+        # child.expect_exact(" [y/N]")
+        # child.send("n\n")
+        child.expect(pexpect.EOF)
+        assert not os.path.islink(f.name)
+        assert os.path.islink(symlink_name)
+        with open(f.name) as f2:
+            output = f2.read()
+        with open(symlink_name) as f2:
+            symlink_output = f2.read()
+
+    proc_output = child.logfile.getvalue()
+    assert b"Skipping symlink %s" % symlink_name.encode("utf-8") in proc_output
+    assert output == input
+    assert symlink_output == input
+
+
+def test_tidy_imports_symlinks_warn():
+    """``--symlinks=warn`` (the default) skips the symlink with a warning and
+    leaves both the symlink and its target untouched."""
+    input = dedent('''
+        import x
+    ''')
+    with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
+        f.write(input)
+        f.flush()
+        head, tail = os.path.split(f.name)
+        symlink_name = os.path.join(head, 'symlink-' + tail)
+        os.symlink(f.name, symlink_name)
+        child = pexpect.spawn(python, [BIN_DIR+'/tidy-imports', '--symlinks=warn',
                                                         symlink_name], timeout=5.0)
         child.logfile = BytesIO()
         # child.expect_exact(" [y/N]")
