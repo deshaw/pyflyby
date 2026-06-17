@@ -61,6 +61,42 @@ def parse_args(addopts=None, import_format_params=False, modify_action_params=Fa
     # casts (runtime changes), which are out of scope for a type-only pass.
     """
     Do setup for a top-level script and parse arguments.
+
+    Performs common setup for pyflyby command-line tools: installs a SIGPIPE
+    handler, builds an `optparse.OptionParser`, registers the standard options
+    (``--debug``, ``--verbose``, ``--quiet``, ``--version``), optionally adds
+    groups of action and/or pretty-printing options, parses ``sys.argv``, and
+    post-processes the result.
+
+    The ``--uniform``/``--unaligned`` shortcuts and the default ``--symlinks``
+    value are applied after parsing, and (when ``import_format_params`` is set)
+    the import-formatting options are collected into an `ImportFormatParams`
+    instance attached as ``options.params``.
+
+    :type addopts:
+      ``callable`` or ``None``
+    :param addopts:
+      Optional callback invoked as ``addopts(parser)`` to register additional,
+      script-specific options on the parser before arguments are parsed.
+    :type import_format_params:
+      ``bool``
+    :param import_format_params:
+      If true, add the "Pretty-printing options" group (e.g. ``--align-imports``,
+      ``--from-spaces``, ``--width``, ``--black``, ``--hanging-indent``,
+      ``--uniform``, ``--unaligned``) and attach the resulting
+      `ImportFormatParams` as ``options.params``.
+    :type modify_action_params:
+      ``bool``
+    :param modify_action_params:
+      If true, add the "Action options" group (e.g. ``--actions``, ``--print``,
+      ``--diff``, ``--replace``, ``--interactive``) and the ``--symlinks``
+      option, which control what is done with files that would be modified.
+    :rtype:
+      ``tuple`` of (``optparse.Values``, ``list`` of ``str``)
+    :return:
+      A ``(options, args)`` pair, where ``options`` holds the parsed option
+      values and ``args`` is the list of remaining positional arguments
+      (typically filenames).
     """
     ### Setup.
     # Register a SIGPIPE handler.
