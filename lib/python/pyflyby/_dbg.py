@@ -3,8 +3,6 @@
 # License: MIT http://opensource.org/licenses/MIT
 
 
-from __future__ import print_function
-
 import builtins
 from   contextlib               import contextmanager
 import errno
@@ -735,9 +733,6 @@ def _send_email_with_attach_instructions(arg, mailto, originalpid):
     if isinstance(arg, FrameType):
         frame       = arg
         stacktrace = ''.join(traceback.format_stack(frame))
-    elif isinstance(arg, TracebackType):
-        frame = d['tb'].tb_frame
-        stacktrace = ''.join(traceback.format_tb(arg))
     elif isinstance(arg, tuple) and len(arg) == 3 and isinstance(arg[2], TracebackType):
         d.update(
             exctype=arg[0].__name__,
@@ -761,7 +756,7 @@ def _send_email_with_attach_instructions(arg, mailto, originalpid):
         filename_abbrev = _abbrev_filename(d['filename']),
     )
     if tb:
-        d['stacktrace'] = tb and ''.join("    %s\n" % (line,) for line in stacktrace.splitlines())
+        d['stacktrace'] = ''.join("    %s\n" % (line,) for line in stacktrace.splitlines())
     # Construct a template for the email body.
     template = []
     template += [
@@ -1296,7 +1291,7 @@ def remote_print_stack(pid, output=1):
         try:
             output_fn = Filename(output.name)
         except Exception:
-            pass
+            output_fn = None
     elif isinstance(output, int):
         output_fh = None
         output_fn = None
@@ -1327,7 +1322,7 @@ def remote_print_stack(pid, output=1):
     if remote_fn is None or not remote_fn.iswritable:
         if not output_fh or output_fd:
             assert remote_fn is not None
-            raise OSError(errno.EACCESS, "Can't write to %s" % output_fn)
+            raise OSError(errno.EACCES, "Can't write to %s" % output_fn)
         # We can still use the /proc/$pid/fd approach with an unnamed temp
         # file.  If it turns out there are situations where that doesn't work,
         # we can switch to using a NamedTemporaryFile.
