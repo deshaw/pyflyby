@@ -25,6 +25,7 @@ py.install_sources(
     '_py.py',
     '_saveframe.py',
     '_saveframe_reader.py',
+    '_tidy_imports.py',
     '_util.py',
     '_version.py',
     'autoimport.py',
