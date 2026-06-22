@@ -172,19 +172,16 @@ def assert_match(result, expected):
             regexp_parts.append(b".*")
             regexp_parts.append(re.escape(s))
     regexp = b"".join(regexp_parts)
-    if _IPYTHON_VERSION >= (4,):
-        ignore = dedent(r"""
-            (\[ZMQTerminalIPythonApp\] Loading IPython extension: storemagic
-            )?
-        """).strip().encode('utf-8')
-        result = re.sub(ignore, b"", result)
+    ignore = dedent(r"""
+        (\[ZMQTerminalIPythonApp\] Loading IPython extension: storemagic
+        )?
+    """).strip().encode('utf-8')
+    result = re.sub(ignore, b"", result)
 
-        # ignore self exit on readline.
-        result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
+    # ignore self exit on readline.
+    result = re.sub(br"In \[\d+\]: exit\(\)", b"", result)
 
-    if _IPYTHON_VERSION < (1, 0):
-        assert False, "we don't support IPython pre  1.0 anymore"
-        # Ignore the "Compiler time: 0.123 s" which may occasionally appear
+    # Ignore the "Compiler time: 0.123 s" which may occasionally appear
     # depending on runtime.
     regexp = re.sub(re.compile(br"^(1[\\]* loops[\\]*,[\\]* best[\\]* of[\\]* 1[\\]*:[\\]* .*[\\]* per[\\]* loop)($|[$]|[\\]*\n)", re.M),
                     b"\\1(?:\nCompiler (?:time)?: [0-9.]+ s)?\\2", regexp)
@@ -477,49 +474,29 @@ def _init_ipython_dir(ipython_dir: Union[Filename, str]):
     if isinstance(ipython_dir, str):
         ipython_dir = Filename(ipython_dir)
     assert isinstance(ipython_dir, Filename)
-    if _IPYTHON_VERSION >= (0, 11):
-        os.makedirs(str(ipython_dir/"profile_default"))
-        os.makedirs(str(ipython_dir/"profile_default/startup"))
-        if _IPYTHON_VERSION >= (7,):
-            writetext(ipython_dir/"profile_default/ipython_config.py",
-                  dedent("""
-                  c = get_config()
-                  # Prompt-toolkit 2.0 still prints some escape codes for the
-                  # completion display even if there is only one completion.
-                  c.TerminalInteractiveShell.display_completions = "readlinelike"
-                  c.TerminalInteractiveShell.colors = 'NoColor'
-                  # Disable bracket highlighting, which prints escape codes that confuse the decoder.
-                  c.TerminalInteractiveShell.highlight_matching_brackets = False
-                  """))
-            writetext(ipython_dir/"jupyter_console_config.py",
-                  dedent("""
-                  c = get_config()
-                  # Disable bracket highlighting, which prints escape codes that confuse the decoder.
-                  c.ZMQTerminalInteractiveShell.display_completions = "readlinelike"
-                  # Not supported in Jupyter console
-                  # c.ZMQTerminalInteractiveShell.colors = 'NoColor'
-                  # Prompt-toolkit 2.0 still prints some escape codes for the
-                  # completion display even if there is only one completion.
-                  c.ZMQTerminalInteractiveShell.highlight_matching_brackets = False
-                  """))
-        elif _IPYTHON_VERSION >= (5,):
-            writetext(ipython_dir/"profile_default/ipython_config.py",
-                  dedent("""
-                  c = get_config()
-                  c.TerminalInteractiveShell.colors = 'NoColor'
-                  # Prompt-toolkit 2.0 still prints some escape codes for the
-                  # completion display even if there is only one completion.
-                  c.TerminalInteractiveShell.highlight_matching_brackets = False
-                  """))
-        else:
-            writetext(ipython_dir/"profile_default/ipython_config.py",
-                  "c = get_config()\n")
-    elif _IPYTHON_VERSION >= (0, 10):
-        writetext(ipython_dir/"ipythonrc", """
-            readline_parse_and_bind tab: complete
-            readline_parse_and_bind set show-all-if-ambiguous on
-        """)
-        writetext(ipython_dir/"ipy_user_conf.py", "")
+    os.makedirs(str(ipython_dir/"profile_default"))
+    os.makedirs(str(ipython_dir/"profile_default/startup"))
+    writetext(ipython_dir/"profile_default/ipython_config.py",
+          dedent("""
+          c = get_config()
+          # Prompt-toolkit 2.0 still prints some escape codes for the
+          # completion display even if there is only one completion.
+          c.TerminalInteractiveShell.display_completions = "readlinelike"
+          c.TerminalInteractiveShell.colors = 'NoColor'
+          # Disable bracket highlighting, which prints escape codes that confuse the decoder.
+          c.TerminalInteractiveShell.highlight_matching_brackets = False
+          """))
+    writetext(ipython_dir/"jupyter_console_config.py",
+          dedent("""
+          c = get_config()
+          # Disable bracket highlighting, which prints escape codes that confuse the decoder.
+          c.ZMQTerminalInteractiveShell.display_completions = "readlinelike"
+          # Not supported in Jupyter console
+          # c.ZMQTerminalInteractiveShell.colors = 'NoColor'
+          # Prompt-toolkit 2.0 still prints some escape codes for the
+          # completion display even if there is only one completion.
+          c.ZMQTerminalInteractiveShell.highlight_matching_brackets = False
+          """))
 
 
 def _build_ipython_cmd(
@@ -531,7 +508,7 @@ def _build_ipython_cmd(
     python = sys.executable
     assert isinstance(ipython_dir, Filename)
     cmd = [python]
-    if prog == "ipython" and _IPYTHON_VERSION >= (4,) and args and args[0] in ["console", "notebook"]:
+    if prog == "ipython" and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
     if prog == "py":
         cmd += [str(PYFLYBY_BIN / prog)]
@@ -547,62 +524,27 @@ def _build_ipython_cmd(
     cmd += list(args)
     if prog == "python":
         return cmd
-    # Construct IPython arguments based on version.
-    if _IPYTHON_VERSION >= (0, 11):
-        opt = lambda arg: arg
-    elif _IPYTHON_VERSION >= (0, 10):
-        def opt(arg):
-            """
-              >>> opt('--foo-bar=x-y')
-              '-foo_bar=x-y'
-            """
-            m = re.match("--([^=]+?)(=.*)?$", arg)
-            optname = m.group(1)
-            optval  = m.group(2) or ""
-            optname = re.sub("^no-", "no", optname)
-            optname = re.sub("-", "_", optname)
-            optname = re.sub("^ipython_dir$", "ipythondir", optname)
-            return "-%s%s" % (optname, optval)
-    else:
-        raise NotImplementedError("Don't know how to test IPython version %s"
-                                  % (_IPYTHON_VERSION,))
     cmd = ['env', 'IPYTHONDIR=%s' % (ipython_dir,), 'JUPYTER_CONFIG_DIR=%s' % (ipython_dir,), 'INPUTRC=none', 'PROMPT_TOOLKIT_NO_CPR=1'] + cmd
     if app == "terminal" and prog != "py":
-        cmd += [opt("--no-confirm-exit")]
-        cmd += [opt("--no-banner")]
+        cmd += ["--no-confirm-exit"]
+        cmd += ["--no-banner"]
     if app == "console" and prog != "py":
-        cmd += [opt("--no-confirm-exit")]
-        if _IPYTHON_VERSION < (4,):
-            cmd += [opt("--no-banner")]
+        cmd += ["--no-confirm-exit"]
     if app != "notebook" and prog != "py":
-        cmd += [opt("--colors=NoColor")]
-    if frontend == 'prompt_toolkit' and _IPYTHON_VERSION < (7,) or prog == "py":
-        # prompt_toolkit (IPython 5) doesn't support turning off autoindent.  It
-        # has various command-line options which toggle the internal
-        # shell.autoindent flag, but turning that internal flag off doesn't do
-        # anything.  Instead we'll just have to send a ^U at the beginning of
-        # each line to defeat the autoindent. The feature was re-enabled in
-        # IPython 7, so we don't need to worry there.
+        cmd += ["--colors=NoColor"]
+    if prog == "py":
+        # For the `py` frontend we don't pass --InteractiveShell.autoindent;
+        # instead we send a ^U at the beginning of each line to defeat the
+        # autoindent.
         pass
-    elif _IPYTHON_VERSION >= (3,):
-        cmd += ["--InteractiveShell.autoindent=False"]
     else:
-        cmd += [opt("--no-autoindent")]
+        cmd += ["--InteractiveShell.autoindent=False"]
     if autocall:
-        if _IPYTHON_VERSION >= (3,0):
-            cmd += ["--InteractiveShell.autocall=True"]
-        else:
-            cmd += [opt("--autocall=1")]
+        cmd += ["--InteractiveShell.autocall=True"]
     if frontend == 'readline':
-        if _IPYTHON_VERSION < (8, 0):
-            raise ValueError("IPython < 8 is unsupported.")
+        raise ValueError("IPython >= 8 does not support the readline frontend")
     elif frontend == 'prompt_toolkit':
-        if _IPYTHON_VERSION >= (5,):
-            # For IPython >= 5.0, prompt_toolkit is the default option (and
-            # for 5.0-5.3, the only option).
-            pass
-        else:
-            raise ValueError("IPython 4 and earlier only support readline")
+        pass
     else:
         raise ValueError("bad frontend=%r" % (frontend,))
     return cmd
@@ -959,11 +901,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
 
 def _interpret_frontend_arg(frontend):
     if frontend is None:
-        if _IPYTHON_VERSION >= (5,0):
-            frontend = "prompt_toolkit"
-        else:
-            # IPython 4 and earlier only support readline.
-            frontend = "readline"
+        frontend = "prompt_toolkit"
     if frontend not in ["readline", "prompt_toolkit"]:
         raise ValueError("bad frontend=%r" % (frontend,))
     return frontend
@@ -977,7 +915,7 @@ def ipython(template, *, args=(), kernel=None, **kwargs):
     __tracebackhide__ = True
     template = template.replace("... in ...", "... line ...")
     template = dedent(template).strip()
-    input, expected = parse_template(template, clear_tab_completions=_IPYTHON_VERSION>=(7,))
+    input, expected = parse_template(template, clear_tab_completions=True)
     if isinstance(args, str):
         args = [args]
     args = list(args)
@@ -1001,11 +939,6 @@ def ipython(template, *, args=(), kernel=None, **kwargs):
     assert_match(result, expected)
 
 
-def rand_chars(length=8, letters='abcdefghijklmnopqrstuvwxyz'):
-    return ''.join([random.choice(letters) for _ in range(length)])
-
-
-
 @contextmanager
 def IPythonNotebookCtx(**kwargs):
     """
@@ -1014,10 +947,6 @@ def IPythonNotebookCtx(**kwargs):
     __tracebackhide__ = True
     args = kwargs.pop("args", [])
     args = args + ['notebook', '--no-browser', '--ip=127.0.0.1']
-    if _IPYTHON_VERSION < (5,):
-        passwd_plaintext = rand_chars()
-        passwd_hashed = IPython.lib.passwd(passwd_plaintext)
-        args += ['--NotebookApp.password=%s' % passwd_hashed]
     notebook_dir = kwargs.pop("notebook_dir", None)
     cleanups = []
     if not notebook_dir:
@@ -1026,118 +955,38 @@ def IPythonNotebookCtx(**kwargs):
     try:
         args += ['--notebook-dir=%s' % notebook_dir]
         with IPythonCtx(args=args, **kwargs) as child:
-            if _IPYTHON_VERSION >= (5,):
-                # Get the base URL from the notebook app.
-                child.expect(
-                    r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n",
-                    timeout=DEFAULT_TIMEOUT,
-                )
-                baseurl = child.match.group(1).decode("utf-8")
-                token = child.match.group(2)
-                params = dict(token=token)
-                response = requests.post(
-                    baseurl + "/api/contents",
-                    params=params,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                assert response.status_code == 201
-                # Get the notebook path & name for the new notebook.
-                text = response.text
-                response_data = json.loads(text)
-                path = response_data['path']
-                name = response_data['name']
-                # Create a session & kernel for the new notebook.
-                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
-                response = requests.post(
-                    baseurl + "/api/sessions",
-                    data=request_data,
-                    params=params,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                assert response.status_code == 201
-                # Get the kernel_id for the new kernel.
-                text = response.text
-                response_data = json.loads(text)
-                kernel_id = response_data['kernel']['id']
-            elif _IPYTHON_VERSION >= (2,):
-                # Get the base URL from the notebook app.
-                child.expect(
-                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
-                    timeout=DEFAULT_TIMEOUT,
-                )
-                baseurl = child.match.group(1).decode("utf-8")
-                # Login.
-                response = requests.post(
-                    baseurl + "/login",
-                    data=dict(password=passwd_plaintext),
-                    allow_redirects=False,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                assert response.status_code == 302
-                cookies = response.cookies
-                # Create a new notebook.
-                # Get notebooks.
-                response = requests.post(
-                    baseurl + "/api/notebooks",
-                    cookies=cookies,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                expected = 200 if _IPYTHON_VERSION >= (3,) else 201
-                assert response.status_code == expected
-                # Get the notebook path & name for the new notebook.
-                text = response.text
-                response_data = json.loads(text)
-                path = response_data['path']
-                name = response_data['name']
-                # Create a session & kernel for the new notebook.
-                request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
-                response = requests.post(
-                    baseurl + "/api/sessions",
-                    data=request_data,
-                    cookies=cookies,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                assert response.status_code == 201
-                # Get the kernel_id for the new kernel.
-                text = response.text
-                response_data = json.loads(text)
-                kernel_id = response_data['kernel']['id']
-            elif _IPYTHON_VERSION >= (0, 12):
-                # Get the base URL from the notebook app.
-                child.expect(
-                    r"The (?:IPython|Jupyter) Notebook is running at: (http://[A-Za-z0-9:.]+)[/\r\n]",
-                    timeout=DEFAULT_TIMEOUT,
-                )
-                baseurl = child.match.group(1).decode("utf-8")
-                # Login.
-                response = requests.post(
-                    baseurl + "/login",
-                    data=dict(password=passwd_plaintext),
-                    allow_redirects=False,
-                    timeout=DEFAULT_TIMEOUT,
-                )
-                assert response.status_code == 302
-                cookies = response.cookies
-                # Create a new notebook.
-                response = requests.get(baseurl + "/new")
-                assert response.status_code == 200
-                # Get the notebook_id for the new notebook.
-                text = response.text
-                m = re.search(r"data-notebook-id\s*=\s*([0-9a-f-]+)", text)
-                assert m is not None
-                notebook_id = m.group(1)
-                # Start a kernel for the notebook.
-                response = requests.post(
-                    baseurl + "/kernels?notebook=" + notebook_id,
-                    timeout=DEFAULT_TIMEOUT_REQUEST,
-                )
-                assert response.status_code == 200
-                # Get the kernel_id for the new kernel.
-                text = response.text
-                kernel_id = json.loads(text)['kernel_id']
-            else:
-                raise NotImplementedError(
-                    "Not implemented for IPython %s" % (IPython.__version__))
+            # Get the base URL from the notebook app.
+            child.expect(
+                r"\s*(http://[0-9.:]+)/[?]token=([0-9a-f]+)\n",
+                timeout=DEFAULT_TIMEOUT,
+            )
+            baseurl = child.match.group(1).decode("utf-8")
+            token = child.match.group(2)
+            params = dict(token=token)
+            response = requests.post(
+                baseurl + "/api/contents",
+                params=params,
+                timeout=DEFAULT_TIMEOUT_REQUEST,
+            )
+            assert response.status_code == 201
+            # Get the notebook path & name for the new notebook.
+            text = response.text
+            response_data = json.loads(text)
+            path = response_data['path']
+            name = response_data['name']
+            # Create a session & kernel for the new notebook.
+            request_data = json.dumps(dict(notebook=dict(path=path, name=name)))
+            response = requests.post(
+                baseurl + "/api/sessions",
+                data=request_data,
+                params=params,
+                timeout=DEFAULT_TIMEOUT_REQUEST,
+            )
+            assert response.status_code == 201
+            # Get the kernel_id for the new kernel.
+            text = response.text
+            response_data = json.loads(text)
+            kernel_id = response_data['kernel']['id']
             # Construct the kernel info line: --existing kernel-123-abcd-...456.json
             kernel_info = [b'--existing', b"kernel-%s.json" % kernel_id.encode('utf-8')]
             # Yield control to caller.
@@ -1281,13 +1130,7 @@ def _clean_backspace(arg):
         left = left + right[:m.start()]
         count = int(m.group(1))
         right = right[m.end():]
-        if _IPYTHON_VERSION < (7,) and right.startswith(b"[PYFLYBY]"):
-            # For purposes of comparing IPython output in prompt_toolkit mode,
-            # include the pre-backspace stuff as a separate line.  TODO: do
-            # this in a more less hacky way.
-            left = left + b"\n"
-        else:
-            left = left[:-count]
+        left = left[:-count]
     arg = left + right
     return arg
 
@@ -1304,8 +1147,7 @@ def _clean_ipython_output(result):
     result = re.sub(re.compile(br"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), b"<ipython-input>", result)
     result = re.sub(re.compile(br"^----> .*?\n", re.M), b"", result)
     # Remove trailing post-exit message.
-    if _IPYTHON_VERSION >= (3,):
-        result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
+    result = re.sub(b"(?:Shutting down kernel|keeping kernel alive)\n?$", b"", result)
     # Work around
     # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/886
     result = re.sub(br"Exception in default exception handler.*?During handling of the above exception, another exception occurred:.*?assert app\._is_running\nAssertionError\n", b"", result, flags=re.DOTALL)
@@ -1325,11 +1167,9 @@ def _clean_ipython_output(result):
     # decode() because _wait_nonce looks for this code.
     result = result.replace(b"\x1b[K", b"")
     result = result.lstrip()
-    if _IPYTHON_VERSION >= (5,):  # and _IPYTHON_VERSION <= (8,):
-        # In IPython 5 kernel/console/etc, it seems to be impossible to turn
-        # off the banner.  For now just delete the output up to the first
-        # prompt.
-        result = re.sub(br".*?(In \[1\]:)", br"\1", result, flags=re.S)
+    # In IPython kernel/console/etc, it seems to be impossible to turn off the
+    # banner.  For now just delete the output up to the first prompt.
+    result = re.sub(br".*?(In \[1\]:)", br"\1", result, flags=re.S)
     if DEBUG:
         print("_clean_ipython_output(): %r => %r" % (result0, result,))
     return result
@@ -1814,48 +1654,24 @@ def test_autoimport_pyflyby_path_1(tmp):
 @retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
-    if IPython.version_info < (7, 17):
-        # The autocall arrows are printed twice in newer versions of IPython
-        # (https://github.com/ipython/ipython/issues/11714).
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
-            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
-            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: b'KEYBOARD'
-        """, autocall=True)
-    else:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
-            ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: b'KEYBOARD'
-        """, autocall=True)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bytes.upper b64decode('a2V5Ym9hcmQ=')
+        ------> bytes.upper(b64decode('a2V5Ym9hcmQ='))
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: b'KEYBOARD'
+    """, autocall=True)
 
 @retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
-    if IPython.version_info < (7, 17):
-        # The autocall arrows are printed twice in newer versions of IPython
-        # (https://github.com/ipython/ipython/issues/11714).
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64decode 'bW91c2U='
-            [PYFLYBY] from base64 import b64decode
-            ------> b64decode('bW91c2U=')
-            ------> b64decode('bW91c2U=')
-            Out[2]: b'mouse'
-        """, autocall=True)
-    else:
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: b64decode 'bW91c2U='
-            [PYFLYBY] from base64 import b64decode
-            ------> b64decode('bW91c2U=')
-            Out[2]: b'mouse'
-        """, autocall=True)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: b64decode 'bW91c2U='
+        [PYFLYBY] from base64 import b64decode
+        ------> b64decode('bW91c2U=')
+        Out[2]: b'mouse'
+    """, autocall=True)
 
 @retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
@@ -2259,26 +2075,13 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 @retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
-    if IPython.version_info < (7,17):
-        # The autocall arrows are printed twice in newer versions of IPython
-        # (https://github.com/ipython/ipython/issues/11714).
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
-            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
-            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: b'CHEWBACCA'
-        """, autocall=True)
-    else:
-        # IPython 7.17+ should have fixed double autocall
-        ipython("""
-            In [1]: import pyflyby; pyflyby.enable_auto_importer()
-            In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
-            ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
-            [PYFLYBY] from base64 import b64decode
-            Out[2]: b'CHEWBACCA'
-        """, autocall=True)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: bytes.upper b64deco\tde('Q2hld2JhY2Nh')
+        ------> bytes.upper(b64decode('Q2hld2JhY2Nh'))
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: b'CHEWBACCA'
+    """, autocall=True)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
@@ -3118,7 +2921,7 @@ def test_ipython_console_1(sendeof):
     # console occasionally doesn't print the first output (i.e. Out[1]).  We
     # work around this by first running something where we don't expect an
     # Out[1].
-    if sendeof and _IPYTHON_VERSION >= (5,): pytest.skip()
+    if sendeof: pytest.skip()
     ipython("""
         In [1]: x = 91976012
         In [2]: 'acorn'
@@ -3882,10 +3685,6 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 # unimportable.
 
 
-@pytest.mark.skipif(
-    _IPYTHON_VERSION < (7, 0),
-    reason="old IPython and Python won't work with breakpoint()",
-)
 @pytest.mark.skipif(
     (3, 14, 1) <= sys.version_info[:3] <= (3, 14, 5),
     reason="linux + >=3.14.1 show some extra stacks.",
