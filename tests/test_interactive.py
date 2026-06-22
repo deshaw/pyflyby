@@ -549,11 +549,10 @@ def _build_ipython_cmd(
     cmd = [python]
     if prog == "ipython" and args and args[0] in ["console", "notebook"]:
         prog = "jupyter"
-    if prog == "py":
-        cmd += [str(PYFLYBY_BIN / prog)]
-    else:
-        # Get the program from the python that is running.
-        cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
+    # Get the program from the python that is running.  `py` is now installed
+    # as a console-script alongside the running python (it used to live in the
+    # repo's bin/), so it is found the same way as ipython/jupyter/python.
+    cmd += [os.path.join(os.path.dirname(sys.executable), prog)]
     if isinstance(args, str):
         args = [args]
     if args and not args[0].startswith("-"):
