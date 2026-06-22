@@ -6,6 +6,7 @@
 from __future__ import print_function
 
 import ast
+import json
 import os
 import shutil
 from   shutil                   import rmtree
@@ -164,6 +165,34 @@ def test_0version_1():
     assert retcode == 0
     expected = sys.version
     assert result == expected
+
+
+def test_print_version_pyflyby_1():
+    # 'py --version' prints the pyflyby version (print_version with no arg,
+    # which delegates to print_version_and_exit).
+    from pyflyby._version import __version__
+
+    result, retcode = py("--version")
+    assert retcode == 0
+    assert result.strip().startswith("pyflyby %s" % (__version__,))
+
+
+def test_print_version_module_1():
+    # 'py <module> --version' prints the module's __version__
+    # (print_version with a module argument).
+
+    result, retcode = py("json", "--version")
+    assert retcode == 0
+    assert result == json.__version__
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="return 0 on older python")
+def test_print_version_module_no_version_attr_1():
+    # A module without a __version__ attribute reports an informative error.
+    # The command exits nonzero, so py() returns (output, retcode).
+    output, retcode = py('sys', '--version')
+    assert retcode != 0
+    assert "Module sys does not have a __version__ attribute" in output
 
 
 def test_0prefix_1():
