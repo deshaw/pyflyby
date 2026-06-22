@@ -40,6 +40,7 @@ Source = "https://github.com/deshaw/pyflyby"
 [project.scripts]
 py = "pyflyby._py:py_main"
 py3 = "pyflyby._py:py_main"
+tidy-imports = "pyflyby._tidy_imports:main"
 
 [project.optional-dependencies]
 test = [
