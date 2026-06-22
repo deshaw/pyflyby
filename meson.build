@@ -50,7 +50,6 @@ install_data(
     'bin/reformat-imports',
     'bin/replace-star-imports',
     'bin/saveframe',
-    'bin/tidy-imports',
     'bin/transform-imports',
   ],
   install_dir: get_option('bindir')
