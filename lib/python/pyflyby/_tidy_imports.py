@@ -23,6 +23,7 @@ Only top-level import statements are tidied by default. Use
 
 from   pyflyby._cmdline         import (_get_pyproj_toml_config, hfmt,
                                         parse_args, process_actions)
+from   pyflyby._file            import FileText
 from   pyflyby._import_sorting  import sort_imports
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -155,7 +156,8 @@ def main() -> None:
         modify_action_params=True,
     )
 
-    def modify(block:PythonBlock) -> PythonBlock:
+    def modify(file_text: FileText) -> PythonBlock:
+        block = PythonBlock(file_text)
         if options.transformations:
             block = transform_imports(block, options.transformations,
                                   params=options.params,

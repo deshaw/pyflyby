@@ -26,7 +26,6 @@ from   pyflyby._util            import cached_attribute
 from   tests.test_interactive   import _build_pythonpath
 
 PYFLYBY_HOME = Filename(__file__).real.dir.dir
-BIN_DIR = PYFLYBY_HOME / "bin"
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 
 python = sys.executable
@@ -116,7 +115,12 @@ def _py_internal_1(
     env['PYFLYBY_PATH'] = str(pyflyby_path)
     env['PYTHONPATH'] = pythonpath
     env["PYTHONSTARTUP"] = ""
-    prog = str(BIN_DIR/"py")
+    # Use the installed 'py' console script (see pyproject.toml [project.scripts]).
+    # The program name shown in `py --help` output comes from
+    # os.path.basename(sys.orig_argv[0]), so it must be invoked as 'py' (not e.g.
+    # 'python -m pyflyby._py', which would report '_py.py').
+    prog = shutil.which("py")
+    assert prog is not None, "the 'py' console script must be installed (pip install -e .)"
     return pipe((prog,) + args, stdin=stdin, env=env)
 
 
