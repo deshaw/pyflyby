@@ -4,7 +4,12 @@ Jupyterlab-pyflyby extension related test
 Some of these test do not need the full extension installed so we put them here.
 """
 
-from   pyflyby._comms           import _reformat_helper, run_tidy_imports
+from   pyflyby                  import _comms
+from   pyflyby._comms           import (FORMATTING_IMPORTS, TIDY_IMPORTS,
+                                        _reformat_helper, _register_target,
+                                        comm_close_handler, comm_open_handler,
+                                        extract_import_statements,
+                                        run_tidy_imports)
 import pytest
 
 
@@ -100,3 +105,207 @@ Chart(range(10)).show()
 def test_tidy_imports(code_block):
     code_post_tidy_imports = run_tidy_imports(code_block)
     assert code_post_tidy_imports == expected_output
+
+
+# ---------------------------------------------------------------------------
+# Helpers / fixtures for the comm-handling tests below.
+# ---------------------------------------------------------------------------
+
+
+class FakeComm:
+    """Minimal stand-in for an ``ipykernel`` ``Comm`` object.
+
+    Records callbacks registered via ``on_close``/``on_msg`` and messages
+    passed to ``send`` so tests can drive and inspect the comm handlers
+    without a live Jupyter kernel.
+    """
+
+    def __init__(self, comm_id="cid"):
+        self.comm_id = comm_id
+        self.sent = []
+        self.on_close_handler = None
+        self.on_msg_handler = None
+
+    def on_close(self, handler):
+        self.on_close_handler = handler
+
+    def on_msg(self, func):
+        # Used as a decorator: ``@comm.on_msg``.
+        self.on_msg_handler = func
+        return func
+
+    def send(self, msg):
+        self.sent.append(msg)
+
+
+@pytest.fixture
+def clean_comms():
+    """Isolate the module-global ``comms`` registry for each test."""
+    saved = dict(_comms.comms)
+    _comms.comms.clear()
+    try:
+        yield _comms.comms
+    finally:
+        _comms.comms.clear()
+        _comms.comms.update(saved)
+
+
+# ---------------------------------------------------------------------------
+# extract_import_statements
+# ---------------------------------------------------------------------------
+
+
+def test_extract_import_statements_separates_imports_and_code():
+    code = "import os\nimport sys\nx = os.getcwd()\nprint(sys.path)\n"
+    imports, remaining = extract_import_statements(code)
+    assert imports == "import os\nimport sys"
+    assert remaining == "\nx = os.getcwd()\nprint(sys.path)"
+
+
+def test_extract_import_statements_reorders_imports():
+    # ``SourceToSourceFileImportsTransformation`` re-orders imports.
+    code = "import sys\nimport os\n"
+    imports, remaining = extract_import_statements(code)
+    assert imports == "import os\nimport sys"
+    assert remaining.strip() == ""
+
+
+def test_extract_import_statements_no_imports():
+    code = "x = 1\ny = 2\n"
+    imports, remaining = extract_import_statements(code)
+    assert imports == ""
+    assert "x = 1" in remaining
+    assert "y = 2" in remaining
+
+
+def test_extract_import_statements_syntax_error():
+    # Magic commands and other non-Python lines raise SyntaxError.
+    with pytest.raises(SyntaxError):
+        extract_import_statements("%matplotlib inline\n")
+
+
+# ---------------------------------------------------------------------------
+# _register_target
+# ---------------------------------------------------------------------------
+
+
+def test_register_target(monkeypatch):
+    registered = []
+
+    class FakeCommManager:
+        def register_target(self, target_name, handler):
+            registered.append((target_name, handler))
+
+    class FakeKernel:
+        comm_manager = FakeCommManager()
+
+    class FakeIP:
+        kernel = FakeKernel()
+
+    import IPython.core.getipython as getipython
+    monkeypatch.setattr(getipython, "get_ipython", lambda: FakeIP())
+
+    _register_target("pyflyby.some_target")
+
+    assert registered == [("pyflyby.some_target", comm_open_handler)]
+
+
+# ---------------------------------------------------------------------------
+# comm_close_handler
+# ---------------------------------------------------------------------------
+
+
+def test_comm_close_handler_empty_is_noop(clean_comms):
+    # With no comms registered the loop body never runs; the call is a no-op
+    # and must not raise.
+    comm_close_handler(object(), {"comm_id": "cid"})
+    assert clean_comms == {}
+
+
+def test_comm_close_handler_removes_matching_comm(clean_comms):
+    keep = FakeComm(comm_id="keep")
+    drop = FakeComm(comm_id="drop")
+    clean_comms[FORMATTING_IMPORTS] = keep
+    clean_comms[TIDY_IMPORTS] = drop
+
+    comm_close_handler(drop, {"comm_id": "drop"})
+
+    assert clean_comms == {FORMATTING_IMPORTS: keep}
+
+
+def test_comm_close_handler_unknown_comm_id_is_noop(clean_comms):
+    keep = FakeComm(comm_id="keep")
+    clean_comms[FORMATTING_IMPORTS] = keep
+
+    comm_close_handler(keep, {"comm_id": "nomatch"})
+
+    assert clean_comms == {FORMATTING_IMPORTS: keep}
+
+
+# ---------------------------------------------------------------------------
+# comm_open_handler
+# ---------------------------------------------------------------------------
+
+
+def test_comm_open_handler_registers_comm(clean_comms):
+    comm = FakeComm()
+    comm_open_handler(comm, {"content": {"target_name": FORMATTING_IMPORTS}})
+
+    assert clean_comms[FORMATTING_IMPORTS] is comm
+    assert comm.on_close_handler is comm_close_handler
+    assert comm.on_msg_handler is not None
+
+
+def test_comm_open_handler_formatting_imports(clean_comms):
+    comm = FakeComm()
+    comm_open_handler(comm, {"content": {"target_name": FORMATTING_IMPORTS}})
+
+    comm.on_msg_handler(
+        {
+            "content": {
+                "data": {
+                    "type": FORMATTING_IMPORTS,
+                    "input_code": "import os\nos.getcwd()",
+                    "imports": ["import sys"],
+                    "msg_id": "m1",
+                }
+            }
+        }
+    )
+
+    assert comm.sent == [
+        {
+            "msg_id": "m1",
+            "formatted_code": "import os\nimport sys\nos.getcwd()\n",
+            "type": FORMATTING_IMPORTS,
+        }
+    ]
+
+
+def test_comm_open_handler_tidy_imports(clean_comms):
+    comm = FakeComm()
+    comm_open_handler(comm, {"content": {"target_name": TIDY_IMPORTS}})
+
+    cells = [
+        {"type": "code", "text": "import os\nimport sys\nos.getcwd()"},
+        {"type": "code", "text": "%magic line"},
+        {"type": "markdown", "text": "hello"},
+    ]
+    comm.on_msg_handler(
+        {"content": {"data": {"type": TIDY_IMPORTS, "cellArray": cells, "checksum": "abc"}}}
+    )
+
+    assert len(comm.sent) == 1
+    reply = comm.sent[0]
+    assert reply["type"] == TIDY_IMPORTS
+    assert reply["checksum"] == "abc"
+    # ``import sys`` is unused and dropped from the tidied imports.
+    assert "import os" in reply["imports"]
+    assert "import sys" not in reply["imports"]
+    # The cell with a magic command raises SyntaxError and is flagged ignore.
+    processed = reply["cells"]
+    assert processed[0]["ignore"] is False
+    assert processed[1]["ignore"] is True
+    assert processed[1]["text"] == "%magic line"
+    # Non-code cells are passed through untouched and never ignored.
+    assert processed[2] == {"text": "hello", "type": "markdown", "ignore": False}

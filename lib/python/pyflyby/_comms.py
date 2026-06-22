@@ -87,14 +87,9 @@ def send_comm_message(target_name: str, msg: Dict[str, Any]) -> None:
             logger.debug("Sending comm message for target " + target_name)
 
 
-def comm_close_handler(comm, message):
-    # NOTE: intentionally left unannotated.  Adding annotations makes mypy
-    # type-check this body, which surfaces a pre-existing latent bug on the
-    # ``for ... in comms.keys()`` line (it unpacks a ``str`` key into two
-    # names).  Fixing that would change runtime behavior, which is out of
-    # scope for a pure type-annotation pass.
+def comm_close_handler(comm: Any, message: Dict[str, Any]) -> None:
     comm_id = message["comm_id"]
-    for target, comm in comms.keys():
+    for target, comm in list(comms.items()):
         if comm.comm_id == comm_id:
             comms.pop(target)
 
