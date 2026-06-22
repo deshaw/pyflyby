@@ -119,7 +119,7 @@ def test_unsafe_cwd():
         p = Path(d)
         unsafe = p / "foo#bar" / "foo#qux"
         unsafe.mkdir(parents=True)
-        result = pipe([BIN_DIR + "/py"], cwd=unsafe, stdin="os")
+        result = pipe(["-m", "pyflyby._py"], cwd=unsafe, stdin="os")
         assert "Unsafe" not in result
         assert result == "[PYFLYBY] import os"
 
@@ -374,7 +374,7 @@ def test_find_import_bad_1():
 
 
 def test_py_eval_1():
-    result = pipe([BIN_DIR+"/py", "-c", "b64decode('aGVsbG8=')"])
+    result = pipe(["-m", "pyflyby._py", "-c", "b64decode('aGVsbG8=')"])
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] b64decode('aGVsbG8=')
@@ -384,7 +384,7 @@ def test_py_eval_1():
 
 
 def test_py_exec_1():
-    result = pipe([BIN_DIR+"/py", "-c", "if 1: print(b64decode('aGVsbG8='))"])
+    result = pipe(["-m", "pyflyby._py", "-c", "if 1: print(b64decode('aGVsbG8='))"])
     expected = dedent("""
         [PYFLYBY] from base64 import b64decode
         [PYFLYBY] if 1: print(b64decode('aGVsbG8='))
@@ -394,7 +394,7 @@ def test_py_exec_1():
 
 
 def test_py_name_1():
-    result = pipe([BIN_DIR+"/py", "-c", "__name__"])
+    result = pipe(["-m", "pyflyby._py", "-c", "__name__"])
     expected = dedent("""
         [PYFLYBY] __name__
         '__main__'
@@ -403,7 +403,7 @@ def test_py_name_1():
 
 
 def test_py_argv_1():
-    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "x", "y"])
+    result = pipe(["-m", "pyflyby._py", "-c", "sys.argv", "x", "y"])
     expected = dedent("""
        [PYFLYBY] import sys
        [PYFLYBY] sys.argv
@@ -413,7 +413,7 @@ def test_py_argv_1():
 
 
 def test_py_argv_2():
-    result = pipe([BIN_DIR+"/py", "-c", "sys.argv", "--debug", "-x  x"])
+    result = pipe(["-m", "pyflyby._py", "-c", "sys.argv", "--debug", "-x  x"])
     expected = dedent("""
         [PYFLYBY] import sys
         [PYFLYBY] sys.argv
@@ -426,7 +426,7 @@ def test_py_file_1():
     with tempfile.NamedTemporaryFile(suffix=".py", mode='w+') as f:
         f.write('print(sys.argv)\n')
         f.flush()
-        result = pipe([BIN_DIR+"/py", f.name, "a", "b"])
+        result = pipe(["-m", "pyflyby._py", f.name, "a", "b"])
     expected = dedent("""
         [PYFLYBY] import sys
         [%r, 'a', 'b']
@@ -782,7 +782,7 @@ def test_debug_filetype_with_py():
             sys.argv
         """).lstrip())
         f.flush()
-        command = [BIN_DIR+"/py", "--debug", f.name]
+        command = [python, "-m", "pyflyby._py", "--debug", f.name]
 
         output_result = b""
         child = pexpect.spawn(' '.join(command), timeout=5)
