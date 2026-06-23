@@ -28,6 +28,8 @@ jobs:
         include:
           - os: macos-latest
             python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.14"
 
     env:
       DEBUG_TEST_PYFLYBY: 1
