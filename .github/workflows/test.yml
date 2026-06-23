@@ -26,14 +26,24 @@ jobs:
           - "3.14"
           - "3.14t"
         include:
+          # The macOS run is by far the slowest, so split it into two
+          # independently-restartable shards: the slow test_interactive.py in
+          # one, everything else in the other.
           - os: macos-latest
             python-version: "3.12"
+            shard: "1"
+            pytest-target: "tests/test_interactive.py"
+          - os: macos-latest
+            python-version: "3.12"
+            shard: "2"
+            pytest-target: "--ignore=tests/test_interactive.py lib tests"
           - os: macos-latest
             python-version: "3.14"
+            pytest-target: "lib tests"
 
     env:
       DEBUG_TEST_PYFLYBY: 1
-      ENVNAME: ${{matrix.os}}-${{matrix.python-version}}
+      ENVNAME: ${{matrix.os}}-${{matrix.python-version}}${{ matrix.shard && format('-{0}', matrix.shard) || '' }}
 
     steps:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -76,8 +86,15 @@ jobs:
     - name: pytest Mac OS
       if: ${{ matrix.os == 'macos-latest'}}
       # json report can't be installed on Py2, and make macos super slow.
+      # The macOS run is the slowest, so it is split into independently
+      # restartable shards; matrix.pytest-target selects this shard's tests.
+      env:
+        PYTEST_TARGET: ${{ matrix.pytest-target }}
       run: |
-        uv run python -m pytest --cov=pyflyby --cov=tests --cov-report=xml --doctest-modules --maxfail=3 lib tests
+        # PYTEST_TARGET intentionally word-splits into multiple pytest args.
+        # shellcheck disable=SC2086
+        uv run python -m pytest --cov=pyflyby --cov=tests --cov-report=xml --doctest-modules --maxfail=3 \
+               $PYTEST_TARGET
     - name: pytest (not MacOS)
       if: ${{ matrix.os != 'macos-latest'  }}
       run: |
@@ -89,18 +106,22 @@ jobs:
                lib tests
 
     - name: Set up Emacs
+      # Only run the emacs integration once per (os, python) combo, i.e. skip
+      # the second macOS shard.
+      if: ${{ matrix.shard != '2' }}
       uses: purcell/setup-emacs@bdc64dc730ae1fcba200bfd52cb1b4cf6159cbe5
       with:
         version: 30.2
 
     - name: Test emacs integration
+      if: ${{ matrix.shard != '2' }}
       run: |
         uv run emacs -Q --batch -L lib/emacs -L tests -l tests/test-emacs.el -f ert-run-tests-batch-and-exit
 
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       name: upload pytest timing reports as json
       with:
-        name: pytest-timing-${{ matrix.os }}-${{ matrix.python-version }}
+        name: pytest-timing-${{ env.ENVNAME }}
         path: ./report-*.json
     - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
       with:
