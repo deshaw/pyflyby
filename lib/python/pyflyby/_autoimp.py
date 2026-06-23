@@ -21,7 +21,7 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
-from   pyflyby._parse           import (MatchAs, PythonBlock, _is_ast_str,
+from   pyflyby._parse           import (PythonBlock, _is_ast_str,
                                         infer_compile_mode)
 from   pyflyby._util            import _has_ignore_pragma
 
@@ -1036,7 +1036,7 @@ class _MissingImportFinder:
             self._visit_Store(node.name)
         return self.generic_visit(node)
 
-    def visit_MatchAs(self, node: MatchAs) -> None:
+    def visit_MatchAs(self, node: ast.MatchAs) -> None:
         logger.debug("visit_MatchAs(%r)", node)
         # Visit the sub-pattern (e.g. the ``Cls()`` in ``case Cls() as x:``)
         # before binding the capture name.
