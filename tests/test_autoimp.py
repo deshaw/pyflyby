@@ -212,6 +212,41 @@ def test_find_missing_imports_assignment_1():
     assert expected == result
 
 
+@pytest.mark.parametrize("code, expected", [
+    # The target of an augmented assignment is *read* before it is written, so
+    # a bare-name target counts as a Load even when nothing else references it.
+    ("x += 1",            ['x']),
+    # Both the RHS value and the bare-name target are read.
+    ("x += y",            ['x', 'y']),
+    # Once the target name is defined, only the RHS remains missing.
+    ("n = 1; n += y",     ['y']),
+    # For an attribute target the inner name already carries Load context, so
+    # 'a.b' is treated as read-and-written and only the RHS is missing.
+    ("a = 1; a.b += c",   ['c']),
+    # A subscript target reads both the container and the index.
+    ("x[i] += 1",         ['i', 'x']),
+])
+def test_find_missing_imports_augassign(code, expected):
+    result = _dilist2strlist(find_missing_imports(code, [{}]))
+    assert expected == result
+
+
+@pytest.mark.parametrize("code, expected", [
+    # The RHS is visited before the target, so 'x: int = x + 1' loads x before
+    # storing it and reports x as missing.
+    ("x: int = x + 1",    ['x']),
+    # Both the annotation and the RHS value are visited.
+    ("x: Foo = bar",      ['Foo', 'bar']),
+    # An annotation without a value still visits the annotation.
+    ("x: Foo",            ['Foo']),
+    # After 'x: int = 1' the name x is defined and no longer missing.
+    ("x: int = 1; x",     []),
+])
+def test_find_missing_imports_annassign(code, expected):
+    result = _dilist2strlist(find_missing_imports(code, [{}]))
+    assert expected == result
+
+
 def test_find_missing_imports_function_body_1():
     code = dedent("""
         x1 = 1
