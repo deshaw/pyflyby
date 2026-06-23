@@ -771,6 +771,9 @@ def test_get_executable_self():
     assert "python" in exe.base.lower()
 
 
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="raises psutils.NoSuchProcess on mac"
+)
 def test_get_executable_bad_pid():
     with pytest.raises((ValueError, OSError, ProcessLookupError, FileNotFoundError)):
         dbg.get_executable(999999)
@@ -897,6 +900,8 @@ def test_remote_print_stack_to_named_file(monkeypatch, tmp_path):
     assert captured["filename"] == str(target)
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"),
+                    reason="relies on /proc/<pid>/fd")
 def test_remote_print_stack_int_fd(monkeypatch, tmp_path):
     target = tmp_path / "out.txt"
     fd = os.open(str(target), os.O_RDWR | os.O_CREAT)
@@ -917,6 +922,8 @@ def test_remote_print_stack_int_fd(monkeypatch, tmp_path):
     assert "filename" in captured
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"),
+                    reason="temp-file copy-back relies on /proc/<pid>/fd")
 def test_remote_print_stack_file_like_object(monkeypatch):
     import io
     captured = {}
