@@ -19,7 +19,6 @@ from __future__ import annotations, print_function
 import ast
 from   ast                      import AsyncFunctionDef, TypeIgnore
 
-from   collections              import namedtuple
 from   doctest                  import DocTestParser
 from   functools                import cached_property, total_ordering
 from   itertools                import groupby
@@ -29,11 +28,9 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._log             import logger
 from   pyflyby._util            import cmp
 
-from   ast                      import MatchAs, MatchMapping
 import re
 import sys
 from   textwrap                 import dedent
-import types
 from   types                    import NoneType
 from   typing                   import (Any, Callable, Dict, Generator,
                                         Iterable, Iterator, List, Literal,
@@ -46,11 +43,6 @@ if TYPE_CHECKING:
 
 
 _sentinel = object()
-
-if sys.version_info >= (3, 14):
-    from ast import TemplateStr
-else:
-    TemplateStr = None  # type: ignore
 
 
 def _is_comment_or_blank(line: Any, /) -> bool:
@@ -101,157 +93,6 @@ def _ast_str_literal_value(node: Any) -> Any:
         return node.value.value  # type: ignore[attr-defined]
     else:
         return None
-
-
-def _flatten_ast_nodes(arg: Any) -> Iterator[Any]:
-    if arg is None:
-        pass
-    elif isinstance(arg, ast.AST):
-        yield arg
-    elif isinstance(arg, str):
-        #FunctionDef type_comments
-        yield arg
-    elif isinstance(arg, (tuple, list, types.GeneratorType)):
-        for x in arg:
-            for y in _flatten_ast_nodes(x):
-                yield y
-    else:
-        raise TypeError(
-            "_flatten_ast_nodes: unexpected %s" % (type(arg).__name__,))
-
-
-def _iter_child_nodes_in_order(node: Any) -> Iterator[Any]:
-    """
-    Yield all direct child nodes of ``node``, that is, all fields that are nodes
-    and all items of fields that are lists of nodes.
-
-    ``_iter_child_nodes_in_order`` yields nodes in the same order that they
-    appear in the source.
-
-    ``ast.iter_child_nodes`` does the same thing, but not in source order.
-    e.g. for ``Dict`` s, it yields all key nodes before all value nodes.
-
-    `JoinedStr` for `f"{x=}"` also does not.
-    """
-    return _flatten_ast_nodes(_iter_child_nodes_in_order_internal_1(node))
-
-
-def _iter_child_nodes_in_order_internal_1(node: Any) -> Iterator[Any]:
-    if isinstance(node, str):
-        # this happen for type comments which are not ast nodes but str
-        # they do not have children. We yield nothing.
-        yield []
-        return
-    if not isinstance(node, ast.AST):
-        raise TypeError
-    if isinstance(node, ast.Dict):
-        assert node._fields == ("keys", "values")
-        yield list(zip(node.keys, node.values))
-    elif isinstance(node, (ast.FunctionDef, AsyncFunctionDef)):
-        if sys.version_info < (3,12):
-            assert node._fields == (
-                "name",
-                "args",
-                "body",
-                "decorator_list",
-                "returns",
-                "type_comment",
-            ), node._fields
-            res = (
-                node.type_comment,
-                node.decorator_list,
-                node.args,
-                node.returns,
-                node.body,
-            )
-            yield res
-        else:
-            assert node._fields == (
-                "name",
-                "args",
-                "body",
-                "decorator_list",
-                "returns",
-                "type_comment",
-                "type_params"
-            ), node._fields
-            res = (
-                node.type_comment,
-                node.decorator_list,
-                node.type_params,
-                node.args,
-                node.returns,
-                node.body,
-            )
-            yield res
-
-
-        # node.name is a string, not an AST node
-    elif isinstance(node, ast.arguments):
-        assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs',
-                                'kw_defaults', 'kwarg', 'defaults'), node._fields
-        args = node.posonlyargs + node.args
-        defaults = node.defaults or ()
-        num_no_default = len(args) - len(defaults)
-        yield args[:num_no_default]
-        yield list(zip(args[num_no_default:], defaults))
-        # node.varags and node.kwarg are strings, not AST nodes.
-    elif isinstance(node, ast.IfExp):
-        assert node._fields == ('test', 'body', 'orelse')
-        yield node.body, node.test, node.orelse
-    elif isinstance(node, ast.Call):
-        # call arguments order are lost by ast, re-order them
-        yield node.func
-        args = sorted([(k.value.lineno, k.value.col_offset, k) for k in node.keywords]+  # type: ignore[assignment]
-                      [(k.lineno,k.col_offset, k) for k in node.args])
-        yield [a[2] for a in args]  # type: ignore[index]
-    elif isinstance(node, ast.ClassDef):
-        if sys.version_info > (3, 12):
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'), node._fields
-            yield node.decorator_list, node.type_params, node.bases, node.body
-        else:
-            assert node._fields == ('name', 'bases', 'keywords', 'body', 'decorator_list'), node._fields
-            yield node.decorator_list, node.bases, node.body
-        # node.name is a string, not an AST node
-    elif isinstance(node, ast.FormattedValue):
-        assert node._fields == ('value', 'conversion', 'format_spec')
-        yield node.value,
-    elif isinstance(node, ast.JoinedStr) or (
-        TemplateStr is not None and isinstance(node, TemplateStr)
-    ):
-        assert node._fields == ("values",)
-        # Sort values by their position in the source code
-        # for f"{x=}" / t"{x=}", nodes are not in order
-        sorted_children = sorted(node.values, key=lambda v: (v.lineno, v.col_offset))
-        yield sorted_children
-    elif isinstance(node, MatchAs):
-        yield node.pattern
-        yield node.name,
-    elif isinstance(node, MatchMapping):
-        for k, p in zip(node.keys, node.patterns):
-            pass
-            yield k, p
-    else:
-        # Default behavior.
-        yield ast.iter_child_nodes(node)
-
-
-def _walk_ast_nodes_in_order(node: Any) -> Iterator[Any]:
-    """
-    Recursively yield all child nodes of ``node``, in the same order that the
-    node appears in the source.
-
-    ``ast.walk`` does the same thing, but yields nodes in an arbitrary order.
-    """
-    # The implementation is basically the same as ``ast.walk``, but:
-    #   1. Use a stack instead of a deque.  (I.e., depth-first search instead
-    #      of breadth-first search.)
-    #   2. Use _iter_child_nodes_in_order instead of ``ast.iter_child_nodes``.
-    todo = [node]
-    while todo:
-        node = todo.pop()
-        yield node
-        todo.extend(reversed(list(_iter_child_nodes_in_order(node))))
 
 
 def _flags_to_try(
@@ -343,209 +184,43 @@ def _test_parse_string_literal(text: str, flags: Any) -> Any:
     return body.value  # type: ignore[attr-defined]
 
 
-AstNodeContext = namedtuple("AstNodeContext", "parent field index")
-
-
 def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
-    """
-    Annotate AST with:
-      - startpos and endpos
-      - [disabled for now: context as `AstNodeContext` ]
+    r"""
+    Annotate every node in the tree rooted at ``ast_node`` with a ``startpos``
+    attribute giving the node's starting `FilePos` within the source ``text``.
+
+    Since Python 3.8 the built-in parser reports correct ``lineno`` and
+    ``col_offset`` for every node -- including multiline string literals, which
+    historically misreported their position as the *ending* line with a
+    ``col_offset`` of -1 -- so the start position can be read directly off each
+    node rather than reconstructed by re-parsing candidate sub-ranges.
 
     :type ast_node:
       ``ast.AST``
     :param ast_node:
       AST node returned by `_parse_ast_nodes`
-    :return:
-      ``None``
-    """
-    aast_node: AnnotatedAst = ast_node  # type: ignore
-    text = aast_node.text
-    flags = aast_node.flags
-    startpos = text.startpos
-    _annotate_ast_startpos(aast_node, None, startpos, text, flags)
-    return aast_node
-
-
-def _annotate_ast_startpos(
-    ast_node: ast.AST,
-    parent_ast_node: Optional[ast.AST],
-    minpos: FilePos,
-    text: FileText,
-    flags: CompilerFlags,
-) -> bool:
-    r"""
-    Annotate ``ast_node``.  Set ``ast_node.startpos`` to the starting position
-    of the node within ``text``.
-
-    For "typical" nodes, i.e. those other than multiline strings, this is
-    simply FilePos(ast_node.lineno, ast_node.col_offset+1), but taking
-    ``text.startpos`` into account.
-
-    For multiline string nodes, this function works by trying to parse all
-    possible subranges of lines until finding the range that is syntactically
-    valid and matches ``value``.  The candidate range is
-    text[min_start_lineno:lineno+text.startpos.lineno+1].
-
-    This function is unfortunately necessary because of a flaw in the output
-    produced by the Python built-in parser.  For some crazy reason, the
-    ``ast_node.lineno`` attribute represents something different for multiline
-    string literals versus all other statements.  For multiline string literal
-    nodes and statements that are just a string expression (or more generally,
-    nodes where the first descendant leaf node is a multiline string literal),
-    the compiler attaches the ending line number as the value of the ``lineno``
-    attribute.  For all other than AST nodes, the compiler attaches the
-    starting line number as the value of the ``lineno`` attribute.  This means
-    e.g. the statement "'''foo\nbar'''" has a lineno value of 2, but the
-    statement "x='''foo\nbar'''" has a lineno value of 1.
-
-    :type ast_node:
+    :rtype:
       ``ast.AST``
-    :type minpos:
-      ``FilePos``
-    :param minpos:
-      Earliest position to check, in the number space of ``text``.
-    :type text:
-      ``FileText``
-    :param text:
-      Source text that was used to parse the AST, whose ``startpos`` should be
-      used in interpreting ``ast_node.lineno`` (which always starts at 1 for
-      the subset that was parsed).
-    :type flags:
-      ``CompilerFlags``
-    :param flags:
-      Compiler flags to use when re-compiling code.
-    :return:
-      ``True`` if this node is a multiline string literal or the first child is
-      such a node (recursively); ``False`` otherwise.
-    :raise ValueError:
-      Could not find the starting line number.
     """
-    assert isinstance(ast_node, (ast.AST, str, TypeIgnore)), ast_node
     aast_node: AnnotatedAst = cast(AnnotatedAst, ast_node)
-
-    # First, traverse child nodes.  If the first child node (recursively) is a
-    # multiline string, then we need to transfer its information to this node.
-    # Walk all nodes/fields of the AST.  We implement this as a custom
-    # depth-first search instead of using ast.walk() or ast.NodeVisitor
-    # so that we can easily keep track of the preceding node's lineno.
-    child_minpos: FilePos = minpos
-    is_first_child: bool = True
-    leftstr_node = None
-    for child_node in _iter_child_nodes_in_order(aast_node):
-        leftstr = _annotate_ast_startpos(
-            child_node, aast_node, child_minpos, text, flags
-        )
-        if is_first_child and leftstr:
-            leftstr_node = child_node
-        if hasattr(child_node, 'lineno') and not isinstance(child_node, TypeIgnore):
-            if child_node.startpos < child_minpos:
-                raise AssertionError(
-                    "Got out-of-order AST node(s):\n"
-                    "  parent minpos=%s\n" % minpos
-                    + "    node: %s\n" % ast.dump(aast_node)
-                    + "      fields: %s\n" % (" ".join(aast_node._fields))
-                    + "      children:\n"
-                    + "".join(
-                        "        %s %9s: %s\n"
-                        % (
-                            ("==>" if cn is child_node else "   "),
-                            getattr(cn, "startpos", ""),
-                            ast.dump(cn),
-                        )
-                        for cn in _iter_child_nodes_in_order(aast_node)
-                    )
-                    + "\n"
-                    "This indicates a bug in pyflyby._parse\n"
-                    "\n"
-                    "pyflyby developer: Check if there's a bug or missing ast node handler in "
-                    "pyflyby._parse._iter_child_nodes_in_order() - "
-                    +"probably the handler for ast.%s." % type(aast_node).__name__
-                    +"\n"
-                    "Please also run python -m pyflyby.check_parse on the cpython source tree"
-                    "to test for new syntax."
-                )
-            child_minpos = child_node.startpos
-        is_first_child = False
-
-    # If the node has no lineno at all, then skip it.  This should only happen
-    # for nodes we don't care about, e.g. ``ast.Module`` or ``ast.alias``.
-    if not hasattr(aast_node, "lineno") or isinstance(aast_node, TypeIgnore):
-        return False
-    # If col_offset is set then the lineno should be correct also.
-    if aast_node.col_offset >= 0:
-        # In Python 3.8+, FunctionDef.lineno is the line with the def. To
-        # account for decorators, we need the lineno of the first decorator
+    startpos = aast_node.text.startpos
+    for node in ast.walk(aast_node):
+        # ``ast.Module`` and a handful of others carry no position; skip them.
+        if not hasattr(node, "lineno") or isinstance(node, TypeIgnore):
+            continue
         if (
-            isinstance(aast_node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
-            and aast_node.decorator_list
+            isinstance(node, (ast.FunctionDef, ast.ClassDef, AsyncFunctionDef))
+            and node.decorator_list
         ):
-            delta = (
-                aast_node.decorator_list[0].lineno - 1,
-                # The col_offset doesn't include the @
-                aast_node.decorator_list[0].col_offset - 1,
-            )
+            # ``lineno`` points at the ``def``/``class`` keyword; back up to the
+            # first decorator so the node's text includes its decorators.  The
+            # decorator's ``col_offset`` doesn't include the leading ``@``.
+            first = node.decorator_list[0]
+            delta = (first.lineno - 1, first.col_offset - 1)
         else:
-            delta = (aast_node.lineno - 1, aast_node.col_offset)
-
-        # Not a multiline string literal.  (I.e., it could be a non-string or
-        # a single-line string.)
-        # Easy.
-        if sys.version_info < (3, 12):
-            """There is an issue for f-strings at the begining of a file in 3.11 and
-            before
-
-            https://github.com/deshaw/pyflyby/issues/361,
-            here we ensure a child node min pos, can't be before it's parent.
-            """
-            startpos = max(text.startpos + delta, minpos)
-        else:
-            startpos = text.startpos + delta
-
-        # Special case for 'with' statements.  Consider the code:
-        #    with X: pass
-        #    ^0   ^5
-        # Since 'Y's col_offset isn't the beginning of the line, the authors
-        # of Python presumably changed 'X's col_offset to also not be the
-        # beginning of the line.  If they had made the With ast node support
-        # multiple clauses, they wouldn't have needed to do that, but then
-        # that would introduce an API change in the AST.  So it's
-        # understandable that they did that.
-        # Since we use startpos for breaking lines, we need to set startpos to
-        # the beginning of the line.
-        # In Python 3, the col_offset for the with is 0 again.
-        aast_node.startpos = startpos
-        return False
-
-    assert aast_node.col_offset == -1
-    if leftstr_node:
-        # This is an ast node where the leftmost deepest leaf is a
-        # multiline string.  The bug that multiline strings have broken
-        # lineno/col_offset infects ancestors up the tree.
-        #
-        # If the leftmost leaf is a multi-line string, then ``lineno``
-        # contains the ending line number, and col_offset is -1:
-        #   >>> ast.parse("""'''foo\nbar'''+blah""").body[0].lineno
-        #   2
-        # But if the leftmost leaf is not a multi-line string, then
-        # ``lineno`` contains the starting line number:
-        #   >>> ast.parse("""'''foobar'''+blah""").body[0].lineno
-        #   1
-        #   >>> ast.parse("""blah+'''foo\nbar'''+blah""").body[0].lineno
-        #   1
-        #
-        # To fix that, we copy start_lineno and start_colno from the Str
-        # node once we've corrected the values.
-        assert not _is_ast_str_or_byte(aast_node)
-        assert leftstr_node.lineno == aast_node.lineno
-        assert leftstr_node.col_offset == -1
-        aast_node.startpos = leftstr_node.startpos
-        return True
-
-    # a large chunk of what look like unreachable code has been removed from here
-    # as the type annotation say many things were impossible (slices indexed by FilePos
-    # instead of integers.
-    raise ValueError("Couldn't find exact position of %s" % (ast.dump(ast_node)))
+            delta = (node.lineno - 1, node.col_offset)  # type: ignore[attr-defined]
+        node.startpos = startpos + delta  # type: ignore[attr-defined]
+    return aast_node
 
 
 def _split_code_lines(
@@ -584,51 +259,35 @@ def _split_code_lines(
         # We have the start position of this node.  Figure out the end
         # position, excluding noncode lines (standalone comments and blank
         # lines).
-        if hasattr(node, 'endpos'):
-            # We have an endpos for the node because this was a multi-line
-            # string.  Start with the node endpos.
-            endpos = node.endpos
-            assert startpos < endpos <= next_startpos
-            # enpos points to the character *after* the ending quote, so we
-            # know that this is never at the beginning of the line.
-            assert endpos.colno != 1
-            # Advance past whitespace an inline comment, if any.  Do NOT
-            # advance past other code that could be on the same line, nor past
-            # blank lines and comments on subsequent lines.
-            # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
-            line = text[endpos : min(text.endpos, FilePos(endpos.lineno+1,1))]  # type: ignore[misc]
-            if _is_comment_or_blank(line):
-                endpos = FilePos(endpos.lineno+1, 1)
-        else:
-            endpos = next_startpos
-            assert endpos <= text.endpos
-            # We don't have an endpos yet; what we do have is the next node's
-            # startpos (or the position at the end of the text).  Start there
-            # and work backward.
-            if endpos.colno != 1:
-                if endpos == text.endpos:
-                    # There could be a comment on the last line and no
-                    # trailing newline.
-                    # TODO: do this in a more principled way.
-                    if _is_comment_or_blank(text[endpos.lineno]):
-                        assert startpos.lineno < endpos.lineno
-                        if not text[endpos.lineno-1].endswith("\\"):  # type: ignore[union-attr]
-                            endpos = FilePos(endpos.lineno,1)
-                else:
-                    # We're not at end of file, yet the next node starts in
-                    # the middle of the line.  This should only happen with if
-                    # we're not looking at a comment.  [The first character in
-                    # the line could still be "#" if we're inside a multiline
-                    # string that's the last child of the parent node.
-                    # Therefore we don't assert 'not
-                    # _is_comment_or_blank(...)'.]
-                    pass
-            if endpos.colno == 1:
-                while (endpos.lineno-1 > startpos.lineno and
-                       _is_comment_or_blank(text[endpos.lineno-1]) and
-                       (not text[endpos.lineno-2].endswith("\\") or  # type: ignore[union-attr]
-                        _is_comment_or_blank(text[endpos.lineno-2]))):
-                    endpos = FilePos(endpos.lineno-1, 1)
+        endpos = next_startpos
+        assert endpos <= text.endpos
+        # What we have is the next node's startpos (or the position at the end
+        # of the text).  Start there and work backward, excluding noncode lines
+        # (standalone comments and blank lines).
+        if endpos.colno != 1:
+            if endpos == text.endpos:
+                # There could be a comment on the last line and no
+                # trailing newline.
+                # TODO: do this in a more principled way.
+                if _is_comment_or_blank(text[endpos.lineno]):
+                    assert startpos.lineno < endpos.lineno
+                    if not text[endpos.lineno-1].endswith("\\"):  # type: ignore[union-attr]
+                        endpos = FilePos(endpos.lineno,1)
+            else:
+                # We're not at end of file, yet the next node starts in
+                # the middle of the line.  This should only happen with if
+                # we're not looking at a comment.  [The first character in
+                # the line could still be "#" if we're inside a multiline
+                # string that's the last child of the parent node.
+                # Therefore we don't assert 'not
+                # _is_comment_or_blank(...)'.]
+                pass
+        if endpos.colno == 1:
+            while (endpos.lineno-1 > startpos.lineno and
+                   _is_comment_or_blank(text[endpos.lineno-1]) and
+                   (not text[endpos.lineno-2].endswith("\\") or  # type: ignore[union-attr]
+                    _is_comment_or_blank(text[endpos.lineno-2]))):
+                endpos = FilePos(endpos.lineno-1, 1)
         assert startpos < endpos <= next_startpos
         yield ([node], text[startpos:endpos])
         if endpos != next_startpos:
@@ -1279,25 +938,28 @@ class PythonBlock:
 
     def string_literals(self) -> Iterator[Any]:
         r"""
-        Yield all string literals anywhere in this block.
+        Yield all string literals anywhere in this block, in source order.
 
         The string literals have ``startpos`` attributes attached.
 
           >>> block = PythonBlock("'a' + ('b' + \n'c')")
-          >>> [(f.s, f.startpos) for f in block.string_literals()]
+          >>> [(f.value, f.startpos) for f in block.string_literals()]
           [('a', FilePos(1,1)), ('b', FilePos(1,8)), ('c', FilePos(2,1))]
 
         :return:
-          Iterable of ``ast.Str``  or ``ast.Bytes`` nodes
+          Iterable of ``ast.Constant`` (str or bytes) nodes
         """
-        for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
-            if _is_ast_str_or_byte(node):
-                assert hasattr(node, 'startpos')
-                yield node
+        nodes = [
+            node
+            for node in ast.walk(self.annotated_ast_node)
+            if _is_ast_str_or_byte(node)
+        ]
+        nodes.sort(key=lambda node: node.startpos)  # type: ignore[attr-defined]
+        yield from nodes
 
     def _get_docstring_nodes(self) -> Iterator[Any]:
         """
-        Yield docstring AST nodes.
+        Yield docstring AST nodes, in source order.
 
         We consider the following to be docstrings::
 
@@ -1306,7 +968,7 @@ class PythonBlock:
           - Literal strings after assignments
 
         :rtype:
-          Generator of ``ast.Str`` nodes
+          Generator of ``ast.Constant`` (str) nodes
         """
         # This is similar to ``ast.get_docstring``, but:
         #   - This function is recursive
@@ -1315,7 +977,8 @@ class PythonBlock:
         #   - This function doesn't raise TypeError on other AST types
         #   - This function doesn't cleandoc
         docstring_containers = (ast.FunctionDef, ast.ClassDef, ast.Module, AsyncFunctionDef)
-        for node in _walk_ast_nodes_in_order(self.annotated_ast_node):
+        found = []
+        for node in ast.walk(self.annotated_ast_node):
             if not isinstance(node, docstring_containers):
                 continue
             if not node.body:
@@ -1323,7 +986,7 @@ class PythonBlock:
             # If the first body item is a literal string, then yield the node.
             if (isinstance(node.body[0], ast.Expr) and
                 _is_ast_str(node.body[0].value)):
-                yield node.body[0].value
+                found.append(node.body[0].value)
             for i in range(1, len(node.body)-1):
                 # If a body item is an assignment and the next one is a
                 # literal string, then yield the node for the literal string.
@@ -1331,7 +994,9 @@ class PythonBlock:
                 if (isinstance(n1, ast.Assign) and
                     isinstance(n2, ast.Expr) and
                     _is_ast_str(n2.value)):
-                    yield n2.value
+                    found.append(n2.value)
+        found.sort(key=lambda node: node.startpos)  # type: ignore[attr-defined]
+        yield from found
 
     def get_doctests(self) -> List["PythonBlock"]:
         r"""
