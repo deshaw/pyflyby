@@ -279,7 +279,6 @@ def parse_template(template, clear_tab_completions=False):
     return input, expected
 
 
-@retry
 @pytest.mark.parametrize('clear_tab_completions', [False, True])
 def test_selftest_parse_template_1(clear_tab_completions):
     template = """
@@ -298,7 +297,6 @@ def test_selftest_parse_template_1(clear_tab_completions):
         b"In [2]: foo\n   ...: bar\n   ...:\nbaz")
 
 
-@retry
 @pytest.mark.parametrize('clear_tab_completions', [False, True])
 def test_selftest_parse_template_tab_punctuation_1(clear_tab_completions):
     template = """
@@ -310,7 +308,6 @@ def test_selftest_parse_template_tab_punctuation_1(clear_tab_completions):
     assert expected == (b"In [1]: hello_there(3)\ngoodbye")
 
 
-@retry
 @pytest.mark.parametrize('clear_tab_completions', [False, True])
 def test_selftest_parse_template_tab_newline_(clear_tab_completions):
     template = """
@@ -322,7 +319,6 @@ def test_selftest_parse_template_tab_newline_(clear_tab_completions):
     assert expected == (b"In [1]: hello_there\ngoodbye")
 
 
-@retry
 @pytest.mark.parametrize('clear_tab_completions', [False, True])
 def test_selftest_parse_template_tab_continue_1(clear_tab_completions):
     template = """
@@ -334,7 +330,6 @@ def test_selftest_parse_template_tab_continue_1(clear_tab_completions):
     assert expected == (b"In [1]: hello_there(3)\ngoodbye")
 
 
-@retry
 @pytest.mark.parametrize('clear_tab_completions', [False, True])
 def test_selftest_parse_template_tab_log_1(clear_tab_completions):
     template = """
@@ -365,7 +360,6 @@ def test_selftest_parse_template_tab_log_1(clear_tab_completions):
             b"goodbye")
 
 
-@retry
 def test_selftest_assert_match_1():
     expected = b"""
         hello
@@ -384,7 +378,6 @@ def test_selftest_assert_match_1():
     assert_match(result, expected)
 
 
-@retry
 def test_selftest_assert_match_2():
     result = b"""
         hello
@@ -403,7 +396,6 @@ def test_selftest_assert_match_2():
         assert_match(result, expected)
 
 
-@retry
 def test_lazy_import_ipython_1():
     # Verify that "import pyflyby" doesn't imply "import IPython".
     pycmd = 'import pyflyby, sys; sys.exit("IPython" in sys.modules)'
