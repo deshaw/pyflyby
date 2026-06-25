@@ -374,9 +374,7 @@ $ py --debug    PID                        Attach debugger to PID
 $ py                                       IPython shell
 """.strip()
 
-# Default compiler flags (feature flags) used for all user code.  We include
-# "print_function" here, but we also use auto_flags=True, which means
-# print_function may be flipped off if the code contains print statements.
+# Default compiler flags (feature flags) used for all user code.
 FLAGS = CompilerFlags(["absolute_import", "with_statement", "division",
                        "print_function"])
 
@@ -1404,7 +1402,7 @@ class _Namespace(object):
         #   auto_eval(arg, mode=mode, flags=FLAGS, globals=self.globals)
         # but better logging and error raising.
         if not isinstance(block, PythonBlock):
-            block = PythonBlock(block, flags=FLAGS, auto_flags=True)
+            block = PythonBlock(block, flags=FLAGS)
         if auto_import and not self.auto_import(block):
             missing = find_missing_imports(block, [self.globals])
             mstr = ", ".join(repr(str(x)) for x in missing)
@@ -2016,8 +2014,7 @@ class _PyMain(object):
             if (args and
                 self.arg_mode == None and
                 not any(re.match(r"\s*$|-[a-zA-Z-]", a) for a in args)):
-                cmd = PythonBlock(" ".join([arg0]+args),
-                                  flags=FLAGS, auto_flags=True)
+                cmd = PythonBlock(" ".join([arg0]+args), flags=FLAGS)
                 if cmd.parsable and self.namespace.auto_import(cmd):
                     with SysArgvCtx("-c"):
                         output_mode = _interpret_output_mode(self.output_mode)
@@ -2028,7 +2025,7 @@ class _PyMain(object):
                         return
                 # else fall through
             # Heuristic based on first arg: try run_module, apply, or exec/eval.
-            cmd = PythonBlock(arg0, flags=FLAGS, auto_flags=True)
+            cmd = PythonBlock(arg0, flags=FLAGS)
             if not cmd.parsable:
                 logger.error(
                     "Could not interpret as filename or expression: %s",

@@ -95,24 +95,8 @@ def _ast_str_literal_value(node: Any) -> Any:
         return None
 
 
-def _flags_to_try(
-    source: str, flags: Any, auto_flags: bool, mode: str
-) -> Iterator[CompilerFlags]:
-    """
-    Flags to try for ``auto_flags``.
-
-    If ``auto_flags`` is False, then only yield ``flags``.
-    If ``auto_flags`` is True, then yield ``flags`` and ``flags ^ print_function``.
-    """
-    flags = CompilerFlags(flags)
-    if re.search(r"# *type:", source):
-        flags = flags | CompilerFlags('type_comments')
-    yield flags
-    return
-
-
 def _parse_ast_nodes(
-    text: FileText, flags: Any, auto_flags: bool, mode: str
+    text: FileText, flags: Any, mode: str
 ) -> AnnotatedModule:
     """
     Parse a block of lines into an AST.
@@ -124,11 +108,6 @@ def _parse_ast_nodes(
       ``FileText``
     :type flags:
       ``CompilerFlags``
-    :type auto_flags:
-      ``bool``
-    :param auto_flags:
-      Whether to guess different flags if ``text`` can't be parsed with
-      ``flags``.
     :param mode:
       Compilation mode: "exec", "single", or "eval".
     :rtype:
@@ -136,31 +115,24 @@ def _parse_ast_nodes(
     """
     assert isinstance(text, FileText)
     filename = str(text.filename) if text.filename else "<unknown>"
-    source = text.joined
-    source = dedent(source)
+    source = dedent(text.joined)
     if not source.endswith("\n"):
         # Ensure that the last line ends with a newline (``ast`` barfs
         # otherwise).
         source += "\n"
-    exp = None
-    for flags in _flags_to_try(source, flags, auto_flags, mode):
-        cflags = ast.PyCF_ONLY_AST | int(flags)
-        try:
-            result = compile(
-                source, filename, mode, flags=cflags, dont_inherit=True)
-        except SyntaxError as e:
-            exp = e
-            pass
-        else:
-            # Attach flags to the result.
-            result.input_flags = flags
-            result.source_flags = CompilerFlags.from_ast(result)
-            result.flags = result.input_flags | result.source_flags
-            result.text = text
-            return result
-    # None, would be unraisable and Mypy would complains below
-    assert exp is not None
-    raise exp
+    flags = CompilerFlags(flags)
+    if re.search(r"# *type:", source):
+        # Honor PEP 484 type comments if any appear to be present.
+        flags = flags | CompilerFlags('type_comments')
+    result = compile(
+        source, filename, mode,
+        flags=ast.PyCF_ONLY_AST | int(flags), dont_inherit=True)
+    # Attach flags to the result.
+    result.input_flags = flags
+    result.source_flags = CompilerFlags.from_ast(result)
+    result.flags = result.input_flags | result.source_flags
+    result.text = text
+    return result
 
 
 
@@ -175,7 +147,7 @@ def _test_parse_string_literal(text: str, flags: Any) -> Any:
     """
     filetext = FileText(text)
     try:
-        module_node = _parse_ast_nodes(filetext, flags, False, "eval")
+        module_node = _parse_ast_nodes(filetext, flags, "eval")
     except SyntaxError:
         return None
     body = module_node.body
@@ -550,7 +522,6 @@ class PythonBlock:
     """
 
     text: FileText
-    _auto_flags: bool
     _input_flags: Union[int,CompilerFlags]
 
     def __new__(
@@ -559,7 +530,6 @@ class PythonBlock:
         filename: Any = None,
         startpos: Any = None,
         flags: Any = None,
-        auto_flags: Optional[bool] = None,
     ) -> "PythonBlock":
         if isinstance(arg, PythonStatement):
             arg = arg.block
@@ -572,8 +542,7 @@ class PythonBlock:
             # Fall through
         if isinstance(arg, (FileText, Filename, str)):
             return cls.from_text(
-                arg, filename=filename, startpos=startpos,
-                flags=flags, auto_flags=auto_flags)
+                arg, filename=filename, startpos=startpos, flags=flags)
         raise TypeError("%r: unexpected %r"
                         % (cls.__name__, type(arg).__name__,))
 
@@ -588,7 +557,6 @@ class PythonBlock:
         filename: Any = None,
         startpos: Any = None,
         flags: Any = None,
-        auto_flags: Any = False,
     ) -> "PythonBlock":
         """
         :type text:
@@ -605,8 +573,6 @@ class PythonBlock:
           ``CompilerFlags``
         :param flags:
           Input compiler flags.
-        :param auto_flags:
-          Whether to try other flags if ``flags`` fails.
         :rtype:
           `PythonBlock`
         """
@@ -616,7 +582,6 @@ class PythonBlock:
         self = object.__new__(cls)
         self.text = FileText(text, filename=filename, startpos=startpos)
         self._input_flags = CompilerFlags(flags)
-        self._auto_flags = auto_flags
         return self
 
     @classmethod
@@ -637,7 +602,6 @@ class PythonBlock:
         self.text                         = text
         self.flags                        = flags
         self._input_flags                 = flags
-        self._auto_flags                  = False
         return self
 
     @classmethod
@@ -703,7 +667,7 @@ class PythonBlock:
         # in which case this code does not run.
         try:
             return _parse_ast_nodes(
-                self.text, self._input_flags, self._auto_flags, "exec")
+                self.text, self._input_flags, "exec")
         except Exception as e:
             # Add the filename to the exception message to be nicer.
             if self.text.filename:
