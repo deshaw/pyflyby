@@ -278,7 +278,7 @@ def test_collect_imports_include_dot_1():
 
 
 def test_collect_exports_1():
-    result = pipe([BIN_DIR + "/collect-exports", "fractions"])
+    result = pipe(["-m", "pyflyby._collect_exports", "fractions"])
     expected = dedent(
         """
         from   fractions                import Fraction
@@ -315,7 +315,7 @@ def test_collect_exports_module_1():
 
         env = os.environ.copy()
         env['PYTHONPATH'] = '.'
-        result = pipe([BIN_DIR+"/collect-exports", 'test_mod'], cwd=d, env=env)
+        result = pipe(["-m", "pyflyby._collect_exports", 'test_mod'], cwd=d, env=env)
         # TODO: Make this work statically
         expected = dedent('''
             The test_mod code is being executed
@@ -354,7 +354,7 @@ def test_collect_exports_module_2():
 
         env = os.environ.copy()
         env['PYTHONPATH'] = '.'
-        result = pipe([BIN_DIR+"/collect-exports", 'test_mod'], cwd=d, env=env)
+        result = pipe(["-m", "pyflyby._collect_exports", 'test_mod'], cwd=d, env=env)
 
         expected = dedent('''
             from   test_mod                 import a, b, e
