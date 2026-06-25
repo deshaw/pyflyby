@@ -362,13 +362,13 @@ def test_collect_exports_module_2():
         assert result == expected
 
 def test_find_import_1():
-    result = pipe([BIN_DIR+"/find-import", "np"])
+    result = pipe(["-m", "pyflyby._find_import", "np"])
     expected = 'import numpy as np'
     assert result == expected
 
 
 def test_find_import_bad_1():
-    result = pipe([BIN_DIR+"/find-import", "omg_unknown_4223496"])
+    result = pipe(["-m", "pyflyby._find_import", "omg_unknown_4223496"])
     expected = "[PYFLYBY] Can't find import for 'omg_unknown_4223496'"
     assert result == expected
 
