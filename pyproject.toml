@@ -38,6 +38,7 @@ Documentation = "https://deshaw.github.io/pyflyby/"
 Source = "https://github.com/deshaw/pyflyby"
 
 [project.scripts]
+autoipython = "pyflyby._autoipython:main"
 collect-exports = "pyflyby._collect_exports:main"
 collect-imports = "pyflyby._collect_imports:main"
 find-import = "pyflyby._find_import:main"
