@@ -190,7 +190,7 @@ def test_reformat_imports_1():
         import zzt.foo as zzt
         code() #x
     ''').strip()
-    result = pipe([BIN_DIR+"/reformat-imports"], stdin=input)
+    result = pipe(["-m", "pyflyby._reformat_imports"], stdin=input)
     expected = dedent('''
         from   ZZT                      import MEGAZEUX
         import megazeux

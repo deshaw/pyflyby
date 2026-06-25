@@ -44,7 +44,6 @@ install_data(
   [
     'bin/prune-broken-imports',
     'bin/pyflyby-diff',
-    'bin/reformat-imports',
     'bin/replace-star-imports',
     'bin/saveframe',
     'bin/transform-imports',
