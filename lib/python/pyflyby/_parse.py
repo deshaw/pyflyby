@@ -158,14 +158,16 @@ def _test_parse_string_literal(text: str, flags: Any) -> Any:
 
 def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
     r"""
-    Annotate every node in the tree rooted at ``ast_node`` with a ``startpos``
-    attribute giving the node's starting `FilePos` within the source ``text``.
+    Annotate every node in the tree rooted at ``ast_node`` with ``startpos``
+    and ``endpos`` attributes giving the node's start and end `FilePos` within
+    the source ``text``.
 
-    Since Python 3.8 the built-in parser reports correct ``lineno`` and
-    ``col_offset`` for every node -- including multiline string literals, which
-    historically misreported their position as the *ending* line with a
-    ``col_offset`` of -1 -- so the start position can be read directly off each
-    node rather than reconstructed by re-parsing candidate sub-ranges.
+    Since Python 3.8 the built-in parser reports correct ``lineno``/
+    ``col_offset`` and ``end_lineno``/``end_col_offset`` for every node --
+    including multiline string literals, which historically misreported their
+    position as the *ending* line with a ``col_offset`` of -1 -- so positions
+    can be read directly off each node rather than reconstructed by re-parsing
+    candidate sub-ranges.
 
     :type ast_node:
       ``ast.AST``
@@ -192,6 +194,8 @@ def _annotate_ast_nodes(ast_node: ast.AST) -> AnnotatedAst:
         else:
             delta = (node.lineno - 1, node.col_offset)  # type: ignore[attr-defined]
         node.startpos = startpos + delta  # type: ignore[attr-defined]
+        if node.end_lineno is not None:  # type: ignore[attr-defined]
+            node.endpos = startpos + (node.end_lineno - 1, node.end_col_offset)  # type: ignore[attr-defined]
     return aast_node
 
 
@@ -228,42 +232,33 @@ def _split_code_lines(
         startpos = node.startpos
         next_startpos = next_node.startpos
         assert startpos < next_startpos
-        # We have the start position of this node.  Figure out the end
-        # position, excluding noncode lines (standalone comments and blank
-        # lines).
-        endpos = next_startpos
-        assert endpos <= text.endpos
-        # What we have is the next node's startpos (or the position at the end
-        # of the text).  Start there and work backward, excluding noncode lines
-        # (standalone comments and blank lines).
-        if endpos.colno != 1:
-            if endpos == text.endpos:
-                # There could be a comment on the last line and no
-                # trailing newline.
-                # TODO: do this in a more principled way.
-                if _is_comment_or_blank(text[endpos.lineno]):
-                    assert startpos.lineno < endpos.lineno
-                    if not text[endpos.lineno-1].endswith("\\"):  # type: ignore[union-attr]
-                        endpos = FilePos(endpos.lineno,1)
-            else:
-                # We're not at end of file, yet the next node starts in
-                # the middle of the line.  This should only happen with if
-                # we're not looking at a comment.  [The first character in
-                # the line could still be "#" if we're inside a multiline
-                # string that's the last child of the parent node.
-                # Therefore we don't assert 'not
-                # _is_comment_or_blank(...)'.]
-                pass
-        if endpos.colno == 1:
-            while (endpos.lineno-1 > startpos.lineno and
-                   _is_comment_or_blank(text[endpos.lineno-1]) and
-                   (not text[endpos.lineno-2].endswith("\\") or  # type: ignore[union-attr]
-                    _is_comment_or_blank(text[endpos.lineno-2]))):
-                endpos = FilePos(endpos.lineno-1, 1)
+        # The statement occupies whole lines from ``startpos`` through its last
+        # line.  The parser reports that last line correctly across multiline
+        # strings and backslash continuations into *code*; the trailing newline
+        # and any inline comment on it belong to the statement.  Standalone
+        # comment and blank lines before the next node become a separate
+        # noncode chunk.
+        if next_startpos.lineno <= node.endpos.lineno:
+            # The next node begins on the same physical line, e.g. statements
+            # separated by ";".  End exactly where the next one starts.
+            endpos = next_startpos
+        else:
+            end_lineno = node.endpos.lineno
+            # A backslash continuation onto a following comment/blank line is
+            # part of the statement's source but not its AST extent (e.g.
+            # ``b\<newline># c``).  Extend over such continuations.  A trailing
+            # ``\`` is only a real continuation when no comment precedes it.
+            tail = str(text[end_lineno][node.endpos.colno - 1:])  # type: ignore[index]
+            while (tail.endswith("\\") and "#" not in tail
+                   and end_lineno < next_startpos.lineno):
+                end_lineno += 1
+                tail = str(text[end_lineno])
+            endpos = min(FilePos(end_lineno + 1, 1), next_startpos)
         assert startpos < endpos <= next_startpos
-        yield ([node], text[startpos:endpos])
+        # FileText slicing accepts FilePos bounds; mypy models slice indices as int-only.
+        yield ([node], text[startpos:endpos])  # type: ignore[misc]
         if endpos != next_startpos:
-            yield ([], text[endpos:next_startpos])
+            yield ([], text[endpos:next_startpos])  # type: ignore[misc]
 
 
 def infer_compile_mode(arg:ast.AST) -> Literal['exec','eval','single']:
