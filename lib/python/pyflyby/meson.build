@@ -27,6 +27,7 @@ py.install_sources(
     'check_parse.py',
     '_py.py',
     '_reformat_imports.py',
+    '_replace_star_imports.py',
     '_saveframe.py',
     '_saveframe_reader.py',
     '_tidy_imports.py',
