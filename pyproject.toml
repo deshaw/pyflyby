@@ -44,6 +44,7 @@ find-import = "pyflyby._find_import:main"
 py = "pyflyby._py:py_main"
 py3 = "pyflyby._py:py_main"
 reformat-imports = "pyflyby._reformat_imports:main"
+replace-star-imports = "pyflyby._replace_star_imports:main"
 tidy-imports = "pyflyby._tidy_imports:main"
 
 [project.optional-dependencies]
