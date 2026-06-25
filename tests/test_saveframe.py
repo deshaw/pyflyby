@@ -15,8 +15,6 @@ from   textwrap                 import dedent
 from   pyflyby                  import Filename, saveframe
 
 VERSION_INFO = sys.version_info
-PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
 
 exception_info_keys = {
     'exception_full_string', 'exception_object', 'exception_string',
@@ -945,14 +943,14 @@ def test_keyboard_interrupt_exception_info(tmpdir):
 
 
 def test_saveframe_cmdline_no_exception():
-    command = [BIN_DIR+"/saveframe", "python", "-c", "import os;"]
+    command = [sys.executable, "-m", "pyflyby._saveframe_cli", "python", "-c", "import os;"]
     err = run_command(command)
     err_msg = "Error: No exception is raised by the program: 'python -c import os;'"
     assert err_msg in err
 
 
 def test_saveframe_cmdline_variables_and_exclude_variables():
-    command = [BIN_DIR + "/saveframe", "--variables", "foo,bar",
+    command = [sys.executable, "-m", "pyflyby._saveframe_cli", "--variables", "foo,bar",
                "--exclude_variables", "var", "python", "-c", "import os;"]
     err = run_command(command)
     err_msg = ("ValueError: Cannot pass both --variables and --exclude_variables "
@@ -961,21 +959,21 @@ def test_saveframe_cmdline_variables_and_exclude_variables():
 
 
 def test_saveframe_cmdline_invalid_command_1():
-    command = [BIN_DIR+"/saveframe", "python", "-c"]
+    command = [sys.executable, "-m", "pyflyby._saveframe_cli", "python", "-c"]
     err = run_command(command)
     err_msg = "Error: Please pass a valid script / command to run!"
     assert err_msg in err
 
 
 def test_saveframe_cmdline_invalid_command_2():
-    command = [BIN_DIR+"/saveframe", "python"]
+    command = [sys.executable, "-m", "pyflyby._saveframe_cli", "python"]
     err = run_command(command)
     err_msg = "Error: Please pass a valid script / command to run!"
     assert err_msg in err
 
 
 def test_saveframe_cmdline_invalid_command_3():
-    command = [BIN_DIR+"/saveframe"]
+    command = [sys.executable, "-m", "pyflyby._saveframe_cli"]
     err = run_command(command)
     err_msg = "Error: Please pass a valid script / command to run!"
     assert err_msg in err
@@ -991,7 +989,7 @@ def test_saveframe_cmdline_variables(tmpdir):
         """)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "5",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "5",
         "--variables", "var1, var2", "python", str(tmp_mod)]
     run_command(command)
 
@@ -1009,7 +1007,7 @@ def test_saveframe_cmdline_exclude_variables(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "5",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "5",
         "--exclude_variables", "var1,var2", "python", "-c",
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func1; init_func1()"]
@@ -1029,7 +1027,7 @@ def test_saveframe_cmdline_frame_metadata(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR+"/saveframe", "--filename", filename, "--frames", "5",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "5",
         "python", "-c",
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func1; init_func1()"]
@@ -1047,7 +1045,7 @@ def test_saveframe_cmdline_local_variables_data(tmpdir):
     """)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "5",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "5",
         "python", str(tmp_mod)]
     run_command(command)
     frames_local_variables_checker(pkg_name, filename)
@@ -1057,7 +1055,7 @@ def test_saveframe_cmdline_exception_info(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "0",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "0",
         "python", "-c",
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func1; init_func1()"]
@@ -1069,7 +1067,7 @@ def test_saveframe_cmdline_keyboard_interrupt_frame_metadata(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR+"/saveframe", "--filename", filename, "--frames", "2",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "2",
         "python", "-c",
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func4; init_func4()"]
@@ -1087,7 +1085,7 @@ def test_saveframe_cmdline_keyboard_interrupt_local_variables_data(tmpdir):
     """)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "2",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "2",
         "python", str(tmp_mod)]
     run_command(command)
     frames_local_variables_checker_for_keyboard_interrupt(filename)
@@ -1097,7 +1095,7 @@ def test_saveframe_cmdline_keyboard_interrupt_exception_info(tmpdir):
     pkg_name = create_pkg(tmpdir)
     filename = str(tmpdir / f"saveframe_{get_random()}.pkl")
     command = [
-        BIN_DIR + "/saveframe", "--filename", filename, "--frames", "0",
+        sys.executable, "-m", "pyflyby._saveframe_cli", "--filename", filename, "--frames", "0",
         "python", "-c",
         f"import sys; sys.path.append('{tmpdir}'); from {pkg_name} import "
         f"init_func4; init_func4()"]
