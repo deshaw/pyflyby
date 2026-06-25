@@ -44,7 +44,6 @@ install_data(
   [
     'bin/pyflyby-diff',
     'bin/saveframe',
-    'bin/transform-imports',
   ],
   install_dir: get_option('bindir')
 )
