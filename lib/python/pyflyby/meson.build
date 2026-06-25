@@ -10,6 +10,7 @@ py.install_sources(
     '_dbg.py',
     '_dynimp.py',
     '_file.py',
+    '_find_import.py',
     '_flags.py',
     '_format.py',
     '_idents.py',
