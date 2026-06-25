@@ -25,10 +25,6 @@ else:
     from tomllib import loads
 
 
-PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
-
-
 python = sys.executable
 
 def pipe(command, stdin="", cwd=None, env=None):
