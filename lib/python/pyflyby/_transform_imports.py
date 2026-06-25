@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 transform-imports --transform aa.bb=xx.yy *.py
 transform-imports --transform aa.bb=xx.yy < foo.py
@@ -15,7 +14,7 @@ stdin is not a tty, read from stdin and write to stdout.
 
 """
 
-# pyflyby/transform-imports
+# pyflyby/_transform_imports.py
 # Copyright (C) 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -25,6 +24,14 @@ from   pyflyby._imports2s       import transform_imports
 
 
 def main():
+    # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
+    # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
+    # script entry point the ``__main__`` module is the generated wrapper and
+    # has no docstring, so fall back to this module's docstring.
+    import __main__
+    if not (__main__.__doc__ or '').strip():
+        __main__.__doc__ = __doc__
+
     transformations = {}
     def addopts(parser):
         def callback(option, opt_str, value, group):
