@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Utility to save information for debugging / reproducing an issue.
 
