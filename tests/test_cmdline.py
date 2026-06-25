@@ -221,7 +221,7 @@ def test_collect_imports_1():
             from m7 import *
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name])
+        result = pipe(["-m", "pyflyby._collect_imports", f.name])
         expected = dedent('''
             from   m1.m2                    import f3, f4
             import m1.m3
@@ -245,7 +245,7 @@ def test_collect_imports_include_1():
             import m1, m1y
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name,
+        result = pipe(["-m", "pyflyby._collect_imports", f.name,
                        "--include=m1",
                        "--include=m3.m5"])
         expected = dedent('''
@@ -270,7 +270,7 @@ def test_collect_imports_include_dot_1():
             from m1x import f6
         ''').lstrip())
         f.flush()
-        result = pipe([BIN_DIR+"/collect-imports", f.name, "--include=."])
+        result = pipe(["-m", "pyflyby._collect_imports", f.name, "--include=."])
         expected = dedent('''
             from   .m1                      import f5
         ''').strip()

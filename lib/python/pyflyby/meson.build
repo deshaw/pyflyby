@@ -4,6 +4,7 @@ py.install_sources(
     '__main__.py',
     '_autoimp.py',
     '_cmdline.py',
+    '_collect_imports.py',
     '_comms.py',
     '_dbg.py',
     '_dynimp.py',
