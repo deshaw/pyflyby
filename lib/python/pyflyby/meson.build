@@ -24,6 +24,7 @@ py.install_sources(
     '_log.py',
     '_modules.py',
     '_parse.py',
+    '_prune_broken_imports.py',
     'check_parse.py',
     '_py.py',
     '_reformat_imports.py',
