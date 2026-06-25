@@ -43,7 +43,6 @@ install_data(
 install_data(
   [
     'bin/pyflyby-diff',
-    'bin/saveframe',
   ],
   install_dir: get_option('bindir')
 )
