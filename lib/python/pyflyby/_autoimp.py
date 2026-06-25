@@ -2325,7 +2325,7 @@ def auto_import(
 
 
 def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
-              flags: Any = None, auto_flags: bool = True,
+              flags: Any = None,
               globals: Optional[Dict[str, Any]] = None,
               locals: Optional[Dict[str, Any]] = None,
               db: Any = None) -> Any:
@@ -2370,10 +2370,6 @@ def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
       Compilation feature flags, e.g. ["division", "with_statement"].  If
       ``None``, defaults to no flags.  Does not inherit flags from parent
       scope.
-    :type auto_flags:
-      ``bool``
-    :param auto_flags:
-      Whether to try other flags if ``flags`` causes SyntaxError.
     :type globals:
       ``dict``
     :param globals:
@@ -2392,8 +2388,7 @@ def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
     if isinstance(flags, int):
         assert isinstance(flags, CompilerFlags)
     if isinstance(arg, (str, Filename, FileText, PythonBlock)):
-        block = PythonBlock(arg, filename=filename, flags=flags,
-                            auto_flags=auto_flags)
+        block = PythonBlock(arg, filename=filename, flags=flags)
         flags = block.flags
         filename = block.filename
         arg = block.parse(mode=mode)

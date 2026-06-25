@@ -75,7 +75,7 @@ def parse_file(file_path: Path) -> Tuple[bool, str]:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", SyntaxWarning)
-            block = PythonBlock(content, auto_flags=True)
+            block = PythonBlock(content)
 
             # Access the annotated_ast_node to ensure it's created without errors
             _ = block.annotated_ast_node

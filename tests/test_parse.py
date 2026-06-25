@@ -1239,7 +1239,7 @@ def test_PythonBlock_no_auto_flags_pn_futpf_1():
 def test_PythonBlock_auto_flags_pf_flagps_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert not (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1248,7 +1248,7 @@ def test_PythonBlock_auto_flags_pf_flagps_1():
 def test_PythonBlock_auto_flags_pf_flagpf_1():
     block = PythonBlock(dedent('''
         print(42, out=x)
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1258,7 +1258,7 @@ def test_PythonBlock_auto_flags_pf_flagps_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         print(42, out=x)
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert     (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1268,7 +1268,7 @@ def test_PythonBlock_auto_flags_pf_flagpf_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         print(42, out=x)
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1277,7 +1277,7 @@ def test_PythonBlock_auto_flags_pf_flagpf_futpf_1():
 def test_PythonBlock_auto_flags_px_flagps_1():
     block = PythonBlock(dedent('''
         print(42)
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert not (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1286,7 +1286,7 @@ def test_PythonBlock_auto_flags_px_flagps_1():
 def test_PythonBlock_auto_flags_px_flagpf_1():
     block = PythonBlock(dedent('''
         print(42)
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1296,7 +1296,7 @@ def test_PythonBlock_auto_flags_px_flagps_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         print(42)
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert     (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1306,7 +1306,7 @@ def test_PythonBlock_auto_flags_px_flagpf_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         print(42)
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1315,7 +1315,7 @@ def test_PythonBlock_auto_flags_px_flagpf_futpf_1():
 def test_PythonBlock_auto_flags_pn_flagps_1():
     block = PythonBlock(dedent('''
         42
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert not (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1324,7 +1324,7 @@ def test_PythonBlock_auto_flags_pn_flagps_1():
 def test_PythonBlock_auto_flags_pn_flagpf_1():
     block = PythonBlock(dedent('''
         42
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert not (block.source_flags         & "print_function")
@@ -1334,7 +1334,7 @@ def test_PythonBlock_auto_flags_pn_flagps_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         42
-    ''').lstrip(), auto_flags=True)
+    ''').lstrip())
     assert     (block.flags                & "print_function")
     assert not (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1344,7 +1344,7 @@ def test_PythonBlock_auto_flags_pn_flagpf_futpf_1():
     block = PythonBlock(dedent('''
         from __future__ import print_function
         42
-    ''').lstrip(), flags="print_function", auto_flags=True)
+    ''').lstrip(), flags="print_function")
     assert     (block.flags                & "print_function")
     assert     (block.ast_node.input_flags & "print_function")
     assert     (block.source_flags         & "print_function")
@@ -1365,7 +1365,7 @@ def test_PythonStatement_flags_1():
 def test_PythonStatement_auto_flags_1():
     block = PythonBlock(
         "from __future__ import unicode_literals\nprint(1,file=x)\n",
-        flags="division", auto_flags=True)
+        flags="division")
     s0, s1 = block.statements
     assert s0.block.source_flags == CompilerFlags("unicode_literals")
     with warnings.catch_warnings():
@@ -1392,7 +1392,7 @@ def test_parsable_explicit_flags_1():
 
 
 def test_parsable_missing_flags_auto_flags_1():
-    block = PythonBlock("print(3, file=4)", auto_flags=True)
+    block = PythonBlock("print(3, file=4)")
     assert block.parsable
 
 
@@ -1406,7 +1406,7 @@ def test_parsable_missing_flags_auto_flags_1():
     ],
 )
 def test_parsable_Call_Ast_args_kwargs(input):
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1420,7 +1420,7 @@ def func(x: List[int], y: List[int]) -> List[int]:
     ],
 )
 def test_parsable_annotation_order(input):
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1456,7 +1456,7 @@ is the value.
     ],
 )
 def test_parse_f_string_ast_ann(input):
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1490,7 +1490,7 @@ func(arg=f"""
     ],
 )
 def test_join_formatted_string_columns(input):
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1520,7 +1520,7 @@ info = f'{name=}, {age=}'
 )
 def test_fstring_debug_expressions(input):
     """Test that f-string debug expressions (f'{x=}') are handled correctly."""
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1546,7 +1546,7 @@ info = t"{name=}, {age=}"
 )
 def test_template_string_debug_expressions(input):
     """Test that template string debug expressions (t'{x=}') are handled correctly."""
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1577,7 +1577,7 @@ def test_template_string_debug_expressions(input):
 )
 def test_type_parameters(input):
     """Test that PEP 695 type parameters (def func[T](...)) are handled correctly."""
-    block = PythonBlock(dedent(input), auto_flags=True)
+    block = PythonBlock(dedent(input))
     assert block.annotated_ast_node
 
 
@@ -1599,7 +1599,7 @@ print(b"""
     ],
 )
 def test_bytes_concat(input):
-    block = PythonBlock(input, auto_flags=True)
+    block = PythonBlock(input)
     assert block.annotated_ast_node
 
 
@@ -1680,7 +1680,7 @@ def test_decorator_with_whitespace(code):
     This is valid Python syntax (though discouraged by style guides like PEP 8).
     These tests verify that pyflyby can handle decorators with whitespace after @.
     """
-    block = PythonBlock(dedent(code).strip(), auto_flags=True)
+    block = PythonBlock(dedent(code).strip())
     assert block.annotated_ast_node
 
 
