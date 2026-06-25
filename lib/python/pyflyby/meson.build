@@ -3,6 +3,7 @@ py.install_sources(
     '__init__.py',
     '__main__.py',
     '_autoimp.py',
+    '_autoipython.py',
     '_cmdline.py',
     '_collect_exports.py',
     '_collect_imports.py',
