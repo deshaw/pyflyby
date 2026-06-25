@@ -43,7 +43,6 @@ install_data(
 install_data(
   [
     'bin/collect-exports',
-    'bin/collect-imports',
     'bin/find-import',
     'bin/prune-broken-imports',
     'bin/pyflyby-diff',
