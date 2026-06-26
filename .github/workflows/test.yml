@@ -39,7 +39,12 @@ jobs:
             pytest-target: "--ignore=tests/test_interactive.py lib tests"
           - os: macos-latest
             python-version: "3.14"
-            pytest-target: "lib tests"
+            shard: "1"
+            pytest-target: "tests/test_interactive.py"
+          - os: macos-latest
+            python-version: "3.14"
+            shard: "2"
+            pytest-target: "--ignore=tests/test_interactive.py lib tests"
 
     env:
       DEBUG_TEST_PYFLYBY: 1
