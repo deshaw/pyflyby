@@ -360,6 +360,53 @@ def test_selftest_parse_template_tab_log_1(clear_tab_completions):
             b"goodbye")
 
 
+# Raw pty bytes captured from a real "os.sep.strip().lst<TAB>" autoimport
+# completion, broken up the way pexpect hands them to the decoder:
+#   - the "In [3]: " prompt
+#   - the echo of the half-typed line
+#   - the response to <TAB>: erase the half-typed line ("\x1b[26D\x1b[J"),
+#     log "[PYFLYBY] import os", then redraw the completed line.
+_TAB_AUTOIMPORT_PROMPT = (
+    b'\x1b[?2004h\x1b[?25l\x1b[0m\x1b[?7l\x1b[0m\x1b[J\x1b[0m'
+    b'In [3]:\x1b[7D\x1b[8C\x1b[?7h\x1b[0m\x1b[?12l\x1b[?25h')
+_TAB_AUTOIMPORT_ECHO = (
+    b'\x1b[?25l\x1b[?7l\x1b[0mos.sep.strip().lst'
+    b'\x1b[?7h\x1b[0m\x1b[?12l\x1b[?25h')
+_TAB_AUTOIMPORT_TABRESP = (
+    b'\x1b[26D\x1b[J\x1b[0m\x1b[?7h\x1b[?2004l\x1b[?7h\x1b[0m'
+    b'\x1b[34m[PYFLYBY]\x1b[0m import os\r\n')
+_TAB_AUTOIMPORT_REDRAW = (
+    b'\x1b[?2004h\x1b[?25l\x1b[0m\x1b[?7l\x1b[0m\x1b[J\x1b[0m'
+    b'In [3]: os.sep.strip().lstrip\x1b[29D\x1b[29C'
+    b'\x1b[?7h\x1b[0m\x1b[?12l\x1b[?25h')
+# The "In [3]: " prompt plus the 18 echoed characters are exactly the 26
+# columns the "\x1b[26D\x1b[J" sequence erases, so the whole pre-completion
+# line disappears, leaving only the [PYFLYBY] log and the redrawn prompt.
+_TAB_AUTOIMPORT_EXPECTED = (
+    b'[PYFLYBY] import os\nIn [3]: os.sep.strip().lstrip')
+
+
+@pytest.mark.parametrize('split', [
+    # The erased text (echo) and the erase sequence (tabresp) arrive in
+    # separate reads.  This is the case that used to leave a stale
+    # "In [3]: os.sep.strip().lst" line in the output.
+    [_TAB_AUTOIMPORT_PROMPT, _TAB_AUTOIMPORT_ECHO,
+     _TAB_AUTOIMPORT_TABRESP, _TAB_AUTOIMPORT_REDRAW],
+    # Echo and tab response arrive glued together in one read.
+    [_TAB_AUTOIMPORT_PROMPT,
+     _TAB_AUTOIMPORT_ECHO + _TAB_AUTOIMPORT_TABRESP, _TAB_AUTOIMPORT_REDRAW],
+    # Everything in a single read.
+    [_TAB_AUTOIMPORT_PROMPT + _TAB_AUTOIMPORT_ECHO
+     + _TAB_AUTOIMPORT_TABRESP + _TAB_AUTOIMPORT_REDRAW],
+])
+def test_selftest_decoder_tab_autoimport_chunking(split):
+    # No matter how the pty output is chopped into reads, the half-typed
+    # pre-completion line must be erased from the cleaned output.
+    decoder = AnsiFilterDecoder()
+    out = b"".join(decoder.decode(chunk) for chunk in split)
+    assert _clean_ipython_output(out) == _TAB_AUTOIMPORT_EXPECTED
+
+
 def test_selftest_assert_match_1():
     expected = b"""
         hello
@@ -556,6 +603,18 @@ class AnsiFilterDecoder(object):
         arg0 = arg = self._buffer + arg
         self._buffer = b""
         arg = re.sub(b"\r+\n", b"\n", arg)
+        # "move cursor back N + clear to end of display" is how prompt_toolkit
+        # erases the last N characters (e.g. the half-typed line before a tab
+        # completion redraws it).  Translate it into N backspaces, which
+        # _clean_ipython_output erases globally.  Doing this as backspaces
+        # (rather than collapsing it to a newline below) makes it robust to the
+        # erased text and the erase sequence landing in different reads: when
+        # they're split across chunks the bare \x1b[<N>D can no longer reach
+        # back into already-emitted output, which would leave the stale
+        # pre-completion line in the result.  This must run before \x1b[J is
+        # stripped just below.
+        arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[J",
+                     lambda m: b"\x08" * int(m.group(1)), arg)
         arg = arg.replace(b"\x1b[J", b"")             # clear to end of display
         arg = re.sub(br"\x1b\[[0-9]+(?:;[0-9]+)*m", b"", arg) # color
         arg = re.sub(br"([^\n])(\[PYFLYBY\])", br"\1\n\2", arg) # ensure [PYFLYBY] goes on its own line
