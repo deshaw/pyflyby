@@ -820,7 +820,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 ", ".join(map(str, imps)), lineno)
             return lines
         remaining = [imp for imp in target_stmt.imports if imp not in matched]
-        # Splice the rewritten statement between the text surrounding it.
+        # Build the replacement line(s) for the statement, then splice them in.
         # WARNING: col_offset/end_col_offset are in bytes, not characters.
         assert target.lineno is not None
         assert target.end_lineno is not None
@@ -828,23 +828,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                   .encode()[: target.col_offset].decode())
         suffix = (src_lines[target.end_lineno - 1]
                   .encode()[target.end_col_offset:].decode())
-        if remaining and not prefix.strip() and not suffix.strip():
-            width = params.max_line_length
-            if width is None:
-                width = params.max_line_length_default
-            sub_params = ImportFormatParams(
-                params, max_line_length=max(width - len(indent_str), 1))
-            rendered = ImportStatement._from_imports(remaining).pretty_print(
-                sub_params).rstrip("\n")
-            lines[rel: end + 1] = [
-                indent_str + line if line else line
-                for line in rendered.split("\n")
-            ]
-            return lines
-        if remaining:
-            new_text = (
-                prefix + str(ImportStatement._from_imports(remaining)) + suffix)
-        else:
+        if not remaining:
+            # The whole statement is removed; reassemble any co-located code
+            # (semicolon-separated statements) that shared its line(s).  An
+            # empty ``ImportStatement`` is not constructible, so this case
+            # cannot share the rendering path below.
             before = prefix.rstrip()
             after = suffix.lstrip()
             # Drop the semicolon that used to join the import to its neighbor.
@@ -852,14 +840,32 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 before = before[:-1].rstrip()
             elif after.startswith(";"):
                 after = after[1:].lstrip()
-            if before and after:
-                new_text = before + "; " + after
-            else:
-                new_text = before or after
-        if new_text.strip():
-            lines[rel: end + 1] = [indent_str + new_text]
+            new_text = (before + "; " + after) if before and after \
+                else (before or after)
+            new_lines = [indent_str + new_text] if new_text.strip() else []
+        elif prefix.strip() or suffix.strip():
+            # Co-located code on the same line; keep everything on one line so
+            # we don't have to interleave it with a wrapped import.
+            stmt_text = str(ImportStatement._from_imports(remaining))
+            new_lines = [indent_str + prefix + stmt_text + suffix]
         else:
-            del lines[rel: end + 1]
+            # The import occupies its own line(s); pretty-print it so that the
+            # configured width applies to local imports just as it does to
+            # top-level ones.  The rendered text starts at column 0, so reduce
+            # the available width by the indentation and re-indent each line.
+            width = params.max_line_length
+            if width is None:
+                width = params.max_line_length_default
+            sub_params = ImportFormatParams(
+                params, max_line_length=max(width - len(indent_str), 1))
+            rendered = ImportStatement._from_imports(remaining).pretty_print(
+                sub_params).rstrip("\n")
+            new_lines = [
+                indent_str + line if line else line
+                for line in rendered.split("\n")
+            ]
+        lines[rel: end + 1] = new_lines
+        if not new_lines:
             _maybe_insert_pass(lines, rel, len(indent_str), lineno)
         return lines
 
