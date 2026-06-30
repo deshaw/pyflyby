@@ -3,6 +3,7 @@ from __future__ import print_function
 import pytest
 from   textwrap                 import dedent
 
+from   pyflyby._format          import FormatParams
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._imports2s       import fix_unused_and_missing_imports
 from   pyflyby._parse           import PythonBlock
@@ -401,6 +402,33 @@ def test_tidy_local_imports_flag(
     for s in expect_absent:
         with subtests.test(msg="absent", i=s):
             assert s not in result, f"expected {s!r} to be absent"
+
+
+@pytest.mark.parametrize("width", (79, 60, 40))
+def test_tidy_local_imports_respect_width(width):
+    """Local imports tidied with ``tidy_local_imports`` should be wrapped
+    according to the configured ``--width`` (max_line_length), just like
+    top-level imports."""
+    code = (
+        "def foo():\n"
+        "    from aaa.bbb.ccc.ddd import (eee, fff, ggg, hhh, iii, jjj, kkk,\n"
+        "        lll, mmm, nnn, ooo, ppp, qqq, rrr)\n"
+        "    print(eee, fff, ggg, hhh)\n"
+        "    print(iii, jjj, kkk, lll)\n"
+        "    print(nnn, ooo, ppp, qqq, rrr)\n"
+    )
+    input_block = PythonBlock(code)
+    db = ImportDB("")
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, tidy_local_imports=True,
+        params=FormatParams(max_line_length=width),
+    )
+    result = str(output)
+    # The unused ``mmm`` is removed...
+    assert "mmm" not in result
+    # ...and every line honours the configured width.
+    for line in result.split("\n"):
+        assert len(line) <= width, f"line exceeds width {width}: {line!r}"
 
 
 @pytest.mark.parametrize(
