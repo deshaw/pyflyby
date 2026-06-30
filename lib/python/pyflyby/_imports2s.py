@@ -737,7 +737,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 block_idx, block._output.startpos.lineno
             )
             for lineno in sorted(by_lineno, reverse=True):
-                self._rewrite_local_import_statement(
+                lines = self._rewrite_local_import_statement(
                     lines, lineno - original_startpos, by_lineno[lineno],
                     lineno, params)
             block._output = PythonBlock(
@@ -747,7 +747,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     def _rewrite_local_import_statement(
         self, lines: List[str], rel: int, imps: List[Import], lineno: int,
         params: ImportFormatParams
-    ) -> None:
+    ) -> List[str]:
         """
         Rewrite the import statement starting at ``lines[rel]`` with the
         imports in ``imps`` removed.  Co-located code -- other aliases in the
@@ -756,7 +756,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         are deleted only when nothing else remains on them.
 
         :param lines:
-          Source lines of the block, modified in place.
+          Source lines of the block.  This list is not modified; the rewritten
+          lines are returned instead.
         :param rel:
           Index into ``lines`` of the first line of the import statement.
         :param imps:
@@ -767,12 +768,18 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           Formatting parameters.  When the import occupies its own line(s),
           the surviving statement is re-wrapped according to these parameters
           (e.g. ``--width``).
+        :return:
+          A new list of lines with the rewrite applied.  When nothing can be
+          rewritten (e.g. the statement can't be parsed), a copy of the
+          original ``lines`` is returned unchanged.
         """
+        # Work on a copy so the caller's list is never mutated in place.
+        lines = list(lines)
         if not (0 <= rel < len(lines)):
             logger.warning(
                 "Line %d out of range (relative %d, %d lines in block)",
                 lineno, rel, len(lines))
-            return
+            return lines
         first_line = lines[rel]
         indent_str = first_line[: len(first_line) - len(first_line.lstrip())]
         # Find the physical extent of the statement: extend line by line until
@@ -791,7 +798,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             logger.warning(
                 "Couldn't parse statement at line %d; leaving it untouched",
                 lineno)
-            return
+            return lines
         src_lines = candidate.split("\n")
         # Find the import node containing the imports to remove.  (The line
         # may hold several semicolon-separated statements.)
@@ -811,7 +818,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             logger.warning(
                 "Couldn't find import(s) %s at line %d; leaving line untouched",
                 ", ".join(map(str, imps)), lineno)
-            return
+            return lines
         remaining = [imp for imp in target_stmt.imports if imp not in matched]
         # Splice the rewritten statement between the text surrounding it.
         # WARNING: col_offset/end_col_offset are in bytes, not characters.
@@ -833,7 +840,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 indent_str + line if line else line
                 for line in rendered.split("\n")
             ]
-            return
+            return lines
         if remaining:
             new_text = (
                 prefix + str(ImportStatement._from_imports(remaining)) + suffix)
@@ -854,6 +861,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         else:
             del lines[rel: end + 1]
             _maybe_insert_pass(lines, rel, len(indent_str), lineno)
+        return lines
 
     def select_import_block_by_closest_prefix_match(
         self, imp: Import, max_lineno: Union[int, float]
