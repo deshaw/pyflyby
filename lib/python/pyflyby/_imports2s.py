@@ -441,7 +441,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     def pretty_print(self, params: Any = None) -> FileText:
         params = ImportFormatParams(params)
         # Apply deferred local-import removals before rendering the blocks.
-        self._apply_local_import_removals()
+        self._apply_local_import_removals(params)
         result = [block.pretty_print(params=params) for block in self.blocks]
         output = FileText.concatenate(result)
 
@@ -692,7 +692,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         return imp
 
-    def _apply_local_import_removals(self) -> None:
+    def _apply_local_import_removals(self, params: ImportFormatParams) -> None:
         """
         Apply the local-import removals recorded by ``remove_import``.
 
@@ -700,6 +700,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         aliases removed from one statement are handled in a single rewrite,
         and statements are processed bottom-up within each block so that
         edits never shift the line numbers of statements not yet processed.
+
+        :param params:
+          Formatting parameters used to re-wrap the surviving local imports,
+          so that options like ``--width`` apply to local imports just as they
+          do to top-level ones.
         """
         if not self._pending_local_removals:
             return
@@ -733,13 +738,15 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             )
             for lineno in sorted(by_lineno, reverse=True):
                 self._rewrite_local_import_statement(
-                    lines, lineno - original_startpos, by_lineno[lineno], lineno)
+                    lines, lineno - original_startpos, by_lineno[lineno],
+                    lineno, params)
             block._output = PythonBlock(
                 "\n".join(lines), filename=block._output.filename
             )
 
     def _rewrite_local_import_statement(
-        self, lines: List[str], rel: int, imps: List[Import], lineno: int
+        self, lines: List[str], rel: int, imps: List[Import], lineno: int,
+        params: ImportFormatParams
     ) -> None:
         """
         Rewrite the import statement starting at ``lines[rel]`` with the
@@ -756,6 +763,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           The `Import` s to remove from the statement.
         :param lineno:
           Absolute line number in the file (for logging).
+        :param params:
+          Formatting parameters.  When the import occupies its own line(s),
+          the surviving statement is re-wrapped according to these parameters
+          (e.g. ``--width``).
         """
         if not (0 <= rel < len(lines)):
             logger.warning(
@@ -810,6 +821,19 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                   .encode()[: target.col_offset].decode())
         suffix = (src_lines[target.end_lineno - 1]
                   .encode()[target.end_col_offset:].decode())
+        if remaining and not prefix.strip() and not suffix.strip():
+            width = params.max_line_length
+            if width is None:
+                width = params.max_line_length_default
+            sub_params = ImportFormatParams(
+                params, max_line_length=max(width - len(indent_str), 1))
+            rendered = ImportStatement._from_imports(remaining).pretty_print(
+                sub_params).rstrip("\n")
+            lines[rel: end + 1] = [
+                indent_str + line if line else line
+                for line in rendered.split("\n")
+            ]
+            return
         if remaining:
             new_text = (
                 prefix + str(ImportStatement._from_imports(remaining)) + suffix)
