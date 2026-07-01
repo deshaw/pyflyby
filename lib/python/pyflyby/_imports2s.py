@@ -277,6 +277,8 @@ def _maybe_insert_pass(
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
+    # Each entry is (import to remove, absolute line number of its statement,
+    # the wrapper for the block it lives in).
     _pending_local_removals: list[tuple[Import, int, "_LocalImportBlockWrapper"]]
     tidy_local_imports: bool = False
 
