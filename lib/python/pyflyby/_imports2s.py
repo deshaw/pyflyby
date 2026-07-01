@@ -177,6 +177,12 @@ class _LocalImportBlockWrapper:
     _original_imports: set[Import]
     _id: str
     _semicolon_suffixes: dict[int, str]
+    # The physical (non-import) block whose source text this local import lives
+    # in, and that block's original start line.  A direct reference lets
+    # deferred removals edit the right block regardless of how the block list is
+    # reordered by other edits.
+    container: Optional["SourceToSourceTransformation"]
+    container_startpos: int
 
     def __init__(
         self,
@@ -184,6 +190,7 @@ class _LocalImportBlockWrapper:
         start_lineno: int,
         end_lineno: Optional[int] = None,
         semicolon_suffixes: Optional[dict[int, str]] = None,
+        container: Optional["SourceToSourceTransformation"] = None,
     ) -> None:
         self.transform = transform
         self.start_lineno = start_lineno
@@ -192,6 +199,10 @@ class _LocalImportBlockWrapper:
         self._original_imports = set(transform.importset.imports)
         self._id = hex(id(self))
         self._semicolon_suffixes = semicolon_suffixes or {}
+        self.container = container
+        self.container_startpos = (
+            container._output.startpos.lineno if container is not None else start_lineno
+        )
 
     def __getattr__(self, name: str) -> Any:
         # Delegate all other attribute access to the wrapped transform
@@ -266,8 +277,7 @@ def _maybe_insert_pass(
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
-    _pending_local_removals: list[tuple[Import, int]]
-    _original_block_startpos: dict[int, int]
+    _pending_local_removals: list[tuple[Import, int, "_LocalImportBlockWrapper"]]
     tidy_local_imports: bool = False
 
     def preprocess(self) -> None:
@@ -279,8 +289,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         # deferred to pretty_print() so that all removals from one statement
         # can be applied together (see _apply_local_import_removals).
         self._pending_local_removals = []
-        # Track original startpos for each block (before any modifications)
-        self._original_block_startpos = {}
 
         for is_imports, subblock in self.input.groupby(lambda ps: ps.is_import):
             if is_imports:
@@ -290,11 +298,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             else:
                 trans = SourceToSourceTransformation(subblock)
                 self.blocks.append(trans)
-
-        # Store original startpos for each block
-        for idx, block in enumerate(self.blocks):
-            if isinstance(block, SourceToSourceTransformation):
-                self._original_block_startpos[idx] = block._output.startpos.lineno
 
         # Extract local import blocks from function/class bodies (if enabled)
         if self.tidy_local_imports:
@@ -307,6 +310,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         lines: list[str],
         start_line: int,
         end_line: int,
+        container: "SourceToSourceTransformation",
     ) -> None:
         """Create an import block from a group of import statements.
 
@@ -375,7 +379,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 )
             else:
                 wrapped = _LocalImportBlockWrapper(
-                    trans, start_line, end_line, semicolon_suffixes=semicolon_suffixes
+                    trans, start_line, end_line,
+                    semicolon_suffixes=semicolon_suffixes, container=container,
                 )
                 self.import_blocks.append(wrapped)
 
@@ -387,12 +392,15 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         for block in self.blocks:
             if not isinstance(block, SourceToSourceTransformation):
                 continue
-            # Check each statement for function/class definitions
+            # Check each statement for function/class definitions.  Local
+            # imports found here (however deeply nested) all live in ``block``'s
+            # source text, so it is their containing block for later edits.
             for stmt in block.input.statements:
-                self._extract_imports_from_statement(stmt)
+                self._extract_imports_from_statement(stmt, block)
 
     def _extract_imports_from_statement(
-        self, stmt: Union[PythonStatement, ast.AST]
+        self, stmt: Union[PythonStatement, ast.AST],
+        container: "SourceToSourceTransformation",
     ) -> None:
         """
         Recursively extract imports from a statement's body (e.g., FunctionDef, ClassDef).
@@ -430,13 +438,13 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             start_line = group_no_ignore_pragma[0].lineno
             end_line = getattr(group[-1], "end_lineno", group[-1].lineno)
             self._create_import_block_from_group(
-                group_no_ignore_pragma, lines, start_line, end_line
+                group_no_ignore_pragma, lines, start_line, end_line, container
             )
 
         # Recursively check nested function/class definitions
         for body_item in body:
             if isinstance(body_item, _FUNCTION_OR_CLASS_TYPES):
-                self._extract_imports_from_statement(body_item)
+                self._extract_imports_from_statement(body_item, container)
 
     def pretty_print(self, params: Any = None) -> FileText:
         params = ImportFormatParams(params)
@@ -687,8 +695,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         if isinstance(block, _LocalImportBlockWrapper):
             # For local imports the source text must be edited.  Defer the
             # edit until pretty_print() so that all removals targeting the
-            # same statement are applied in one rewrite.
-            self._pending_local_removals.append((imp, lineno))
+            # same statement are applied in one rewrite.  Keep a reference to
+            # the wrapper so we can edit its containing block directly.
+            self._pending_local_removals.append((imp, lineno, block))
 
         return imp
 
@@ -711,37 +720,36 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         pending = self._pending_local_removals
         self._pending_local_removals = []
 
-        # Group the removals by containing block, then by statement start line.
-        by_block: Dict[int, Dict[int, List[Import]]] = defaultdict(
+        # Group the removals by their containing block, then by statement start
+        # line.  Each wrapper carries a direct reference to the physical block
+        # its import lives in and that block's original start line, so the block
+        # is edited directly rather than located positionally.
+        by_block: Dict[SourceToSourceTransformation,
+                       Dict[int, List[Import]]] = defaultdict(
             lambda: defaultdict(list))
-        for imp, lineno in pending:
-            for block_idx, block in enumerate(self.blocks):
-                if not isinstance(block, SourceToSourceTransformation):
-                    continue
-                original_startpos = self._original_block_startpos.get(
-                    block_idx, block._output.startpos.lineno
-                )
-                if original_startpos <= lineno <= block._output.endpos.lineno:
-                    by_block[block_idx][lineno].append(imp)
-                    break
-            else:
+        # The original first line of each containing block (all wrappers sharing
+        # a container agree on this), used to map absolute line numbers to
+        # offsets within the block's text.
+        block_startpos: Dict[SourceToSourceTransformation, int] = {}
+        for imp, lineno, wrapper in pending:
+            container = wrapper.container
+            if container is None:
                 logger.warning(
                     "Couldn't find block containing line %d to remove %r",
                     lineno, imp)
+                continue
+            by_block[container][lineno].append(imp)
+            block_startpos[container] = wrapper.container_startpos
 
-        for block_idx, by_lineno in by_block.items():
-            block = self.blocks[block_idx]
-            assert isinstance(block, SourceToSourceTransformation)
-            lines = str(block._output.text).split("\n")
-            original_startpos = self._original_block_startpos.get(
-                block_idx, block._output.startpos.lineno
-            )
+        for container, by_lineno in by_block.items():
+            lines = str(container._output.text).split("\n")
+            original_startpos = block_startpos[container]
             for lineno in sorted(by_lineno, reverse=True):
                 lines = self._rewrite_local_import_statement(
                     lines, lineno - original_startpos, by_lineno[lineno],
                     lineno, params)
-            block._output = PythonBlock(
-                "\n".join(lines), filename=block._output.filename
+            container._output = PythonBlock(
+                "\n".join(lines), filename=container._output.filename
             )
 
     def _rewrite_local_import_statement(
