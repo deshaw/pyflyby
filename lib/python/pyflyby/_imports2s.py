@@ -190,16 +190,16 @@ class _LocalImportBlockWrapper:
         *,
         start_lineno: int,
         container: "SourceToSourceTransformation",
-        end_lineno: Optional[int] = None,
-        semicolon_suffixes: Optional[dict[int, str]] = None,
+        end_lineno: int,
+        semicolon_suffixes: dict[int, str],
     ) -> None:
         self.transform = transform
         self.start_lineno = start_lineno
-        self.end_lineno = end_lineno if end_lineno is not None else start_lineno
+        self.end_lineno = end_lineno
         # Store the original imports so we can detect what was removed
         self._original_imports = set(transform.importset.imports)
         self._id = hex(id(self))
-        self._semicolon_suffixes = semicolon_suffixes or {}
+        self._semicolon_suffixes = semicolon_suffixes
         self.container = container
         self.container_startpos = container._output.startpos.lineno
 
