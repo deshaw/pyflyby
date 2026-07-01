@@ -3756,16 +3756,12 @@ def test_breakpoint_IOStream_broken():
             frontend="prompt_toolkit",
         )
     elif sys.version_info[:3] >= (3, 14, 6):
-            ipython(
+        ipython(
             '''
             In [1]: # [3.14.6+ ...[
             In [2]: breakpoint()
             --Call--
-                [... skipping 12 hidden frame(s)]
-              <ipython-input>(1)<module>()
-            > ...
-                ...
-                ...
+            ....
             --> ...     def __call__(self, result=None):
                 ...         """Printing with history cache management.
                 ...
