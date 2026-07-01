@@ -181,16 +181,17 @@ class _LocalImportBlockWrapper:
     # in, and that block's original start line.  A direct reference lets
     # deferred removals edit the right block regardless of how the block list is
     # reordered by other edits.
-    container: Optional["SourceToSourceTransformation"]
+    container: "SourceToSourceTransformation"
     container_startpos: int
 
     def __init__(
         self,
         transform: SourceToSourceImportBlockTransformation,
+        *,
         start_lineno: int,
+        container: "SourceToSourceTransformation",
         end_lineno: Optional[int] = None,
         semicolon_suffixes: Optional[dict[int, str]] = None,
-        container: Optional["SourceToSourceTransformation"] = None,
     ) -> None:
         self.transform = transform
         self.start_lineno = start_lineno
@@ -200,9 +201,7 @@ class _LocalImportBlockWrapper:
         self._id = hex(id(self))
         self._semicolon_suffixes = semicolon_suffixes or {}
         self.container = container
-        self.container_startpos = (
-            container._output.startpos.lineno if container is not None else start_lineno
-        )
+        self.container_startpos = container._output.startpos.lineno
 
     def __getattr__(self, name: str) -> Any:
         # Delegate all other attribute access to the wrapped transform
@@ -381,8 +380,11 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 )
             else:
                 wrapped = _LocalImportBlockWrapper(
-                    trans, start_line, end_line,
-                    semicolon_suffixes=semicolon_suffixes, container=container,
+                    trans,
+                    start_lineno=start_line,
+                    container=container,
+                    end_lineno=end_line,
+                    semicolon_suffixes=semicolon_suffixes,
                 )
                 self.import_blocks.append(wrapped)
 
@@ -738,11 +740,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                        Dict[int, List[Import]]] = defaultdict(
             lambda: defaultdict(list))
         for imp, rel, wrapper in pending:
-            container = wrapper.container
-            if container is None:
-                logger.warning("Couldn't find block to remove %r", imp)
-                continue
-            by_block[container][rel].append(imp)
+            by_block[wrapper.container][rel].append(imp)
 
         for container, by_rel in by_block.items():
             lines = str(container._output.text).split("\n")
