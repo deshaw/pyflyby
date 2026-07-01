@@ -234,7 +234,7 @@ def _is_future_only_import_block(block: SourceToSourceImportBlockTransformation)
 
 
 def _maybe_insert_pass(
-    lines: list[str], idx: int, indent: int, lineno: int
+    lines: list[str], idx: int, indent: int
 ) -> None:
     """Insert a ``pass`` statement at *idx* when removing a line would leave a
     block-opener (a line ending with ``:``) without a body.
@@ -251,7 +251,6 @@ def _maybe_insert_pass(
     :param idx: Index into *lines* where the deleted line used to be.
     :param indent: Column offset (number of leading spaces) of the deleted line,
         used to indent the inserted ``pass``.
-    :param lineno: Absolute line number in the file (used only for logging).
     """
     prev_idx = idx - 1
     while prev_idx >= 0 and lines[prev_idx].strip() == "":
@@ -271,14 +270,15 @@ def _maybe_insert_pass(
     )
     if body_gone:
         lines.insert(idx, " " * indent + "pass")
-        logger.debug("Inserted 'pass' at line %d to preserve empty block", lineno)
+        logger.debug(
+            "Inserted 'pass' at block offset %d to preserve empty block", idx)
 
 
 class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
     blocks: list[Union[SourceToSourceImportBlockTransformation, SourceToSourceTransformation]]
     import_blocks: list[Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]]
-    # Each entry is (import to remove, absolute line number of its statement,
-    # the wrapper for the block it lives in).
+    # Each entry is (import to remove, offset of its statement within the
+    # containing block, the wrapper for the block it lives in).
     _pending_local_removals: list[tuple[Import, int, "_LocalImportBlockWrapper"]]
     tidy_local_imports: bool = False
 
@@ -699,7 +699,14 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             # edit until pretty_print() so that all removals targeting the
             # same statement are applied in one rewrite.  Keep a reference to
             # the wrapper so we can edit its containing block directly.
-            self._pending_local_removals.append((imp, lineno, block))
+            #
+            # Convert the absolute line number to an offset within the
+            # containing block *now*, while both coordinates are known to share
+            # the same (pre-edit) frame of reference.  The apply step then works
+            # purely in block-relative offsets and never touches file line
+            # numbers.
+            rel = lineno - block.container_startpos
+            self._pending_local_removals.append((imp, rel, block))
 
         return imp
 
@@ -707,10 +714,10 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         """
         Apply the local-import removals recorded by ``remove_import``.
 
-        The removals are grouped by (block, statement start line) so that all
+        The removals are grouped by (block, statement offset) so that all
         aliases removed from one statement are handled in a single rewrite,
         and statements are processed bottom-up within each block so that
-        edits never shift the line numbers of statements not yet processed.
+        edits never shift the offsets of statements not yet processed.
 
         :param params:
           Formatting parameters used to re-wrap the surviving local imports,
@@ -722,40 +729,32 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         pending = self._pending_local_removals
         self._pending_local_removals = []
 
-        # Group the removals by their containing block, then by statement start
-        # line.  Each wrapper carries a direct reference to the physical block
-        # its import lives in and that block's original start line, so the block
-        # is edited directly rather than located positionally.
+        # Group the removals by their containing block, then by statement offset
+        # within that block.  Each wrapper carries a direct reference to the
+        # physical block its import lives in, so the block is edited directly
+        # rather than located positionally; the offsets were computed up front
+        # (see remove_import), so no file line numbers are consulted here.
         by_block: Dict[SourceToSourceTransformation,
                        Dict[int, List[Import]]] = defaultdict(
             lambda: defaultdict(list))
-        # The original first line of each containing block (all wrappers sharing
-        # a container agree on this), used to map absolute line numbers to
-        # offsets within the block's text.
-        block_startpos: Dict[SourceToSourceTransformation, int] = {}
-        for imp, lineno, wrapper in pending:
+        for imp, rel, wrapper in pending:
             container = wrapper.container
             if container is None:
-                logger.warning(
-                    "Couldn't find block containing line %d to remove %r",
-                    lineno, imp)
+                logger.warning("Couldn't find block to remove %r", imp)
                 continue
-            by_block[container][lineno].append(imp)
-            block_startpos[container] = wrapper.container_startpos
+            by_block[container][rel].append(imp)
 
-        for container, by_lineno in by_block.items():
+        for container, by_rel in by_block.items():
             lines = str(container._output.text).split("\n")
-            original_startpos = block_startpos[container]
-            for lineno in sorted(by_lineno, reverse=True):
+            for rel in sorted(by_rel, reverse=True):
                 lines = self._rewrite_local_import_statement(
-                    lines, lineno - original_startpos, by_lineno[lineno],
-                    lineno, params)
+                    lines, rel, by_rel[rel], params)
             container._output = PythonBlock(
                 "\n".join(lines), filename=container._output.filename
             )
 
     def _rewrite_local_import_statement(
-        self, lines: List[str], rel: int, imps: List[Import], lineno: int,
+        self, lines: List[str], rel: int, imps: List[Import],
         params: ImportFormatParams
     ) -> List[str]:
         """
@@ -772,8 +771,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
           Index into ``lines`` of the first line of the import statement.
         :param imps:
           The `Import` s to remove from the statement.
-        :param lineno:
-          Absolute line number in the file (for logging).
         :param params:
           Formatting parameters.  When the import occupies its own line(s),
           the surviving statement is re-wrapped according to these parameters
@@ -787,8 +784,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         lines = list(lines)
         if not (0 <= rel < len(lines)):
             logger.warning(
-                "Line %d out of range (relative %d, %d lines in block)",
-                lineno, rel, len(lines))
+                "Block offset %d out of range (%d lines in block)",
+                rel, len(lines))
             return lines
         first_line = lines[rel]
         indent_str = first_line[: len(first_line) - len(first_line.lstrip())]
@@ -806,8 +803,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             break
         if module is None:
             logger.warning(
-                "Couldn't parse statement at line %d; leaving it untouched",
-                lineno)
+                "Couldn't parse local import statement %s; leaving it untouched",
+                ", ".join(map(str, imps)))
             return lines
         src_lines = candidate.split("\n")
         # Find the import node containing the imports to remove.  (The line
@@ -826,8 +823,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 break
         if target is None or target_stmt is None:
             logger.warning(
-                "Couldn't find import(s) %s at line %d; leaving line untouched",
-                ", ".join(map(str, imps)), lineno)
+                "Couldn't find import(s) %s in local block; leaving line untouched",
+                ", ".join(map(str, imps)))
             return lines
         remaining = [imp for imp in target_stmt.imports if imp not in matched]
         # Build the replacement line(s) for the statement, then splice them in.
@@ -876,7 +873,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             ]
         lines[rel: end + 1] = new_lines
         if not new_lines:
-            _maybe_insert_pass(lines, rel, len(indent_str), lineno)
+            _maybe_insert_pass(lines, rel, len(indent_str))
         return lines
 
     def select_import_block_by_closest_prefix_match(
