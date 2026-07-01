@@ -299,6 +299,56 @@ def test_add_missing_imports_with_local_imports(
 
 
 @pytest.mark.parametrize(
+    ("input_code", "expected_code"),
+    [
+        pytest.param(
+            """\
+def foo():
+    from numpy import add, mean
+    mean(1, 2)
+""",
+            """\
+from __future__ import annotations
+
+def foo():
+    from numpy import mean
+    mean(1, 2)
+""",
+            id="partial_local_removal",
+        ),
+        pytest.param(
+            """\
+def foo():
+    from numpy import add
+    pass
+""",
+            """\
+from __future__ import annotations
+
+def foo():
+    pass
+""",
+            id="full_local_removal",
+        ),
+    ],
+)
+def test_tidy_local_imports_with_added_mandatory_import(input_code, expected_code):
+    """Regression test: adding a mandatory global import shifts the block
+    indices, but deferred local-import removals must still be applied to the
+    correct (original) block rather than being silently dropped.
+
+    """
+    input_block = PythonBlock(dedent(input_code).lstrip())
+    db = ImportDB('__mandatory_imports__ = ["from __future__ import annotations"]')
+    output = fix_unused_and_missing_imports(
+        input_block, db=db, tidy_local_imports=True,
+    )
+    result = str(output)
+    expected = dedent(expected_code).lstrip()
+    assert result == expected
+
+
+@pytest.mark.parametrize(
     "line,import_str,expected",
     [
         # Simple imports with variable spacing
