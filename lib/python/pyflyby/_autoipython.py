@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # DEPRECATED.
 #   - to run once from command-line: py
 #   - to load once from IPython: '%load_ext pyflyby'
@@ -36,7 +34,7 @@ Or, you can manually add 'pyflyby.enable_auto_importer()' wherever you prefer.
 
 """
 
-# pyflyby/autoipython
+# pyflyby/_autoipython.py
 # Copyright (C) 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -48,7 +46,17 @@ from   pyflyby._interactive     import (install_in_ipython_config_file,
                                         start_ipython_with_autoimporter)
 
 
-def main(args):
+def main(args=None):
+    # ``maindoc`` derives the --help banner from ``__main__.__doc__`` (see
+    # ``pyflyby._cmdline.maindoc``).  When invoked through the console script
+    # entry point the ``__main__`` module is the generated wrapper and has no
+    # docstring, so fall back to this module's docstring.
+    import __main__
+    if not (__main__.__doc__ or '').strip():
+        __main__.__doc__ = __doc__
+
+    if args is None:
+        args = sys.argv[1:]
     if any(a in ["--help", "-help", "-h"] for a in args):
         print(maindoc())
         print()
@@ -71,4 +79,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

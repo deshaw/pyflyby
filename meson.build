@@ -42,16 +42,7 @@ install_data(
 
 install_data(
   [
-    'bin/collect-exports',
-    'bin/collect-imports',
-    'bin/find-import',
-    'bin/prune-broken-imports',
     'bin/pyflyby-diff',
-    'bin/reformat-imports',
-    'bin/replace-star-imports',
-    'bin/saveframe',
-    'bin/tidy-imports',
-    'bin/transform-imports',
   ],
   install_dir: get_option('bindir')
 )

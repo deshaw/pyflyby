@@ -2062,3 +2062,7 @@ def py_main(args=None):
     if args is None:
         args = sys.argv[1:]
     _PyMain(args).run()
+
+
+if __name__ == '__main__':
+    py_main()

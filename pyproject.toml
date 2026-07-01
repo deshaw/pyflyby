@@ -38,8 +38,18 @@ Documentation = "https://deshaw.github.io/pyflyby/"
 Source = "https://github.com/deshaw/pyflyby"
 
 [project.scripts]
+autoipython = "pyflyby._autoipython:main"
+collect-exports = "pyflyby._collect_exports:main"
+collect-imports = "pyflyby._collect_imports:main"
+find-import = "pyflyby._find_import:main"
 py = "pyflyby._py:py_main"
 py3 = "pyflyby._py:py_main"
+prune-broken-imports = "pyflyby._prune_broken_imports:main"
+reformat-imports = "pyflyby._reformat_imports:main"
+replace-star-imports = "pyflyby._replace_star_imports:main"
+saveframe = "pyflyby._saveframe_cli:main"
+tidy-imports = "pyflyby._tidy_imports:main"
+transform-imports = "pyflyby._transform_imports:main"
 
 [project.optional-dependencies]
 test = [

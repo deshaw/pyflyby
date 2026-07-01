@@ -6,5 +6,8 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 # Deprecated old name for collect-exports.
+# 'collect-exports' is now a console_scripts entry point (see pyproject.toml),
+# so there is no longer a bin/collect-exports to exec; run the package module
+# instead.
 
-exec $(dirname $0)/collect-exports "$@"
+exec python3 -m pyflyby._collect_exports "$@"

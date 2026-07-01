@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 collect-imports *.py
 collect-imports < foo.py
@@ -7,7 +6,7 @@ Collect all imports from named files or stdin, and combine them into a single
 block of import statements.  Print the result to stdout.
 
 """
-# pyflyby/collect-imports
+# pyflyby/_collect_imports.py
 # Copyright (C) 2011, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
@@ -21,6 +20,14 @@ from   pyflyby._importdb        import ImportDB
 
 
 def main():
+    # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
+    # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
+    # script entry point the ``__main__`` module is the generated wrapper and
+    # has no docstring, so fall back to this module's docstring.
+    import __main__
+    if not (__main__.__doc__ or '').strip():
+        __main__.__doc__ = __doc__
+
     def addopts(parser):
         parser.add_option("--ignore-known", default=False, action='store_true',
                           help=hfmt('''

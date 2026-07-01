@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 tidy-imports *.py
 tidy-imports < foo.py
@@ -17,13 +16,14 @@ Only top-level import statements are tidied by default. Use
 
 """
 
-# pyflyby/tidy-imports
+# pyflyby/_tidy_imports.py
 # Copyright (C) 2011, 2012, 2014 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
 
 from   pyflyby._cmdline         import (_get_pyproj_toml_config, hfmt,
                                         parse_args, process_actions)
+from   pyflyby._file            import FileText
 from   pyflyby._import_sorting  import sort_imports
 from   pyflyby._imports2s       import (canonicalize_imports,
                                         fix_unused_and_missing_imports,
@@ -130,7 +130,16 @@ def _addopts(parser):
                         help=hfmt('''
                             (Default) Don't tidy imports within function and
                             class bodies.'''))
+
+
 def main() -> None:
+    # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
+    # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
+    # script entry point the ``__main__`` module is the generated wrapper and
+    # has no docstring, so fall back to this module's docstring.
+    import __main__
+    if not (__main__.__doc__ or '').strip():
+        __main__.__doc__ = __doc__
 
     config = _get_pyproj_toml_config()
     if config:
@@ -147,7 +156,8 @@ def main() -> None:
         modify_action_params=True,
     )
 
-    def modify(block:PythonBlock) -> PythonBlock:
+    def modify(file_text: FileText) -> PythonBlock:
+        block = PythonBlock(file_text)
         if options.transformations:
             block = transform_imports(block, options.transformations,
                                   params=options.params,

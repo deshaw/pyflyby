@@ -12,9 +12,6 @@ import tempfile
 
 import pytest
 
-PYFLYBY_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-BIN_DIR = os.path.join(PYFLYBY_HOME, "bin")
-
 python = sys.executable
 
 
@@ -50,7 +47,7 @@ def pipe_with_exitcode(command, stdin="", cwd=None, env=None):
 def test_changedexit1_stdin(code, expected_exitcode, description):
     """Test that CHANGEDEXIT1 returns correct exit code for stdin input."""
     output, exitcode = pipe_with_exitcode(
-        [BIN_DIR + "/tidy-imports", "--actions=CHANGEDEXIT1", "--no-add"],
+        ["-m", "pyflyby._tidy_imports", "--actions=CHANGEDEXIT1", "--no-add"],
         stdin=code
     )
     assert exitcode == expected_exitcode, (
@@ -83,7 +80,7 @@ def test_changedexit1_file(file_content, expected_exitcode, description):
 
     try:
         output, exitcode = pipe_with_exitcode(
-            [BIN_DIR + "/tidy-imports", temp_filename, "--actions=CHANGEDEXIT1", "--no-add"]
+            ["-m", "pyflyby._tidy_imports", temp_filename, "--actions=CHANGEDEXIT1", "--no-add"]
         )
         assert exitcode == expected_exitcode, (
             f"Expected exit code {expected_exitcode} for {description}, "
