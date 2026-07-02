@@ -493,8 +493,11 @@ class ImportDB:
         :rtype:
           ``dict`` mapping from ``str`` to tuple of `Import` s
         """
-        # TODO: make known_imports take into account the below forget_imports,
-        # then move this function into ImportSet
+        # Note: ``self.known_imports`` already has ``forget_imports`` removed
+        # (see `_from_data`).  We still subtract ``forget_imports`` again below
+        # because the prefix entries synthesized here (e.g. the "import foo.bar"
+        # implied by "from foo.bar import quux") are not present verbatim in
+        # ``known_imports`` and therefore aren't covered by that removal.
         d = defaultdict(set)
         for imp in self.known_imports.imports:
             # Given an import like "from foo.bar import quux as QUUX", add the
@@ -508,8 +511,14 @@ class ImportDB:
             d[imp.import_as].add(imp)
             for prefix in dotted_prefixes(imp.fullname)[:-1]:
                 d[prefix].add(Import.from_parts(prefix, prefix))
-        return dict( (k, tuple(sorted(v - set(self.forget_imports.imports))))
-                     for k, v in d.items())
+        forget = set(self.forget_imports.imports)
+        # Drop entries that become empty after removing forgotten imports; an
+        # empty tuple here would otherwise trip up callers such as
+        # `get_known_import`, which assume every key maps to >= 1 import.
+        return dict( (k, tuple(sorted(remaining)))
+                     for k, v in d.items()
+                     for remaining in [v - forget]
+                     if remaining )
 
     def __repr__(self) -> str:
         printed = self.pretty_print()

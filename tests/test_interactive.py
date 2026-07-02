@@ -1605,6 +1605,64 @@ def test_autoimport_symbol_1():
 
 
 @retry
+def test_autoimport_forget_from_import_1(tmp):
+    # A "from X import Y" listed in a .pyflyby `__forget_imports__` is not
+    # auto-imported (even though the same file makes it a known import), while a
+    # sibling import from the same module is unaffected.
+    writetext(tmp.file,
+              'from base64 import b64decode, b64encode\n'
+              '__forget_imports__ = ["from base64 import b64decode"]\n')
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: b64decode
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        ... in ...
+        NameError: name 'b64decode' is not defined
+        In [3]: b64encode(b'koala')
+        [PYFLYBY] from base64 import b64encode
+        Out[3]: b'a29hbGE='
+    """, PYFLYBY_PATH=tmp.file)
+
+
+@retry
+def test_autoimport_forget_pyflyby_path_module_1(tmp):
+    # Regression for the reported scenario: a .pyflyby file that forgets
+    # "import collections" while also providing "from collections import ...".
+    # This used to incorrectly raise AssertionError and disable the auto importer.
+    writetext(tmp.file,
+              'from collections import defaultdict\n'
+              '__forget_imports__ = ["import collections"]\n')
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: collections
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        ... in ...
+        NameError: name 'collections' is not defined
+        In [3]: defaultdict(list)['x']
+        [PYFLYBY] from collections import defaultdict
+        Out[3]: []
+    """, PYFLYBY_PATH=tmp.file)
+
+
+@retry
+def test_autoimport_forget_member_access_unaffected(tmp):
+    # Forgetting "from base64 import b64decode" suppresses the bare name
+    # b64decode, but must not affect access via the (separately imported) module
+    # as base64.b64decode.
+    writetext(tmp.file,
+              'from base64 import b64decode\n'
+              '__forget_imports__ = ["from base64 import b64decode"]\n')
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: import base64
+        In [3]: base64.b64decode(b'eHl6enk=')
+        Out[3]: b'xyzzy'
+    """, PYFLYBY_PATH=tmp.file)
+
+
+@retry
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1936,6 +1994,42 @@ def test_complete_symbol_basic_1():
         [PYFLYBY] from base64 import b64decode
         Out[2]: b'xyzzy'
     """)
+
+
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@retry
+def test_complete_symbol_forget_1(tmp):
+    # A symbol listed in a .pyflyby `__forget_imports__` is neither
+    # tab-completed nor auto-imported on Tab. `b64deco<TAB>` therefore does
+    # nothing, and evaluating the (incomplete) name raises NameError.
+    writetext(tmp.file,
+              'from base64 import b64decode\n'
+              '__forget_imports__ = ["from base64 import b64decode"]\n')
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: b64deco\t
+        In [2]: b64deco
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        ... in ...
+        NameError: name 'b64deco' is not defined
+    """, PYFLYBY_PATH=tmp.file)
+
+
+@pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
+@retry
+def test_complete_symbol_forget_other_still_completes_1(tmp):
+    # Forgetting one import does not disable tab completion / auto-import of a
+    # sibling import from the same module.
+    writetext(tmp.file,
+              'from base64 import b64decode, b64encode\n'
+              '__forget_imports__ = ["from base64 import b64decode"]\n')
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: b64enco\tde(b'llama')
+        [PYFLYBY] from base64 import b64encode
+        Out[2]: b'bGxhbWE='
+    """, PYFLYBY_PATH=tmp.file)
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
