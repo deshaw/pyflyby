@@ -2171,6 +2171,7 @@ def auto_import_symbol(
     if DottedIdentifier(fullname) in autoimported:
         logger.debug("auto_import_symbol(%r): already attempted", fullname)
         return False
+    db = ImportDB.interpret_arg(db, target_filename=".")
     # See whether there's a known import for this name.  This is mainly
     # important for things like "from numpy import arange".  Imports such as
     # "import sqlalchemy.orm" will also be handled by this, although it's less
@@ -2226,10 +2227,21 @@ def auto_import_symbol(
     # "foo.bar.baz", and the known imports database only knew about "import
     # foo.bar").  For each component that may need importing, check if the
     # loader thinks it should be importable, and if so import it.
+    forgotten = set(db.forget_imports.imports)
     for pmodule in ModuleHandle(fullname).ancestors:
         if not symbol_needs_import(pmodule.name, namespaces):
             continue
         pmodule_name = DottedIdentifier(pmodule.name)
+        # Respect `__forget_imports__`: if the user asked us to forget e.g.
+        # "import numpy", don't silently import it here just because it happens
+        # to be an importable module.  Note: "from foo import bar" forget produces
+        # a different Import than "import foo", so forgetting a symbol does not
+        # suppress importing its parent module.
+        if Import.from_parts(str(pmodule_name), str(pmodule_name)) in forgotten:
+            logger.debug("auto_import_symbol(%r): %r is in __forget_imports__; "
+                         "not importing", fullname, pmodule_name)
+            autoimported[pmodule_name] = False
+            return False
         if pmodule_name in autoimported:
             if not autoimported[pmodule_name]:
                 logger.debug("auto_import_symbol(%r): stopping because "
