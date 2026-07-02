@@ -83,6 +83,41 @@ def test_ImportDB_by_fullname_or_import_as_1():
     assert result == expected
 
 
+def test_ImportDB_by_fullname_or_import_as_forget_1():
+    # A forgotten import should not appear in by_fullname_or_import_as, while
+    # sibling imports remain.
+    db = ImportDB('''
+        from base64 import b64decode, b64encode
+        __forget_imports__ = ['from base64 import b64decode']
+    ''')
+    result = db.by_fullname_or_import_as
+    expected = {
+        'base64': (Import('import base64'),),
+        'b64encode': (Import('from base64 import b64encode'),),
+    }
+    assert result == expected
+    assert 'b64decode' not in result
+
+
+def test_ImportDB_by_fullname_or_import_as_forget_prefix_1():
+    # Regression test: forgetting a *prefix* module import while a member
+    # import remains must not leave an empty tuple behind (which used to make
+    # get_known_import()/auto_import_symbol() choke).
+    db = ImportDB('''
+        from base64 import b64encode
+        __forget_imports__ = ['import base64']
+    ''')
+    result = db.by_fullname_or_import_as
+    expected = {
+        'b64encode': (Import('from base64 import b64encode'),),
+    }
+    assert result == expected
+    # In particular the synthesized 'base64' prefix entry must be gone, not
+    # mapped to an empty tuple.
+    assert 'base64' not in result
+    assert () not in result.values()
+
+
 def test_ImportDB_get_default_1():
     db = ImportDB.get_default('.')
     assert isinstance(db, ImportDB)
