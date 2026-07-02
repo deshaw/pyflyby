@@ -2256,6 +2256,115 @@ def test_auto_import_unknown_but_in_db1(tpp, capsys):
     assert out.startswith(expected)
 
 
+def test_auto_import_forget_1(capsys):
+    # Verify that a forgotten import is not auto-imported, even though it would
+    # otherwise be a known import.
+    db = ImportDB('''
+        from base64 import b64decode, b64encode
+        __forget_imports__ = ['from base64 import b64decode']
+    ''')
+    ns = {}
+    auto_import("b64decode", [ns], db=db)
+    out, _ = capsys.readouterr()
+    assert out == ""
+    assert "b64decode" not in ns
+    # A sibling import that was not forgotten still works.
+    auto_import("b64encode", [ns], db=db)
+    out, _ = capsys.readouterr()
+    assert out == "[PYFLYBY] from base64 import b64encode\n"
+    assert "b64encode" in ns
+
+
+def test_auto_import_forget_prefix_no_crash_1(capsys):
+    # Regression test: forgetting a prefix module import while a member import
+    # remains must not produce an empty by_fullname_or_import_as entry, which
+    # previously tripped an assertion in auto_import_symbol.
+    from pyflyby._autoimp import get_known_import
+    db = ImportDB('''
+        from base64 import b64encode
+        __forget_imports__ = ['import base64']
+    ''')
+    # 'base64' must not map to an empty tuple (nor be present at all).
+    assert 'base64' not in db.by_fullname_or_import_as
+    assert get_known_import('base64', db=db) is None
+    # Auto-importing a member completes cleanly (no AssertionError), and since
+    # 'import base64' was forgotten, base64 is not imported.
+    ns = {}
+    result = auto_import("base64.b64encode", [ns], db=db)
+    out, _ = capsys.readouterr()
+    assert result is False
+    assert out == ""
+    assert 'base64' not in ns
+
+
+def test_auto_import_forget_module_with_from_imports_no_crash_1(capsys):
+    # Regression for the reported crash scenario: a ~/.pyflyby containing
+    #     __forget_imports__ = ["import collections"]
+    # combined with the default db's "from collections import defaultdict" etc.
+    from pyflyby._autoimp import get_known_import
+    db = ImportDB('from collections import defaultdict, OrderedDict\n'
+                  '__forget_imports__ = ["import collections"]')
+    assert 'collections' not in db.by_fullname_or_import_as
+    assert get_known_import('collections', db=db) is None
+    ns = {}
+    result = auto_import("collections", [ns], db=db)   # bare module reference
+    out, _ = capsys.readouterr()
+    assert result is False
+    assert out == ""
+    assert "collections" not in ns
+    # The sibling "from collections import defaultdict" is unaffected.
+    assert get_known_import('defaultdict', db=db) == (
+        Import('from collections import defaultdict'),)
+
+
+def test_auto_import_forget_module_name_1(capsys):
+    # Forgetting a plain module import ("import X") suppresses auto-import of
+    # that module even though it is a genuinely importable module (i.e. the
+    # module-loader fallback must also respect __forget_imports__).
+    db = ImportDB('__forget_imports__ = ["import os"]')
+    ns = {}
+    result = auto_import("os.getpid()", [ns], db=db)
+    out, _ = capsys.readouterr()
+    assert result is False
+    assert out == ""
+    assert "os" not in ns
+
+
+def test_auto_import_forget_aliased_import_1(capsys):
+    # Forgetting an aliased import ("import numpy as np") suppresses the alias.
+    db = ImportDB('import numpy as np\n'
+                  '__forget_imports__ = ["import numpy as np"]')
+    ns = {}
+    result = auto_import("np.arange", [ns], db=db)
+    _out, _ = capsys.readouterr()
+    assert result is False
+    assert "np" not in ns
+
+
+def test_auto_import_forget_from_db_config_1(capsys):
+    # A __forget_imports__ declared in the database (i.e. via a .pyflyby config
+    # file) is honored by the module-loader fallback too, so a plain "import X"
+    # forget suppresses the module even when X is genuinely importable.
+    db = ImportDB('import fractions\n__forget_imports__ = ["import fractions"]')
+    ns = {}
+    result = auto_import("fractions.Fraction", [ns], db=db)
+    _out, _ = capsys.readouterr()
+    assert result is False
+    assert "fractions" not in ns
+
+
+def test_auto_import_forget_symbol_keeps_parent_module_1(capsys):
+    # Forgetting "from os import getpid" must NOT suppress importing the module
+    # os itself (e.g. when accessed as os.path); only the symbol is forgotten.
+    db = ImportDB('__forget_imports__ = ["from os import getpid"]')
+    ns = {}
+    result = auto_import("os.path", [ns], db=db)
+    out, _ = capsys.readouterr()
+    assert result is True
+    assert out == "[PYFLYBY] import os\n"
+    assert "os" in ns
+
+
 def test_auto_import_fake_importerror_1(tpp, capsys):
     writetext(tpp/"proton24412521.py", """
         raise ImportError("No module named proton24412521")
