@@ -66,25 +66,38 @@ else:
     def pytest_cmdline_preparse(config, args):
         args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
 
-@pytest.fixture
-def pyflyby_log(caplog):
+def _capture_logger(caplog, name):
     """
-    Capture pyflyby log records via caplog.
+    Capture records of the named logger via caplog.
 
-    The pyflyby logger is instantiated directly (not via ``logging.getLogger``)
-    so it is outside the logging hierarchy and caplog's root-logger handler
-    never sees its records.  Temporarily replace its handlers with caplog's
-    handler: records become assertable via ``caplog.messages`` /
-    ``caplog.records``, and log output stays out of stdout/stderr so capsys
-    sees only genuine program output.
+    Temporarily replace the logger's handlers with caplog's handler: records
+    become assertable via ``caplog.messages`` / ``caplog.records``, and log
+    output stays out of stdout/stderr so capsys sees only genuine program
+    output.  Propagation is disabled for the duration: caplog's handler is
+    also attached to the root logger, so a propagating record would be
+    captured twice.
     """
-    from pyflyby._log import logger
-    saved = logger.handlers[:]
+    import logging
+    logger = logging.getLogger(name)
+    saved_handlers = logger.handlers[:]
+    saved_propagate = logger.propagate
     logger.handlers[:] = [caplog.handler]
+    logger.propagate = False
     try:
         yield caplog
     finally:
-        logger.handlers[:] = saved
+        logger.handlers[:] = saved_handlers
+        logger.propagate = saved_propagate
+
+
+@pytest.fixture
+def pyflyby_log(caplog):
+    yield from _capture_logger(caplog, "pyflyby")
+
+
+@pytest.fixture
+def saveframe_log(caplog):
+    yield from _capture_logger(caplog, "pyflyby._saveframe")
 
 
 def _setup_logger():

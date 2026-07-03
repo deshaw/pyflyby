@@ -91,6 +91,10 @@ def _get_saveframe_logger() -> logging.Logger:
     log_datefmt = "%Y%m%d %H:%M:%S"
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
+    # This logger is self-contained (own handler and format below); don't
+    # propagate records to the parent 'pyflyby' logger's handler, which would
+    # emit them a second time in "[PYFLYBY] ..." form.
+    logger.propagate = False
     if not logger.handlers:
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.INFO)

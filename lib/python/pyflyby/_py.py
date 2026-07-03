@@ -284,6 +284,7 @@ import ast
 import builtins
 from   contextlib               import contextmanager
 import inspect
+import logging
 import os
 from   pathlib                  import Path
 import re
@@ -1022,7 +1023,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
     except ParseError as e:
         # Failed parsing command-line arguments.  Print usage.
         logger.error(e)
-        usage = _get_help(function, verbosity=(1 if logger.info_enabled else 0))
+        usage = _get_help(function, verbosity=(1 if logger.isEnabledFor(logging.INFO) else 0))
         sys.stderr.write("\n" + usage)
         raise SystemExit(1)
     # Log what we're doing.
@@ -1718,12 +1719,12 @@ class _PyMain(object):
                 del args[0]
             if argname == "verbose":
                 novalue()
-                logger.set_level("DEBUG")
+                logger.setLevel("DEBUG")
                 del args[0]
                 continue
             if argname in ["quiet", "q"]:
                 novalue()
-                logger.set_level("ERROR")
+                logger.setLevel("ERROR")
                 del args[0]
                 continue
             if argname in ["safe"]:

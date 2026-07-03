@@ -564,13 +564,13 @@ def test_saveframe_invalid_variables_1(tmpdir):
     assert str(err.value) == err_msg
 
 
-def test_saveframe_invalid_variables_2(tmpdir, caplog):
+def test_saveframe_invalid_variables_2(tmpdir, saveframe_log):
     pkg_name = create_pkg(tmpdir)
     code = f"from {pkg_name} import init_func1; init_func1()"
     with run_code_and_set_exception(code, ValueError):
         saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
                   variables=["var1", "1var2"])
-    log_messages = [record.message for record in caplog.records]
+    log_messages = [record.message for record in saveframe_log.records]
     warning_msg = ("Invalid variable names: ['1var2']. Skipping these variables "
                    "and continuing.")
     assert warning_msg in log_messages
@@ -601,13 +601,13 @@ def test_saveframe_invalid_exclude_variables_1(tmpdir):
     assert str(err.value) == err_msg
 
 
-def test_saveframe_invalid_exclude_variables_2(tmpdir, caplog):
+def test_saveframe_invalid_exclude_variables_2(tmpdir, saveframe_log):
     pkg_name = create_pkg(tmpdir)
     code = f"from {pkg_name} import init_func1; init_func1()"
     with run_code_and_set_exception(code, ValueError):
         saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
                   exclude_variables=["var1", "1var2"])
-    log_messages = [record.message for record in caplog.records]
+    log_messages = [record.message for record in saveframe_log.records]
     warning_msg = ("Invalid variable names: ['1var2']. Skipping these variables "
                    "and continuing.")
     assert warning_msg in log_messages
@@ -784,13 +784,13 @@ def test_saveframe_variables(tmpdir):
     assert set(data[5]["variables"].keys()) == {"var1", "var2"}
 
 
-def test_saveframe_exclude_variables(tmpdir, caplog):
+def test_saveframe_exclude_variables(tmpdir, saveframe_log):
     pkg_name = create_pkg(tmpdir)
     code = f"from {pkg_name} import init_func1; init_func1()"
     with run_code_and_set_exception(code, ValueError):
         filename = saveframe(filename=str(tmpdir / f"saveframe_{get_random()}.pkl"),
                              frames=5, exclude_variables=['var1', 'var2'])
-    log_messages = [record.message for record in caplog.records]
+    log_messages = [record.message for record in saveframe_log.records]
     data = load_pkl(filename)
     assert set(data.keys()) == exception_info_keys | {1, 2, 3, 4, 5}
 
@@ -806,13 +806,13 @@ def test_saveframe_exclude_variables(tmpdir, caplog):
     assert warning_msg in "\n".join(log_messages)
 
 
-def test_saveframe_defaults(tmpdir, caplog):
+def test_saveframe_defaults(tmpdir, saveframe_log):
     pkg_name = create_pkg(tmpdir)
     code = f"from {pkg_name} import init_func1; init_func1()"
     with run_code_and_set_exception(code, ValueError):
         with chdir(tmpdir):
             filename  = saveframe()
-            log_messages = [record.message for record in caplog.records]
+            log_messages = [record.message for record in saveframe_log.records]
     # Test that saveframe.pkl file in the current working directory is used by
     # default.
     info_message = (f"Filename is not passed explicitly using the `filename` "
