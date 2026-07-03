@@ -2102,32 +2102,35 @@ def test_auto_eval_no_auto_flags_ps_flag_pf1():
         auto_eval("print 3.00", flags="print_function")
 
 
-def test_auto_eval_no_auto_flags_pf_flag_pf1(capsys):
+def test_auto_eval_no_auto_flags_pf_flag_pf1(pyflyby_log, capsys):
     auto_eval("print(3.00, file=sys.stdout)",
               flags="print_function")
     out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] import sys\n3.0\n"
+    assert out == "3.0\n"
+    assert pyflyby_log.messages == ["import sys"]
 
 
-def test_auto_eval_auto_flags_ps_flagps_1(capsys):
+def test_auto_eval_auto_flags_ps_flagps_1():
     with pytest.raises(SyntaxError):
         auto_eval("print 3.00", flags=CompilerFlags.from_int(0))
 
 
-def test_auto_eval_auto_flags_pf_flagps_1(capsys):
+def test_auto_eval_auto_flags_pf_flagps_1(pyflyby_log, capsys):
     auto_eval("print(3.00, file=sys.stdout)", flags=CompilerFlags.from_int(0))
     out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] import sys\n3.0\n"
+    assert out == "3.0\n"
+    assert pyflyby_log.messages == ["import sys"]
 
 
-def test_auto_eval_auto_flags_pf_flag_pf1(capsys):
+def test_auto_eval_auto_flags_pf_flag_pf1(pyflyby_log, capsys):
     auto_eval("print(3.00, file=sys.stdout)",
               flags=CompilerFlags("print_function"))
     out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] import sys\n3.0\n"
+    assert out == "3.0\n"
+    assert pyflyby_log.messages == ["import sys"]
 
 
-def test_auto_eval_proxy_module_1(tpp, capsys):
+def test_auto_eval_proxy_module_1(tpp, pyflyby_log, capsys):
     os.mkdir("%s/tornado83183065"%tpp)
     writetext(tpp/"tornado83183065/__init__.py", """
         import sys
@@ -2150,73 +2153,57 @@ def test_auto_eval_proxy_module_1(tpp, capsys):
     # Verify that we can auto-import a sub-module of a proxy module.
     result = auto_eval("tornado83183065.hurricane.cyclone")
     out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import tornado83183065
-        [PYFLYBY] import tornado83183065.hurricane
-    """).lstrip()
-    assert out == expected
+    assert out == ""
+    assert pyflyby_log.messages == ["import tornado83183065", "import tornado83183065.hurricane"]
     assert result == 79943637
     # Verify that the proxy module can do its magic stuff.
+    pyflyby_log.clear()
     result = auto_eval("tornado83183065.TWISTER")
     out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] import tornado83183065\n"
+    assert out == ""
+    assert pyflyby_log.messages == ["import tornado83183065"]
     assert result == 54170888
     # Verify that the proxy module can do its magic stuff with a submodule
     # that's already imported.
+    pyflyby_log.clear()
     result = auto_eval("tornado83183065.HURRICANE.cyclone")
     out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] import tornado83183065\n"
+    assert out == ""
+    assert pyflyby_log.messages == ["import tornado83183065"]
     assert result == 79943637
 
 
-def test_auto_import_1(capsys):
+def test_auto_import_1(pyflyby_log):
     auto_import("sys.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import sys
-    """).lstrip()
-    assert expected == out
+    assert pyflyby_log.messages == ["import sys"]
 
 
-def test_auto_import_multi_1(capsys):
+def test_auto_import_multi_1(pyflyby_log):
     auto_import("sys.asdfasdf + os.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import os
-        [PYFLYBY] import sys
-    """).lstrip()
-    assert expected == out
+    assert pyflyby_log.messages == ["import os", "import sys"]
 
 
-def test_auto_import_nothing_1(capsys):
+def test_auto_import_nothing_1(pyflyby_log):
     auto_import("sys.asdfasdf", [{"sys":sys}])
-    out, _ = capsys.readouterr()
-    assert out == ""
+    assert pyflyby_log.messages == []
 
 
-def test_auto_import_some_1(capsys):
+def test_auto_import_some_1(pyflyby_log):
     auto_import("sys.asdfasdf + os.asdfasdf", [{"sys":sys}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import os
-    """).lstrip()
-    assert expected == out
+    assert pyflyby_log.messages == ["import os"]
 
 
-def test_auto_import_custom_1(tpp, capsys):
+def test_auto_import_custom_1(tpp, pyflyby_log, capsys):
     writetext(tpp/"trampoline77069527.py", """
         print('hello  world')
     """)
     auto_import("trampoline77069527.asdfasdf", [{}])
     out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import trampoline77069527
-        hello  world
-    """).lstrip()
-    assert expected == out
+    assert pyflyby_log.messages == ["import trampoline77069527"]
+    assert out == "hello  world\n"
 
 
-def test_auto_import_custom_in_pkg_1(tpp, capsys):
+def test_auto_import_custom_in_pkg_1(tpp, pyflyby_log, capsys):
     os.mkdir(str(tpp/"truck56331367"))
     writetext(tpp/"truck56331367/__init__.py", "")
     writetext(tpp/"truck56331367/tractor.py", """
@@ -2224,39 +2211,33 @@ def test_auto_import_custom_in_pkg_1(tpp, capsys):
     """)
     auto_import("truck56331367.tractor", [{}])
     out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import truck56331367
-        [PYFLYBY] import truck56331367.tractor
-        hello  there
-    """).lstrip()
-    assert expected == out
+    assert pyflyby_log.messages == ["import truck56331367", "import truck56331367.tractor"]
+    assert out == "hello  there\n"
 
 
-def test_auto_import_unknown_1(capsys):
+def test_auto_import_unknown_1(pyflyby_log):
     # Verify that if we try to access something that doesn't appear to be a
     # module, we don't attempt to import it (or at least don't log any visible
     # errors for it).
     auto_import("electron91631346.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    assert out == ""
+    assert pyflyby_log.messages == []
 
 
-def test_auto_import_unknown_but_in_db1(tpp, capsys):
+def test_auto_import_unknown_but_in_db1(tpp, pyflyby_log):
     # Verify that if we try to access something that's in the known-imports
     # database, but it doesn't actually exist, we get a visible error for it.
     db = ImportDB('import photon70447198')
     auto_import("photon70447198.asdfasdf", [{}], db=db)
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import photon70447198
-        [PYFLYBY] Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'
-        Traceback (most recent call last):
-    """).lstrip()
+    assert pyflyby_log.messages == [
+        "import photon70447198",
+        "Error attempting to 'import photon70447198': ModuleNotFoundError: No module named 'photon70447198'",
+    ]
+    err = pyflyby_log.records[-1]
+    assert err.levelname == "WARNING"
+    assert err.exc_info
 
-    assert out.startswith(expected)
 
-
-def test_auto_import_forget_1(capsys):
+def test_auto_import_forget_1(pyflyby_log):
     # Verify that a forgotten import is not auto-imported, even though it would
     # otherwise be a known import.
     db = ImportDB('''
@@ -2265,17 +2246,16 @@ def test_auto_import_forget_1(capsys):
     ''')
     ns = {}
     auto_import("b64decode", [ns], db=db)
-    out, _ = capsys.readouterr()
-    assert out == ""
+    assert pyflyby_log.messages == []
     assert "b64decode" not in ns
     # A sibling import that was not forgotten still works.
+    pyflyby_log.clear()
     auto_import("b64encode", [ns], db=db)
-    out, _ = capsys.readouterr()
-    assert out == "[PYFLYBY] from base64 import b64encode\n"
+    assert pyflyby_log.messages == ["from base64 import b64encode"]
     assert "b64encode" in ns
 
 
-def test_auto_import_forget_prefix_no_crash_1(capsys):
+def test_auto_import_forget_prefix_no_crash_1(pyflyby_log):
     # Regression test: forgetting a prefix module import while a member import
     # remains must not produce an empty by_fullname_or_import_as entry, which
     # previously tripped an assertion in auto_import_symbol.
@@ -2291,13 +2271,12 @@ def test_auto_import_forget_prefix_no_crash_1(capsys):
     # 'import base64' was forgotten, base64 is not imported.
     ns = {}
     result = auto_import("base64.b64encode", [ns], db=db)
-    out, _ = capsys.readouterr()
     assert result is False
-    assert out == ""
+    assert pyflyby_log.messages == []
     assert 'base64' not in ns
 
 
-def test_auto_import_forget_module_with_from_imports_no_crash_1(capsys):
+def test_auto_import_forget_module_with_from_imports_no_crash_1(pyflyby_log):
     # Regression for the reported crash scenario: a ~/.pyflyby containing
     #     __forget_imports__ = ["import collections"]
     # combined with the default db's "from collections import defaultdict" etc.
@@ -2308,104 +2287,100 @@ def test_auto_import_forget_module_with_from_imports_no_crash_1(capsys):
     assert get_known_import('collections', db=db) is None
     ns = {}
     result = auto_import("collections", [ns], db=db)   # bare module reference
-    out, _ = capsys.readouterr()
     assert result is False
-    assert out == ""
+    assert pyflyby_log.messages == []
     assert "collections" not in ns
     # The sibling "from collections import defaultdict" is unaffected.
     assert get_known_import('defaultdict', db=db) == (
         Import('from collections import defaultdict'),)
 
 
-def test_auto_import_forget_module_name_1(capsys):
+def test_auto_import_forget_module_name_1(pyflyby_log):
     # Forgetting a plain module import ("import X") suppresses auto-import of
     # that module even though it is a genuinely importable module (i.e. the
     # module-loader fallback must also respect __forget_imports__).
     db = ImportDB('__forget_imports__ = ["import os"]')
     ns = {}
     result = auto_import("os.getpid()", [ns], db=db)
-    out, _ = capsys.readouterr()
     assert result is False
-    assert out == ""
+    assert pyflyby_log.messages == []
     assert "os" not in ns
 
 
-def test_auto_import_forget_aliased_import_1(capsys):
+def test_auto_import_forget_aliased_import_1(pyflyby_log):
     # Forgetting an aliased import ("import numpy as np") suppresses the alias.
     db = ImportDB('import numpy as np\n'
                   '__forget_imports__ = ["import numpy as np"]')
     ns = {}
     result = auto_import("np.arange", [ns], db=db)
-    _out, _ = capsys.readouterr()
     assert result is False
+    assert pyflyby_log.messages == []
     assert "np" not in ns
 
 
-def test_auto_import_forget_from_db_config_1(capsys):
+def test_auto_import_forget_from_db_config_1(pyflyby_log):
     # A __forget_imports__ declared in the database (i.e. via a .pyflyby config
     # file) is honored by the module-loader fallback too, so a plain "import X"
     # forget suppresses the module even when X is genuinely importable.
     db = ImportDB('import fractions\n__forget_imports__ = ["import fractions"]')
     ns = {}
     result = auto_import("fractions.Fraction", [ns], db=db)
-    _out, _ = capsys.readouterr()
     assert result is False
+    assert pyflyby_log.messages == []
     assert "fractions" not in ns
 
 
-def test_auto_import_forget_symbol_keeps_parent_module_1(capsys):
+def test_auto_import_forget_symbol_keeps_parent_module_1(pyflyby_log):
     # Forgetting "from os import getpid" must NOT suppress importing the module
     # os itself (e.g. when accessed as os.path); only the symbol is forgotten.
     db = ImportDB('__forget_imports__ = ["from os import getpid"]')
     ns = {}
     result = auto_import("os.path", [ns], db=db)
-    out, _ = capsys.readouterr()
     assert result is True
-    assert out == "[PYFLYBY] import os\n"
+    assert pyflyby_log.messages == ["import os"]
     assert "os" in ns
 
 
-def test_auto_import_fake_importerror_1(tpp, capsys):
+def test_auto_import_fake_importerror_1(tpp, pyflyby_log):
     writetext(tpp/"proton24412521.py", """
         raise ImportError("No module named proton24412521")
     """)
     auto_import("proton24412521.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import proton24412521
-        [PYFLYBY] Error attempting to 'import proton24412521': ImportError: No module named proton24412521
-        Traceback (most recent call last):
-    """).lstrip()
-    assert out.startswith(expected)
+    assert pyflyby_log.messages == [
+        "import proton24412521",
+        "Error attempting to 'import proton24412521': ImportError: No module named proton24412521",
+    ]
+    err = pyflyby_log.records[-1]
+    assert err.levelname == "WARNING"
+    assert err.exc_info
 
 
-def test_auto_import_indirect_importerror_1(tpp, capsys):
+def test_auto_import_indirect_importerror_1(tpp, pyflyby_log):
     writetext(tpp/"neutron46291483.py", """
         import baryon96446873
     """)
     auto_import("neutron46291483.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import neutron46291483
-        [PYFLYBY] Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'
-        Traceback (most recent call last):
-    """).lstrip()
+    assert pyflyby_log.messages == [
+        "import neutron46291483",
+        "Error attempting to 'import neutron46291483': ModuleNotFoundError: No module named 'baryon96446873'",
+    ]
+    err = pyflyby_log.records[-1]
+    assert err.levelname == "WARNING"
+    assert err.exc_info
 
-    assert out.startswith(expected)
 
-
-def test_auto_import_nameerror_1(tpp, capsys):
+def test_auto_import_nameerror_1(tpp, pyflyby_log):
     writetext(tpp/"lepton69688541.py", """
         foo
     """)
     auto_import("lepton69688541.asdfasdf", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import lepton69688541
-        [PYFLYBY] Error attempting to 'import lepton69688541': NameError: name 'foo' is not defined
-        Traceback (most recent call last):
-    """).lstrip()
-    assert out.startswith(expected)
+    assert pyflyby_log.messages == [
+        "import lepton69688541",
+        "Error attempting to 'import lepton69688541': NameError: name 'foo' is not defined",
+    ]
+    err = pyflyby_log.records[-1]
+    assert err.levelname == "WARNING"
+    assert err.exc_info
 
 
 def test_post_import_hook_incomplete_import():
@@ -2440,39 +2415,25 @@ def test_post_import_hook_fullname():
     auto_import("numpy.compat", [{}], db=db, post_import_hook=test_hook)
 
 
-def test_namespace_package(tpp, capsys):
+def test_namespace_package(tpp, pyflyby_log):
     os.mkdir(str(tpp/'namespace_package'))
     auto_import("namespace_package", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import namespace_package
-    """).lstrip()
-    assert out.startswith(expected)
+    assert pyflyby_log.messages[0] == "import namespace_package"
 
 
-def test_unsafe_filename_warning(tpp, capsys):
+def test_unsafe_filename_warning(tpp, pyflyby_log):
     filepath = os.path.join(tpp._filename, 'foo#bar')
     os.mkdir(filepath)
     with CwdCtx(filepath):
         auto_import("pyflyby", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent("""
-        [PYFLYBY] import pyflyby
-    """).lstrip()
-    assert out.startswith(expected)
+    assert pyflyby_log.messages[0] == "import pyflyby"
 
 
-def test_unsafe_filename_warning_II(tpp, capsys):
+def test_unsafe_filename_warning_II(tpp, pyflyby_log):
     filepath = os.path.join(tpp._filename, "foo#bar")
     os.mkdir(filepath)
     filepath = os.path.join(filepath, "qux#baz")
     os.mkdir(filepath)
     with CwdCtx(filepath):
         auto_import("pyflyby", [{}])
-    out, _ = capsys.readouterr()
-    expected = dedent(
-        """
-        [PYFLYBY] import pyflyby
-    """
-    ).lstrip()
-    assert out.startswith(expected)
+    assert pyflyby_log.messages[0] == "import pyflyby"

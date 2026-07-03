@@ -66,6 +66,27 @@ else:
     def pytest_cmdline_preparse(config, args):
         args[:] = ["--no-success-flaky-report", "--no-flaky-report"] + args
 
+@pytest.fixture
+def pyflyby_log(caplog):
+    """
+    Capture pyflyby log records via caplog.
+
+    The pyflyby logger is instantiated directly (not via ``logging.getLogger``)
+    so it is outside the logging hierarchy and caplog's root-logger handler
+    never sees its records.  Temporarily replace its handlers with caplog's
+    handler: records become assertable via ``caplog.messages`` /
+    ``caplog.records``, and log output stays out of stdout/stderr so capsys
+    sees only genuine program output.
+    """
+    from pyflyby._log import logger
+    saved = logger.handlers[:]
+    logger.handlers[:] = [caplog.handler]
+    try:
+        yield caplog
+    finally:
+        logger.handlers[:] = saved
+
+
 def _setup_logger():
     """
     Set up the pyflyby logger to be doctest-friendly.
