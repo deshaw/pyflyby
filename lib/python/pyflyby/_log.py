@@ -13,7 +13,7 @@ from   logging                  import Formatter, Handler, LogRecord, Logger
 import os
 from   prompt_toolkit           import patch_stdout
 import sys
-from   typing                   import Any, ContextManager, Dict, Union, cast
+from   typing                   import Any, ContextManager, Dict, cast
 
 
 class _PyflybyFormatter(Formatter):
@@ -98,39 +98,20 @@ def _is_ipython() -> bool:
     return True
 
 
-class PyflybyLogger(Logger):
-
-    _LEVELS: Dict[str, int] = dict( (k, getattr(logging, k))
-                    for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR'] )
-
-    def __init__(self, name: str, level: Union[str, int]) -> None:
-        Logger.__init__(self, name)
-        self.addHandler(_PyflybyHandler())
-        self.set_level(level)
-
-    def set_level(self, level: Union[str, int]) -> None:
-        """
-        Set the pyflyby logger's level to ``level``.
-
-        :type level:
-          ``str``
-        """
-        if isinstance(level, int):
-            level_num = level
-        else:
-            try:
-                level_num = self._LEVELS[level.upper()]
-            except KeyError:
-                raise ValueError("Bad log level %r" % (level,))
-        Logger.setLevel(self, level_num)
-
-    @property
-    def debug_enabled(self) -> bool:
-        return self.level <= logging.DEBUG
-
-    @property
-    def info_enabled(self) -> bool:
-        return self.level <= logging.INFO
+def _get_logger() -> Logger:
+    """
+    Return the ``'pyflyby'`` logger, registered in the standard ``logging``
+    hierarchy (so ``logging.getLogger("pyflyby")`` returns the same object).
+    """
+    logger = logging.getLogger("pyflyby")
+    # Guard against adding a second handler if pyflyby is unloaded and
+    # re-imported (compare by class name: after a reload, _PyflybyHandler is
+    # a new class object).
+    if not any(type(h).__name__ == _PyflybyHandler.__name__
+               for h in logger.handlers):
+        logger.addHandler(_PyflybyHandler())
+    logger.setLevel((os.getenv("PYFLYBY_LOG_LEVEL") or "INFO").upper())
+    return logger
 
 
-logger = PyflybyLogger('pyflyby', os.getenv("PYFLYBY_LOG_LEVEL") or "INFO")
+logger = _get_logger()

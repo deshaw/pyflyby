@@ -7,6 +7,7 @@ from __future__ import annotations, print_function
 
 
 from   collections              import defaultdict
+import logging
 import os
 import re
 
@@ -228,7 +229,7 @@ class ImportDB:
         cached results.  Existing ImportDB instances are not affected by this
         call.
         """
-        if logger.debug_enabled:
+        if logger.isEnabledFor(logging.DEBUG):
             allpyfiles = set()
             for tup in cls._default_cache:
                 if tup[0] != 2:

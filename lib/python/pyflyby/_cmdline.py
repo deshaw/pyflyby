@@ -6,6 +6,7 @@ from __future__ import annotations, print_function
 
 
 from   builtins                 import input
+import logging
 import optparse
 import os
 from   pathlib                  import Path
@@ -106,11 +107,11 @@ def parse_args(addopts=None, modify_action_params=False):
 
     def log_level_callbacker(level):
         def callback(option, opt_str, value, parser):
-            logger.set_level(level)
+            logger.setLevel(level)
         return callback
 
     def debug_callback(option, opt_str, value, parser):
-        logger.set_level("DEBUG")
+        logger.setLevel("DEBUG")
 
     parser.add_option("--debug", action="callback",
                       callback=debug_callback,
@@ -515,7 +516,7 @@ def process_actions(
                     except TypeError:
                         # Exception takes more than one argument
                         pass
-                if logger.debug_enabled:
+                if logger.isEnabledFor(logging.DEBUG):
                     raise
                 traceback.print_exception(type(e), e, tb)
             finally:

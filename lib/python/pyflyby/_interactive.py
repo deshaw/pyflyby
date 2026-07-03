@@ -9,6 +9,7 @@ import builtins
 from   contextlib               import contextmanager
 import errno
 import inspect
+import logging
 import operator
 import os
 import re
@@ -1705,7 +1706,7 @@ class AutoImporter:
             except Exception as e:
                 self._errored = True
                 logger.error("Error while disabling: %s: %s", type(e).__name__, e)
-                if logger.debug_enabled:
+                if logger.isEnabledFor(logging.DEBUG):
                     raise
                 else:
                     logger.info(
@@ -1731,7 +1732,7 @@ class AutoImporter:
                 # Something went wrong.  Remember that we've had a problem.
                 self._errored = True
                 logger.error("%s: %s", type(e).__name__, e)
-                if not logger.debug_enabled:
+                if not logger.isEnabledFor(logging.DEBUG):
                     logger.info(
                         "Set the env var PYFLYBY_LOG_LEVEL=DEBUG to debug.")
                 logger.warning("Disabling pyflyby auto importer.")
@@ -1746,7 +1747,7 @@ class AutoImporter:
                 if raise_on_error is True:
                     raise
                 elif raise_on_error == 'if_debug':
-                    if logger.debug_enabled:
+                    if logger.isEnabledFor(logging.DEBUG):
                         if type(e) == SyntaxError:
                             # The traceback for SyntaxError tends to get
                             # swallowed, so print it out now.
@@ -1754,7 +1755,7 @@ class AutoImporter:
                             traceback.print_exc()
                         raise
                 elif raise_on_error is False:
-                    if logger.debug_enabled:
+                    if logger.isEnabledFor(logging.DEBUG):
                         import traceback
                         traceback.print_exc()
                 else:
@@ -1768,7 +1769,7 @@ class AutoImporter:
 
     def reset_state_new_cell(self):
         # Reset the state for a new cell.
-        if logger.debug_enabled:
+        if logger.isEnabledFor(logging.DEBUG):
             autoimported = self._autoimported_this_cell
             logger.debug("reset_state_new_cell(): previously autoimported: "
                          "succeeded=%s, failed=%s",

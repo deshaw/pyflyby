@@ -13,6 +13,7 @@ import contextlib
 import copy
 from   dataclasses              import field
 
+import logging
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import (BadDottedIdentifierError,
@@ -1473,7 +1474,7 @@ def _find_missing_imports_in_ast(
     if not isinstance(node, ast.AST):
         raise TypeError
     # Traverse the abstract syntax tree.
-    if logger.debug_enabled:
+    if logger.isEnabledFor(logging.DEBUG):
         logger.debug("ast=%s", ast.dump(node))
     return _MissingImportFinder(
                  namespaces,
