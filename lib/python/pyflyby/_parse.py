@@ -776,8 +776,6 @@ class PythonBlock:
             else:
                 assert isinstance(self.ast_node, ast.Module)
                 return self.ast_node
-        elif mode == "exec":
-            raise NotImplementedError
         else:
             raise ValueError("parse(): invalid mode=%r" % (mode,))
 

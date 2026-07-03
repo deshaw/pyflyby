@@ -1262,7 +1262,6 @@ class _MissingImportFinder:
     def _visit_Load(self, fullname: str) -> None:
         logger.debug("_visit_Load(%r)", fullname)
         if self._in_FunctionDef:
-            self._visit_Load_defered(fullname)
             # We're in a FunctionDef.  We need to defer checking whether this
             # references undefined names.  The reason is that globals (or
             # stores in a parent function scope) may be stored later.

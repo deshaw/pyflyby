@@ -11,6 +11,7 @@ from   unittest.mock            import patch
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams
 from   pyflyby._importstmt      import (Import, ImportSplit, ImportStatement,
+                                        NonImportStatementError,
                                         read_black_config)
 
 def test_Import_from_parts_1():
@@ -353,3 +354,69 @@ def test_ImportStatement_with_comments(text, comment, should_keep):
             assert comment in comments[0]
         else:
             assert not any(comment in line for line in pretty)
+
+
+@pytest.mark.parametrize(
+    "line,import_str,expected",
+    [
+        # Simple imports with variable spacing
+        ("import os", "import os", True),
+        ("import    os", "import os", True),
+        ("  import os  ", "import os", True),
+        ("import os", "import sys", False),
+        # from...import statements
+        ("from os import path", "from os import path", True),
+        ("from    os    import    path", "from os import path", True),
+        ("from os import path", "from sys import path", False),
+        ("from os import path", "from os import sep", False),
+        # Aliased imports
+        ("import os as operating_system", "import os as operating_system", True),
+        ("from os import path as p", "from os import path as p", True),
+        ("from os import path   as   p", "from os import path as p", True),
+        # Multiple imports on one line
+        ("import os, sys", "import os", True),
+        ("import os, sys", "import sys", True),
+        ("import os, sys", "import json", False),
+    ],
+    ids=[
+        "simple_single_space",
+        "simple_multiple_spaces",
+        "simple_with_whitespace",
+        "simple_non_matching",
+        "from_single_space",
+        "from_multiple_spaces",
+        "from_non_matching_module",
+        "from_non_matching_name",
+        "alias_import",
+        "alias_from_import",
+        "alias_multiple_spaces",
+        "multiple_on_line_first",
+        "multiple_on_line_second",
+        "multiple_on_line_non_matching",
+    ],
+)
+def test_ImportStatement_membership_normalization(line, import_str, expected):
+    """A statement's imports match an Import irrespective of source spacing."""
+    stmt = ImportStatement(line.strip())
+    imp = Import(import_str)
+    assert (imp in stmt.imports) == expected
+
+
+@pytest.mark.parametrize(
+    "line,exc",
+    [
+        ("# import os", NonImportStatementError),
+        ("", NonImportStatementError),
+        ("   ", NonImportStatementError),
+        ("x = import os", SyntaxError),
+    ],
+    ids=[
+        "comment",
+        "empty",
+        "whitespace_only",
+        "non_import",
+    ],
+)
+def test_ImportStatement_rejects_non_imports(line, exc):
+    with raises(exc):
+        ImportStatement(line)
