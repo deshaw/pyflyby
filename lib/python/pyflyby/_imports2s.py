@@ -174,7 +174,6 @@ class _LocalImportBlockWrapper:
     importset: ImportSet
     start_lineno: int
     end_lineno: int
-    _original_imports: set[Import]
     _id: str
     _semicolon_suffixes: dict[int, str]
     # The physical (non-import) block whose source text this local import lives
@@ -196,8 +195,6 @@ class _LocalImportBlockWrapper:
         self.transform = transform
         self.start_lineno = start_lineno
         self.end_lineno = end_lineno
-        # Store the original imports so we can detect what was removed
-        self._original_imports = set(transform.importset.imports)
         self._id = hex(id(self))
         self._semicolon_suffixes = semicolon_suffixes
         self.container = container
@@ -212,13 +209,6 @@ class _LocalImportBlockWrapper:
             return f"<_LocalImportBlockWrapper lineno={self.start_lineno} {self.transform!r}>"
         else:
             return f"<_LocalImportBlockWrapper lines={self.start_lineno}-{self.end_lineno} {self.transform!r}>"
-
-    def get_removed_imports(self) -> set[Import]:
-        """Return the set of imports that have been removed from this block."""
-        current_imports = set(self.transform.importset.imports)
-        removed = self._original_imports - current_imports
-        logger.debug("get_removed_imports on block %s: removed=%r", self._id, removed)
-        return removed
 
 class NoImportBlockError(Exception):
     pass
@@ -457,9 +447,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
         result = [block.pretty_print(params=params) for block in self.blocks]
         output = FileText.concatenate(result)
 
-        # Handle removal of local imports from function/class bodies
-        output = self._remove_local_imports_from_output(output)
-
         # Handle semicolons in import statements
         output = self._split_semicolon_chained_imports(output)
 
@@ -528,121 +515,6 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
                 new_output_lines.append(line)
 
         return FileText("\n".join(new_output_lines))
-
-    def _remove_local_imports_from_output(self, output: FileText) -> FileText:
-        """
-        Post-process the output to remove local imports that have been deleted.
-
-        This is necessary because local imports are embedded in function bodies,
-        which are stored in self.blocks as plain text. When we remove imports from
-        local import blocks, we need to also remove those lines from the output.
-        """
-        # Collect all imports that need to be removed, mapped by line number
-        lines_to_remove = set()
-
-        for block in self.import_blocks:
-            if not isinstance(block, _LocalImportBlockWrapper):
-                continue
-
-            logger.debug(
-                "Checking local block %s at lines %d-%d",
-                block._id,
-                block.start_lineno,
-                block.end_lineno,
-            )
-            removed_imports = block.get_removed_imports()
-            logger.debug("Block %s: Removed imports: %r", block._id, removed_imports)
-
-            if not removed_imports:
-                continue
-
-            logger.debug(
-                "Found %d removed imports in local block at lines %d-%d",
-                len(removed_imports),
-                block.start_lineno,
-                block.end_lineno,
-            )
-
-            # We need to figure out which lines in the output correspond to these imports
-            # The block knows its original line range, so we can map back to the source
-            # For now, we'll use a simple approach: parse the original input text
-            # to find which line each import was on
-
-            # Get the original input text for this block
-            original_lines = str(self.input.text).split("\n")
-
-            # For each removed import, find its line in the original source
-            for imp in removed_imports:
-                logger.debug("Looking for import: %s", imp)
-                # Search for the import statement in the original line range
-                for lineno in range(block.start_lineno, block.end_lineno + 1):
-                    if lineno <= len(original_lines):
-                        line = original_lines[lineno - 1]
-                        # Check if this line contains the import
-                        if self._line_contains_import(line, imp):
-                            logger.debug(
-                                "Found import on line %d: %s", lineno, line.strip()
-                            )
-                            lines_to_remove.add(lineno)
-                            break
-
-        if not lines_to_remove:
-            return output
-
-        logger.debug("Removing lines: %s", sorted(lines_to_remove))
-
-        # Filter out the lines from the output
-        # The output may have been reformatted, so we can't rely on line numbers matching exactly
-        # Instead, we'll filter the output by matching the lines to remove
-        output_lines = str(output).split("\n")
-
-        # Get the actual lines to remove by their content
-        input_lines = str(self.input.text).split("\n")
-        lines_to_remove_content = set()
-        for lineno in lines_to_remove:
-            if lineno <= len(input_lines):
-                # Store the stripped version to match against
-                line_content = input_lines[lineno - 1].strip()
-                if line_content:
-                    lines_to_remove_content.add(line_content)
-
-        logger.debug("Lines to remove by content: %s", lines_to_remove_content)
-
-        # Filter output lines by content match
-        filtered_lines = []
-        for line in output_lines:
-            stripped = line.strip()
-            # Keep the line if it's not in the set of lines to remove
-            if stripped not in lines_to_remove_content or not stripped:
-                filtered_lines.append(line)
-            else:
-                logger.debug("Removing line: %s", line)
-
-        return FileText("\n".join(filtered_lines))
-
-    def _line_contains_import(self, line: str, imp: Import) -> bool:
-        """
-        Check if a line contains the given import statement.
-
-        Parse the line as an import statement and compare Import objects,
-        rather than using string matching which is fragile with spacing.
-        """
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            return False
-
-        try:
-            # Parse the line as an import statement
-            stmt = ImportStatement._from_str(stripped)
-            # Check if any of the imports in this statement match the target import
-            for line_import in stmt.imports:
-                if line_import == imp:
-                    return True
-        except (SyntaxError, ValueError):
-            # Line is not a valid import statement
-            pass
-
-        return False
 
     def find_import_block_by_lineno(self, lineno: int) -> Union[SourceToSourceImportBlockTransformation, _LocalImportBlockWrapper]:
         """

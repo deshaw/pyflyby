@@ -349,64 +349,6 @@ def test_tidy_local_imports_with_added_mandatory_import(input_code, expected_cod
 
 
 @pytest.mark.parametrize(
-    "line,import_str,expected",
-    [
-        # Simple imports with variable spacing
-        ("import os", "import os", True),
-        ("import    os", "import os", True),
-        ("  import os  ", "import os", True),
-        ("import os", "import sys", False),
-        # from...import statements
-        ("from os import path", "from os import path", True),
-        ("from    os    import    path", "from os import path", True),
-        ("from os import path", "from sys import path", False),
-        ("from os import path", "from os import sep", False),
-        # Aliased imports
-        ("import os as operating_system", "import os as operating_system", True),
-        ("from os import path as p", "from os import path as p", True),
-        ("from os import path   as   p", "from os import path as p", True),
-        # Multiple imports on one line
-        ("import os, sys", "import os", True),
-        ("import os, sys", "import sys", True),
-        ("import os, sys", "import json", False),
-        # Edge cases
-        ("# import os", "import os", False),
-        ("", "import os", False),
-        ("   ", "import os", False),
-        ("x = import os", "import os", False),
-    ],
-    ids=[
-        "simple_single_space",
-        "simple_multiple_spaces",
-        "simple_with_whitespace",
-        "simple_non_matching",
-        "from_single_space",
-        "from_multiple_spaces",
-        "from_non_matching_module",
-        "from_non_matching_name",
-        "alias_import",
-        "alias_from_import",
-        "alias_multiple_spaces",
-        "multiple_on_line_first",
-        "multiple_on_line_second",
-        "multiple_on_line_non_matching",
-        "edge_case_comment",
-        "edge_case_empty",
-        "edge_case_whitespace_only",
-        "edge_case_non_import",
-    ],
-)
-def test_line_contains_import(line, import_str, expected):
-    """Test _line_contains_import with various import styles and spacing."""
-    from pyflyby._imports2s import SourceToSourceFileImportsTransformation
-    from pyflyby._importstmt import Import
-
-    transformer = SourceToSourceFileImportsTransformation("import sys\n")
-    imp = Import(import_str)
-    assert transformer._line_contains_import(line, imp) == expected
-
-
-@pytest.mark.parametrize(
     ("code", "tidy_local", "expect_present", "expect_absent"),
     [
         pytest.param(
