@@ -334,6 +334,61 @@ def test_xreload_method_1(tpp):
     assert x.applegate() == 502
 
 
+def test_xreload_add_method_globals_1(tpp):
+    """
+    GH #30: A method added by a reload should reference module-level globals
+    (e.g. imported modules) via the live module namespace, not the throwaway
+    scratch namespace.  Otherwise it would go stale on subsequent reloads.
+    """
+    writetext(
+        tpp / "xreload_add_method.py",
+        """
+        VALUE = 1
+        class MyClass(object):
+            def existing(self):
+                return VALUE
+    """,
+    )
+    from xreload_add_method import MyClass
+
+    obj = MyClass()
+    # Add a new method that references the same module-level global, and bump
+    # VALUE.
+    writetext(
+        tpp / "xreload_add_method.py",
+        """
+        VALUE = 2
+        class MyClass(object):
+            def existing(self):
+                return VALUE
+            def added(self):
+                return VALUE
+    """,
+    )
+    xreload("xreload_add_method")
+    assert obj.existing() == 2
+    assert obj.added() == 2
+    # The new method's __globals__ must be the live module dict, so that a
+    # later reload updates what it sees.
+    import xreload_add_method as m
+    assert obj.added.__func__.__globals__ is m.__dict__
+    # Bump VALUE again; both the pre-existing and the added method must see it.
+    writetext(
+        tpp / "xreload_add_method.py",
+        """
+        VALUE = 3
+        class MyClass(object):
+            def existing(self):
+                return VALUE
+            def added(self):
+                return VALUE
+    """,
+    )
+    xreload("xreload_add_method")
+    assert obj.existing() == 3
+    assert obj.added() == 3
+
+
 def test_xreload_method_saved_1(tpp):
     # Verify that xreload works on existing references to methods.
     writetext(tpp/"treaty86420758.py", """
