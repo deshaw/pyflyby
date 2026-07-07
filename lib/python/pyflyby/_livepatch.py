@@ -317,6 +317,14 @@ def livepatch(old: Any, new: Any, modname: Optional[str] = None,
     return result
 
 
+# Sentinel cache key under which we record a mapping from
+# ``id(new_module.__dict__)`` to the corresponding live (old) module
+# ``__dict__``.  This is used to rebind the ``__globals__`` of functions that
+# are newly introduced by a reload (see ``_rebind_new_object``).  A string key
+# never collides with the ``(id(old), id(new))`` tuple keys used elsewhere.
+_GLOBALS_REBIND_KEY = "__pyflyby_globals_rebind__"
+
+
 def _livepatch__module(old_mod: types.ModuleType, new_mod: types.ModuleType,
                        modname: Optional[str],
                        cache: Dict[Tuple[int, int], Any],
@@ -324,11 +332,55 @@ def _livepatch__module(old_mod: types.ModuleType, new_mod: types.ModuleType,
     """
     Livepatch a module.
     """
+    # Record that functions whose ``__globals__`` is the scratch module's dict
+    # (i.e. functions defined by the newly-executed module) should be rebound
+    # to the live module's dict when they are newly introduced.  Without this,
+    # a function added by a reload -- e.g. a new method on an existing class --
+    # would keep referencing the throwaway scratch namespace, so its module and
+    # global references would go stale on subsequent reloads.  See GH #30.
+    cache.setdefault(_GLOBALS_REBIND_KEY, {})[  # type: ignore[call-overload]
+        id(new_mod.__dict__)] = old_mod.__dict__
     result = livepatch(old_mod.__dict__, new_mod.__dict__,
                        modname=modname,
                        cache=cache, visit_stack=visit_stack)
     assert result is old_mod.__dict__
     return old_mod
+
+
+def _rebind_new_object(obj: Any,
+                       cache: Dict[Tuple[int, int], Any]) -> Any:
+    """
+    Given an object that is being newly introduced into the target namespace by
+    a reload, return a version whose function ``__globals__`` reference the live
+    module dict rather than the throwaway scratch module dict.
+
+    This applies to plain functions as well as functions wrapped in
+    ``staticmethod``/``classmethod``.  Any other object (or a function that was
+    imported from a different module, and thus references some other module's
+    dict) is returned unchanged.
+    """
+    mapping = cache.get(_GLOBALS_REBIND_KEY)  # type: ignore[call-overload]
+    if not mapping:
+        return obj
+    if isinstance(obj, (staticmethod, classmethod)):
+        rebound = _rebind_new_object(obj.__func__, cache)
+        if rebound is obj.__func__:
+            return obj
+        return type(obj)(rebound)
+    if not isinstance(obj, types.FunctionType):
+        return obj
+    target = mapping.get(id(obj.__globals__))
+    if target is None or obj.__globals__ is target:
+        return obj
+    newfunc = types.FunctionType(
+        obj.__code__, target, obj.__name__,
+        obj.__defaults__, obj.__closure__)
+    newfunc.__dict__.update(obj.__dict__)
+    newfunc.__kwdefaults__ = obj.__kwdefaults__
+    newfunc.__qualname__ = obj.__qualname__
+    newfunc.__annotations__ = obj.__annotations__
+    newfunc.__doc__ = obj.__doc__
+    return newfunc
 
 
 def _livepatch__dict(old_dict: Dict[Any, Any], new_dict: Dict[Any, Any],
@@ -342,7 +394,7 @@ def _livepatch__dict(old_dict: Dict[Any, Any], new_dict: Dict[Any, Any],
     newnames = set(new_dict)
     # Add newly introduced names.
     for name in newnames - oldnames:
-        old_dict[name] = new_dict[name]
+        old_dict[name] = _rebind_new_object(new_dict[name], cache)
     # Delete names that are no longer current.
     for name in oldnames - newnames:
         del old_dict[name]
@@ -488,7 +540,7 @@ def _livepatch__class(oldclass: type, newclass: type,
     for name in oldnames - newnames:
         delattr(oldclass, name)
     for name in newnames - oldnames:
-        setattr(oldclass, name, newdict[name])
+        setattr(oldclass, name, _rebind_new_object(newdict[name], cache))
     oldclass.__bases__ = newclass.__bases__
     names = oldnames & newnames
     names.difference_update(olddict.get("__slots__", []))
