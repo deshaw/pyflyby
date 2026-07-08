@@ -1977,24 +1977,18 @@ def test_load_symbol_missing_2():
         load_symbol("os.path.join", {})
 
 
-@pytest.mark.xfail(
-    strict=True, reason="old test that was not names with test_ and never passed"
-)
 def test_load_symbol_eval_1():
-    assert 'a/b' == load_symbol("os.path.join('a','b')", {"os": os})
-    assert '/'   == load_symbol("os.path.join('a','b')[1]", {"os": os})
-    assert 'A'   == load_symbol("os.path.join('a','b')[0].upper()", {"os": os})
+    assert 'a/b' == load_symbol("os.path.join('a','b')", {"os": os}, allow_eval=True)
+    assert '/'   == load_symbol("os.path.join('a','b')[1]", {"os": os}, allow_eval=True)
+    assert 'A'   == load_symbol("os.path.join('a','b')[0].upper()", {"os": os}, allow_eval=True)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="old test that was not names with test_ and never passed"
-)
 def test_load_symbol_eval_2(capsys):
     assert '/' == load_symbol("(os.path.sep[0])", {}, autoimport=True,
                               allow_eval=True)
     out, _ = capsys.readouterr()
     expected = dedent("""
-        [PYFLYBY] import os
+        [PYFLYBY] import os.path
     """).lstrip()
     assert expected == out
 
@@ -2021,32 +2015,26 @@ def test_load_symbol_wrap_exc_1():
         assert False
 
 
-@pytest.mark.xfail(
-    strict=True, reason="old test that was not names with test_ and never passed"
-)
 def test_load_symbol_wrap_exc_eval_1():
     def foo31617859():
         return 1 / 0
 
-    ns = [{"foo": foo31617859()}]
+    ns = [{"foo": foo31617859}]
     try:
-        load_symbol("foo()", ns, auto_eval=True)
+        load_symbol("foo()", ns, allow_eval=True)
     except LoadSymbolError as e:
         assert type(e.__cause__) == ZeroDivisionError
     else:
         assert False
 
 
-@pytest.mark.xfail(
-    strict=True, reason="old test that was not names with test_ and never passed"
-)
 def test_load_symbol_wrap_exc_eval_getattr_1():
     class Foo15356301(object):
         def __getattr__(self, k):
             1/0
     ns = [{"foo": Foo15356301()}]
     try:
-        load_symbol("foo.bar", ns, auto_eval=True)
+        load_symbol("foo.bar", ns, allow_eval=True)
     except LoadSymbolError as e:
         assert type(e.__cause__) == ZeroDivisionError
     else:
