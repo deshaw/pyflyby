@@ -2451,7 +2451,8 @@ class LoadSymbolError(Exception):
 def load_symbol(fullname: str,
                 namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
                 autoimport: bool = False, db: Any = None,
-                autoimported: Optional[Dict[DottedIdentifier, bool]] = None) -> Any:
+                autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+                allow_eval: bool = False) -> Any:
     """
     Load the symbol ``fullname``.
 
@@ -2469,10 +2470,19 @@ def load_symbol(fullname: str,
     ...
     pyflyby._autoimp.LoadSymbolError: os.path.join: NameError: os
 
+    By default ``fullname`` must be a plain dotted name, which is resolved by
+    attribute access.  With ``allow_eval=True``, ``fullname`` may instead be an
+    arbitrary expression (with function calls, subscripts, etc.), which is
+    evaluated against ``namespaces``.
+
+    >>> load_symbol("os.path.join('a', 'b')[0].upper()", {"os": os}, allow_eval=True)
+    'A'
+
     :type fullname:
       ``str``
     :param fullname:
-      Fully-qualified symbol name, e.g. "os.path.join".
+      Fully-qualified symbol name, e.g. "os.path.join".  If ``allow_eval`` is
+      true, this may also be an arbitrary expression, e.g. "os.getcwd()".
     :type namespaces:
       ``dict`` or ``list`` of ``dict``
     :param namespaces:
@@ -2490,12 +2500,33 @@ def load_symbol(fullname: str,
       dictionary, and will add attempted symbols to this dictionary, with
       value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
       did not succeed.
+    :param allow_eval:
+      If ``False`` (default), ``fullname`` must be a plain dotted name resolved
+      by attribute access.  If ``True``, then when ``fullname`` is not a plain
+      dotted name (i.e. it contains calls, subscripts, operators, etc.), it is
+      evaluated as a Python expression against ``namespaces`` instead.
     :return:
       Object.
     :raise LoadSymbolError:
       Object was not found or there was another exception.
     """
     namespaces = ScopeStack(namespaces)
+    if allow_eval and not all(
+            part.isidentifier() for part in fullname.split(".")):
+        # ``fullname`` is an expression (function call, subscript, operator,
+        # ...), not a plain dotted name.  Evaluate it against the namespaces,
+        # optionally auto-importing any missing names first.
+        global_ns, local_ns = namespaces.merged_to_two()
+        try:
+            if autoimport:
+                return auto_eval(fullname, globals=global_ns, locals=local_ns,
+                                 db=db)
+            return eval(compile(fullname, "<load_symbol>", "eval"),
+                        global_ns, local_ns)
+        except Exception as e:
+            e2 = LoadSymbolError(fullname)
+            e2.__cause__ = e
+            raise e2
     if autoimport:
         # Auto-import the symbol first.
         # We do the lookup as a separate step after auto-import.  (An
