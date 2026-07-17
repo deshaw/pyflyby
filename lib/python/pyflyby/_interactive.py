@@ -68,9 +68,10 @@ def _get_or_create_ipython_terminal_app():
     """
     try:
         import IPython
-    except ImportError as e:
+    except ModuleNotFoundError as e:
         raise NoIPythonPackageError(e)
     try:
+        import IPython.terminal.ipapp
         TerminalIPythonApp = IPython.terminal.ipapp.TerminalIPythonApp
     except AttributeError:
         raise RuntimeError(
@@ -131,7 +132,7 @@ def _get_or_create_ipython_kernel_app():
     import IPython
     try:
         from ipykernel.kernelapp import IPKernelApp
-    except ImportError:
+    except ModuleNotFoundError:
         raise RuntimeError(
             "Couldn't get IPKernelApp class.  "
             "Is your IPython version too old (or too new)?  "
@@ -383,7 +384,7 @@ def _install_in_ipython_config_file_40():
     """
     Implementation of `install_in_ipython_config_file` for IPython 4.0+.
     """
-    import IPython
+    import IPython.paths
     ipython_dir = Filename(IPython.paths.get_ipython_dir())
     if not ipython_dir.isdir:
         raise RuntimeError(
@@ -485,6 +486,7 @@ def _get_ipython_app():
         # IPython session.  Don't import it.
         raise NoActiveIPythonAppError(
             "No active IPython application (IPython not even imported yet)")
+    import IPython.core.application
     App = IPython.core.application.BaseIPythonApplication
     app = App._instance
     if app is not None:
@@ -733,12 +735,12 @@ def _get_IPdb_class():
     """
     try:
         import IPython
-    except ImportError:
+    except ModuleNotFoundError:
         raise NoIPythonPackageError()
     try:
         from IPython.core import debugger
         return debugger.Pdb
-    except ImportError:
+    except ModuleNotFoundError:
         pass
     # IPython exists but couldn't figure out how to get Pdb.
     raise RuntimeError(
@@ -759,12 +761,12 @@ def _get_TerminalPdb_class():
     try:
         import IPython
         del IPython
-    except ImportError:
+    except ModuleNotFoundError:
         raise NoIPythonPackageError()
     try:
         from IPython.terminal.debugger import TerminalPdb
         return TerminalPdb
-    except ImportError:
+    except ModuleNotFoundError:
         pass
     raise RuntimeError("Couldn't get TerminalPdb")
 
@@ -846,7 +848,7 @@ def print_verbose_tb(*exc_info):
             "Expected 3 items for exc_info; got %d" % len(exc_info))
     try:
         from IPython.core.ultratb import VerboseTB
-    except ImportError:
+    except ModuleNotFoundError:
         VerboseTB = None
     exc_type, exc_value, exc_tb = exc_info
     # TODO: maybe use ip.showtraceback() instead?
@@ -1161,7 +1163,7 @@ class AutoImporter:
         try:
             # Tested with Jupyter/IPython 4.0
             from jupyter_client.manager import KernelManager as JupyterKernelManager
-        except ImportError:
+        except ModuleNotFoundError:
             pass
         else:
             @self._advise(kernel_manager.start_kernel)
