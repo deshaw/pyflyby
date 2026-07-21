@@ -309,7 +309,7 @@ class Aspect(object):
         while hasattr(joinpoint, "__joinpoint__"):
             joinpoint = joinpoint.__joinpoint__
         self._joinpoint = joinpoint
-        if (isinstance(joinpoint, (types.FunctionType, type))
+        if (isinstance(joinpoint, (types.FunctionType, types.BuiltinFunctionType, type))
             and not (joinpoint.__name__ != joinpoint.__qualname__)):
             self._qname = "%s.%s" % (
                 joinpoint.__module__,
