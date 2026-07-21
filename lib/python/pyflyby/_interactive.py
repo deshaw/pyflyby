@@ -1646,8 +1646,27 @@ class AutoImporter:
                 else:
                     with AdviceCtx(TerminalPdb.__init__, TerminalPdb_with_autoimport):
                         yield
-        iptb = getattr(ip, "InteractiveTB", None)
         ok = True
+
+        @self._advise(sys.breakpointhook)
+        def breakpoint_debugger_with_autoimport(*args, **kwargs):
+            with HookPdbCtx():
+                return __original__(*args, **kwargs)
+
+        try:
+            import ipdb
+
+            if hasattr(ipdb, "set_trace"):
+                @self._advise((ipdb, "set_trace"))
+                def ipdb_debugger_with_autoimport(*args, **kwargs):
+                    with HookPdbCtx():
+                        return __original__(*args, **kwargs)
+            else:
+                ok = False
+        except ModuleNotFoundError:
+            pass
+
+        iptb = getattr(ip, "InteractiveTB", None)
         if hasattr(iptb, "debugger"):
             # Hook ip.InteractiveTB.debugger().  This implements auto
             # importing for "%debug" (postmortem mode).
