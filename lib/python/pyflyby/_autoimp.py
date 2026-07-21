@@ -1167,7 +1167,10 @@ class _MissingImportFinder:
         if isinstance(fullname, ast.arg):
             fullname = fullname.arg
         if self.find_unused_imports:
-            if fullname != '*' and not in_import:
+            # Import stores are excluded here; this also means `fullname`
+            # below is always a valid dotted identifier, since '*' can only
+            # occur as a star-import store.
+            if not in_import:
                 # If we're storing "foo.bar.baz = 123", then "foo" and
                 # "foo.bar" have now been used and the import should not be
                 # removed.
