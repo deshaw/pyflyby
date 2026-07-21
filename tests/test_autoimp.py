@@ -1700,7 +1700,7 @@ def test_scan_for_import_issues_submodule_unused_1():
     """)
     missing, unused = scan_for_import_issues(code, parse_docstrings=True)
     assert missing == []
-    assert unused == [(2, Import('import os.path'), None)]
+    assert unused == [(3, Import('import os.path'), None)]
 
 
 
