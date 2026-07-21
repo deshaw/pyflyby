@@ -3829,6 +3829,52 @@ def test_debug_auto_import_statement_step_1(frontend, tmp):
 # unimportable.
 
 
+debugger_activations = [
+    "breakpoint()",
+    "import ipdb; ipdb.set_trace()",
+    "%debug pass"
+]
+
+@retry
+@pytest.mark.parametrize("enter_debugger", debugger_activations)
+def test_breakpoint_baseline_1(enter_debugger, frontend):
+    # Verify that we can test breakpoint without any pyflyby involved.
+    ipython(f"""
+        In [1]: {enter_debugger}
+        ....
+        ipdb> p 43405728 + 69642968
+        113048696
+        ipdb> q
+    """, frontend=frontend)
+
+
+@retry
+@pytest.mark.parametrize("enter_debugger", debugger_activations)
+def test_breakpoint_without_autoimport_1(enter_debugger, frontend):
+    # Verify that without autoimport, we get a NameError.
+    ipython(f"""
+        In [1]: {enter_debugger}
+        ....
+        ipdb> p b64decode("QXVkdWJvbg==")
+        *** NameError: name 'b64decode' is not defined
+        ipdb> q
+    """, frontend=frontend)
+
+
+@retry
+@pytest.mark.parametrize("enter_debugger", debugger_activations)
+def test_breakpoint_auto_import_p_1(enter_debugger, frontend):
+    ipython(f"""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: {enter_debugger}
+        ....
+        ipdb> p b64decode("S2Vuc2luZ3Rvbg==")
+        [PYFLYBY] from base64 import b64decode
+        b'Kensington'
+        ipdb> q
+    """, frontend=frontend)
+
+
 @pytest.mark.skipif(
     (3, 14, 1) <= sys.version_info[:3] <= (3, 14, 5),
     reason="linux + >=3.14.1 show some extra stacks.",
