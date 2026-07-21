@@ -1740,6 +1740,103 @@ def test_scan_for_import_issues_module_unused_masked_1():
     assert unused == [(2, Import('import os'), None)]
 
 
+def test_scan_for_import_issues_submodule_both_used_1():
+    code = dedent("""
+        import os
+        import os.path
+
+        print(os.name)
+        print(os.path.join)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_submodule_only_used_1():
+    code = dedent("""
+        import os.path
+
+        print(os.path.join)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_submodule_duplicate_1():
+    code = dedent("""
+        import os.path
+        import os.path
+
+        print(os.path.join)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os.path'), None)]
+
+
+def test_scan_for_import_issues_submodule_asname_module_unused_1():
+    code = dedent("""
+        import os
+        import os.path as osp
+
+        print(osp.join)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os'), None)]
+
+
+def test_scan_for_import_issues_submodule_deep_module_unused_1():
+    code = dedent("""
+        import xml
+        import xml.etree.ElementTree
+
+        print(xml.etree.ElementTree.fromstring)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import xml'), None)]
+
+
+def test_scan_for_import_issues_submodule_deep_unused_1():
+    code = dedent("""
+        import xml
+        import xml.etree.ElementTree
+
+        print(xml.sax)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(3, Import('import xml.etree.ElementTree'), None)]
+
+
+def test_scan_for_import_issues_submodule_in_function_1():
+    code = dedent("""
+        import os
+
+        def f():
+            import os.path
+            print(os.path.join)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os'), None)]
+
+
+def test_scan_for_import_issues_submodule_store_marks_prefix_used_1():
+    # A plain assignment through the dotted name (unlike a submodule import)
+    # does count as a use of the prefix import.
+    code = dedent("""
+        import os
+        os.environ = {}
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == []
+
+
 def test_scan_for_import_issues_comprehension_subscript_1():
     code = dedent("""
         x = []

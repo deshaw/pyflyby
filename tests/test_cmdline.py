@@ -57,7 +57,7 @@ def test_tidy_imports_stdin_import_removal():
     import os.path
 
     print(os.name)
-    ''')
+    ''').strip()
     result = pipe(["-m", "pyflyby._tidy_imports"], stdin=input)
     expected = dedent('''
         [PYFLYBY] /dev/stdin: removed unused 'import os.path'
@@ -66,6 +66,7 @@ def test_tidy_imports_stdin_import_removal():
         print(os.name)
     ''').strip()
     assert result == expected
+
 
 def test_tidy_imports_quiet_1():
     result = pipe(["-m", "pyflyby._tidy_imports", "--quiet"], stdin="os, sys")
