@@ -1691,6 +1691,55 @@ def test_scan_for_import_issues_star_import_local_1():
     assert unused == [(2, Import('import y1'), None)]
 
 
+def test_scan_for_import_issues_submodule_unused_1():
+    code = dedent("""
+        import os
+        import os.path
+
+        print(os.name)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os.path'), None)]
+
+
+
+def test_scan_for_import_issues_submodule_unused_2():
+    code = dedent("""
+        import os.path
+        import os
+
+        print(os.name)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os.path'), None)]
+
+
+def test_scan_for_import_issues_module_unused_1():
+    code = dedent("""
+        import os
+        import os.path
+
+        print(os.path)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os'), None)]
+
+
+def test_scan_for_import_issues_module_unused_masked_1():
+    code = dedent("""
+        import os
+        import os.path as os
+
+        print(os.name)
+    """)
+    missing, unused = scan_for_import_issues(code, parse_docstrings=True)
+    assert missing == []
+    assert unused == [(2, Import('import os'), None)]
+
+
 def test_scan_for_import_issues_comprehension_subscript_1():
     code = dedent("""
         x = []
