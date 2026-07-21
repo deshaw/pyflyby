@@ -59,6 +59,7 @@ test = [
     'coverage',
     'flaky',
     'hypothesis',
+    'ipdb',
     'ipykernel>=5.4.3',
     'ipython>=8',
     'jupyter',
