@@ -313,7 +313,7 @@ from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimport
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import cmp, indent, prefixes
+from   pyflyby._util            import indent, prefixes
 
 # TODO: add --tidy-imports, etc
 
@@ -1058,6 +1058,7 @@ class LoggedList:
     supported (subscript, iterate, len, repr/str).
     """
 
+
     _ACCESSED = object()
 
     def __init__(self, items):
@@ -1068,8 +1069,19 @@ class LoggedList:
         self._unaccessed.append(self._ACCESSED)
         self._items.append(x)
 
-    def count(self):
-        return self._items.count()
+    def clear(self):
+        self._items.clear()
+        self._unaccessed.clear()
+
+    def copy(self):
+        # Copying reads every element, just like ``sys.argv[:]``, so mark
+        # everything accessed and hand back a plain list (as ``list.copy``
+        # does).
+        self._unaccessed[:] = [self._ACCESSED] * len(self._unaccessed)
+        return self._items.copy()
+
+    def count(self, x):
+        return self._items.count(x)
 
     def extend(self, new_items):
         new_items = list(new_items)
@@ -1085,7 +1097,7 @@ class LoggedList:
         self._unaccessed.insert(index, self._ACCESSED)
         self._items.insert(index, x)
 
-    def pop(self, index):
+    def pop(self, index=-1):
         self._unaccessed.pop(index)
         return self._items.pop(index)
 
@@ -1097,9 +1109,13 @@ class LoggedList:
         self._items.reverse()
         self._unaccessed.reverse()
 
-    def sort(self):
-        indexes = range(len(self._items))
-        indexes.sort(key=self._items.__getitem__) # argsort
+    def sort(self, *, key=None, reverse=False):
+        if key is None:
+            keyfunc = self._items.__getitem__
+        else:
+            keyfunc = lambda i: key(self._items[i])
+        indexes = list(range(len(self._items)))
+        indexes.sort(key=keyfunc, reverse=reverse) # argsort
         self._items = [self._items[i] for i in indexes]
         self._unaccessed = [self._unaccessed[i] for i in indexes]
 
@@ -1118,21 +1134,20 @@ class LoggedList:
         del self._unaccessed[x]
 
     def __eq__(self, other):
-        if not isinstance(other, LoggedList):
-            return NotImplemented
-        return self._items == other._items
+        if isinstance(other, LoggedList):
+            other = other._items
+        if isinstance(other, list):
+            return self._items == other
+        return NotImplemented
 
-    def __ne__(self, other):
-        return not (self == other)
-
-    # The rest are defined by total_ordering
+    # __ne__ is derived from __eq__ automatically in Python 3.
+    # The remaining orderings (__le__, __gt__, __ge__) come from total_ordering.
     def __lt__(self, other):
-        if not isinstance(other, LoggedList):
-            return NotImplemented
-        return self._items < other._items
-
-    def __cmp__(self, x):
-        return cmp(self._items, x)
+        if isinstance(other, LoggedList):
+            other = other._items
+        if isinstance(other, list):
+            return self._items < other
+        return NotImplemented
 
     def __getitem__(self, idx):
         result = self._items[idx]
@@ -1147,10 +1162,12 @@ class LoggedList:
 
     def __iadd__(self, x):
         self.extend(x)
+        return self
 
     def __imul__(self, n):
         self._items *= n
         self._unaccessed *= n
+        return self
 
     def __iter__(self):
         # Todo: detect mutation while iterating.
@@ -1164,9 +1181,6 @@ class LoggedList:
 
     def __mul__(self, n):
         return self._items * n
-
-    def __reduce__(self):
-        return
 
     def __repr__(self):
         self._unaccessed[:] = [self._ACCESSED]*len(self._unaccessed)
@@ -1182,6 +1196,12 @@ class LoggedList:
         return self._items * n
 
     def __setitem__(self, idx, value):
+        # GOTCHA: access-tracking of assignment is deliberately inconsistent
+        # between the two branches.  A slice assignment marks the affected
+        # positions as *accessed*, whereas a single-index assignment stores
+        # the freshly-assigned value as *unaccessed* (so it can still be
+        # reported as an unused argument).  This only affects the `unaccessed`
+        # bookkeeping, not list behavior; it is intentional and left as-is.
         self._items[idx] = value
         if isinstance(idx, slice):
             self._unaccessed[idx] = [self._ACCESSED]*len(value)
