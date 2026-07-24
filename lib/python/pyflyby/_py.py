@@ -283,6 +283,7 @@ from __future__ import print_function
 import ast
 import builtins
 from   contextlib               import contextmanager
+from   functools                import total_ordering
 import inspect
 import logging
 import os
@@ -1047,6 +1048,7 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         _handle_user_exception()
 
 
+@total_ordering
 class LoggedList:
     """
     Read-only list proxy that tracks which items have not yet been accessed.
@@ -1056,41 +1058,163 @@ class LoggedList:
     supported (subscript, iterate, len, repr/str).
     """
 
+
+    _ACCESSED = object()
+
     def __init__(self, items):
         self._items = list(items)
-        self._accessed = [False] * len(self._items)
+        self._unaccessed = list(self._items)
 
-    def _mark_accessed(self, idx):
-        if isinstance(idx, slice):
-            for i in range(*idx.indices(len(self._items))):
-                self._accessed[i] = True
+    def append(self, x):
+        self._unaccessed.append(self._ACCESSED)
+        self._items.append(x)
+
+    def clear(self):
+        self._items.clear()
+        self._unaccessed.clear()
+
+    def copy(self):
+        # Copying reads every element, just like ``sys.argv[:]``, so mark
+        # everything accessed and hand back a plain list (as ``list.copy``
+        # does).
+        self._unaccessed[:] = [self._ACCESSED] * len(self._unaccessed)
+        return self._items.copy()
+
+    def count(self, x):
+        return self._items.count(x)
+
+    def extend(self, new_items):
+        new_items = list(new_items)
+        self._unaccessed.extend([self._ACCESSED] * len(new_items))
+        self._items.extend(new_items)
+
+    def index(self, x, *start_stop):
+        index = self._items.index(x, *start_stop) # may raise ValueError
+        self._unaccessed[index] = self._ACCESSED
+        return index
+
+    def insert(self, index, x):
+        self._unaccessed.insert(index, self._ACCESSED)
+        self._items.insert(index, x)
+
+    def pop(self, index=-1):
+        self._unaccessed.pop(index)
+        return self._items.pop(index)
+
+    def remove(self, x):
+        index = self._items.index(x)
+        self.pop(index)
+
+    def reverse(self):
+        self._items.reverse()
+        self._unaccessed.reverse()
+
+    def sort(self, *, key=None, reverse=False):
+        if key is None:
+            keyfunc = self._items.__getitem__
         else:
-            self._accessed[idx] = True
+            keyfunc = lambda i: key(self._items[i])
+        indexes = list(range(len(self._items)))
+        indexes.sort(key=keyfunc, reverse=reverse) # argsort
+        self._items = [self._items[i] for i in indexes]
+        self._unaccessed = [self._unaccessed[i] for i in indexes]
+
+    def __add__(self, other):
+        return self._items + other
+
+    def __contains__(self, x):
+        try:
+            self.index(x)
+            return True
+        except ValueError:
+            return False
+
+    def __delitem__(self, x):
+        del self._items[x]
+        del self._unaccessed[x]
+
+    def __eq__(self, other):
+        if isinstance(other, LoggedList):
+            other = other._items
+        if isinstance(other, list):
+            return self._items == other
+        return NotImplemented
+
+    # __ne__ is derived from __eq__ automatically in Python 3.
+    # The remaining orderings (__le__, __gt__, __ge__) come from total_ordering.
+    def __lt__(self, other):
+        if isinstance(other, LoggedList):
+            other = other._items
+        if isinstance(other, list):
+            return self._items < other
+        return NotImplemented
 
     def __getitem__(self, idx):
         result = self._items[idx]
-        self._mark_accessed(idx)
+        if isinstance(idx, slice):
+            self._unaccessed[idx] = [self._ACCESSED]*len(result)
+        else:
+            self._unaccessed[idx] = self._ACCESSED
         return result
 
+    def __hash__(self):
+        raise TypeError("unhashable type: 'LoggedList'")
+
+    def __iadd__(self, x):
+        self.extend(x)
+        return self
+
+    def __imul__(self, n):
+        self._items *= n
+        self._unaccessed *= n
+        return self
+
     def __iter__(self):
+        # Todo: detect mutation while iterating.
         for i, x in enumerate(self._items):
-            self._accessed[i] = True
+            self._unaccessed[i] = self._ACCESSED
             yield x
 
     def __len__(self):
         return len(self._items)
 
+
+    def __mul__(self, n):
+        return self._items * n
+
     def __repr__(self):
-        self._accessed = [True] * len(self._items)
+        self._unaccessed[:] = [self._ACCESSED]*len(self._unaccessed)
         return repr(self._items)
 
+    def __reversed__(self):
+        # Todo: detect mutation while iterating.
+        for i in reversed(range(len(self._items))):
+            self._unaccessed[i] = self._ACCESSED
+            yield self._items[i]
+
+    def __rmul__(self, n):
+        return self._items * n
+
+    def __setitem__(self, idx, value):
+        # GOTCHA: access-tracking of assignment is deliberately inconsistent
+        # between the two branches.  A slice assignment marks the affected
+        # positions as *accessed*, whereas a single-index assignment stores
+        # the freshly-assigned value as *unaccessed* (so it can still be
+        # reported as an unused argument).  This only affects the `unaccessed`
+        # bookkeeping, not list behavior; it is intentional and left as-is.
+        self._items[idx] = value
+        if isinstance(idx, slice):
+            self._unaccessed[idx] = [self._ACCESSED]*len(value)
+        else:
+            self._unaccessed[idx] = value
+
     def __str__(self):
-        self._accessed = [True] * len(self._items)
+        self._unaccessed[:] = [self._ACCESSED]*len(self._unaccessed)
         return str(self._items)
 
     @property
     def unaccessed(self):
-        return [x for x, used in zip(self._items, self._accessed) if not used]
+        return [x for x in self._unaccessed if x is not self._ACCESSED]
 
 
 @contextmanager
