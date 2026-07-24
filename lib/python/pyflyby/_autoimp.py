@@ -1112,9 +1112,16 @@ class _MissingImportFinder:
             logger.debug("Got star import: line %s: 'from %s import *'",
                          self._lineno, modulename)
         if not node.asname and not is_star:
-            # Handle leading prefixes so we don't think they're unused
+            # Ensure leading prefixes are treated as defined, so that later
+            # references to them are not considered missing.  Don't overwrite
+            # an existing binding, though: for 'import os' followed by
+            # 'import os.path', overwriting would both falsely report the
+            # prior 'import os' as unused (redefined-before-use) and
+            # disconnect its use-checker from subsequent uses of 'os'.
+            scope = self.scopestack[-1]
             for prefix in DottedIdentifier(node.name).prefixes[:-1]:
-                self._visit_Store(str(prefix), None)
+                if str(prefix) not in scope:
+                    self._visit_Store(str(prefix), None, in_import=True)
         # Only honour pragmas on the alias's own line(s).  Scanning the whole
         # parent ``ImportFrom`` range would over-protect siblings in a
         # parenthesized ``from x import (a, b)`` group when only one alias is
@@ -1132,16 +1139,25 @@ class _MissingImportFinder:
             # Keep track of whether we've used this import.
             scope_name = self._scope_name_stack[-1] if self._scope_name_stack else None
             value = _UseChecker(name, imp, self._lineno, scope_name=scope_name)
-        self._visit_Store(name, value)
+        self._visit_Store(name, value, in_import=True)
 
     def _visit_Store(
         self,
         fullname: Optional[Union[str, ast.arg]],
         value: Optional[_UseChecker] = None,
+        in_import: bool = False,
     ) -> None:
         """
         Visit a Store action, check for unused import
         and add current value to the last scope.
+
+        :param in_import:
+          Whether this store comes from an import statement. Storing
+          "foo.bar.baz = 123" marks imports of "foo" and "foo.bar" as used,
+          but 'import foo.bar.baz' must not count as a use of a prior
+          'import foo': whether that import is still needed should be
+          decided by actual references to "foo", not by the presence of a
+          submodule import (which binds "foo" itself anyway).
         """
         assert isinstance(value, (_UseChecker, type(None)))
         logger.debug("_visit_Store(%r)", fullname)
@@ -1151,7 +1167,10 @@ class _MissingImportFinder:
         if isinstance(fullname, ast.arg):
             fullname = fullname.arg
         if self.find_unused_imports:
-            if fullname != '*':
+            # Import stores are excluded here; this also means `fullname`
+            # below is always a valid dotted identifier, since '*' can only
+            # occur as a star-import store.
+            if not in_import:
                 # If we're storing "foo.bar.baz = 123", then "foo" and
                 # "foo.bar" have now been used and the import should not be
                 # removed.
