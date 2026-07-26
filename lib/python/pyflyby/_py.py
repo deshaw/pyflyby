@@ -1049,7 +1049,14 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
 
 
 @total_ordering
-class LoggedList:
+if TYPE_CHECKING:
+    _Base = list
+else:
+    _Base = object
+
+
+@total_ordering
+class LoggedList(_Base):
     """
     Read-only list proxy that tracks which items have not yet been accessed.
 
