@@ -10,6 +10,8 @@
 
 from __future__ import print_function
 
+import operator
+
 import pytest
 
 from   pyflyby._py              import LoggedList
@@ -73,6 +75,10 @@ _LIST_OPERATIONS = {
     "getitem-slice-step": ([1, 2, 3, 4],     lambda x: x[::-1]),
     "setitem":          ([1, 2, 3],          lambda x: x.__setitem__(1, 99)),
     "setitem-slice":    ([1, 2, 3, 4],       lambda x: x.__setitem__(slice(1, 3), [8, 9, 10])),
+    "setitem-slice-iterator": ([1, 2, 3],    lambda x: x.__setitem__(slice(1, 2), iter(["x"]))),
+    "setitem-slice-iterator-grow": ([1, 2, 3], lambda x: x.__setitem__(slice(1, 2), iter(["a", "b", "c"]))),
+    "setitem-slice-iterator-empty": ([1, 2, 3], lambda x: x.__setitem__(slice(1, 2), iter([]))),
+    "setitem-slice-step-iterator": ([1, 2, 3], lambda x: x.__setitem__(slice(None, None, 2), iter(["a", "b"]))),
     "delitem":          ([1, 2, 3],          lambda x: x.__delitem__(1)),
     "delitem-slice":    ([1, 2, 3, 4],       lambda x: x.__delitem__(slice(1, 3))),
     "len":              ([1, 2, 3],          lambda x: len(x)),
@@ -122,12 +128,12 @@ def test_logged_list_copy_returns_plain_list():
 
 
 @pytest.mark.parametrize("op, expected", [
-    (lambda a, b: a == b,  True),
-    (lambda a, b: a != b,  False),
-    (lambda a, b: a < b,   False),
-    (lambda a, b: a <= b,  True),
-    (lambda a, b: a > b,   False),
-    (lambda a, b: a >= b,  True),
+    (operator.eq, True),
+    (operator.ne, False),
+    (operator.lt, False),
+    (operator.le, True),
+    (operator.gt, False),
+    (operator.ge, True),
 ], ids=["eq", "ne", "lt", "le", "gt", "ge"])
 def test_logged_list_comparisons_match_list(op, expected):
     # LoggedList must compare against both plain lists and other LoggedLists
@@ -135,6 +141,42 @@ def test_logged_list_comparisons_match_list(op, expected):
     assert op(LoggedList([1, 2, 3]), [1, 2, 3]) == expected
     assert op(LoggedList([1, 2, 3]), LoggedList([1, 2, 3])) == expected
     assert op([1, 2, 3], [1, 2, 3]) == expected
+
+
+_COMPARISON_OPS = [
+    operator.eq, operator.ne, operator.lt,
+    operator.le, operator.gt, operator.ge,
+]
+
+
+@pytest.mark.parametrize("left, right", [
+    ([1, 2, 3], [1, 2, 4]),      # differs in the last element
+    ([1, 2, 4], [1, 2, 3]),      # ...and the other way around
+    ([1, 2],    [1, 2, 3]),      # proper prefix (shorter sorts first)
+    ([1, 2, 3], [1, 2]),         # ...and the other way around
+    ([2],       [1, 2, 3]),      # first element decides, regardless of length
+    ([],        [1]),            # empty vs non-empty
+    (["a", "b"], ["a", "c"]),    # non-numeric elements
+], ids=["last-lt", "last-gt", "prefix", "extends", "first-wins", "empty", "str"])
+@pytest.mark.parametrize("op", _COMPARISON_OPS,
+                         ids=[op.__name__ for op in _COMPARISON_OPS])
+def test_logged_list_unequal_comparisons_match_list(op, left, right):
+    # Comparisons between *unequal* operands: these exercise the orderings
+    # ``total_ordering`` derives from __eq__/__lt__, which comparing equal
+    # lists barely touches.  The expected result is whatever plain lists do.
+    expected = op(left, right)
+    assert op(LoggedList(left), right) == expected
+    assert op(LoggedList(left), LoggedList(right)) == expected
+    # ...including with a plain list on the left, which goes through the
+    # reflected operator.
+    assert op(left, LoggedList(right)) == expected
+
+
+def test_logged_list_unequal_comparison_does_not_mark_accessed():
+    # Comparing does not count as accessing the individual arguments.
+    ll = LoggedList(["a", "b"])
+    assert (ll != ["a", "c"]) is True
+    assert ll.unaccessed == ["a", "b"]
 
 
 def test_logged_list_unhashable_like_list():
@@ -156,6 +198,57 @@ def test_logged_list_slice_marks_accessed():
     ll = LoggedList(["a", "b", "c", "d"])
     assert ll[1:3] == ["b", "c"]
     assert ll.unaccessed == ["a", "d"]
+
+
+@pytest.mark.parametrize("value, expected", [
+    (iter(["x"]),           [1, "x", 3]),
+    (iter(["a", "b", "c"]), [1, "a", "b", "c", 3]),
+    (iter([]),              [1, 3]),
+], ids=["same-size", "grow", "shrink"])
+def test_logged_list_setitem_slice_accepts_iterator(value, expected):
+    # A slice assignment accepts any iterable, and may change the length of the
+    # list.  The length therefore has to come from the value (which must be
+    # materialized, since the assignment itself would consume the iterator),
+    # not from the slice.
+    ll = LoggedList([1, 2, 3])
+    ll[1:2] = value
+    assert list(ll._items) == expected
+    # The access-tracking bookkeeping must stay in sync with the items.
+    assert len(ll._unaccessed) == len(ll._items)
+
+
+def test_logged_list_setitem_extended_slice_iterator_size_mismatch():
+    # An extended slice assignment of the wrong size raises, as for a list, and
+    # must leave both the items and the tracking state untouched.
+    ll = LoggedList([1, 2, 3])
+    with pytest.raises(ValueError):
+        ll[::2] = iter(["a"])
+    assert list(ll._items) == [1, 2, 3]
+    assert len(ll._unaccessed) == 3
+
+
+def test_logged_list_setitem_slice_marks_assigned_accessed():
+    ll = LoggedList(["a", "b", "c"])
+    ll[1:2] = iter(["x", "y"])
+    # The freshly-assigned positions count as accessed; the rest do not.
+    assert ll.unaccessed == ["a", "c"]
+
+
+def test_logged_list_setitem_marks_assigned_accessed():
+    # A single-index assignment marks that position accessed, consistently with
+    # slice assignment: neither the replaced value nor the newly-assigned one is
+    # an unused argument.
+    ll = LoggedList(["a", "b", "c"])
+    ll[1] = "x"
+    assert ll.unaccessed == ["a", "c"]
+
+
+def test_logged_list_setitem_does_not_mark_others_accessed():
+    ll = LoggedList(["a", "b", "c"])
+    ll[0] = "x"
+    ll[-1] = "z"
+    assert list(ll._items) == ["x", "b", "z"]
+    assert ll.unaccessed == ["b"]
 
 
 def test_logged_list_iter_marks_all_accessed():

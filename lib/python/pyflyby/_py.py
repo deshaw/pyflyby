@@ -292,8 +292,8 @@ import re
 from   shlex                    import quote as shquote
 import sys
 import types
-from   types                    import FunctionType, MethodType, ModuleType
-from   typing                   import Any
+from types import FunctionType, MethodType, ModuleType
+from typing import TYPE_CHECKING, Any
 import warnings
 
 from   pyflyby._autoimp         import auto_import, find_missing_imports
@@ -1048,7 +1048,6 @@ def auto_apply(function, commandline_args, namespace, arg_mode=None,
         _handle_user_exception()
 
 
-@total_ordering
 if TYPE_CHECKING:
     _Base = list
 else:
@@ -1203,17 +1202,20 @@ class LoggedList(_Base):
         return self._items * n
 
     def __setitem__(self, idx, value):
-        # GOTCHA: access-tracking of assignment is deliberately inconsistent
-        # between the two branches.  A slice assignment marks the affected
-        # positions as *accessed*, whereas a single-index assignment stores
-        # the freshly-assigned value as *unaccessed* (so it can still be
-        # reported as an unused argument).  This only affects the `unaccessed`
-        # bookkeeping, not list behavior; it is intentional and left as-is.
-        self._items[idx] = value
+        # Assigning to a position counts as *accessing* it, for both single-index
+        # and slice assignment: the caller has replaced whatever was there, so
+        # the old value can no longer be reported as an unused argument, and the
+        # value they just wrote is one they evidently already know about.
         if isinstance(idx, slice):
-            self._unaccessed[idx] = [self._ACCESSED]*len(value)
+            # A slice assignment takes any iterable (which the assignment below
+            # would consume), and can change the length of the list, so
+            # materialize the value to get both the items and their count.
+            value = list(value)
+            marker = [self._ACCESSED] * len(value)
         else:
-            self._unaccessed[idx] = value
+            marker = self._ACCESSED
+        self._items[idx] = value
+        self._unaccessed[idx] = marker
 
     def __str__(self):
         self._unaccessed[:] = [self._ACCESSED]*len(self._unaccessed)
