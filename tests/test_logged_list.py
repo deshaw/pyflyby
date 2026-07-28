@@ -13,6 +13,7 @@
 import copy
 import inspect
 import operator
+import sys
 
 import pytest
 
@@ -46,6 +47,9 @@ _TRACKING_NEUTRAL = {
     "__init_subclass__", "__new__", "__sizeof__", "__subclasshook__",
     "__reduce__", "__reduce_ex__", "__getstate__",  # pickling unsupported
 }
+
+if sys.version_info < (3, 14):
+    _TRACKING_NEUTRAL.add("__getattribute__")
 
 
 def test_inherits_only_tracking_neutral_methods():
