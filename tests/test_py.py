@@ -1070,14 +1070,8 @@ def test_function_source_variants_1(cmdline):
     assert "binascii.b2a_base64" in output
 
 
-def test_module_help_1():
-    output, retcode = py("base64?")
-    assert retcode == 0
-    assert "RFC 3548" in output
-    assert "import binascii" not in output
-
-
 @pytest.mark.parametrize("args", [
+    "base64?",
     "base64 --help",
     "base64 -help",
     "base64 --h",
@@ -1099,7 +1093,13 @@ def test_module_help_1():
 def test_module_help_variants_1(args):
     output, retcode = py(args.split())
     assert retcode == 0
-    assert "RFC 3548" in output, output
+    # https://github.com/python/cpython/pull/151275,
+    # backported to some 3.14 and 3.13 versions, so conditiona checks until we
+    # support only 3.15+
+    if sys.version_info >= (3,15):
+        assert "RFC 4648" in output
+    else:
+        assert ("RFC 4648" in output) or ('RFC 3548' in output), output
     assert "import binascii" not in output
 
 
