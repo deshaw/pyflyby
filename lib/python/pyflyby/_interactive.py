@@ -450,23 +450,6 @@ def _install_in_ipython_config_file_40():
         logger.info("[DONE] Removed old file %s (moved to %s)", old_fn, trash_fn)
 
 
-def _ipython_in_multiline(ip):
-    """
-    Return ``False`` if the user has entered only one line of input so far,
-    including the current line, or ``True`` if it is the second or later line.
-
-    :type ip:
-      ``InteractiveShell``
-    :rtype:
-      ``bool``
-    """
-    if hasattr(ip, "input_splitter"):
-        return bool(ip.input_splitter.source)
-    else:
-        # IPython version too old or too new?
-        return False
-
-
 def _get_ipython_app():
     """
     Get an IPython application instance, if we are inside an IPython session.
