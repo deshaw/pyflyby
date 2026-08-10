@@ -859,8 +859,8 @@ def test_program_help_1():
     assert "--version" in output
 
 
-def test_program_help_full_1():
-    for arg in ["--help", "-help", "help", "--h", "-h", "--?", "-?", "?"]:
+@pytest.mark.parametrize('arg', ("--help", "-help", "help", "--h", "-h", "--?", "-?", "?"))
+def test_program_help_full_1(arg):
         output, retcode = py(arg)
         assert retcode == 0
         assert "--version" in output

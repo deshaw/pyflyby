@@ -68,6 +68,7 @@ test = [
     'pexpect>=3.3',
     'pytest-cov',
     'pytest-json-report',
+    'pytest-xdist',
     'pytest>=9',
     'requests',
 ]
@@ -114,6 +115,10 @@ addopts = [
     "--strict-markers",
     "--durations=10",
     "-ra",
+    # Most tests spawn a `py`/IPython subprocess, so the suite is dominated by
+    # process startup rather than CPU.  Run them in parallel; use `-n0` to
+    # disable (e.g. when debugging with pdb).
+    "-n", "auto",
 ]
 filterwarnings = [
     "error::DeprecationWarning",
