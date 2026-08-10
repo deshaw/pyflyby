@@ -33,7 +33,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, advise, indent)
+                                        FunctionWithGlobals, advise)
 
 if False:
     __original__ = None # for pyflakes
@@ -335,49 +335,6 @@ def install_in_ipython_config_file():
         "Couldn't install pyflyby autoimporter in IPython.  "
         "Is your IPython version too old (or too new)?  "
         "IPython.__version__=%r" % (IPython.__version__))
-
-
-def _generate_enabler_code():
-    """
-    Generate code for enabling the auto importer.
-
-    :rtype:
-      ``str``
-    """
-    funcdef = (
-        "import pyflyby\n"
-        "pyflyby.enable_auto_importer()\n"
-    )
-    # Check whether we need to include the path in sys.path, and if so, add
-    # that to the contents.
-    import pyflyby
-    pyflyby_path = pyflyby.__path__[0]
-    if not _python_can_import_pyflyby(pyflyby_path):
-        path_entry = os.path.dirname(os.path.realpath(pyflyby_path))
-        assert _python_can_import_pyflyby(pyflyby_path, path_entry)
-        funcdef = (
-            "import sys\n"
-            "saved_sys_path = sys.path[:]\n"
-            "try:\n"
-            "    sys.path.insert(0, %r)\n" % (path_entry,) +
-            indent(funcdef, "    ") +
-            "finally:\n"
-            "    sys.path = saved_sys_path\n"
-        )
-    # Wrap the code in a temporary function, call it, then delete the
-    # function.  This avoids polluting the user's global namespace.  Although
-    # the global name "pyflyby" will almost always end up meaning the module
-    # "pyflyby" anyway, if the user types it, there's still value in not
-    # polluting the namespace in case something enumerates over globals().
-    # For the function name we use a name that's unlikely to be used by the
-    # user.
-    contents = (
-        "def __pyflyby_enable_auto_importer_60321389():\n" +
-        indent(funcdef, "    ") +
-        "__pyflyby_enable_auto_importer_60321389()\n"
-        "del __pyflyby_enable_auto_importer_60321389\n"
-    )
-    return contents
 
 
 def _install_in_ipython_config_file_40():
