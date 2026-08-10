@@ -11,7 +11,6 @@ from   contextlib               import nullcontext
 import logging
 from   logging                  import Formatter, Handler, LogRecord, Logger
 import os
-from   prompt_toolkit           import patch_stdout
 import sys
 from   typing                   import Any, ContextManager, Dict, cast
 
@@ -57,6 +56,10 @@ class _PyflybyHandler(Handler):
             formatter = cast(_PyflybyFormatter, self.formatter)
             if _is_ipython() or _is_interactive(sys.stderr):
                 msg = formatter.formatInteractive(record)
+                # Imported lazily: prompt_toolkit accounts for ~45% of the cost
+                # of ``import pyflyby``, and is only needed when logging to an
+                # interactive terminal.
+                from prompt_toolkit import patch_stdout
                 patch_stdout_c: ContextManager[Any] = patch_stdout.patch_stdout(raw=True)
             else:
                 msg = formatter.formatPlain(record)
