@@ -21,7 +21,9 @@ Only top-level import statements are touched.
 
 
 from   pyflyby._cmdline         import parse_args, process_actions
+from   pyflyby._file            import FileText
 from   pyflyby._imports2s       import replace_star_imports
+from   pyflyby._parse           import PythonBlock
 
 
 def main():
@@ -34,8 +36,8 @@ def main():
         __main__.__doc__ = __doc__
 
     options, args = parse_args(modify_action_params=True)
-    def modify(x):
-        return replace_star_imports(x, params=options.params)
+    def modify(x:FileText,/) -> PythonBlock:
+        return replace_star_imports(PythonBlock(x), params=options.params)
     process_actions(args, options.actions, modify)
 
 
