@@ -16,16 +16,20 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._log             import logger
+from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import (ImportPathCtx, Inf, _has_ignore_pragma,
                                         memoize)
+
 import re
 import sys
+import warnings
 
 from   typing                   import (Any, ContextManager, Dict, List,
                                         Literal, Optional, Union)
 
 from   textwrap                 import dedent, indent
+
 
 # A mapping of dotted-name prefixes to replacements.  ``transform_imports`` and
 # friends accept either a plain ``dict`` or an `ImportMap` (e.g. a database's
@@ -1153,14 +1157,14 @@ def remove_broken_imports(
     return transformer.output(params=params)
 
 
-def replace_star_imports(
-    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
-) -> PythonBlock:
+def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|None = None) -> PythonBlock:
     r"""
     Replace lines such as::
 
       from foo.bar import *
-    with
+
+    with::
+        
       from foo.bar import f1, f2, f3
 
     Note that this requires involves actually importing ``foo.bar``, which may
@@ -1187,10 +1191,17 @@ def replace_star_imports(
     :rtype:
       `PythonBlock`
     """
-    from pyflyby._modules import ModuleHandle
-    params = ImportFormatParams(params)
     if not isinstance(codeblock, PythonBlock):
+        warnings.warn(
+            "replace_star_imports will only accept PythonBlock as "
+            "first argument in the future, (warning "
+            "emitted since pyflyby 1.12)",
+            PendingDeprecationWarning,
+            stack_level=2,
+        )
         codeblock = PythonBlock(codeblock)
+    if params is None:
+        params = ImportFormatParams()
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:

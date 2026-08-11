@@ -155,9 +155,7 @@ def collect_code_with_imports_on_top(
 def run_tidy_imports(code: str) -> str:
     return str(
         reformat_import_statements(
-            fix_unused_and_missing_imports(
-                replace_star_imports(code)
-            )
+            fix_unused_and_missing_imports(replace_star_imports(PythonBlock(code)))
         )
     )
 
