@@ -1164,7 +1164,7 @@ def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|No
       from foo.bar import *
 
     with::
-        
+
       from foo.bar import f1, f2, f3
 
     Note that this requires involves actually importing ``foo.bar``, which may
