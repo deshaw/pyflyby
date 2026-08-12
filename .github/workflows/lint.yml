@@ -13,6 +13,10 @@ concurrency:
 jobs:
   lint:
     runs-on: "ubuntu-latest"
+    env:
+      # Keep `uv run` from re-syncing the project, which would replace the
+      # wheel installed below with an editable install.
+      UV_NO_SYNC: "1"
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -29,11 +33,12 @@ jobs:
       run: |
         uv python install 3.13
         uv venv
-        # Include build dependencies for run time; see
-        # https://mesonbuild.com/meson-python/how-to-guides/editable-installs.html#build-dependencies
-        # for details.
+        # Install a real wheel rather than an editable install: meson-python
+        # editable wheels omit data scripts, so bin/pyflyby-diff would be
+        # missing and the Self-tidy-import step below could not show its diffs.
         uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
-        uv pip install --no-build-isolation -ve . --group lint
+        uv build --wheel --no-build-isolation
+        uv pip install -v dist/*.whl --group lint
     - name: Mypy
       run: |
         uv run mypy lib/python --ignore-missing-imports
