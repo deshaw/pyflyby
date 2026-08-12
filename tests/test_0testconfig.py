@@ -34,7 +34,8 @@ def test_pyflyby_version_1():
     PYFLYBY_PYPATH = os.path.join(PYFLYBY_HOME, "lib/python")
     version_vars = {}
     version_fn = os.path.join(PYFLYBY_PYPATH, "pyflyby/_version.py")
-    exec(open(version_fn).read(), {}, version_vars)
+    with open(version_fn) as f:
+        exec(f.read(), {}, version_vars)
     expected = version_vars["__version__"]
     result = pyflyby.__version__
     assert expected == result

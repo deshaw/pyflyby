@@ -121,6 +121,7 @@ addopts = [
     "-n", "auto",
 ]
 filterwarnings = [
+    "error::Warning",
     "error::DeprecationWarning",
 ]
 markers = [
