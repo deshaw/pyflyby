@@ -10,6 +10,7 @@ from   collections              import defaultdict
 from   functools                import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
+from   pyflyby._format          import FormatParams
 from   pyflyby._idents          import dotted_prefixes, is_identifier
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
@@ -412,18 +413,18 @@ class ImportSet:
 
     def pretty_print(
         self,
-        params: Optional[ImportFormatParams] = None,
+        params: Optional[FormatParams] = None,
         allow_conflicts: bool = False,
     ) -> str:
         """
         Pretty-print a block of import statements into a single string.
 
         :type params:
-          `ImportFormatParams`
+          `FormatParams`
         :rtype:
           ``str``
         """
-        params = ImportFormatParams(params)
+        params = ImportFormatParams.coerce(params)
         # TODO: instead of complaining about conflicts, just filter out the
         # shadowed imports at construction time.
         if not allow_conflicts and self.conflicting_imports:

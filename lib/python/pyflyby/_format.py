@@ -4,44 +4,66 @@
 
 from __future__ import annotations, print_function
 
+import dataclasses
+from   dataclasses              import dataclass, fields
+import sys
 from   typing                   import Any, Optional, Sequence, Tuple, Union
 
+if sys.version_info < (3, 12):
+    from typing_extensions          import Self
+else:
+    from typing import Self
 
-class FormatParams(object):
-    max_line_length: Optional[int] = None
+
+@dataclass(frozen=True)
+class FormatParams:
+    max_line_length: Union[int, float, None] = None
     max_line_length_default: int = 79
     wrap_paren: bool = True
     indent: int = 4
     hanging_indent: str = 'never'
     use_black: bool = False
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> FormatParams:
-        if not kwargs and len(args) == 1 and isinstance(args[0], cls):
-            return args[0]
-        self = object.__new__(cls)
-        # TODO: be more careful here
-        dicts = []
-        for arg in args:
-            if arg is None:
-                pass
-            elif isinstance(arg, cls) or hasattr(self, "__dict__"):
-                dicts.append(arg.__dict__)
-            else:
-                raise TypeError(
-                    "expected None, or instance of %s cls, got %s" % (cls, arg)
-                )
-        if kwargs:
-            dicts.append(kwargs)
-        for kwargs in dicts:
-            for key, value in kwargs.items():
-                if hasattr(self, key):
-                    setattr(self, key, value)
-                else:
-                    raise ValueError("bad kwarg %r" % (key,))
-        return self
+    @classmethod
+    def coerce(cls, arg: Optional[FormatParams] = None) -> Self:
+        """
+        Return ``arg`` as an instance of ``cls``.
+
+          >>> FormatParams.coerce(None)
+          <FormatParams {}>
+
+        ``arg`` may be ``None``, or any `FormatParams`; parameters that
+        ``cls`` does not have are dropped.
+        """
+        if arg is None:
+            return cls()
+        if not isinstance(arg, FormatParams):
+            raise TypeError("expected None or a FormatParams, got %s"
+                            % (type(arg).__name__,))
+        names = {f.name for f in fields(cls)}
+        return cls(**{f.name: getattr(arg, f.name) for f in fields(arg)
+                      if f.name in names})
+
+    def replace(self, **kwargs: Any) -> Self:
+        """
+        Return a copy of ``self`` with the given parameters overridden.
+
+          >>> FormatParams(max_line_length=20).replace(wrap_paren=False)
+          <FormatParams {'max_line_length': 20, 'wrap_paren': False}>
+
+        The result has the same class as ``self``, so subclass-only parameters
+        are preserved.
+        """
+        return dataclasses.replace(self, **kwargs)
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} {self.__dict__}>'
+        """
+        Show only non-default parameters; the generated dataclass repr
+        would spell out every one of them.
+        """
+        nondefault = {f.name: getattr(self, f.name) for f in fields(self)
+                      if getattr(self, f.name) != f.default}
+        return f'<{self.__class__.__name__} {nondefault}>'
 
 
 def fill(
@@ -50,7 +72,7 @@ def fill(
     prefix: Union[str, Tuple[str, str]] = "",
     suffix: Union[str, Tuple[str, str]] = "",
     newline: str = "\n",
-    max_line_length: int = 80,
+    max_line_length: Union[int, float] = 80,
 ) -> str:
     r"""
     Given a sequences of strings, fill them into a single string with up to
@@ -137,6 +159,7 @@ def pyfill(prefix: str, tokens: Sequence[str], params: FormatParams = FormatPara
     :rtype:
       ``str``
     """
+    max_line_length: Union[int, float]
     if params.max_line_length is None:
         max_line_length = params.max_line_length_default
     else:

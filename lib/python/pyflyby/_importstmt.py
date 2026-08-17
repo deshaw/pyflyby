@@ -7,6 +7,7 @@ from __future__ import annotations, print_function
 
 import ast
 from   collections              import namedtuple
+from   dataclasses              import dataclass
 from   functools                import total_ordering
 
 from   pyflyby._flags           import CompilerFlags
@@ -52,6 +53,7 @@ def read_black_config() -> Dict[str, Any]:
     return config
 
 
+@dataclass(frozen=True)
 class ImportFormatParams(FormatParams):
     align_imports:Union[bool, set, list, tuple, str] = True
     """
