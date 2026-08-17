@@ -4,6 +4,8 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 
+import ast
+
 import pytest
 from   pytest                   import raises
 from   unittest.mock            import patch
@@ -420,3 +422,13 @@ def test_ImportStatement_membership_normalization(line, import_str, expected):
 def test_ImportStatement_rejects_non_imports(line, exc):
     with raises(exc):
         ImportStatement(line)
+
+
+@pytest.mark.parametrize("src", [
+    'import ' + 'a' * 66 + ' as bcde',
+    'from ' + 'q' * 70 + ' import *',
+])
+def test_pretty_print_unparenthesizable_1(src):
+    result = ImportStatement(src).pretty_print(FormatParams(max_line_length=79))
+    assert result == src + "\n"
+    ast.parse(result)
