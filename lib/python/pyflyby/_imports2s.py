@@ -10,6 +10,7 @@ from   contextlib               import nullcontext
 from   pyflyby._autoimp         import scan_for_import_issues
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
+from   pyflyby._format          import FormatParams
 from   pyflyby._importclns      import ImportMap, ImportSet, NoSuchImportError
 from   pyflyby._importdb        import ImportDB
 from   pyflyby._importstmt      import (Import, ImportFormatParams,
@@ -106,10 +107,12 @@ class SourceToSourceTransformationBase:
     def preprocess(self) -> None:
         pass
 
-    def pretty_print(self, params: Any = None) -> Union[FileText, str]:
+    def pretty_print(
+        self, params: Optional[FormatParams] = None
+    ) -> Union[FileText, str]:
         raise NotImplementedError
 
-    def output(self, params: Any = None) -> PythonBlock:
+    def output(self, params: Optional[FormatParams] = None) -> PythonBlock:
         """
         Pretty-print and return as a `PythonBlock`.
 
@@ -132,7 +135,7 @@ class SourceToSourceTransformation(SourceToSourceTransformationBase):
         assert isinstance(self.input, PythonBlock), self.input
         self._output = self.input
 
-    def pretty_print(self, params: Any = None) -> FileText:
+    def pretty_print(self, params: Optional[FormatParams] = None) -> FileText:
         return self._output.text
 
 
@@ -143,8 +146,7 @@ class SourceToSourceImportBlockTransformation(SourceToSourceTransformationBase):
     def preprocess(self) -> None:
         self.importset = ImportSet(self.input, ignore_shadowed=True)
 
-    def pretty_print(self, params: Any = None) -> str:
-        params = ImportFormatParams(params)
+    def pretty_print(self, params: Optional[FormatParams] = None) -> str:
         return self.importset.pretty_print(params)
 
     def __repr__(self) -> str:
@@ -444,8 +446,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             if isinstance(body_item, _FUNCTION_OR_CLASS_TYPES):
                 self._extract_imports_from_statement(body_item, container)
 
-    def pretty_print(self, params: Any = None) -> FileText:
-        params = ImportFormatParams(params)
+    def pretty_print(self, params: Optional[FormatParams] = None) -> FileText:
+        if params is None:
+            params = FormatParams()
         # Apply deferred local-import removals before rendering the blocks.
         self._apply_local_import_removals(params)
         result = [block.pretty_print(params=params) for block in self.blocks]
@@ -588,7 +591,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
         return imp
 
-    def _apply_local_import_removals(self, params: ImportFormatParams) -> None:
+    def _apply_local_import_removals(self, params: FormatParams) -> None:
         """
         Apply the local-import removals recorded by ``remove_import``.
 
@@ -629,7 +632,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
     def _rewrite_local_import_statement(
         self, lines: List[str], rel: int, imps: List[Import],
-        params: ImportFormatParams
+        params: FormatParams
     ) -> List[str]:
         """
         Rewrite the import statement starting at ``lines[rel]`` with the
@@ -737,8 +740,8 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             width = params.max_line_length
             if width is None:
                 width = params.max_line_length_default
-            sub_params = ImportFormatParams(
-                params, max_line_length=max(width - len(indent_str), 1))
+            sub_params = params.replace(
+                max_line_length=max(width - len(indent_str), 1))
             rendered = ImportStatement._from_imports(remaining).pretty_print(
                 sub_params).rstrip("\n")
             new_lines = [
@@ -902,7 +905,7 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
 
 
 def reformat_import_statements(
-    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
+    codeblock: Union[PythonBlock, FileText, Filename, str], params: Optional[FormatParams] = None
 ) -> PythonBlock:
     r"""
     Reformat each top-level block of import statements within a block of code.
@@ -928,11 +931,10 @@ def reformat_import_statements(
     :type codeblock:
       `PythonBlock` or convertible (``str``)
     :type params:
-      `ImportFormatParams`
+      `FormatParams`
     :rtype:
       `PythonBlock`
     """
-    params = ImportFormatParams(params)
     original_tidy_local = SourceToSourceFileImportsTransformation.tidy_local_imports
     try:
         SourceToSourceFileImportsTransformation.tidy_local_imports = False
@@ -967,7 +969,7 @@ def fix_unused_and_missing_imports(
     remove_unused: Union[Literal["AUTOMATIC"], bool] = "AUTOMATIC",
     add_mandatory: bool = True,
     db: Optional[ImportDB] = None,
-    params: Any = None,
+    params: Optional[FormatParams] = None,
     tidy_local_imports: bool = False,
 ) -> PythonBlock:
     r"""
@@ -1023,7 +1025,6 @@ def fix_unused_and_missing_imports(
         pass
     else:
         raise ValueError("Invalid remove_unused=%r" % (remove_unused,))
-    params = ImportFormatParams(params)
     db = ImportDB.interpret_arg(db, target_filename=_codeblock.filename)
     # Do a first pass reformatting the imports to get rid of repeated or
     # shadowed imports, e.g. L1 here:
@@ -1126,7 +1127,7 @@ def fix_unused_and_missing_imports(
 
 
 def remove_broken_imports(
-    codeblock: Union[PythonBlock, FileText, Filename, str], params: Any = None
+    codeblock: Union[PythonBlock, FileText, Filename, str], params: Optional[FormatParams] = None
 ) -> PythonBlock:
     """
     Try to execute each import, and remove the ones that don't work.
@@ -1140,7 +1141,6 @@ def remove_broken_imports(
     """
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
-    params = ImportFormatParams(params)
     filename = codeblock.filename
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     for block in transformer.import_blocks:
@@ -1511,7 +1511,7 @@ def _transform_noimport_block(
 def transform_imports(
     codeblock: Union[PythonBlock, FileText, Filename, str],
     transformations: _Transformations,
-    params: Any = None,
+    params: Optional[FormatParams] = None,
     transform_strings: bool = False,
 ) -> PythonBlock:
     """
@@ -1548,7 +1548,6 @@ def transform_imports(
     """
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
-    params = ImportFormatParams(params)
     transformer = SourceToSourceFileImportsTransformation(codeblock)
     @memoize
     def transform_import(imp: Import) -> Import:
@@ -1573,7 +1572,7 @@ def transform_imports(
 
 def canonicalize_imports(
     codeblock: Union[PythonBlock, FileText, Filename, str],
-    params: Any = None,
+    params: Optional[FormatParams] = None,
     db: Optional[ImportDB] = None,
 ) -> PythonBlock:
     """
@@ -1587,7 +1586,6 @@ def canonicalize_imports(
     """
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
-    params = ImportFormatParams(params)
     db = ImportDB.interpret_arg(db, target_filename=codeblock.filename)
     transformations = db.canonical_imports
     return transform_imports(codeblock, transformations, params=params)
