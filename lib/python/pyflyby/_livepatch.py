@@ -769,8 +769,9 @@ def _xreload_module(module: types.ModuleType, filename: Optional[str],
     new_mod = types.ModuleType(module.__name__)
     new_mod.__file__ = filename
     new_mod.__doc__ = doc
-    if hasattr(module, "__path__"):
-        new_mod.__path__ = module.__path__
+    for attr in ("__package__", "__spec__", "__loader__", "__path__"):
+        if hasattr(module, attr):
+            setattr(new_mod, attr, getattr(module, attr))
     MISSING = object()
     saved_mod = sys.modules.get(module.__name__, MISSING)
     try:

@@ -2410,15 +2410,19 @@ def test_beartype_with_forward_reference_1(tmp):
 @pytest.mark.skipif(sys.platform == "darwin", reason="test not applicable on macOS")
 def test_inject_insufficient_permissions():
     """Test that having insufficient permissions for gdb to attach triggers an error."""
-    child = subprocess.Popen(["python", "-c", "import time; time.sleep(20)"])
+    with subprocess.Popen(["python", "-c", "import time; time.sleep(20)"]) as child:
+        try:
+            with open("/proc/sys/kernel/yama/ptrace_scope") as f:
+                if f.read().strip() == "0":
+                    pytest.skip(
+                        reason="ptrace is allowed without elevated user permissions"
+                    )
 
-    with open("/proc/sys/kernel/yama/ptrace_scope") as f:
-        if f.read().strip() == "0":
-            pytest.skip(msg="ptrace is allowed without elevated user permissions")
-
-    # Should fail due to permissions
-    with pytest.raises(Exception):
-        inject(child.pid, [])
+            # Should fail due to permissions
+            with pytest.raises(Exception):
+                inject(child.pid, [])
+        finally:
+            child.kill()
 
 
 # TODO: test timeit, time
