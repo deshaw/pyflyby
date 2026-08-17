@@ -599,10 +599,14 @@ class ImportStatement:
         ``# tidy-imports: ignore-import`` survive reformatting even when the
         import wraps onto a backslash continuation.
 
-        :type params:
-          `FormatParams`
-        :param modulename_ljust:
-          Number of characters to left-justify the 'from' name.
+        :param params:
+          Formatting parameters.  Callers typically pass an
+          `ImportFormatParams`.
+        :param import_column:
+          Column at which to line up the 'import' keyword, or ``None`` to not
+          align it.
+        :param from_spaces:
+          Number of spaces after the 'from' keyword.  (Must be at least 1.)
         :rtype:
           ``str``
         """
@@ -632,7 +636,11 @@ class ImportStatement:
                 t = "%s" % (importname,)
 
             tokens.append(t)
-        res = s0 + pyfill(s, tokens, params=params)
+        # Neither ``import (foo)`` nor ``from foo import (*)`` parses.
+        fill_params: FormatParams = params
+        if self.fromname is None or tokens == ["*"]:
+            fill_params = params.replace(wrap_paren=False)
+        res = s0 + pyfill(s, tokens, params=fill_params)
 
         comment = self.get_valid_comment()
         if comment is not None:

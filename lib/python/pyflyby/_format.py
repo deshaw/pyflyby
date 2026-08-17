@@ -175,6 +175,14 @@ def pyfill(prefix: str, tokens: Sequence[str], params: FormatParams = FormatPara
             # Output looks like:
             #   from foo import abc, defgh, ijkl, mnopq, rst
             return prefix + ", ".join(tokens) + "\n"
+        if len(tokens) == 1:
+            # Nothing to break on, so parens only help if the indented line
+            # fits; else they'd just make the line longer.
+            token = tokens[0]
+            if (params.hanging_indent == "always"
+                    or params.indent + len(token) + 1 <= max_line_length):
+                return prefix + "(\n" + " " * params.indent + token + ")\n"
+            return prefix + token + "\n"
         if params.hanging_indent == "never":
             hanging_indent = False
         elif params.hanging_indent == "always":
@@ -215,4 +223,5 @@ def pyfill(prefix: str, tokens: Sequence[str], params: FormatParams = FormatPara
             return fill(tokens, max_line_length=max_line_length,
                         prefix=(pprefix, " " * len(pprefix)), suffix=("", ")"))
     else:
-        raise NotImplementedError
+        # Parens aren't allowed, so we can only emit one long line.
+        return prefix + ", ".join(tokens) + "\n"

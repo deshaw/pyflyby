@@ -7,6 +7,8 @@
 
 from   textwrap                 import dedent
 
+import pytest
+
 from   pyflyby._format          import FormatParams, fill, pyfill
 
 
@@ -122,3 +124,29 @@ def test_pyfill_hanging_indent_auto_no_1():
                                                 z1, z2)
     """).lstrip()
     assert result == expected
+
+
+@pytest.mark.parametrize("hanging_indent", ['never', 'always', 'auto'])
+@pytest.mark.parametrize("token, expected", [
+    # Issue #135: own indented line, not parens on an over-long one.
+    ('random_teststu as random_my_testtu_foox',
+     'from fooxxxx.barxxxxxx.bazxxx import (\n'
+     '    random_teststu as random_my_testtu_foox)\n'),
+    # Not even an indented line fits, so no parens at all.
+    ('x' * 100,
+     'from fooxxxx.barxxxxxx.bazxxx import ' + 'x' * 100 + '\n'),
+])
+def test_pyfill_single_token_1(token, expected, hanging_indent):
+    if hanging_indent == 'always':
+        # 'always' keeps the parens even when they don't help.
+        expected = ('from fooxxxx.barxxxxxx.bazxxx import (\n'
+                    '    ' + token + ')\n')
+    params = FormatParams(max_line_length=60, hanging_indent=hanging_indent)
+    assert pyfill('from fooxxxx.barxxxxxx.bazxxx import ', [token],
+                  params) == expected
+
+
+def test_pyfill_no_wrap_paren_1():
+    params = FormatParams(max_line_length=20, wrap_paren=False)
+    assert pyfill('import ', ['foo as bar']) == 'import foo as bar\n'
+    assert pyfill('import ', ['x' * 30], params) == 'import ' + 'x' * 30 + '\n'
