@@ -22,7 +22,7 @@ from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
-                                        memoize, prefixes)
+                                        memoize)
 
 import re
 import shutil
@@ -518,46 +518,6 @@ class ModuleHandle(object):
         if isinstance(x, slice):
             return type(self)(self.name[x])
         raise TypeError
-
-    @classmethod
-    def containing(cls, identifier: Any) -> "ModuleHandle":
-        """
-        Try to find the module that defines a name such as ``a.b.c`` by trying
-        to import ``a``, ``a.b``, and ``a.b.c``.
-
-        :return:
-          The name of the 'deepest' module (most commonly it would be ``a.b``
-          in this example).
-        :rtype:
-          `Module`
-        """
-        # In the code below we catch "Exception" rather than just ImportError
-        # or AttributeError since importing and __getattr__ing can raise other
-        # exceptions.
-        identifier = DottedIdentifier(identifier)
-        try:
-            module = ModuleHandle(identifier[:1])
-            result = module.module
-        except Exception as e:
-            raise ImportError(e)
-        # TODO: as far as I can tell the code here is never reached, or haven't
-        # been in quite some time as the line below was invalid on Python 3 since 2011
-        # zip(...)[...] fails as zip is not indexable.
-        # the only place that seem to be using this method is XrefScanner.
-        for part, prefix in list(zip(identifier, prefixes(identifier)))[1:]:
-            try:
-                result = getattr(result, str(part))
-            except Exception:
-                try:
-                    module = cls(prefix)
-                    result = module.module
-                except Exception as e:
-                    raise ImportError(e)
-            else:
-                if isinstance(result, types.ModuleType):
-                    module = cls(result)
-        logger.debug("Imported %r to get %r", module, identifier)
-        return module
 
 
 def _format_path(path: Union[str, pathlib.Path]) -> str:
