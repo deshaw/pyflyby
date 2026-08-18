@@ -882,6 +882,12 @@ class UnimportableNameError(NameError):
     pass
 
 
+class ErrorDuringImportError(ImportError):
+    # Deliberately not an UnimportableNameError: the name is a real name, so
+    # callers must not fall back to treating it as a plain string.
+    pass
+
+
 class NotAFunctionError(Exception):
     pass
 
@@ -1541,16 +1547,22 @@ class _Namespace(object):
         # but better logging and error raising.
         if not isinstance(block, PythonBlock):
             block = PythonBlock(block, flags=FLAGS)
-        if auto_import and not self.auto_import(block):
-            missing = find_missing_imports(block, [self.globals])
-            mstr = ", ".join(repr(str(x)) for x in missing)
-            if len(missing) == 1:
-                msg = "name %s is not defined and not importable" % mstr
-            elif len(missing) > 1:
-                msg = "names %s are not defined and not importable" % mstr
-            else:
-                raise AssertionError
-            raise UnimportableNameError(msg)
+        if auto_import:
+            result = self.auto_import(block)
+            if not result:
+                missing = find_missing_imports(block, [self.globals])
+                mstr = ", ".join(repr(str(x)) for x in missing)
+                if result is None:
+                    raise ErrorDuringImportError(
+                        "error while importing %s (see traceback above)"
+                        % (mstr or str(block).strip()))
+                if len(missing) == 1:
+                    msg = "name %s is not defined and not importable" % mstr
+                elif len(missing) > 1:
+                    msg = "names %s are not defined and not importable" % mstr
+                else:
+                    raise AssertionError
+                raise UnimportableNameError(msg)
         if info:
             logger.info(block)
         try:

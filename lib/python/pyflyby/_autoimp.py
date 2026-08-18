@@ -2128,7 +2128,8 @@ def clear_failed_imports_cache() -> None:
         _IMPORT_FAILED.clear()
 
 
-def _try_import(imp: Union[Import, str], namespace: Dict[str, Any]) -> bool:
+def _try_import(imp: Union[Import, str],
+                namespace: Dict[str, Any]) -> Optional[bool]:
     """
     Try to execute an import.  Import the result into the namespace
     ``namespace``.
@@ -2146,7 +2147,8 @@ def _try_import(imp: Union[Import, str], namespace: Dict[str, Any]) -> bool:
     :param namespace:
       Namespace to import into.
     :return:
-      ``True`` on success, ``False`` on failure
+      ``True`` on success, ``False`` on failure, or ``None`` on
+      the special case of a module that exists but raised while importing.
     """
     # TODO: generalize "imp" to any python statement whose toplevel is a
     # single Store (most importantly import and assignment, but could also
@@ -2154,8 +2156,9 @@ def _try_import(imp: Union[Import, str], namespace: Dict[str, Any]) -> bool:
     # first run handle_auto_imports() on the code.
     imp = Import(imp)
     if imp in _IMPORT_FAILED:
+        # Entries only land here because the import raised.
         logger.debug("Not attempting previously failed %r", imp)
-        return False
+        return None
     impas = imp.import_as
     name0 = impas.split(".", 1)[0]
     stmt = str(imp)
@@ -2178,7 +2181,7 @@ def _try_import(imp: Union[Import, str], namespace: Dict[str, Any]) -> bool:
         logger.warning("Error attempting to %r: %s: %s", stmt, type(e).__name__, e,
                        exc_info=True)
         _IMPORT_FAILED.add(imp)
-        return False
+        return None
     try:
         preexisting = namespace[name0]
     except KeyError:
@@ -2199,9 +2202,9 @@ def auto_import_symbol(
     fullname: Union[str, DottedIdentifier],
     namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
     db: Any = None,
-    autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+    autoimported: Optional[Dict[DottedIdentifier, Optional[bool]]] = None,
     post_import_hook: Optional[Callable[[Import], Any]] = None,
-) -> bool:
+) -> Optional[bool]:
     """
     Try to auto-import a single name.
 
@@ -2221,10 +2224,10 @@ def auto_import_symbol(
       If not ``None``, then a dictionary of identifiers already attempted.
       ``auto_import`` will not attempt to auto-import symbols already in this
       dictionary, and will add attempted symbols to this dictionary, with
-      value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
-      did not succeed.
+      value ``True`` if the autoimport succeeded, or ``False``/``None`` if the
+      autoimport did not succeed (see the return value).
     :rtype:
-      ``bool``
+      ``bool`` or ``None``
     :param post_import_hook:
       A callable that is invoked if an import was successfully made.
       It is invoked with the `Import` object representing the successful import
@@ -2232,7 +2235,8 @@ def auto_import_symbol(
       ``callable``
     :return:
       ``True`` if the symbol was already in the namespace, or the auto-import
-      succeeded; ``False`` if the auto-import failed.
+      succeeded; ``False`` if the auto-import failed, or ``None``
+      if it failed because a module we imported raised.
     """
     namespaces = ScopeStack(namespaces)
     if not symbol_needs_import(fullname, namespaces):
@@ -2241,7 +2245,8 @@ def auto_import_symbol(
         autoimported = {}
     if DottedIdentifier(fullname) in autoimported:
         logger.debug("auto_import_symbol(%r): already attempted", fullname)
-        return False
+        previous = autoimported[DottedIdentifier(fullname)]
+        return None if previous is None else False
     db = ImportDB.interpret_arg(db, target_filename=".")
     # See whether there's a known import for this name.  This is mainly
     # important for things like "from numpy import arange".  Imports such as
@@ -2273,10 +2278,11 @@ def auto_import_symbol(
             # global, (c) is not yet imported, (d) is a known auto-import, (e)
             # has only one definition
             # TODO: label which known_imports file the autoimport came from
-            if not _try_import(imp, namespaces[-1]):
+            result = _try_import(imp, namespaces[-1])
+            if not result:
                 # Failed; don't do anything else.
-                autoimported[DottedIdentifier(fullname)] = False
-                return False
+                autoimported[DottedIdentifier(fullname)] = result
+                return result
             # Succeeded.
             successful_import = imp
             autoimported[DottedIdentifier(imp.import_as)] = True
@@ -2318,7 +2324,7 @@ def auto_import_symbol(
                 logger.debug("auto_import_symbol(%r): stopping because "
                              "already previously failed to autoimport %s",
                              fullname, pmodule_name)
-                return False
+                return autoimported[pmodule_name]
         if not pmodule.exists:
             logger.debug("auto_import_symbol(%r): %r doesn't exist according to pkgutil",
                          fullname, pmodule)
@@ -2328,7 +2334,7 @@ def auto_import_symbol(
         result = _try_import(imp_stmt, namespaces[-1])
         autoimported[pmodule_name] = result
         if not result:
-            return False
+            return result
         else:
             successful_import = Import(imp_stmt)
     if post_import_hook and successful_import:
@@ -2340,11 +2346,11 @@ def auto_import(
     arg: Any,
     namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
     db: Any = None,
-    autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+    autoimported: Optional[Dict[DottedIdentifier, Optional[bool]]] = None,
     post_import_hook: Optional[Callable[[Import], Any]] = None,
     *,
     extra_db: Any = None,
-) -> bool:
+) -> Optional[bool]:
     """
     Parse ``arg`` for symbols that need to be imported and automatically import
     them.
@@ -2369,10 +2375,10 @@ def auto_import(
       If not ``None``, then a dictionary of identifiers already attempted.
       ``auto_import`` will not attempt to auto-import symbols already in this
       dictionary, and will add attempted symbols to this dictionary, with
-      value ``True`` if the autoimport succeeded, or ``False`` if the autoimport
-      did not succeed.
+      value ``True`` if the autoimport succeeded, or ``False``/``None`` if the
+      autoimport did not succeed (see the return value).
     :rtype:
-      ``bool``
+      ``bool`` or ``None``
     :param post_import_hook:
       A callable invoked on each successful import. This is passed to
       `auto_import_symbol`
@@ -2380,7 +2386,8 @@ def auto_import(
       ``callable``
     :return:
       ``True`` if all symbols are already in the namespace or successfully
-      auto-imported; ``False`` if any auto-imports failed.
+      auto-imported; ``False`` if any auto-imports failed, or ``None`` (also
+      falsy) if any failed because a module we imported raised.
     """
     namespaces = ScopeStack(namespaces)
     filename: Any
@@ -2401,10 +2408,13 @@ def auto_import(
     db = ImportDB.interpret_arg(db, target_filename=filename)
     if extra_db:
         db = db|extra_db
-    ok = True
-    for fullname in fullnames:
-        ok &= auto_import_symbol(fullname, namespaces, db, autoimported, post_import_hook=post_import_hook)
-    return ok
+    results = [auto_import_symbol(fullname, namespaces, db, autoimported,
+                                  post_import_hook=post_import_hook)
+               for fullname in fullnames]
+    if any(r is None for r in results):
+        # An import that raised is more actionable than "not importable".
+        return None
+    return all(results)
 
 
 def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
@@ -2522,7 +2532,7 @@ class LoadSymbolError(Exception):
 def load_symbol(fullname: str,
                 namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
                 autoimport: bool = False, db: Any = None,
-                autoimported: Optional[Dict[DottedIdentifier, bool]] = None,
+                autoimported: Optional[Dict[DottedIdentifier, Optional[bool]]] = None,
                 allow_eval: bool = False) -> Any:
     """
     Load the symbol ``fullname``.
