@@ -4,6 +4,7 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 import hashlib
+import json
 import logging.handlers
 import os
 import pathlib
@@ -11,7 +12,6 @@ from   pkgutil                  import iter_modules
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._log             import logger
-import json
 from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
                                         _iter_file_finder_modules,
                                         rebuild_import_cache)
