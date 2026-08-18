@@ -2571,3 +2571,67 @@ def test_unsafe_filename_warning_II(tpp, pyflyby_log):
     with CwdCtx(filepath):
         auto_import("pyflyby", [{}])
     assert pyflyby_log.messages[0] == "import pyflyby"
+
+
+def test_scan_for_import_issues_star_import_exec_1(dynamic_all_module):
+    """Issue #44: names the star module doesn't export are still reported."""
+    code = "from %s import *\nalpha\nmkstemp\n" % dynamic_all_module
+    assert scan_for_import_issues(code, exec_star_imports=True) == (
+        [(3, DottedIdentifier('mkstemp'))], [])
+
+
+def test_scan_for_import_issues_star_import_exec_default_off_1(dynamic_all_module):
+    """Without the flag the star suppresses detection, as before."""
+    code = "from %s import *\nalpha\nmkstemp\n" % dynamic_all_module
+    assert scan_for_import_issues(code) == ([], [])
+
+
+def test_scan_for_import_issues_star_import_exec_not_unused_1(dynamic_all_module):
+    """A star import is never reported unused, even if nothing uses it."""
+    code = "from %s import *\n" % dynamic_all_module
+    assert scan_for_import_issues(code, exec_star_imports=True) == ([], [])
+
+
+def test_scan_for_import_issues_star_import_exec_local_1(dynamic_all_module):
+    code = dedent("""
+        def f():
+            from %s import *
+            return alpha, mkstemp
+    """ % dynamic_all_module)
+    assert scan_for_import_issues(code, exec_star_imports=True) == (
+        [(4, DottedIdentifier('mkstemp'))], [])
+
+
+def test_scan_for_import_issues_star_import_exec_shadowing_1(dynamic_all_module):
+    """Star-bound names neither go missing nor orphan an earlier import."""
+    code = "import os\nfrom %s import *\nalpha\nos\n" % dynamic_all_module
+    assert scan_for_import_issues(code, exec_star_imports=True) == ([], [])
+
+
+def test_scan_for_import_issues_star_import_exec_no_exports_1(tmp_module,
+                                                              pyflyby_log):
+    """A module exporting nothing gives no names to bind; stay conservative."""
+    name = tmp_module("pyflyby_test_noexports_80412663", "__all__ = list([])\n")
+    code = "from %s import *\nmkstemp\n" % name
+    assert scan_for_import_issues(code, exec_star_imports=True) == ([], [])
+    assert any("nothing exported" in m for m in pyflyby_log.messages)
+
+
+def test_scan_for_import_issues_star_import_exec_conditional_1(tmp_module):
+    """
+    A conditional star import must not make an earlier unconditional import
+    look unused; deleting it would leave code raising NameError.
+    """
+    name = tmp_module("pyflyby_test_cond_star_33870915", """
+        def _mk(): return ["join"]
+        __all__ = _mk()
+        def join(*a): pass
+    """)
+    code = dedent("""
+        import sys
+        from os.path import join
+        if sys.version_info >= (3, 99):
+            from %s import *
+        join("a", "b")
+    """ % name)
+    assert scan_for_import_issues(code, exec_star_imports=True) == ([], [])

@@ -455,6 +455,7 @@ class _MissingImportFinder:
         *,
         find_unused_imports: bool,
         parse_docstrings: bool,
+        exec_star_imports: bool = False,
     ) -> None:
         """
         Construct the AST visitor.
@@ -463,6 +464,8 @@ class _MissingImportFinder:
           `ScopeStack`
         :param scopestack:
           Initial scope stack.
+        :param exec_star_imports:
+          See `_visit_StoreStarImport`.
         """
         # Create a stack of namespaces.  The caller should pass in a list that
         # includes the globals dictionary.  ScopeStack() will make sure this
@@ -483,6 +486,8 @@ class _MissingImportFinder:
         self.unused_imports = []
 
         self.parse_docstrings = parse_docstrings
+
+        self.exec_star_imports = exec_star_imports
 
         # Function bodies that we need to check after defining names in this
         # function scope.
@@ -1111,6 +1116,8 @@ class _MissingImportFinder:
         if is_star:
             logger.debug("Got star import: line %s: 'from %s import *'",
                          self._lineno, modulename)
+            if self._visit_StoreStarImport(modulename):
+                return
         if not node.asname and not is_star:
             # Ensure leading prefixes are treated as defined, so that later
             # references to them are not considered missing.  Don't overwrite
@@ -1140,6 +1147,38 @@ class _MissingImportFinder:
             scope_name = self._scope_name_stack[-1] if self._scope_name_stack else None
             value = _UseChecker(name, imp, self._lineno, scope_name=scope_name)
         self._visit_Store(name, value, in_import=True)
+
+    def _visit_StoreStarImport(self, modulename: Optional[str]) -> bool:
+        """
+        Handle ``from <modulename> import *`` by binding the names the module
+        actually exports, instead of the opaque ``'*'`` that makes
+        `ScopeStack.has_star_import` true and suppresses missing-import
+        detection for the rest of the file.
+
+        Names are bound without a `_UseChecker`, so a star import is never
+        itself reported unused.
+
+        :return:
+          Whether it was resolved; if false, fall back to the ``'*'`` binding.
+        """
+        if not self.exec_star_imports:
+            return False
+        exports = ModuleHandle(modulename).get_exports(allow_exec=True)
+        if not exports:
+            logger.warning(
+                "Found nothing exported by '%s'; treating 'from %s import *' "
+                "as exporting arbitrary names.", modulename, modulename)
+            return False
+        scope = self.scopestack[-1]
+        for imp in exports.imports:
+            name = imp.import_as
+            # Don't rebind: _visit_Store would record the previous binding as
+            # unused, so a conditional star import would delete an earlier
+            # unconditional import that's still needed.
+            if name in scope:
+                continue
+            self._visit_Store(name, None, in_import=True)
+        return True
 
     def _visit_Store(
         self,
@@ -1430,6 +1469,7 @@ def scan_for_import_issues(
     codeblock: Union[PythonBlock, str, FileText, Filename],
     find_unused_imports: bool = True,
     parse_docstrings: bool = False,
+    exec_star_imports: bool = False,
 ) -> Tuple[
     List[Tuple[Optional[int], DottedIdentifier]],
     List[Tuple[Optional[int], Any, Optional[str]]],
@@ -1459,6 +1499,17 @@ def scan_for_import_issues(
         >>> scan_for_import_issues("import foo as bar, baz\\n'{bar}'\\n", parse_docstrings=True)
         ([], [(1, Import('import baz'), None)])
 
+    :param exec_star_imports:
+      Whether to import the module named by ``from foo import *`` to find out
+      which names it supplies.  Without this, a star import suppresses
+      missing-import detection for everything after it::
+
+        >>> scan_for_import_issues("from math import *\\nmkstemp()\\n")
+        ([], [])
+        >>> scan_for_import_issues("from math import *\\nmkstemp()\\n",
+        ...                        exec_star_imports=True)
+        ([(2, DottedIdentifier('mkstemp'))], [])
+
     """
     logger.debug("global scan_for_import_issues()")
     if not isinstance(codeblock, PythonBlock):
@@ -1466,7 +1517,8 @@ def scan_for_import_issues(
     namespaces = ScopeStack([{}])
     finder = _MissingImportFinder(namespaces,
                                   find_unused_imports=find_unused_imports,
-                                  parse_docstrings=parse_docstrings)
+                                  parse_docstrings=parse_docstrings,
+                                  exec_star_imports=exec_star_imports)
     return finder.scan_for_import_issues(codeblock)
 
 
