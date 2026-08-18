@@ -851,6 +851,10 @@ class AutoImporter:
     _ast_transformer: Any
     _autoimported_this_cell: Dict[Any, Any]
 
+    # See `enable_auto_importer`.  Assigning on the class sets the default for
+    # the process, which is how 'py --exec-star-imports' turns it on.
+    exec_star_imports: bool = False
+
     def __new__(cls, arg=Ellipsis):
         """
         Get the AutoImporter for the given app, or create and assign one.
@@ -1757,7 +1761,8 @@ class AutoImporter:
             extra_db=self.db,
             autoimported=self._autoimported_this_cell,
             raise_on_error=raise_on_error, on_error=on_error,
-            post_import_hook=post_import_hook)
+            post_import_hook=post_import_hook,
+            exec_star_imports=self.exec_star_imports)
 
     def compile_with_autoimport(self, src, filename, mode, flags=0):
         logger.debug("compile_with_autoimport(%r)", src)
@@ -1778,7 +1783,7 @@ class AutoImporter:
 
 
 
-def enable_auto_importer(if_no_ipython='raise'):
+def enable_auto_importer(if_no_ipython='raise', *, exec_star_imports=None):
     """
     Turn on the auto-importer in the current IPython application.
 
@@ -1787,6 +1792,13 @@ def enable_auto_importer(if_no_ipython='raise'):
       do nothing.
       If we are not inside IPython and if_no_ipython=='raise', then raise
       NoActiveIPythonAppError.
+    :param exec_star_imports:
+      If not ``None``, whether a ``from foo import *`` in the code being run
+      should cause us to import ``foo`` to find out which names it supplies.
+      Without it, a star import makes the auto-importer give up on everything
+      else in that cell.  Off by default; turn it on from e.g.
+      ``ipython_config.py`` with
+      ``pyflyby.enable_auto_importer(exec_star_imports=True)``.
     """
     try:
         app = _get_ipython_app()
@@ -1796,6 +1808,8 @@ def enable_auto_importer(if_no_ipython='raise'):
         else:
             raise
     auto_importer = AutoImporter(app)
+    if exec_star_imports is not None:
+        auto_importer.exec_star_imports = exec_star_imports
     auto_importer.enable()
 
 

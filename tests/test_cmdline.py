@@ -1380,3 +1380,27 @@ def test_replace_star_imports_exec_star_imports_1():
     assert explicit_off == without
     assert "import alpha, beta" in with_flag
     assert "import *" not in "\n".join(_code_lines(with_flag))
+
+
+def test_py_exec_star_imports_default_on_1():
+    """`py` auto-imports names a star import doesn't supply, by default."""
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py",
+                    "from %s import *\nprint(alpha, mkstemp.__name__)\n"
+                    % p.modname)
+        result = p.run("_py", t)
+        explicit_on = p.run("_py", "--exec-star-imports", t)
+    assert "[PYFLYBY] from tempfile import mkstemp" in result
+    assert "alpha mkstemp" in result
+    assert explicit_on == result
+
+
+def test_py_no_exec_star_imports_1():
+    """--no-exec-star-imports goes back to giving up after the star import."""
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py", "from %s import *\nprint(mkstemp)\n" % p.modname)
+        result = p.run("_py", "--no-exec-star-imports", t)
+    assert "NameError: name 'mkstemp' is not defined" in result
+    assert "[PYFLYBY]" not in result
