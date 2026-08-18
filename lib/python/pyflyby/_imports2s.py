@@ -971,6 +971,7 @@ def fix_unused_and_missing_imports(
     db: Optional[ImportDB] = None,
     params: Optional[FormatParams] = None,
     tidy_local_imports: bool = False,
+    exec_star_imports: bool = False,
 ) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
@@ -1006,6 +1007,10 @@ def fix_unused_and_missing_imports(
     :param tidy_local_imports:
       If ``True``, also tidy imports within function and class bodies.
       Defaults to ``False``.
+    :param exec_star_imports:
+      If ``True``, import the module named by a ``from foo import *`` to find
+      out which names it supplies, so the ones it doesn't can still be fixed.
+      The star import itself is left in place; see `replace_star_imports`.
     :rtype:
       `PythonBlock`
     """
@@ -1041,9 +1046,11 @@ def fix_unused_and_missing_imports(
         transformer = SourceToSourceFileImportsTransformation(_codeblock)
     finally:
         SourceToSourceFileImportsTransformation.tidy_local_imports = original_tidy_local
-    missing_imports, unused_imports = scan_for_import_issues(
-        _codeblock, find_unused_imports=remove_unused, parse_docstrings=True
-    )
+    with ImportPathForRelativeImportsCtx(_codeblock):
+        missing_imports, unused_imports = scan_for_import_issues(
+            _codeblock, find_unused_imports=remove_unused,
+            parse_docstrings=True, exec_star_imports=exec_star_imports
+        )
     logger.debug("missing_imports = %r", missing_imports)
     logger.debug("unused_imports = %r", unused_imports)
     if remove_unused and unused_imports:
@@ -1157,7 +1164,9 @@ def remove_broken_imports(
     return transformer.output(params=params)
 
 
-def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|None = None) -> PythonBlock:
+def replace_star_imports(codeblock: PythonBlock, /,
+                         params:ImportFormatParams|None = None, *,
+                         exec_star_imports: bool=False) -> PythonBlock:
     r"""
     Replace lines such as::
 
@@ -1167,8 +1176,13 @@ def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|No
 
       from foo.bar import f1, f2, f3
 
-    Note that this requires involves actually importing ``foo.bar``, which may
-    have side effects.  (TODO: rewrite to avoid this?)
+    The exported names are found by parsing ``foo.bar``'s source, which can't
+    see an ``__all__`` built at run time; for such modules (e.g. ``numpy``)
+    nothing is found and the star import is left alone.  Pass
+    ``exec_star_imports=True`` to import ``foo.bar`` instead.
+
+    Note that even without ``exec_star_imports`` this may execute code: see
+    `ModuleHandle.exports`.
 
     The result includes all imports from the ``email`` module.  The result
     excludes shadowed imports.  In this example:
@@ -1188,6 +1202,8 @@ def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|No
 
     :type codeblock:
       `PythonBlock` or convertible (``str``)
+    :param exec_star_imports:
+      Whether we may import the module to enumerate its exports.
     :rtype:
       `PythonBlock`
     """
@@ -1233,7 +1249,8 @@ def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|No
                 module = ModuleHandle(imp.split.module_name)
                 try:
                     with ImportPathForRelativeImportsCtx(codeblock):
-                        exports = module.exports
+                        exports = module.get_exports(
+                            allow_exec=exec_star_imports)
                 except Exception as e:
                     logger.warning(
                         "%s: couldn't import '%s' to enumerate exports, "
@@ -1248,8 +1265,10 @@ def replace_star_imports(codeblock: PythonBlock, /, params:ImportFormatParams|No
                     # imports since usually we don't want them.  TODO: do
                     # something better here.
                     logger.warning("%s: found nothing to import from %s, "
-                                   "leaving unchanged: '%s'",
-                                   filename, module, imp)
+                                   "leaving unchanged: '%s'%s",
+                                   filename, module, imp,
+                                   "" if exec_star_imports else
+                                   "; try --exec-star-imports")
                     new_imports.append(imp)
                 else:
                     new_imports.extend(exports)

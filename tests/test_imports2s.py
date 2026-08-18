@@ -1607,3 +1607,88 @@ def test_fix_unused_and_missing_imports_local_semicolon_multibyte_emoji():
     db = ImportDB("")
     output = fix_unused_and_missing_imports(input, db=db)
     assert "import json" in str(output)
+
+
+def test_replace_star_imports_exec_1(dynamic_all_module):
+    """A run-time __all__ needs exec_star_imports to be seen at all."""
+    input = PythonBlock("from %s import *\n" % dynamic_all_module,
+                        filename="/foo/test_replace_star_exec_1.py")
+    assert replace_star_imports(input) == input
+    assert replace_star_imports(input, exec_star_imports=True) == PythonBlock(
+        "from %s import alpha, beta\n" % dynamic_all_module,
+        filename="/foo/test_replace_star_exec_1.py")
+
+
+def test_replace_star_imports_exec_unknown_module_1():
+    input = PythonBlock("from omgnonexistentmodule62294107 import *\n")
+    assert replace_star_imports(input, exec_star_imports=True) == input
+
+
+def test_fix_unused_and_missing_imports_exec_star_1(dynamic_all_module):
+    """
+    Issue #44: a name the star module doesn't export is imported from where it
+    lives, while the star import stays put.
+    """
+    input = PythonBlock("from %s import *\nalpha\nmkstemp\n" % dynamic_all_module,
+                        filename="/foo/test_fix_exec_star_1.py")
+    output = fix_unused_and_missing_imports(input, add_mandatory=False,
+                                            exec_star_imports=True)
+    # Line-wise with whitespace collapsed, to survive alignment changes.
+    assert [" ".join(l.split()) for l in str(output).split("\n") if l.strip()] == [
+        "from %s import *" % dynamic_all_module,
+        "from tempfile import mkstemp",
+        "alpha",
+        "mkstemp",
+    ]
+
+
+@pytest.mark.parametrize("body,exec_star", [
+    # Without the flag the star import suppresses detection, as before.
+    pytest.param("alpha\nmkstemp\n", False, id="flag-off"),
+    # With it, a star import is still never removed as unused.
+    pytest.param("", True, id="star-never-unused"),
+])
+def test_fix_unused_and_missing_imports_exec_star_unchanged_1(dynamic_all_module,
+                                                              body, exec_star):
+    """Cases where the file must come back untouched."""
+    input = PythonBlock("from %s import *\n%s" % (dynamic_all_module, body),
+                        filename="/foo/test_fix_exec_star_unchanged_1.py")
+    assert fix_unused_and_missing_imports(
+        input, add_mandatory=False, exec_star_imports=exec_star) == input
+
+
+def test_fix_unused_and_missing_imports_exec_star_lossy_static_1(tmp_module):
+    """
+    Regression: static analysis omits re-exported names, so trusting it would
+    import a star-provided name from the wrong place, silently changing which
+    function the code calls.
+    """
+    helper = tmp_module("pyflyby_test_i2s_lossy_helper_60934185",
+                        "def sqrt(x): return 'MY-SQRT'\n")
+    lib = tmp_module("pyflyby_test_i2s_lossy_lib_60934185", """
+        from %s import sqrt
+        def alpha(): pass
+    """ % helper)
+    input = PythonBlock("from %s import *\nalpha()\nsqrt(4)\n" % lib,
+                        filename="/foo/test_fix_exec_star_lossy_1.py")
+    assert fix_unused_and_missing_imports(input, add_mandatory=False,
+                                          exec_star_imports=True) == input
+
+
+def test_fix_unused_and_missing_imports_exec_star_conditional_1(tmp_module):
+    """Regression: a conditional star import must not delete a needed import."""
+    name = tmp_module("pyflyby_test_i2s_cond_star_47712096", """
+        def _mk(): return ["join"]
+        __all__ = _mk()
+        def join(*a): pass
+    """)
+    input = PythonBlock(dedent("""
+        import sys
+        from os.path import join
+        if sys.version_info >= (3, 99):
+            from %s import *
+        join("a", "b")
+    """ % name).lstrip(), filename="/foo/test_fix_exec_star_cond_1.py")
+    output = fix_unused_and_missing_imports(input, add_mandatory=False,
+                                            exec_star_imports=True)
+    assert "from os.path import join" in " ".join(str(output).split())
