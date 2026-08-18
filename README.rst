@@ -455,6 +455,37 @@ This style is a maintenance nightmare:
 To fix such code, you can run ``tidy-imports --replace-star-imports`` to
 automatically replace star imports with the specific needed imports.
 
+By default pyflyby works out what ``foopackage`` exports by parsing its source
+rather than running it, so it cannot see an ``__all__`` built at run time -- as
+``numpy`` does.  For those, nothing is found and the star import is left alone.
+Pass ``--exec-star-imports`` to import the module and read its real
+``__all__``::
+
+  tidy-imports --replace-star-imports --exec-star-imports myprogram.py
+
+``--exec-star-imports`` is also useful on its own.  A star import normally
+makes pyflyby give up on the rest of the file, since any undefined name might
+have come from the star.  Knowing what the star supplies, it can fix the rest
+and leave the star in place::
+
+  $ cat myprogram.py
+  from numpy import *
+  print(mkstemp)
+  print(sin)
+
+  $ tidy-imports --exec-star-imports myprogram.py
+  [PYFLYBY] myprogram.py: added 'from tempfile import mkstemp'
+
+``sin`` is left alone because ``numpy`` exports it; ``mkstemp`` is imported
+from where it actually lives.
+
+The flag is off by default because it always executes the module, in pyflyby's
+own process.  Note that the default is not a guarantee that nothing is
+executed: locating ``foo.bar``'s source imports its parent package ``foo``, and
+a module whose source can't be read -- an extension module, say -- is imported
+outright to find out where it lives.  ``--exec-star-imports`` therefore widens
+how much of your code runs, rather than being the only way it can run at all.
+
 Per-Project configuration of tidy-imports
 =========================================
 
