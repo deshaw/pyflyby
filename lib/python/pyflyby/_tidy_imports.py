@@ -73,6 +73,18 @@ def _addopts(parser):
                         help=hfmt('''
                             (Default) Don't replace 'from foo.bar import
                             *'.'''))
+    parser.add_option('--exec-star-imports',
+                        default=False, action='store_true',
+                        help=hfmt('''
+                            Import modules to find out what a star import
+                            supplies, rather than only parsing their source
+                            (which misses a run-time __all__, e.g. numpy's).
+                            This executes the module.'''))
+    parser.add_option('--no-exec-star-imports',
+                        dest='exec_star_imports',
+                        action='store_false',
+                        help=hfmt('''
+                            (Default) Only parse module source statically.'''))
     parser.add_option('--canonicalize',
                         default=True, action='store_true',
                         help=hfmt('''
@@ -163,13 +175,16 @@ def main() -> None:
                                   params=options.params,
                                   transform_strings=options.transform_strings)
         if options.replace_star_imports:
-            block = replace_star_imports(block, params=options.params)
+            block = replace_star_imports(
+                block, params=options.params,
+                exec_star_imports=options.exec_star_imports)
         block = fix_unused_and_missing_imports(
             block, params=options.params,
             add_missing=options.add_missing,
             remove_unused=options.remove_unused,
             add_mandatory=options.add_mandatory,
             tidy_local_imports=options.tidy_local_imports,
+            exec_star_imports=options.exec_star_imports,
             )
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
