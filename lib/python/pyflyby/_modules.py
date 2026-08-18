@@ -20,6 +20,7 @@ from   pyflyby._fast_iter_modules \
                                 import _iter_file_finder_modules
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
+from   pyflyby._importclns      import ImportSet, ImportStatement
 from   pyflyby._log             import logger
 from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
                                         memoize)
@@ -32,7 +33,6 @@ from   typing                   import (Any, Dict, Generator, List, Optional,
                                         TYPE_CHECKING, Tuple, Union)
 
 if TYPE_CHECKING:
-    from   pyflyby._importclns   import ImportSet
     from   pyflyby._parse        import PythonBlock
 
 class ErrorDuringImportError(ImportError):
@@ -397,19 +397,26 @@ class ModuleHandle(object):
     @cached_property
     def exports(self) -> Optional["ImportSet"]:
         """
-        Get symbols exported by this module.
+        Get symbols exported by this module, by parsing its source.
 
         Note that this will not recognize symbols that are dynamically
-        introduced to the module's namespace or __all__ list.
+        introduced to the module's namespace or __all__ list.  Modules that
+        build ``__all__`` at run time (e.g. ``numpy``) yield ``None`` here;
+        see `runtime_exports`.
+
+        This parses rather than runs the module, but that is not a guarantee
+        that no code is executed: `filename` imports the parent package to
+        locate a submodule, and a module whose source can't be read (an
+        extension module, say) is imported outright below to find its
+        ``__file__``.  `runtime_exports` differs in always executing the
+        module itself, not in executing something this never does.
 
         :rtype:
           `ImportSet` or ``None``
         :return:
           Exports, or ``None`` if nothing exported.
         """
-        from pyflyby._importclns import ImportStatement, ImportSet
-
-        filename = self.filename
+        filename = getattr(self, 'filename', None)
         if not filename or not filename.exists:
             # Try to load the module to get the filename
             filename = Filename(self.module.__file__)  # type: ignore[arg-type]
@@ -481,6 +488,70 @@ class ModuleHandle(object):
             return None
         return ImportSet(
             [ ImportStatement.from_parts(str(self.name), members) ])  # type: ignore[arg-type]
+
+    @cached_property
+    def runtime_exports(self) -> Optional["ImportSet"]:
+        """
+        Get symbols exported by this module, by *importing* it.
+
+        Unlike `exports` this sees a dynamically-built ``__all__``, at the cost
+        of executing the module.  Returns exactly what ``from <mod> import *``
+        would bind.
+
+        Note the answer is cached in ``sys.modules`` for the life of the
+        process, so two modules sharing a name can't both be described in one
+        run; the first imported wins.
+
+        :rtype:
+          `ImportSet` or ``None``
+        :return:
+          Exports, or ``None`` if nothing exported.
+        """
+        module = self.module
+        try:
+            names = list(module.__all__)  # type: ignore[attr-defined]
+        except AttributeError:
+            # __dict__, not dir(): a PEP-562 __dir__ would misreport what a
+            # star import binds.
+            names = [n for n in vars(module) if not n.startswith("_")]
+        members = tuple((n, None) for n in names)
+        if not members:
+            return None
+        return ImportSet(
+            [ ImportStatement.from_parts(str(self.name), members) ])  # type: ignore[arg-type]
+
+    def get_exports(self, *, allow_exec: bool = False) -> Optional["ImportSet"]:
+        """
+        Get symbols exported by this module, using `runtime_exports` if
+        ``allow_exec``, else `exports`.
+
+        `runtime_exports` is preferred rather than used only as a fallback,
+        because static analysis is lossy rather than all-or-nothing: it omits
+        names re-exported from unrelated modules, which a star import does
+        bind.  A partial list read as complete would make a caller treat a
+        star-provided name as undefined.  Static analysis remains the fallback
+        for when importing fails.
+
+        :param allow_exec:
+          Whether we may execute the module to enumerate its exports.  Note
+          that ``False`` is not a promise that nothing is executed; see
+          `exports`.
+        :rtype:
+          `ImportSet` or ``None``
+        """
+        if not allow_exec:
+            return self.exports
+        try:
+            return self.runtime_exports
+        except KeyboardInterrupt:
+            raise
+        except BaseException as e:
+            # BaseException, not Exception: module-level sys.exit() is common
+            # in version checks and must not abort the caller's whole run.
+            logger.debug("%s: importing to enumerate exports failed (%s: %s); "
+                         "falling back to static analysis",
+                         self.name, type(e).__name__, e)
+        return self.exports
 
     def __str__(self) -> str:
         return str(self.name)
