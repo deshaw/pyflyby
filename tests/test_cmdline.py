@@ -5,6 +5,7 @@
 
 
 
+from   contextlib               import ExitStack
 from   io                       import BytesIO
 import os
 import pexpect
@@ -1294,3 +1295,88 @@ def test_tidy_imports_exclude_arg(tmp_path):
 
     assert foo == txt
     assert foo2 == txt
+
+
+class _StarImportProject:
+    """Temp dir with a dynamic-__all__ module, plus a PYTHONPATH env for it."""
+
+    def __init__(self, stack, modname="dynall", source=None):
+        self.dir = stack.enter_context(tempfile.TemporaryDirectory())
+        self.modname = modname
+        with open(os.path.join(self.dir, modname + ".py"), 'w') as f:
+            f.write(dedent(source if source is not None else '''
+                _names = ["alpha", "beta"]
+                for _n in _names:
+                    globals()[_n] = _n
+                __all__ = list(_names)
+            ''').lstrip())
+        self.env = dict(os.environ, PYTHONPATH=self.dir + os.pathsep +
+                        os.environ.get("PYTHONPATH", ""))
+
+    def write(self, name, content):
+        path = os.path.join(self.dir, name)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def run(self, tool, *args):
+        return pipe(["-m", "pyflyby." + tool, *args], env=self.env)
+
+
+def _code_lines(result):
+    """Split tool output into code lines, dropping [PYFLYBY] log lines."""
+    return [l for l in result.split("\n") if not l.startswith("[PYFLYBY]")]
+
+
+def test_tidy_imports_exec_star_imports_1():
+    """Issue #44: fix other names while leaving the star import alone."""
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py", "from %s import *\nalpha\nmkstemp\n" % p.modname)
+        result = p.run("_tidy_imports", "--exec-star-imports", "--print", t)
+    lines = [l.split() for l in _code_lines(result)]
+    assert "added 'from tempfile import mkstemp'" in result
+    assert ["from", p.modname, "import", "*"] in lines
+    assert ["from", "tempfile", "import", "mkstemp"] in lines
+    assert "alpha'" not in result       # alpha is exported; nothing added for it
+
+
+def test_tidy_imports_exec_star_imports_default_off_1():
+    """Off by default, and --no-exec-star-imports says so explicitly."""
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py", "from %s import *\nalpha\nmkstemp\n" % p.modname)
+        result = p.run("_tidy_imports", "--print", t)
+        explicit_off = p.run("_tidy_imports", "--no-exec-star-imports", "--print", t)
+    assert "added" not in result and "tempfile" not in result
+    assert explicit_off == result
+
+
+def test_tidy_imports_replace_and_exec_star_imports_1():
+    """The README's combination: expand a star with a run-time __all__."""
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py", "from %s import *\nalpha\n" % p.modname)
+        without = p.run("_tidy_imports", "--replace-star-imports", "--print", t)
+        with_flag = p.run("_tidy_imports", "--replace-star-imports",
+                          "--exec-star-imports", "--print", t)
+    assert ["from", p.modname, "import", "*"] in \
+        [l.split() for l in _code_lines(without)]
+    assert ["from", p.modname, "import", "alpha"] in \
+        [l.split() for l in _code_lines(with_flag)]
+    assert "import *" not in "\n".join(_code_lines(with_flag))
+
+
+def test_replace_star_imports_exec_star_imports_1():
+    with ExitStack() as stack:
+        p = _StarImportProject(stack)
+        t = p.write("target.py", "from %s import *\n" % p.modname)
+        without = p.run("_replace_star_imports", "--print", t)
+        explicit_off = p.run("_replace_star_imports", "--no-exec-star-imports",
+                             "--print", t)
+        with_flag = p.run("_replace_star_imports", "--exec-star-imports",
+                          "--print", t)
+    assert "import *" in without and "try --exec-star-imports" in without
+    assert explicit_off == without
+    assert "import alpha, beta" in with_flag
+    assert "import *" not in "\n".join(_code_lines(with_flag))
