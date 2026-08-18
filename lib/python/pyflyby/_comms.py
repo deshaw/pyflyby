@@ -153,9 +153,15 @@ def collect_code_with_imports_on_top(
     )
 
 def run_tidy_imports(code: str) -> str:
+    # exec_star_imports is on here, unlike in tidy-imports: the cells whose
+    # star imports we're resolving have already run in this very kernel.
     return str(
         reformat_import_statements(
-            fix_unused_and_missing_imports(replace_star_imports(PythonBlock(code)))
+            fix_unused_and_missing_imports(
+                replace_star_imports(PythonBlock(code),
+                                     exec_star_imports=True),
+                exec_star_imports=True,
+            )
         )
     )
 

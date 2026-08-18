@@ -486,6 +486,17 @@ a module whose source can't be read -- an extension module, say -- is imported
 outright to find out where it lives.  ``--exec-star-imports`` therefore widens
 how much of your code runs, rather than being the only way it can run at all.
 
+The same option exists for the auto-importer, where a star import otherwise
+makes it give up on the rest of the code being run.  ``py`` does this by
+default -- the code it is about to run would import the module anyway -- and
+``py --no-exec-star-imports`` turns it off.
+
+In IPython it is off by default; turn it on when enabling the auto-importer,
+e.g. from ``ipython_config.py``::
+
+  import pyflyby
+  pyflyby.enable_auto_importer(exec_star_imports=True)
+
 Per-Project configuration of tidy-imports
 =========================================
 

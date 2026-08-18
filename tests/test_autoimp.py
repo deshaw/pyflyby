@@ -2635,3 +2635,46 @@ def test_scan_for_import_issues_star_import_exec_conditional_1(tmp_module):
         join("a", "b")
     """ % name)
     assert scan_for_import_issues(code, exec_star_imports=True) == ([], [])
+
+
+def test_find_missing_imports_star_import_exec_1(dynamic_all_module):
+    """`find_missing_imports` honours exec_star_imports, like the scanner."""
+    code = "from %s import *\nalpha\nmkstemp\n" % dynamic_all_module
+    assert find_missing_imports(code, [{}]) == []
+    assert find_missing_imports(code, [{}], exec_star_imports=True) == \
+        [DottedIdentifier('mkstemp')]
+
+
+def test_find_missing_imports_star_import_exec_ast_1(dynamic_all_module):
+    """Same, when handed an already-parsed AST rather than source text."""
+    node = ast.parse("from %s import *\nalpha\nmkstemp\n" % dynamic_all_module)
+    assert find_missing_imports(node, [{}]) == []
+    assert find_missing_imports(node, [{}], exec_star_imports=True) == \
+        [DottedIdentifier('mkstemp')]
+
+
+def test_auto_import_star_import_exec_1(dynamic_all_module):
+    """With the flag, auto_import imports what the star doesn't supply."""
+    code = "from %s import *\nalpha\nmkstemp\n" % dynamic_all_module
+    namespace = {}
+    assert auto_import(code, [namespace]) is True
+    assert "mkstemp" not in namespace
+    assert auto_import(code, [namespace], exec_star_imports=True) is True
+    from tempfile import mkstemp
+    assert namespace["mkstemp"] is mkstemp
+    # 'alpha' comes from the star import itself, so it's left to the code.
+    assert "alpha" not in namespace
+
+
+def test_auto_eval_star_import_exec_1(dynamic_all_module):
+    code = "from %s import *\nresult = (alpha, mkstemp)\n" % dynamic_all_module
+    namespace = {}
+    auto_eval(code, globals=namespace, exec_star_imports=True)
+    from tempfile import mkstemp
+    assert namespace["result"][1] is mkstemp
+
+
+def test_auto_eval_star_import_exec_default_off_1(dynamic_all_module):
+    code = "from %s import *\nmkstemp\n" % dynamic_all_module
+    with pytest.raises(NameError):
+        auto_eval(code, globals={})

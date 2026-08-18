@@ -1525,6 +1525,7 @@ def scan_for_import_issues(
 def _find_missing_imports_in_ast(
     node: ast.AST,
     namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+    exec_star_imports: bool = False,
 ) -> List[DottedIdentifier]:
     """
     Find missing imports in an AST node.
@@ -1538,6 +1539,8 @@ def _find_missing_imports_in_ast(
       ``ast.AST``
     :type namespaces:
       ``dict`` or ``list`` of ``dict``
+    :param exec_star_imports:
+      See `find_missing_imports`.
     :rtype:
       ``list`` of ``DottedIdentifier``
     """
@@ -1547,9 +1550,12 @@ def _find_missing_imports_in_ast(
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("ast=%s", ast.dump(node))
     return _MissingImportFinder(
-                 namespaces,
-                 find_unused_imports=False,
-                 parse_docstrings=False).find_missing_imports(node)
+        namespaces,
+        find_unused_imports=False,
+        parse_docstrings=False,
+        exec_star_imports=exec_star_imports,
+    ).find_missing_imports(node)
+
 
 # TODO: maybe we should replace _find_missing_imports_in_ast with
 # _find_missing_imports_in_code(compile(node)).  The method of parsing opcodes
@@ -1946,6 +1952,8 @@ def _find_earliest_backjump_label(bytecode: bytes) -> int:
 def find_missing_imports(
     arg: Any,
     namespaces: Union[ScopeStack, Dict[str, Any], List[Dict[str, Any]]],
+    *,
+    exec_star_imports: bool = False,
 ) -> List[DottedIdentifier]:
     """
     Find symbols in the given code that require import.
@@ -2019,6 +2027,17 @@ def find_missing_imports(
       >>> [str(m) for m in find_missing_imports("( ( a . b ) . x ) . y + ( c + d ) . x . y", [{}])]
       ['a.b.x.y', 'c', 'd']
 
+    A ``from foo import *`` normally makes us give up on everything after it,
+    since any undefined name might have come from the star.  With
+    ``exec_star_imports``, we import ``foo`` to find out which names it really
+    supplies, and keep reporting the ones it doesn't::
+
+      >>> find_missing_imports("from math import *\\nmkstemp()", [{}])
+      []
+
+      >>> [str(m) for m in find_missing_imports("from math import *\\nmkstemp()", [{}], exec_star_imports=True)]
+      ['mkstemp']
+
     :type arg:
       ``str``, ``ast.AST``, `PythonBlock`, ``callable``, or ``types.CodeType``
     :param arg:
@@ -2029,6 +2048,10 @@ def find_missing_imports(
       ``dict`` or ``list`` of ``dict``
     :param namespaces:
       Stack of namespaces of symbols that exist per scope.
+    :param exec_star_imports:
+      Whether to import the module named by a ``from foo import *`` to find
+      out which names it supplies.  Only meaningful when ``arg`` is source
+      text or an AST; a compiled code object has no star imports left to see.
     :rtype:
       ``list`` of ``DottedIdentifier``
     """
@@ -2049,11 +2072,11 @@ def find_missing_imports(
         # Parse the string into an AST.
         node = ast.parse(arg, type_comments=True) # may raise SyntaxError
         # Get missing imports from AST.
-        return _find_missing_imports_in_ast(node, namespaces)
+        return _find_missing_imports_in_ast(node, namespaces, exec_star_imports)
     elif isinstance(arg, PythonBlock):
-        return _find_missing_imports_in_ast(arg.ast_node, namespaces)
+        return _find_missing_imports_in_ast(arg.ast_node, namespaces, exec_star_imports)
     elif isinstance(arg, ast.AST):
-        return _find_missing_imports_in_ast(arg, namespaces)
+        return _find_missing_imports_in_ast(arg, namespaces, exec_star_imports)
     elif isinstance(arg, types.CodeType):
         return _find_missing_imports_in_code(arg, namespaces)
     elif callable(arg):
@@ -2350,6 +2373,7 @@ def auto_import(
     post_import_hook: Optional[Callable[[Import], Any]] = None,
     *,
     extra_db: Any = None,
+    exec_star_imports: bool = False,
 ) -> Optional[bool]:
     """
     Parse ``arg`` for symbols that need to be imported and automatically import
@@ -2384,6 +2408,11 @@ def auto_import(
       `auto_import_symbol`
     :type post_import_hook:
       ``callable``
+    :param exec_star_imports:
+      Whether to import the module named by a ``from foo import *`` in ``arg``
+      to find out which names it supplies.  Without this, a star import makes
+      us give up on auto-importing anything else in ``arg``.  See
+      `find_missing_imports`.
     :return:
       ``True`` if all symbols are already in the namespace or successfully
       auto-imported; ``False`` if any auto-imports failed, or ``None`` (also
@@ -2396,7 +2425,9 @@ def auto_import(
     else:
         filename = "."
     try:
-        fullnames = find_missing_imports(arg, namespaces)
+        fullnames = find_missing_imports(
+            arg, namespaces, exec_star_imports=exec_star_imports
+        )
     except SyntaxError:
         logger.debug("syntax error parsing %r", arg)
         return False
@@ -2417,11 +2448,17 @@ def auto_import(
     return all(results)
 
 
-def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
-              flags: Any = None,
-              globals: Optional[Dict[str, Any]] = None,
-              locals: Optional[Dict[str, Any]] = None,
-              db: Any = None) -> Any:
+def auto_eval(
+    arg: Any,
+    filename: Any = None,
+    mode: Optional[str] = None,
+    flags: Any = None,
+    globals: Optional[Dict[str, Any]] = None,
+    locals: Optional[Dict[str, Any]] = None,
+    db: Any = None,
+    *,
+    exec_star_imports: bool = False,
+) -> Any:
     """
     Evaluate/execute the given code, automatically importing as needed.
 
@@ -2475,6 +2512,11 @@ def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
       `ImportDB`
     :param db:
       Import database to use.
+    :param exec_star_imports:
+      Whether to import the module named by a ``from foo import *`` in ``arg``
+      to find out which names it supplies.  See `find_missing_imports`.  Since
+      ``arg`` is about to be executed anyway, this doesn't run anything that
+      wasn't going to run a moment later.
     :return:
       Result of evaluation (for mode="eval")
     """
@@ -2503,7 +2545,7 @@ def auto_eval(arg: Any, filename: Any = None, mode: Optional[str] = None,
     db = ImportDB.interpret_arg(db, target_filename=filename)
     namespaces = [globals, locals]
     # Import as needed.
-    auto_import(arg, namespaces, db)
+    auto_import(arg, namespaces, db, exec_star_imports=exec_star_imports)
     # Compile from AST to code object.
     if isinstance(arg, types.CodeType):
         code = arg

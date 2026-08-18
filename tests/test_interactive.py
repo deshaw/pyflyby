@@ -3937,3 +3937,41 @@ def test_breakpoint_IOStream_broken():
         ''',
             frontend='prompt_toolkit',
         )
+
+
+@retry
+def test_autoimport_exec_star_imports_1(tmp):
+    # exec_star_imports lets the auto-importer keep working on the rest of a
+    # cell that contains a star import.
+    writetext(tmp.dir/"m30742118_dynall.py", """
+        _names = ["alpha30742118"]
+        for _n in _names:
+            globals()[_n] = _n
+        __all__ = list(_names)
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer(exec_star_imports=True)
+        In [2]: from m30742118_dynall import *; (alpha30742118, b64decode(b'aGk='))
+        [PYFLYBY] from base64 import b64decode
+        Out[2]: ('alpha30742118', b'hi')
+    """, PYTHONPATH=tmp.dir)
+
+
+@retry
+def test_autoimport_exec_star_imports_default_off_1(tmp):
+    # Without it, the star import suppresses auto-importing for the rest of
+    # the cell, as before.
+    writetext(tmp.dir/"m30742119_dynall.py", """
+        _names = ["alpha30742119"]
+        for _n in _names:
+            globals()[_n] = _n
+        __all__ = list(_names)
+    """)
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: from m30742119_dynall import *; (alpha30742119, b64decode(b'aGk='))
+        ---------------------------------------------------------------------------
+        NameError                                 Traceback (most recent call last)
+        ... in ...
+        NameError: name 'b64decode' is not defined
+    """, PYTHONPATH=tmp.dir)

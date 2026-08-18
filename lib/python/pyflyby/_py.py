@@ -118,6 +118,12 @@ Options
       --debug, --d     Run the target code file etc under the debugger.  If a PID is
                        given, then instead attach a debugger to the target PID.
       --verbose        Turn on verbose messages from pyflyby.
+      --no-exec-star-imports
+                       When the code contains 'from foo import *', don't import
+                       foo to find out which names it supplies.  By default we
+                       do, since the code is about to import it anyway; without
+                       it, a star import means we give up on auto-importing
+                       anything else in that code.
 
     Pseudo-actions valid before, after, or without code argument:
 
@@ -306,7 +312,8 @@ from   pyflyby._dbg             import (add_debug_functions_to_builtins,
 from   pyflyby._file            import Filename, UnsafeFilenameError, which
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import is_identifier
-from   pyflyby._interactive     import (get_ipython_terminal_app_with_autoimporter,
+from   pyflyby._interactive     import (AutoImporter,
+                                        get_ipython_terminal_app_with_autoimporter,
                                         run_ipython_line_magic,
                                         start_ipython_with_autoimporter)
 from   pyflyby._log             import logger
@@ -1526,6 +1533,10 @@ def _init_virtualenv():
 class _Namespace(object):
     fake_main: ModuleType
 
+    # On by default here, unlike in tidy-imports: the star import is about to
+    # be executed anyway.  See the --no-exec-star-imports global option.
+    exec_star_imports = True
+
     def __init__(self):
         self.fake_main = ModuleType("__main__")
         _init_virtualenv()
@@ -1535,7 +1546,8 @@ class _Namespace(object):
         self.autoimported = {}
 
     def auto_import(self, arg):
-        return auto_import(arg, [self.globals], autoimported=self.autoimported)
+        return auto_import(arg, [self.globals], autoimported=self.autoimported,
+                           exec_star_imports=self.exec_star_imports)
 
     def auto_eval(self, block, mode=None, info=False, auto_import=True,
                   debug=False):
@@ -1550,7 +1562,8 @@ class _Namespace(object):
         if auto_import:
             result = self.auto_import(block)
             if not result:
-                missing = find_missing_imports(block, [self.globals])
+                missing = find_missing_imports(block, [self.globals],
+                                               exec_star_imports=self.exec_star_imports)
                 mstr = ", ".join(repr(str(x)) for x in missing)
                 if result is None:
                     raise ErrorDuringImportError(
@@ -1928,8 +1941,17 @@ class _PyMain(object):
                 del args[0]
                 self.add_deprecated_builtins = True
                 continue
+            if argname in ["exec-star-imports", "exec_star_imports",
+                           "no-exec-star-imports", "no_exec_star_imports"]:
+                del args[0]
+                novalue()
+                self.namespace.exec_star_imports = not argname.startswith("no")
+                continue
             break
         self.args = args
+        # Also applies to any IPython session we start; set on the class
+        # since the app may not exist yet.
+        AutoImporter.exec_star_imports = self.namespace.exec_star_imports
         if postmortem == "auto":
             postmortem = os.isatty(1)
         global _enable_postmortem_debugger
