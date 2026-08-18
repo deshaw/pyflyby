@@ -2261,7 +2261,6 @@ def test_auto_arg_broken_name_property_1(tmp):
     assert "NameError: name 'Woodlawn' is not defined" in result
 
 
-@pytest.mark.xfail # TODO FIXME
 def test_auto_arg_broken_import_1(tmp):
     # Verify that an ImportError in user code doesn't confuse us into
     # using an argument as a string.
@@ -2273,7 +2272,8 @@ def test_auto_arg_broken_import_1(tmp):
         PYTHONPATH=tmp.dir)
     assert retcode == 1
     assert "[PYFLYBY] import mclean76253083\n" in result
-    assert "ImportError:XXX" in result
+    assert "ModuleNotFoundError: No module named 'martha8602542'" in result
+    assert "sys.stdout.write('mclean76253083.winfred')" not in result
 
 
 def test_first_arg_empty_string_1():
