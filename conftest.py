@@ -5,6 +5,7 @@ import os
 import pytest
 import re
 import sys
+from   textwrap                 import dedent
 
 
 _already_ran_setup = False
@@ -91,6 +92,58 @@ def _capture_logger(caplog, name):
 
 
 @pytest.fixture
+def tmp_module(tmp_path):
+    """
+    Factory writing importable modules under a temp dir on ``sys.path``.
+
+    Call as ``tmp_module(name, source)``; returns the name.  Everything is
+    unwound afterwards: sys.modules, ModuleHandle's interned instance (which
+    caches ``exports``/``runtime_exports``), and import_module's memo -- that
+    last one is keyed on the module name alone, so without clearing it a later
+    test reusing a name would silently get this module back.
+    """
+    names = []
+
+    def make(name, source, package=False):
+        if package:
+            (tmp_path / name).mkdir(exist_ok=True)
+            (tmp_path / name / "__init__.py").write_text(dedent(source))
+        else:
+            (tmp_path / (name + ".py")).write_text(dedent(source))
+        names.append(name)
+        return name
+
+    make.path = tmp_path
+    sys.path.insert(0, str(tmp_path))
+    try:
+        yield make
+    finally:
+        sys.path.remove(str(tmp_path))
+        for name in names:
+            for mod in [m for m in sys.modules
+                        if m == name or m.startswith(name + ".")]:
+                del sys.modules[mod]
+            ModuleHandle._cls_cache.pop(DottedIdentifier(name), None)
+        import_module.cache_clear()
+
+
+# A module whose __all__ is built at run time, as numpy's is: static parsing
+# can't evaluate it, so only runtime_exports sees alpha and beta.
+DYNAMIC_ALL_SOURCE = """
+    _names = ["alpha", "beta"]
+    for _n in _names:
+        globals()[_n] = _n
+    __all__ = list(_names)
+"""
+
+
+@pytest.fixture
+def dynamic_all_module(tmp_module):
+    """Name of an importable module with a run-time-built ``__all__``."""
+    return tmp_module("pyflyby_test_dynamic_all_49172056", DYNAMIC_ALL_SOURCE)
+
+
+@pytest.fixture
 def pyflyby_log(caplog):
     yield from _capture_logger(caplog, "pyflyby")
 
@@ -152,4 +205,7 @@ fn = re.sub("[.]py[co]$", ".py", pyflyby.__file__)
 expected_fn = os.path.join(PYFLYBY_HOME, "lib/python/pyflyby/__init__.py")
 assert fn == expected_fn, "pyflyby got loaded from %s; expected %s" % (fn, expected_fn)
 
-
+# Imported here rather than at the top of the file: pyflyby must not be
+# imported until sys.path has been fixed up just above.
+from pyflyby._idents import DottedIdentifier  # noqa: E402
+from pyflyby._modules import ModuleHandle, import_module  # noqa: E402

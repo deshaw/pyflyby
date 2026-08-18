@@ -11,6 +11,7 @@ from   pkgutil                  import iter_modules
 from   pyflyby._file            import Filename
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._log             import logger
+import json
 from   pyflyby._modules         import (ModuleHandle, _fast_iter_modules,
                                         _iter_file_finder_modules,
                                         rebuild_import_cache)
@@ -261,3 +262,142 @@ def test_submodules_oserror_fallback():
     names = {str(m.name) for m in submodules}
     # email.mime is a subpackage, exercising _my_iter_modules' package branch.
     assert "email.mime" in names
+
+
+def _exports(importset):
+    """Member names of an `ImportSet`, or None."""
+    if importset is None:
+        return None
+    return {imp.split.member_name for imp in importset.imports}
+
+
+def _star_binds(modname):
+    """Independent oracle: what `from <modname> import *` actually binds."""
+    ns: dict = {}
+    exec("from %s import *" % modname, ns)
+    return {k for k in ns if k != "__builtins__"}
+
+
+def test_exports_static_1():
+    assert _exports(ModuleHandle("json").exports) == set(json.__all__)
+
+
+def test_runtime_exports_dynamic_all_1(dynamic_all_module):
+    """A run-time __all__ is invisible statically but seen by importing."""
+    mh = ModuleHandle(dynamic_all_module)
+    assert mh.exports is None
+    assert _exports(mh.runtime_exports) == {"alpha", "beta"}
+
+
+def test_get_exports_allow_exec_1(dynamic_all_module):
+    mh = ModuleHandle(dynamic_all_module)
+    assert mh.get_exports(allow_exec=False) is None
+    assert _exports(mh.get_exports(allow_exec=True)) == {"alpha", "beta"}
+
+
+def test_get_exports_no_allow_exec_does_not_exec_1(tmp_module):
+    """allow_exec=False must not execute the module itself."""
+    marker = tmp_module.path / "imported.marker"
+    name = tmp_module("pyflyby_test_notimported_20947731", """
+        import pathlib
+        pathlib.Path(%r).write_text("yes")
+        alpha = 1
+    """ % str(marker))
+    assert _exports(ModuleHandle(name).get_exports(allow_exec=False)) == {"alpha"}
+    assert not marker.exists()
+    assert name not in sys.modules
+
+
+def test_get_exports_prefers_runtime_over_lossy_static_1(tmp_module):
+    """
+    Static analysis omits names re-exported from unrelated modules, which a
+    star import does bind, so a non-empty static result must not win.
+    """
+    helper = tmp_module("pyflyby_test_lossy_helper_38104772",
+                        "def sqrt(x): return 'MY-SQRT'\n")
+    lib = tmp_module("pyflyby_test_lossy_lib_38104772", """
+        from %s import sqrt
+        def alpha(): pass
+    """ % helper)
+    mh = ModuleHandle(lib)
+    assert _exports(mh.exports) == {"alpha"}
+    assert _exports(mh.get_exports(allow_exec=True)) == {"alpha", "sqrt"}
+
+
+def test_get_exports_falls_back_to_static_when_import_fails_1(tmp_module):
+    """If the import blows up, fall back to what static analysis found."""
+    name = tmp_module("pyflyby_test_importfail_60355218", """
+        def alpha(): pass
+        raise RuntimeError("boom")
+    """)
+    assert _exports(ModuleHandle(name).get_exports(allow_exec=True)) == {"alpha"}
+
+
+@pytest.mark.parametrize("modname", ["math", "sys", "itertools"])
+def test_get_exports_extension_module_1(modname):
+    """Builtins have no source, so static analysis raises rather than empties."""
+    mh = ModuleHandle(modname)
+    with pytest.raises(Exception):
+        mh.get_exports(allow_exec=False)
+    assert _exports(mh.get_exports(allow_exec=True)) == _star_binds(modname)
+
+
+
+@pytest.mark.parametrize("source,expected,star_legal", [
+    pytest.param("""
+        visible = 1
+        _hidden = 2
+    """, {"visible"}, True, id="no-dunder-all"),
+    # A PEP-562 __dir__ misreports what a star import binds; we use __dict__.
+    pytest.param("""
+        realname = 1
+        def __dir__(): return ["lazyname"]
+        def __getattr__(n):
+            if n == "lazyname": return 2
+            raise AttributeError(n)
+    """, {"realname"}, True, id="dunder-dir"),
+    pytest.param("""
+        alpha = 1
+        __all__ = list([])
+    """, None, False, id="nothing-exported"),
+])
+def test_runtime_exports_1(tmp_module, source, expected, star_legal):
+    name = tmp_module("pyflyby_test_runtime_exports_75330184", source)
+    assert _exports(ModuleHandle(name).runtime_exports) == expected
+    if star_legal:
+        # Cross-check against what Python itself binds.
+        assert _star_binds(name) == expected
+
+
+def test_runtime_exports_submodule_in_all_1(tmp_module):
+    """A submodule named in __all__ is exported even if not imported yet."""
+    pkg = tmp_module("pyflyby_test_pkg_submod_57390142", """
+        def _mk(): return ["submod", "alpha"]
+        __all__ = _mk()
+        alpha = 1
+    """, package=True)
+    (tmp_module.path / pkg / "submod.py").write_text("x = 1\n")
+    assert _exports(ModuleHandle(pkg).runtime_exports) == {"alpha", "submod"}
+
+
+def test_runtime_exports_all_lists_missing_name_1(tmp_module):
+    """__all__ is taken at its word; a real star import would fail the same."""
+    name = tmp_module("pyflyby_test_bad_all_16608259", """
+        real = 1
+        __all__ = list(["real", "nonexistent"])
+    """)
+    assert _exports(ModuleHandle(name).runtime_exports) == {"real", "nonexistent"}
+
+
+def test_runtime_exports_non_string_all_1(tmp_module):
+    """A malformed __all__ raises, so `get_exports` falls back to static."""
+    name = tmp_module("pyflyby_test_badall_type_11947503", """
+        alpha = 1
+        __all__ = list(["alpha", 42])
+    """)
+    mh = ModuleHandle(name)
+    with pytest.raises(Exception):
+        mh.runtime_exports
+    assert "alpha" in _exports(mh.get_exports(allow_exec=True))
+
+
