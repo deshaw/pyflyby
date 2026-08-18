@@ -51,7 +51,7 @@ else:
 if os.getenv("PYFLYBYTEST_NORETRY", None):
     retry = lambda x: x
 else:
-    retry = flaky.flaky(max_runs=5 if DEFAULT_TIMEOUT < 0 else 1)
+    retry = flaky.flaky(max_runs=3 if DEFAULT_TIMEOUT < 0 else 1)
 
 
 # Default timeout for _wait_for_output when not explicitly specified
@@ -1225,7 +1225,6 @@ def _clean_ipython_output(result):
     return result
 
 
-@retry
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
@@ -1236,7 +1235,6 @@ def test_ipython_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_ipython_assert_fail_1(frontend):
     with assert_fail():
         ipython("""
@@ -1247,7 +1245,6 @@ def test_ipython_assert_fail_1(frontend):
         """, frontend=frontend)
 
 
-@retry
 def test_ipython_indented_block_4spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # 4 spaces is the IPython default autoindent.
@@ -1264,7 +1261,6 @@ def test_ipython_indented_block_4spaces_1(frontend):
 
 
 
-@retry
 def test_ipython_indented_block_5spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
@@ -1279,7 +1275,6 @@ def test_ipython_indented_block_5spaces_1(frontend):
         """, frontend=frontend)
 
 
-@retry
 def test_ipython_indented_block_6spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     ipython("""
@@ -1294,7 +1289,6 @@ def test_ipython_indented_block_6spaces_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_ipython_indented_block_3spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 3 spaces causes IPython to output "    \x08".
@@ -1310,7 +1304,6 @@ def test_ipython_indented_block_3spaces_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_ipython_indented_block_2spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # Using ^U plus 2 spaces causes IPython 5 to output "    \x1b[2D  \x1b[2D".
@@ -1326,7 +1319,6 @@ def test_ipython_indented_block_2spaces_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_ipython_tab_1(frontend):
     # Test that our test harness works for tabs.
     ipython("""
@@ -1335,7 +1327,6 @@ def test_ipython_tab_1(frontend):
         Out[2]: int
     """, frontend=frontend)
 
-@retry
 def test_ipython_tab_fail_1(frontend):
     # Test that our test harness works for tab when it should match nothing.
     ipython(
@@ -1352,7 +1343,6 @@ def test_ipython_tab_fail_1(frontend):
 
 
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
-@retry
 def test_ipython_tab_multi_1(frontend):
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion. This test checks whether the common prefix gets added.
@@ -1370,7 +1360,6 @@ def test_ipython_tab_multi_1(frontend):
 
 
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
-@retry
 def test_ipython_tab_multi_2(frontend):
     # Test that our test harness works for tab when there are multiple matches
     # for tab completion. This test checks if multiple suggestions are shown.
