@@ -21,6 +21,7 @@ from   textwrap                 import dedent
 import IPython
 import flaky
 import pexpect
+import pyte
 import pytest
 import requests
 
@@ -54,25 +55,14 @@ else:
     retry = flaky.flaky(max_runs=3 if DEFAULT_TIMEOUT < 0 else 1)
 
 
-# _wait_for_output() waits for the child to produce output, then waits for a
-# "quiet period" with no further output to decide the child is done.  Both
-# waits are wall-clock based, so on a loaded machine (CI runs the suite under
-# `pytest -n auto`) a too-short wait reads only part of the output and the test
-# fails with a truncated-looking diff.  This was the main source of flakiness
-# in this file; see #32.
-#
-# The initial wait is generous, since it covers the child process being
-# descheduled entirely.  The quiet period can be much shorter, since it only
-# needs to cover the gap between two writes the child has already started
-# making; keeping it short is what keeps the suite fast.
-#
-# PYFLYBYTEST_WAIT_SCALE scales both, for machines slower than CI.
+# _wait_for_output() waits for output, then for a quiet period with no further
+# output.  Both are wall-clock based, so under load (CI runs `pytest -n auto`)
+# a too-short wait reads only part of the output; see #32.  The initial wait is
+# generous since it covers the child being descheduled; the quiet period only
+# covers the gap between writes, so it stays short to keep the suite fast.
 _WAIT_SCALE = float(os.getenv("PYFLYBYTEST_WAIT_SCALE", "1") or "1")
 
-# Default timeout for _wait_for_output when not explicitly specified
 _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = 2.0 * _WAIT_SCALE
-
-# Default "no more output" quiet period.
 _WAIT_FOR_OUTPUT_QUIET_TIMEOUT = 0.5 * _WAIT_SCALE
 
 
@@ -417,12 +407,13 @@ _TAB_AUTOIMPORT_EXPECTED = (
     [_TAB_AUTOIMPORT_PROMPT + _TAB_AUTOIMPORT_ECHO
      + _TAB_AUTOIMPORT_TABRESP + _TAB_AUTOIMPORT_REDRAW],
 ])
-def test_selftest_decoder_tab_autoimport_chunking(split):
-    # No matter how the pty output is chopped into reads, the half-typed
-    # pre-completion line must be erased from the cleaned output.
-    decoder = AnsiFilterDecoder()
-    out = b"".join(decoder.decode(chunk) for chunk in split)
-    assert _clean_ipython_output(out) == _TAB_AUTOIMPORT_EXPECTED
+def test_selftest_render_tab_autoimport_chunking(split):
+    # The half-typed pre-completion line is erased by the child, so it must not
+    # appear in the rendered output.  How the pty output was chopped into reads
+    # no longer matters, since the whole stream is rendered at once; the cases
+    # are kept as a regression guard.
+    out = _render_pty_output(b"".join(split))
+    assert _clean_ipython_output(out).rstrip(b"\n") == _TAB_AUTOIMPORT_EXPECTED
 
 
 def test_selftest_assert_match_1():
@@ -494,22 +485,11 @@ except AttributeError:
 # `policy_overrides` and `auto_import_method` were added in IPython 9.3
 _SUPPORTS_TAB_AUTO_IMPORT = _IPYTHON_VERSION < (9, 3)
 
-# Terminal escape sequences that prompt_toolkit may emit right before drawing
-# the prompt, e.g. the Kitty keyboard protocol push/query (b"\x1b[>1u",
-# b"\x1b[?u") that newer prompt_toolkit versions send.  These carry no visible
-# output, so the prompt patterns below must skip over them instead of
-# requiring the prompt to directly follow the newline.
-_TERM_ESCAPES = (br"(?:\x1b\[[0-9;:?<>=]*[a-zA-Z]"     # CSI ... final byte
-                 br"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC ... BEL/ST
-                 br"|\x1b[()][AB0-2]"                  # charset selection
-                 br"|\x1b[=>78]"                       # misc two-byte escapes
-                 br")*")
-
 # Prompts that we expect for.
-_IPYTHON_PROMPT1 = br"\n\r?" + _TERM_ESCAPES + br"In \[([0-9]+)\]: "
-_IPYTHON_PROMPT2 = br"\n\r?" + _TERM_ESCAPES + br"   [.][.][.]+: "
+_IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
+_IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
-_IPDB_PROMPT = br"\n" + _TERM_ESCAPES + br"ipdb> "
+_IPDB_PROMPT = br"\nipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
@@ -606,6 +586,10 @@ def _build_ipython_cmd(
         pass
     else:
         cmd += ["--InteractiveShell.autoindent=False"]
+        # Turn off prompt_toolkit's grey "auto suggestion": no test exercises
+        # it, it is drawn into the input line (so it shows up in the rendered
+        # output), and it depends on history.
+        cmd += ["--TerminalInteractiveShell.autosuggestions_provider=None"]
     if autocall:
         cmd += ["--InteractiveShell.autocall=True"]
     if frontend == 'readline':
@@ -621,154 +605,61 @@ PYFLYBY_HOME = Filename(__file__).real.dir.dir
 PYFLYBY_PATH = PYFLYBY_HOME / "etc/pyflyby"
 PYFLYBY_BIN = PYFLYBY_HOME / "bin"
 
+# One complete terminal escape sequence.
+_ESCAPE_RE = re.compile(
+    br"\x1b\[[0-?]*[ -/]*[@-~]"                # CSI
+    br"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"    # OSC
+    br"|\x1b[()][AB0-2]"                       # charset selection
+    br"|\x1b[=>78]")                           # misc two-byte escapes
+
+# An escape sequence that has only partly arrived, at the end of a read.  A
+# complete "move left" is held back too, since it may be the first half of the
+# cursor-shuffle below.
+_PARTIAL_ESCAPE_RE = re.compile(
+    br"\x1b(?:\[[0-?]*[ -/]*|\][^\x07\x1b]*|[()]?)?$"
+    br"|\x1b\[[0-9]+D$")
+
+# prompt_toolkit positions the cursor by moving it left and then right again
+# rather than by writing spaces, e.g. "In [1]:\x1b[7D\x1b[8C" for "In [1]: ".
+# The prompt patterns match on that trailing space, so turn the net rightward
+# movement back into one.
+_CURSOR_SHUFFLE_RE = re.compile(br"\x1b\[([0-9]+)D\x1b\[([0-9]+)C")
+
+
 class AnsiFilterDecoder(object):
-    # TODO: replace this with `pyte`?
+    """
+    Strip escape sequences from the child's output.
+
+    This feeds expect(), which only needs prompts and echoed input to be
+    findable.  What the tests are compared against is rendered separately by
+    pyte; see _render_pty_output().
+    """
 
     def __init__(self):
         self._buffer = b""
+        # Everything the child has written, before any filtering.
+        self.raw = bytearray()
 
     def decode(self, arg, final=False):
+        self.raw.extend(arg)
         arg0 = arg = self._buffer + arg
         self._buffer = b""
+        if not final:
+            # Hold back a sequence that is still arriving, so that it is not
+            # mistaken for text.
+            m = _PARTIAL_ESCAPE_RE.search(arg)
+            if m:
+                self._buffer = arg[m.start():]
+                arg = arg[:m.start()]
+        arg = _CURSOR_SHUFFLE_RE.sub(
+            lambda m: b" " * max(0, int(m.group(2)) - int(m.group(1))), arg)
+        arg = _ESCAPE_RE.sub(b"", arg)
         arg = re.sub(b"\r+\n", b"\n", arg)
-        # "move cursor back N + clear to end of display" is how prompt_toolkit
-        # erases the last N characters (e.g. the half-typed line before a tab
-        # completion redraws it).  Translate it into N backspaces, which
-        # _clean_ipython_output erases globally.  Doing this as backspaces
-        # (rather than collapsing it to a newline below) makes it robust to the
-        # erased text and the erase sequence landing in different reads: when
-        # they're split across chunks the bare \x1b[<N>D can no longer reach
-        # back into already-emitted output, which would leave the stale
-        # pre-completion line in the result.  This must run before \x1b[J is
-        # stripped just below.
-        arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[J",
-                     lambda m: b"\x08" * int(m.group(1)), arg)
-        arg = arg.replace(b"\x1b[J", b"")             # clear to end of display
-        arg = re.sub(br"\x1b\[[0-9]+(?:;[0-9]+)*m", b"", arg) # color
-        arg = re.sub(br"([^\n])(\[PYFLYBY\])", br"\1\n\2", arg) # ensure [PYFLYBY] goes on its own line
-        arg = arg.replace(b"\x1b[6n", b"")            # query cursor position
-        arg = arg.replace(b"\x1b[?1l", b"")           # normal cursor keys
-        arg = arg.replace(b"\x1b[?7l", b"")           # no wraparound mode
-        arg = arg.replace(b"\x1b[?12l", b"")          # stop blinking cursor
-        arg = arg.replace(b"\x1b[?25l", b"")          # hide cursor
-        arg = arg.replace(b"\x1b[?2004l", b"")        # no bracketed paste mode
-        arg = arg.replace(b"\x1b[?7h", b"")           # wraparound mode
-        arg = arg.replace(b"\x1b[?25h", b"")          # show cursor
-        arg = arg.replace(b"\x1b[23;0t", b"")          # restore window title
-        arg = arg.replace(b"\x1b[?2004h", b"")        # bracketed paste mode
-        arg = arg.replace(b'\x1b[?5h\x1b[?5l', b'')   # visual bell
-        arg = re.sub(br"\x1b\[([0-9]+)D\x1b\[\1C", b"", arg) # left8,right8 no-op (srsly?)
-        arg = arg.replace(b'\x1b[?1034h', b'')        # meta key
-        arg = arg.replace(b'\x1b[A', b'')             # move the cursor up one line
-        arg = arg.replace(b'\x1b>', b'')              # keypad numeric mode (???)
-        arg = arg.replace(b'?[33m', b'')              # yellow text
-        arg = arg.replace(b'?[0m', b'')              # reset (no more yellow)
-
-        # cursor movement on PTK 3.0.6+ compute the number of back and forth and
-        # insert that many spaces.
-        pat = br"\x1b\[(\d+)D\x1b\[(\d+)C"
-        match = re.search(pat, arg)
-
-        while match:
-            backward, forward = match.groups()
-            backward, forward = int(backward), int(forward)
-            n_spaces = forward - backward
-            start, stop = match.start(), match.end()
-            arg = arg[:start]+n_spaces*b' '+arg[stop:]
-            match = re.search(pat, arg)
-
-        arg = re.sub(br"\n\x1b\[[0-9]*C", b"", arg) # move cursor right immediately after a newline
-        # Cursor movement. We assume this is used only for places that have '...'
-        # in the tests.
-        # arg = re.sub(b"\\\x1b\\[\\?1049h.*\\\x1b\\[\\?1049l", b"", arg)
-
-        # Assume ESC[5Dabcd\n is rewriting previous text; delete it. Only do
-        # so if the line does NOT have '[PYFLYBY]' or a CPR request warning.
-        # TODO: find a less hacky way to handle this without hardcoding
-        # '[PYFLYBY]'.
-        left = b""
-        right = arg
-        while right:
-            m = re.search(br"\x1b\[[0-9]+D.*?\n", right)
-            if not m:
-                break
-            if b'[PYFLYBY]' in m.group() or b'WARNING' in m.group():
-                left += right[:m.end()]
-            else:
-                left += right[:m.start()] + b'\n'
-            right = right[m.end():]
-        arg = left + right
-        # Assume ESC[3A\nline1\nline2\nline3\n is rewriting previous text;
-        # delete it.
-        left = b""
-        right = arg
-        while right:
-            m = re.search(br"\x1b\[([0-9]+)A\n", right)
-            if not m:
-                break
-            num = int(m.group(1))
-            end = m.end()
-            suffix = right[end:]
-            # splitlines includes \r as a line delimiter, which we do not want
-            suffix_lines = suffix.split(b'\n')
-            left = left + right[:m.start()]
-            if len(suffix_lines) <= num:
-                self._buffer += right[m.start():]
-                right = b""
-                break
-            right = b'\n'.join(suffix_lines[num:])
-            if suffix.endswith(b'\n'):
-                right += b'\n'
-        arg = left + right
-
-        # \rESC[5C moves the cursor to the beginning of the line, then right 5
-        # characters. Assume anything after any of these is not printed
-        # (should be only space and invisible characters). Everything replaced
-        # above is zero width, so we can safely do this last.
-        lines = []
-        for line in arg.split(b'\n'):
-            n = len(line)
-            m = None
-            for m in re.finditer(br'\r\x1b\[([0-9]+)C', line):
-                n = int(m.group(1))
-            if n > len(line):
-                self._buffer += arg
-                arg = b""
-                break
-            elif m and b'\x1b' in line[m.end():]:
-                # Some escape code was only seen partially and hence wasn't
-                # replaced above. If we cleared it now, the remainder would be
-                # shown as plain text in the next arg.
-                self._buffer += arg
-                arg = b""
-                break
-            else:
-                lines.append(line[:n])
-        else:
-            arg = b'\n'.join(lines)
-
-        if arg.endswith(b' '*10):
-            # Probably going to have some \rESC[5C type clearing. There can be
-            # 9 spaces from a double indentation after ...: (currently the
-            # most indentation used), but the clearing generally uses hundreds
-            # of spaces, so this should distinguish them.
-            self._buffer += arg
-            arg = b""
-
-
-        # Uncompleted escape sequence at the end of the string
-        if re.search(br"\x1b[^a-zA-Z]*$", arg):
-            self._buffer += arg
-            arg = b""
-
-        if DEBUG:
-            if self._buffer:
-                print("AnsiFilterDecoder: %r => %r, pending: %r" % (arg0,arg,self._buffer))
-            elif arg != arg0:
-                print("AnsiFilterDecoder: %r => %r" % (arg0,arg))
-            else:
-                print("AnsiFilterDecoder: %r [no change]" % (arg,))
+        if DEBUG and (arg != arg0 or self._buffer):
+            print("AnsiFilterDecoder: %r => %r, pending: %r"
+                  % (arg0, arg, self._buffer))
         return arg
+
 
 class MySpawn(pexpect.spawn):
 
@@ -972,8 +863,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
     else:
         child.expect(_IPYTHON_PROMPTS, timeout=DEFAULT_TIMEOUT)
     # Get output.
-    output = child.logfile_read
-    result = output.getvalue()
+    result = _render_pty_output(child._decoder.raw)
     result = _clean_ipython_output(result)
     return result
 
@@ -1104,10 +994,8 @@ def _wait_for_output(child, timeout=None, quiet_timeout=None):
         if child.flag_eof:
             break
         if got_data_already:
-            # If we previously got any data (after ansi filtering), then keep
-            # going while there's pending data.  Only a short quiet period is
-            # needed here: the child has already started writing, so we are
-            # waiting for a gap between writes, not for it to be scheduled.
+            # The child has already started writing, so we are only waiting
+            # for a gap between writes.
             remaining_timeout = quiet_timeout
         else:
             # Wait until timeout.  This condition applies if it's the first
@@ -1192,47 +1080,88 @@ def _wait_nonce(child):
         child.logfile_read = logfile_read
 
 
-def _clean_backspace(arg):
-    # Handle foo123\b\b\bbar => foobar
-    left = b""
-    right = arg
-    while right:
-        m = re.search(b"\x08+", right)
-        if not m:
-            break
-        left = left + right[:m.start()]
-        count = m.end() - m.start()
-        left = left[:-count]
-        right = right[m.end():]
-    arg = left + right
-    # Handle foo123\x1b[3Dbar => foobar
-    left = b""
-    right = arg
-    while right:
-        m = re.search(br"\x1b\[([0-9]+)D", right)
-        if not m:
-            break
-        left = left + right[:m.start()]
-        count = int(m.group(1))
-        right = right[m.end():]
-        left = left[:-count]
-    arg = left + right
-    return arg
+# Geometry of the pty we spawn IPython on; see MySpawn(dimensions=...).
+# pyte must use the same width, since the child wrapped its own output to it.
+_PTY_ROWS = 100
+_PTY_COLS = 900
 
+# Alternate screen buffer, used by IPython's pager (``obj?``, ``%prun``).  Its
+# content belongs in the transcript even though it is not on the final screen,
+# so it is rendered separately and spliced in.
+_ALT_SCREEN_RE = re.compile(br"\x1b\[\?1049([hl])")
+
+
+def _new_screen(raw):
+    # More rows than the pty has, so nothing is lost off the top to scrolling.
+    # Cursor movements are relative, so a taller screen renders identically.
+    lines = max(_PTY_ROWS, raw.count(b"\n") + 20)
+    screen = pyte.Screen(_PTY_COLS, lines)
+    return screen, pyte.ByteStream(screen)
+
+
+def _screen_lines(screen):
+    """Rendered screen contents, with the empty rows below the output dropped."""
+    lines = [line.rstrip() for line in screen.display]
+    while lines and not lines[-1]:
+        lines.pop()
+    return lines
+
+
+def _render_pty_output(raw):
+    """
+    Render ``raw`` (everything the child wrote to the pty) the way a terminal
+    would, and return the resulting transcript as bytes.
+
+    A terminal emulator gets cursor movement, line rewriting and erasing right
+    by construction, so prompt_toolkit redrawing a line is just a cell
+    overwrite rather than something to pattern-match.  Rendering the complete
+    stream at once also makes the result independent of read boundaries.
+    """
+    raw = bytes(raw)
+    main, main_stream = _new_screen(raw)
+    transcript = []
+    # Number of main-screen lines already copied into the transcript.
+    emitted = 0
+    pos = 0
+    in_alt = False
+    alt_start = 0
+    for m in _ALT_SCREEN_RE.finditer(raw):
+        if in_alt:
+            # Leaving the pager: splice it in and let the main screen carry on.
+            chunk = raw[alt_start:m.start()]
+            alt, alt_stream = _new_screen(chunk)
+            alt_stream.feed(chunk)
+            transcript.extend(_screen_lines(alt))
+        else:
+            main_stream.feed(raw[pos:m.start()])
+            lines = _screen_lines(main)
+            transcript.extend(lines[emitted:])
+            emitted = len(lines)
+        in_alt = m.group(1) == b"h"
+        pos = alt_start = m.end()
+    if in_alt:
+        # Unterminated alternate screen (child died in the pager).
+        chunk = raw[alt_start:]
+        alt, alt_stream = _new_screen(chunk)
+        alt_stream.feed(chunk)
+        transcript.extend(_screen_lines(alt))
+    else:
+        main_stream.feed(raw[pos:])
+        lines = _screen_lines(main)
+        transcript.extend(lines[emitted:])
+    out = "\n".join(transcript)
+    if out:
+        out += "\n"
+    return out.encode("utf-8")
 
 
 def _clean_ipython_output(result):
     """Clean up IPython output."""
     result0 = result
-    # Remove Kitty keyboard protocol sequences (CSI with a private prefix and a
-    # final "u"): push b"\x1b[>1u", pop b"\x1b[<u", query b"\x1b[?u", etc.
-    # Newer prompt_toolkit emits these around each prompt; they produce no
-    # visible output, so they must not show up in the compared result.
-    result = re.sub(br"\x1b\[[?<>=][0-9;:]*u", b"", result)
-    # Canonicalize newlines.
-    result = re.sub(b"\r+\n", b"\n", result)
-    # Clean things like "    ESC[4D".
-    result = _clean_backspace(result)
+    # pyflyby writes "[PYFLYBY]" messages without a leading newline, so they
+    # land on whatever line the child was drawing (e.g. after an "ipdb>"
+    # prompt).  Put them on their own line.
+    result = re.sub(br"([^\n])(\[PYFLYBY\])", br"\1\n\2", result)
     # Make traceback output stable across IPython versions and runs.
     result = re.sub(re.compile(br"(^/.*?/)?<(ipython-input-[0-9]+-[0-9a-f]+|ipython console)>", re.M), b"<ipython-input>", result)
     result = re.sub(re.compile(br"^----> .*?\n", re.M), b"", result)
@@ -1249,13 +1178,6 @@ def _clean_ipython_output(result):
     result = re.sub(br"%sexit[(](?:keep_kernel=True)?[)]\n?$"%_IPYTHON_PROMPT1, b"", result)
     # Compress newlines.
     result = re.sub(br"\n\n+", b"\n", result)
-    # Remove xterm title setting.
-    result = re.sub(b"\x1b]0;[^\x1b\x07]*\x07", b"", result)
-    # Remove BELs (done after the above codes, which use \x07 as a delimiter)
-    result = result.replace(b"\x07", b"")
-    # Remove code to clear to end of line. This is done here instead of in
-    # decode() because _wait_nonce looks for this code.
-    result = result.replace(b"\x1b[K", b"")
     result = result.lstrip()
     # In IPython kernel/console/etc, it seems to be impossible to turn off the
     # banner.  For now just delete the output up to the first prompt.
@@ -2229,11 +2151,9 @@ def test_complete_symbol_multiline_statement_1():
 def test_complete_symbol_multiline_statement_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: if 1:
-           ...:     print(base64.b64d\t
         [PYFLYBY] import base64
         In [2]: if 1:
-           ...:     print(base64.b64decode('Z2lyYWZmZQ=='))
+           ...:     print(base64.b64d\tecode('Z2lyYWZmZQ=='))
            ...:     print(42)
            ...:
         b'giraffe'
@@ -3625,9 +3545,8 @@ def test_debug_tab_completion_module_1(frontend, tmp):
         In [3]: %debug
         ....
         ipdb> thornton60097\t181.rando\t
-        ipdb> thornton60097181.rando\x06
         [PYFLYBY] import thornton60097181
-        lph
+        ipdb> thornton60097181.randolph\x06
         14164598
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3654,6 +3573,7 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
         .nebula_10983840 .nebula_41695458
         ipdb> sturbridge9088333.nebula_
         [PYFLYBY] import sturbridge9088333
+        ipdb> sturbridge9088333.nebula_
         *** AttributeError: module 'sturbridge9088333' has no attribute 'nebula_'
         ipdb> q
     """, PYTHONPATH=tmp.dir, frontend=frontend)
@@ -3684,9 +3604,8 @@ def test_debug_postmortem_tab_completion_1(frontend):
         ipdb> q
     """
     scenario_a = """
-        ipdb> func = base64.b64d\x06
         [PYFLYBY] import base64
-        ecode"""
+        ipdb> func = base64.b64decode\x06"""
     scenario_b = """
         ipdb> func = base64.b64decode
         [PYFLYBY] import base64"""
