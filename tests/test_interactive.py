@@ -19,7 +19,6 @@ from   tempfile                 import mkdtemp, mkstemp
 from   textwrap                 import dedent
 
 import IPython
-import flaky
 import pexpect
 import pyte
 import pytest
@@ -47,12 +46,6 @@ if _env_timeout is not None:
 else:
     DEFAULT_TIMEOUT = -1
     DEFAULT_TIMEOUT_REQUEST = None
-
-
-if os.getenv("PYFLYBYTEST_NORETRY", None):
-    retry = lambda x: x
-else:
-    retry = flaky.flaky(max_runs=1 if DEFAULT_TIMEOUT < 0 else 1)
 
 
 # _wait_for_output() waits for output, then for a quiet period with no further
@@ -1340,7 +1333,6 @@ def test_ipython_tab_multi_2(frontend):
     """, frontend=frontend, args=['--IPCompleter.use_jedi=False'])
 
 
-@retry
 def test_pyflyby_file_1():
     # Verify that our test setup is getting the right pyflyby.
     f = os.path.realpath(pyflyby.__file__.replace(".pyc", ".py"))
@@ -1351,7 +1343,6 @@ def test_pyflyby_file_1():
     """.format(f=f))
 
 
-@retry
 def test_pyflyby_version_1():
     # Verify that our test setup is getting the right pyflyby.
     ipython("""
@@ -1361,7 +1352,6 @@ def test_pyflyby_version_1():
     """.format(pyflyby=pyflyby))
 
 
-@retry
 def test_ipython_file_1():
     # Verify that our test setup is getting the right IPython.
     f = os.path.realpath(IPython.__file__)
@@ -1372,7 +1362,6 @@ def test_ipython_file_1():
     """.format(f=f))
 
 
-@retry
 def test_ipython_version_1():
     # Verify that our test setup is getting the right IPython.
     ipython("""
@@ -1382,7 +1371,6 @@ def test_ipython_version_1():
     """.format(IPython=IPython))
 
 
-@retry
 def test_autoimport_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1392,7 +1380,6 @@ def test_autoimport_1():
     """)
 
 
-@retry
 def test_no_autoimport_1():
     # Test that without pyflyby installed, we do get NameError.  This is
     # really a test that our testing infrastructure is OK and not accidentally
@@ -1421,7 +1408,6 @@ def test_load_ext_1():
     """)
 
 
-@retry
 def test_unload_ext_1():
     # Test that %unload_ext works.
     # Autoimporting should stop working, but previously imported thi
@@ -1443,7 +1429,6 @@ def test_unload_ext_1():
 
 
 
-@retry
 def test_reload_ext_1():
     # Test that autoimporting still works after %reload_ext.
     ipython("""
@@ -1461,7 +1446,6 @@ def test_reload_ext_1():
     """)
 
 
-@retry
 def test_reload_ext_reload_importdb_1(tmp):
     # Test that %reload_ext causes the importdb to be refreshed.
     writetext(tmp.file, "from itertools import repeat\n")
@@ -1495,7 +1479,6 @@ def test_reload_ext_reload_importdb_1(tmp):
     )
 
 
-@retry
 def test_reload_ext_retry_failed_imports_1(tmp):
     # Verify that %xreload_ext causes us to retry imports that we previously
     # decided not to retry.
@@ -1544,7 +1527,6 @@ def test_reload_ext_retry_failed_imports_1(tmp):
     )
 
 
-@retry
 def test_autoimport_symbol_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1554,7 +1536,6 @@ def test_autoimport_symbol_1():
     """)
 
 
-@retry
 def test_autoimport_forget_from_import_1(tmp):
     # A "from X import Y" listed in a .pyflyby `__forget_imports__` is not
     # auto-imported (even though the same file makes it a known import), while a
@@ -1575,7 +1556,6 @@ def test_autoimport_forget_from_import_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@retry
 def test_autoimport_forget_pyflyby_path_module_1(tmp):
     # Regression for the reported scenario: a .pyflyby file that forgets
     # "import collections" while also providing "from collections import ...".
@@ -1596,7 +1576,6 @@ def test_autoimport_forget_pyflyby_path_module_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@retry
 def test_autoimport_forget_member_access_unaffected(tmp):
     # Forgetting "from base64 import b64decode" suppresses the bare name
     # b64decode, but must not affect access via the (separately imported) module
@@ -1612,7 +1591,6 @@ def test_autoimport_forget_member_access_unaffected(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@retry
 def test_autoimport_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1622,7 +1600,6 @@ def test_autoimport_statement_1():
     """)
 
 
-@retry
 def test_autoimport_multiple_imports_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1633,7 +1610,6 @@ def test_autoimport_multiple_imports_1():
     """)
 
 
-@retry
 def test_autoimport_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1647,7 +1623,6 @@ def test_autoimport_multiline_statement_1():
     """)
 
 
-@retry
 def test_autoimport_multiline_continued_statement_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1667,7 +1642,6 @@ def test_autoimport_multiline_continued_statement_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_autoimport_multiline_continued_statement_fake_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1691,7 +1665,6 @@ def test_autoimport_multiline_continued_statement_fake_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_autoimport_pyflyby_path_1(tmp):
     writetext(tmp.file, "from itertools import product\n")
     ipython(
@@ -1710,7 +1683,6 @@ def test_autoimport_pyflyby_path_1(tmp):
     )
 
 
-@retry
 def test_autoimport_autocall_arg_1():
     # Verify that we can autoimport the argument of an autocall.
     ipython("""
@@ -1721,7 +1693,6 @@ def test_autoimport_autocall_arg_1():
         Out[2]: b'KEYBOARD'
     """, autocall=True)
 
-@retry
 def test_autoimport_autocall_function_1():
     # Verify that we can autoimport the function to autocall.
     ipython("""
@@ -1732,7 +1703,6 @@ def test_autoimport_autocall_function_1():
         Out[2]: b'mouse'
     """, autocall=True)
 
-@retry
 def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     # Verify that we print out all candidate autoimports, when there are
     # multiple.
@@ -1761,7 +1731,6 @@ def test_autoimport_multiple_candidates_ast_transformer_1(tmp):
     )
 
 
-@retry
 def test_autoimport_multiple_candidates_repeated_1(tmp):
     # Verify that we print out the candidate list for another cell.
     writetext(
@@ -1795,7 +1764,6 @@ def test_autoimport_multiple_candidates_repeated_1(tmp):
     )
 
 
-@retry
 def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     # Verify that if an expression contains multiple ambiguous imports, we
     # report each one.
@@ -1827,7 +1795,6 @@ def test_autoimport_multiple_candidates_multiple_in_expression_1(tmp):
     )
 
 
-@retry
 def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     # Verify that if an expression contains an ambiguous import twice, we only
     # report it once.
@@ -1854,7 +1821,6 @@ def test_autoimport_multiple_candidates_repeated_in_expression_1(tmp):
     )
 
 
-@retry
 def test_autoimport_multiple_candidates_ofind_1(tmp):
     # Verify that the multi-candidate menu works even with ofind.
     writetext(tmp.file, """
@@ -1871,7 +1837,6 @@ def test_autoimport_multiple_candidates_ofind_1(tmp):
     """, PYFLYBY_PATH=tmp.file)
 
 
-@retry
 def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     # Verify that the autoimport menu is only printed once, even when multiple
     # joinpoints apply (autocall=>ofind and ast_importer).
@@ -1899,7 +1864,6 @@ def test_autoimport_multiple_candidates_multi_joinpoint_1(tmp):
     )
 
 
-@retry
 def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
     # We should report the multiple candidate issue again if asked again.
     writetext(
@@ -1935,7 +1899,6 @@ def test_autoimport_multiple_candidates_multi_joinpoint_repeated_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_basic_1():
     # Verify that tab completion works.
     ipython("""
@@ -1947,7 +1910,6 @@ def test_complete_symbol_basic_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_forget_1(tmp):
     # A symbol listed in a .pyflyby `__forget_imports__` is neither
     # tab-completed nor auto-imported on Tab. `b64deco<TAB>` therefore does
@@ -1967,7 +1929,6 @@ def test_complete_symbol_forget_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_forget_other_still_completes_1(tmp):
     # Forgetting one import does not disable tab completion / auto-import of a
     # sibling import from the same module.
@@ -1983,7 +1944,6 @@ def test_complete_symbol_forget_other_still_completes_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_multiple_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -1997,7 +1957,6 @@ def test_complete_symbol_multiple_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_partial_multiple_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2009,7 +1968,6 @@ def test_complete_symbol_partial_multiple_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_import_check_1():
     # Check importing into the namespace.  If we use b64decode from base64,
     # then b64decode should be imported into the namespace, but base64 should
@@ -2031,7 +1989,6 @@ def test_complete_symbol_import_check_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_instance_identity_1():
     # Verify that automatic symbols give the same instance (i.e., no proxy
     # objects involved).
@@ -2045,7 +2002,6 @@ def test_complete_symbol_instance_identity_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_member_1(frontend):
     # Verify that tab completion in members works.
     # We expect "base64.b64d" to be reprinted again after the [PYFLYBY] log
@@ -2064,7 +2020,6 @@ def test_complete_symbol_member_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_member_multiple_1(frontend):
     ipython(
         """
@@ -2084,7 +2039,6 @@ def test_complete_symbol_member_multiple_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_member_partial_multiple_1(frontend):
     ipython(
         """
@@ -2102,7 +2056,6 @@ def test_complete_symbol_member_partial_multiple_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_import_module_as_1(frontend, tmp):
     writetext(tmp.file, "import base64 as b64\n")
     ipython("""
@@ -2115,7 +2068,6 @@ def test_complete_symbol_import_module_as_1(frontend, tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_statement_1():
     # Verify that tab completion in statements works.  This requires a more
     # sophisticated code path than test_complete_symbol_basic_1.
@@ -2129,7 +2081,6 @@ def test_complete_symbol_statement_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_multiline_statement_1():
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2147,7 +2098,6 @@ def test_complete_symbol_multiline_statement_1():
 
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_multiline_statement_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2165,7 +2115,6 @@ def test_complete_symbol_multiline_statement_member_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_autocall_arg_1():
     # Verify that tab completion works with autocall.
     ipython("""
@@ -2178,7 +2127,6 @@ def test_complete_symbol_autocall_arg_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_any_module_1(frontend, tmp):
     # Verify that completion and autoimport works for an arbitrary module in
     # $PYTHONPATH.
@@ -2194,7 +2142,6 @@ def test_complete_symbol_any_module_1(frontend, tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_any_module_member_1(frontend, tmp):
     # Verify that completion on members works for an arbitrary module in
     # $PYTHONPATH.
@@ -2211,7 +2158,6 @@ def test_complete_symbol_any_module_member_1(frontend, tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_bad_1(frontend, tmp):
     # Verify that if we have a bad item in known imports, we complete it still.
     writetext(tmp.file, "import foo_31221052_bar\n")
@@ -2233,7 +2179,6 @@ def test_complete_symbol_bad_1(frontend, tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_bad_as_1(frontend, tmp):
     writetext(tmp.file, "import foo_86487172 as bar_98073069_quux\n")
     ipython(
@@ -2253,7 +2198,6 @@ def test_complete_symbol_bad_as_1(frontend, tmp):
     )
 
 
-@retry
 def test_complete_symbol_getitem_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2317,7 +2261,6 @@ def test_complete_symbol_eval_autoimport_1(frontend, evaluation):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_complete_symbol_error_in_getattr_1(frontend):
     # Verify that if there's an exception inside some custom object's getattr,
     # we don't get confused.
@@ -2359,7 +2302,6 @@ def test_property_no_superfluous_access_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
-@retry
 def test_disable_reenable_autoimport_1():
     ipython(
         """
@@ -2386,7 +2328,6 @@ def test_disable_reenable_autoimport_1():
 
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_disable_reenable_completion_1():
     ipython(
         """
@@ -2411,7 +2352,6 @@ def test_disable_reenable_completion_1():
     )
 
 
-@retry
 def test_pinfo_1(tmp):
     # Test that pinfo (ofind hook) works.
     writetext(tmp.dir/"m17426814.py", """
@@ -2428,7 +2368,6 @@ def test_pinfo_1(tmp):
     """, PYTHONPATH=tmp.dir, PYFLYBY_PATH=tmp.file)
 
 
-@retry
 def test_error_during_auto_import_symbol_1(tmp):
     writetext(tmp.file, "3+")
     ipython(
@@ -2455,7 +2394,6 @@ def test_error_during_auto_import_symbol_1(tmp):
     )
 
 
-@retry
 def test_error_during_auto_import_expression_1(tmp):
     writetext(tmp.file, "3+")
     ipython(
@@ -2487,7 +2425,6 @@ def test_error_during_auto_import_expression_1(tmp):
     sys.version_info[:2] == (3, 12),
     reason="Fails sometime on 3.12",
 )
-@retry
 def test_error_during_completion_1(frontend, tmp):
     writetext(tmp.file, "3+")
     with wait_for_output_timeout(1.0):
@@ -2521,7 +2458,6 @@ def test_error_during_completion_1(frontend, tmp):
         )
 
 
-@retry
 def test_syntax_error_in_user_code_1():
     # Verify that we don't inadvertently disable the autoimporter due to
     # a syntax error in the interactive command.
@@ -2536,7 +2472,6 @@ def test_syntax_error_in_user_code_1():
     """)
 
 
-@retry
 def test_run_1(tmp):
     # Test that %run works and autoimports.
     writetext(tmp.file, """
@@ -2552,7 +2487,6 @@ def test_run_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_repeat_1(tmp):
     # Test that repeated %run works, and continues autoimporting, since we
     # start from a fresh namespace each time (since no "-i" option to %run).
@@ -2570,7 +2504,6 @@ def test_run_repeat_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_separate_script_namespace_1(tmp):
     # Another explicit test that we start %run from a fresh namespace
     writetext(tmp.file, """
@@ -2587,7 +2520,6 @@ def test_run_separate_script_namespace_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_separate_script_namespace_2(tmp):
     # Another explicit test that we start %run from a fresh namespace, not
     # inheriting even explicitly defined functions.
@@ -2607,7 +2539,6 @@ def test_run_separate_script_namespace_2(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_modify_interactive_namespace_1(tmp):
     # Verify that %run does affect the interactive namespace.
     writetext(tmp.file, """
@@ -2624,7 +2555,6 @@ def test_run_modify_interactive_namespace_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_i_auto_import_1(tmp):
     # Verify that '%run -i' works and autoimports.
     writetext(tmp.file, """
@@ -2683,7 +2613,6 @@ def test_run_d_donterase(tmp):
     )
 
 
-@retry
 def test_run_i_already_imported_1(tmp):
     # Verify that '%run -i' inherits the interactive namespace.
     writetext(tmp.file, """
@@ -2700,7 +2629,6 @@ def test_run_i_already_imported_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_i_repeated_1(tmp):
     # Verify that '%run -i' affects the next namespace of the next '%run -i'.
     writetext(tmp.file, """
@@ -2716,7 +2644,6 @@ def test_run_i_repeated_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_i_locally_defined_1(tmp):
     # Verify that '%run -i' can inherit interactively defined symbols.
     writetext(tmp.file, """
@@ -2732,7 +2659,6 @@ def test_run_i_locally_defined_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_syntax_error_1(tmp):
     # Verify that a syntax error in a user-run script doesn't affect
     # autoimporter functionality.
@@ -2752,7 +2678,6 @@ def test_run_syntax_error_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_name_main_1(tmp):
     # Verify that __name__ == "__main__" in a %run script.
     writetext(tmp.file, """
@@ -2766,7 +2691,6 @@ def test_run_name_main_1(tmp):
     """.format(tmp=tmp))
 
 
-@retry
 def test_run_name_not_main_1(tmp):
     # Verify that __name__ == basename(filename) using '%run -n'.
     f = writetext(tmp.dir/"f81564382.py", """
@@ -2780,7 +2704,6 @@ def test_run_name_not_main_1(tmp):
     """.format(f=f))
 
 
-@retry
 def test_timeit_1():
     # Verify that %timeit works.
     ipython(u"""
@@ -2794,7 +2717,6 @@ def test_timeit_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_timeit_complete_1(frontend):
     # Verify that tab completion works with %timeit.
     ipython(u"""
@@ -2806,7 +2728,6 @@ def test_timeit_complete_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_timeit_complete_menu_1(frontend):
     # Verify that menu tab completion works with %timeit.
     ipython("""
@@ -2823,7 +2744,6 @@ def test_timeit_complete_menu_1(frontend):
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
-@retry
 def test_timeit_complete_autoimport_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2836,7 +2756,6 @@ def test_timeit_complete_autoimport_member_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_noninteractive_timeit_unaffected_1():
     # Verify that the regular timeit module is unaffected, i.e. that we only
     # hooked the IPython wrapper.
@@ -2854,7 +2773,6 @@ def test_noninteractive_timeit_unaffected_1():
     )
 
 
-@retry
 def test_time_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
@@ -2867,7 +2785,6 @@ def test_time_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_time_repeat_1(frontend):
     # Verify that %time autoimport works.
     ipython("""
@@ -2885,7 +2802,6 @@ def test_time_repeat_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_time_complete_1(frontend):
     # Verify that tab completion works with %time.
     ipython("""
@@ -2899,7 +2815,6 @@ def test_time_complete_1(frontend):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_time_complete_menu_1(frontend):
     # Verify that menu tab completion works with %time.
     ipython("""
@@ -2917,7 +2832,6 @@ def test_time_complete_menu_1(frontend):
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(_IPYTHON_VERSION < (8, 27), reason='Multi-option tests are written for IPython 8.27+')
-@retry
 def test_time_complete_autoimport_member_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -2932,7 +2846,6 @@ def test_time_complete_autoimport_member_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_prun_1():
     # Verify that %prun works, autoimports the first time, but not the second
     # time.
@@ -2950,7 +2863,6 @@ def test_prun_1():
     """)
 
 
-@retry
 def test_noninteractive_profile_unaffected_1():
     # Verify that the profile module itself is not affected (i.e. verify that
     # we only hook the IPython usage of it).
@@ -2968,7 +2880,6 @@ def test_noninteractive_profile_unaffected_1():
     )
 
 
-@retry
 def test_error_during_enable_1():
     # Verify that if an error occurs during enabling, that we disable the
     # autoimporter.  Verify that we don't attempt to re-enable again.
@@ -3005,8 +2916,7 @@ def test_error_during_enable_1():
 @pytest.mark.parametrize("sendeof", [False, True])
 def test_ipython_console_1(sendeof):
     # Verify that autoimort land tab completion work in IPython console.
-    # We retry a few times until success (via the @retry decorator) because
-    # for some versions of ipython, in some configurations, 'ipython console'
+    # For some versions of ipython, in some configurations, 'ipython console'
     # occasionally hangs on startup; not sure why, but it seems unrelated to
     # pyflyby, since it happens before any pyflyby commands.
     # The reason for the 'In [1]: x = 91976012' is to make this test more
@@ -3028,7 +2938,6 @@ def test_ipython_console_1(sendeof):
 
 
 @pytest.mark.skip(reason="hangs")
-@retry
 def test_ipython_notebook_basic_1():
     with IPythonNotebookCtx() as kernel:
         ipython(
@@ -3067,7 +2976,6 @@ def test_ipython_notebook_1():
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_py_interactive_1():
     # Verify that 'py' enables pyflyby autoimporter at start.
     ipython("""
@@ -3077,7 +2985,6 @@ def test_py_interactive_1():
     """, prog="py")
 
 
-@retry
 def test_py_i_interactive_1(tmp):
     # Test that 'py -i' initializes IPython before running the commandline
     # code.
@@ -3093,7 +3000,6 @@ def test_py_i_interactive_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_py_disable_1():
     # Verify that when using 'py', we can disable the autoimporter, and
     # also re-enable it.
@@ -3127,7 +3033,6 @@ def _install_load_ext_pyflyby_in_config(ipython_dir):
 
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_installed_in_config_ipython_cmdline_1(tmp):
     # Verify that autoimport works in 'ipython' when pyflyby is installed in
     # ipython_config.
@@ -3151,7 +3056,6 @@ def test_installed_in_config_ipython_cmdline_1(tmp):
 
 @pytest.mark.slow
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_installed_in_config_redundant_1(tmp):
     # Verify that redundant installations are fine.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3174,7 +3078,6 @@ def test_installed_in_config_redundant_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_installed_in_config_disable_1(tmp):
     # Verify that when we've installed, we can still disable at run-time, and
     # also re-enable.
@@ -3203,7 +3106,6 @@ def test_installed_in_config_disable_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_installed_in_config_enable_noop_1(tmp):
     # Verify that manually calling enable_auto_importer() is a no-op if we've
     # installed pyflyby in ipython_config.
@@ -3233,7 +3135,6 @@ def test_installed_in_config_enable_noop_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_installed_in_config_ipython_py_1(tmp):
     # Verify that installation in ipython_config and 'py' are compatible.
     _install_load_ext_pyflyby_in_config(tmp.ipython_dir)
@@ -3262,7 +3163,6 @@ def test_installed_in_config_ipython_py_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_manual_install_profile_startup_1(tmp):
     # Test that manually installing to the startup folder works.
     writetext(tmp.ipython_dir/"profile_default/startup/foo.py", """
@@ -3276,7 +3176,6 @@ def test_manual_install_profile_startup_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_manual_install_ipython_config_direct_1(tmp):
     # Verify that manually installing in ipython_config.py works when enabling
     # at top level.
@@ -3291,7 +3190,6 @@ def test_manual_install_ipython_config_direct_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_manual_install_exec_lines_1(tmp):
     writetext(tmp.ipython_dir/"profile_default/ipython_config.py", """
         c = get_config()
@@ -3307,7 +3205,6 @@ def test_manual_install_exec_lines_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_manual_install_exec_files_1(tmp):
     writetext(tmp.file, """
         import pyflyby
@@ -3328,7 +3225,6 @@ def test_manual_install_exec_files_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_cmdline_enable_c_i_1(tmp):
     ipython("""
         In [1]: b64deco\tde('Zm94aG91bmQ=')
@@ -3348,7 +3244,6 @@ def test_cmdline_enable_code_to_run_i_1(tmp):
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_cmdline_enable_exec_lines_1(tmp):
     ipython("""
         In [1]: b64deco\tde('cG9vZGxl')
@@ -3373,7 +3268,6 @@ def test_cmdline_enable_exec_files_1(tmp):
         '--InteractiveShellApp.exec_files=[%r]' % (str(tmp.file),)])
 
 
-@retry
 def test_debug_baseline_1(frontend):
     # Verify that we can test ipdb without any pyflyby involved.
     ipython("""
@@ -3388,7 +3282,6 @@ def test_debug_baseline_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_without_autoimport_1(frontend):
     # Verify that without autoimport, we get a NameError.
     ipython("""
@@ -3403,7 +3296,6 @@ def test_debug_without_autoimport_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_p_1(frontend):
     ipython("""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
@@ -3419,7 +3311,6 @@ def test_debug_auto_import_p_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_pp_1(frontend):
     # Verify that auto importing works with "pp foo".
     ipython("""
@@ -3436,7 +3327,6 @@ def test_debug_auto_import_pp_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_default_1(frontend):
     # Verify that auto importing works with "foo(...)".
     ipython("""
@@ -3453,7 +3343,6 @@ def test_debug_auto_import_default_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_print_1(frontend):
     # Verify that auto importing works with "print foo".  (This is executed as
     # a statement; a special case of "default".)
@@ -3471,7 +3360,6 @@ def test_debug_auto_import_print_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_bang_default_1(frontend):
     # Verify that "!blah" works with auto importing.
     ipython("""
@@ -3489,7 +3377,6 @@ def test_debug_auto_import_bang_default_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_postmortem_auto_import_1(frontend):
     # Verify that %debug postmortem mode works.
     ipython("""
@@ -3554,7 +3441,6 @@ def test_debug_tab_completion_module_1(frontend, tmp):
 
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
-@retry
 def test_debug_tab_completion_multiple_1(frontend, tmp):
     # Verify that tab completion with ambiguous names works.
     writetext(tmp.dir/"sturbridge9088333.py", """
@@ -3583,7 +3469,6 @@ def test_debug_tab_completion_multiple_1(frontend, tmp):
 @pytest.mark.skipif(is_free_threaded, reason='stderr/out and completion interleaving on 3.14t')
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
 @pytest.mark.skipif(sys.platform == "darwin" and sys.version_info[:2] == (3, 12), reason='known failure on macOS + Python 3.12')
-@retry
 def test_debug_postmortem_tab_completion_1(frontend):
     # Verify that tab completion in %debug postmortem mode works.
     template = """
@@ -3695,7 +3580,6 @@ def test_debug_second_1(frontend):
     """, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_string_1(frontend):
     # Verify that auto importing works inside the debugger after running
     # "%debug <string>".
@@ -3728,7 +3612,6 @@ def test_debug_auto_import_of_string_1(frontend, tmp):
     """, PYTHONPATH=tmp.dir, frontend=frontend)
 
 
-@retry
 def test_debug_auto_import_statement_step_1(frontend, tmp):
     # Verify that step functionality isn't broken.
     writetext(tmp.dir/"taconic72383428.py", """
@@ -3783,7 +3666,6 @@ debugger_activations = [
     "%debug pass"
 ]
 
-@retry
 @pytest.mark.parametrize("enter_debugger", debugger_activations)
 def test_breakpoint_baseline_1(enter_debugger, frontend):
     # Verify that we can test breakpoint without any pyflyby involved.
@@ -3796,7 +3678,6 @@ def test_breakpoint_baseline_1(enter_debugger, frontend):
     """, frontend=frontend)
 
 
-@retry
 @pytest.mark.parametrize("enter_debugger", debugger_activations)
 def test_breakpoint_without_autoimport_1(enter_debugger, frontend):
     # Verify that without autoimport, we get a NameError.
@@ -3809,7 +3690,6 @@ def test_breakpoint_without_autoimport_1(enter_debugger, frontend):
     """, frontend=frontend)
 
 
-@retry
 @pytest.mark.parametrize("enter_debugger", debugger_activations)
 def test_breakpoint_auto_import_p_1(enter_debugger, frontend):
     ipython(f"""
@@ -3887,7 +3767,6 @@ def test_breakpoint_IOStream_broken():
         )
 
 
-@retry
 def test_autoimport_exec_star_imports_1(tmp):
     # exec_star_imports lets the auto-importer keep working on the rest of a
     # cell that contains a star import.
@@ -3905,7 +3784,6 @@ def test_autoimport_exec_star_imports_1(tmp):
     """, PYTHONPATH=tmp.dir)
 
 
-@retry
 def test_autoimport_exec_star_imports_default_off_1(tmp):
     # Without it, the star import suppresses auto-importing for the rest of
     # the cell, as before.

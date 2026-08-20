@@ -57,7 +57,6 @@ test = [
     'beartype',
     'build',
     'coverage',
-    'flaky',
     'hypothesis',
     'ipdb',
     'ipykernel>=5.4.3',
