@@ -26,6 +26,63 @@ __all__ = ["cached_attribute", "memoize"]
 _T = TypeVar("_T")
 
 
+# Pragmas all have the shape ``# tidy-imports: <directive>[ arg, arg, ...]``,
+# with exactly one space after the ``#`` and after the ``:``.
+_PRAGMA_MARKER = "# tidy-imports: "
+
+
+def _pragma_args(line: str, directive: str) -> "Optional[List[str]]":
+    """Return the arguments passed to ``directive`` on ``line``.
+
+    Arguments are comma-separated; surrounding whitespace is stripped.
+    Returns ``None`` if ``line`` carries no such pragma, and ``[]`` if the
+    pragma is bare.  The pragma is spelled with exactly one space after the
+    ``#`` and after the ``:``.
+
+      >>> _pragma_args("x  # tidy-imports: some-directive foo, bar", "some-directive")
+      ['foo', 'bar']
+      >>> _pragma_args("import os  # tidy-imports: ignore-import", "ignore-import")
+      []
+      >>> _pragma_args("import os  #tidy-imports:ignore-import", "ignore-import")
+      >>> _pragma_args("import os  # tidy-imports: ignore-import", "some-directive")
+    """
+    result: Optional[List[str]] = None
+    pos = 0
+    while True:
+        idx = line.find(_PRAGMA_MARKER, pos)
+        if idx < 0:
+            return result
+        pos = idx + len(_PRAGMA_MARKER)
+        # Anything from a subsequent '#' on belongs to another comment.
+        found, _, args = line[pos:].split("#", 1)[0].partition(" ")
+        if found != directive:
+            continue
+        if result is None:
+            result = []
+        result.extend(a for a in (arg.strip() for arg in args.split(",")) if a)
+
+
+def _lines_have_pragma(
+    lines: "Sequence[str] | None",
+    directive: str,
+    lineno: "int | None",
+    end_lineno: "int | None" = None,
+) -> bool:
+    """Check whether any line in ``[lineno, end_lineno]`` carries ``directive``.
+
+    When ``end_lineno`` is omitted only ``lineno`` is checked.
+    """
+    if lines is None or lineno is None:
+        return False
+    if end_lineno is None:
+        end_lineno = lineno
+    for ln in range(lineno, end_lineno + 1):
+        idx = ln - 1
+        if 0 <= idx < len(lines) and _pragma_args(lines[idx], directive) is not None:
+            return True
+    return False
+
+
 def _has_ignore_pragma(
     lines: "list[str] | None",
     lineno: "int | None",
@@ -39,15 +96,7 @@ def _has_ignore_pragma(
     that actually contains the imported name).  When ``end_lineno`` is omitted
     only ``lineno`` is checked.
     """
-    if lines is None or lineno is None:
-        return False
-    if end_lineno is None:
-        end_lineno = lineno
-    for ln in range(lineno, end_lineno + 1):
-        idx = ln - 1
-        if 0 <= idx < len(lines) and "# tidy-imports: ignore-import" in lines[idx]:
-            return True
-    return False
+    return _lines_have_pragma(lines, "ignore-import", lineno, end_lineno)
 
 
 def stable_unique(items: Iterable[_T]) -> List[_T]:
