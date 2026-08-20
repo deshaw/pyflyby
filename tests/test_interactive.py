@@ -54,8 +54,26 @@ else:
     retry = flaky.flaky(max_runs=3 if DEFAULT_TIMEOUT < 0 else 1)
 
 
+# _wait_for_output() waits for the child to produce output, then waits for a
+# "quiet period" with no further output to decide the child is done.  Both
+# waits are wall-clock based, so on a loaded machine (CI runs the suite under
+# `pytest -n auto`) a too-short wait reads only part of the output and the test
+# fails with a truncated-looking diff.  This was the main source of flakiness
+# in this file; see #32.
+#
+# The initial wait is generous, since it covers the child process being
+# descheduled entirely.  The quiet period can be much shorter, since it only
+# needs to cover the gap between two writes the child has already started
+# making; keeping it short is what keeps the suite fast.
+#
+# PYFLYBYTEST_WAIT_SCALE scales both, for machines slower than CI.
+_WAIT_SCALE = float(os.getenv("PYFLYBYTEST_WAIT_SCALE", "1") or "1")
+
 # Default timeout for _wait_for_output when not explicitly specified
-_WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = 0.5
+_WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT = 2.0 * _WAIT_SCALE
+
+# Default "no more output" quiet period.
+_WAIT_FOR_OUTPUT_QUIET_TIMEOUT = 0.5 * _WAIT_SCALE
 
 
 @contextmanager
@@ -476,11 +494,22 @@ except AttributeError:
 # `policy_overrides` and `auto_import_method` were added in IPython 9.3
 _SUPPORTS_TAB_AUTO_IMPORT = _IPYTHON_VERSION < (9, 3)
 
+# Terminal escape sequences that prompt_toolkit may emit right before drawing
+# the prompt, e.g. the Kitty keyboard protocol push/query (b"\x1b[>1u",
+# b"\x1b[?u") that newer prompt_toolkit versions send.  These carry no visible
+# output, so the prompt patterns below must skip over them instead of
+# requiring the prompt to directly follow the newline.
+_TERM_ESCAPES = (br"(?:\x1b\[[0-9;:?<>=]*[a-zA-Z]"     # CSI ... final byte
+                 br"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC ... BEL/ST
+                 br"|\x1b[()][AB0-2]"                  # charset selection
+                 br"|\x1b[=>78]"                       # misc two-byte escapes
+                 br")*")
+
 # Prompts that we expect for.
-_IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
-_IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
+_IPYTHON_PROMPT1 = br"\n\r?" + _TERM_ESCAPES + br"In \[([0-9]+)\]: "
+_IPYTHON_PROMPT2 = br"\n\r?" + _TERM_ESCAPES + br"   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
-_IPDB_PROMPT = br"\nipdb> "
+_IPDB_PROMPT = br"\n" + _TERM_ESCAPES + br"ipdb> "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
@@ -911,7 +940,7 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                     # counter to do that.  For prompts without a counter, we
                     # just try our best to eat up pending output.  Todo:
                     # is there a better way?
-                    _wait_for_output(child, timeout=0.05)
+                    _wait_for_output(child, timeout=0.5 * _WAIT_SCALE)
                 break
         while line:
             left, tab, right = line.partition(b"\t")
@@ -1047,15 +1076,19 @@ def IPythonNotebookCtx(**kwargs):
             cleanup()
 
 
-def _wait_for_output(child, timeout=None):
+def _wait_for_output(child, timeout=None, quiet_timeout=None):
     """
-    Wait up to ``timeout`` seconds for output.
+    Wait up to ``timeout`` seconds for output, then keep reading until
+    ``quiet_timeout`` seconds pass with no further output.
 
     If timeout is None, uses _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT (controllable
-    via the wait_for_output_timeout context manager).
+    via the wait_for_output_timeout context manager).  If quiet_timeout is
+    None, uses _WAIT_FOR_OUTPUT_QUIET_TIMEOUT (capped at ``timeout``).
     """
     if timeout is None:
         timeout = _WAIT_FOR_OUTPUT_DEFAULT_TIMEOUT
+    if quiet_timeout is None:
+        quiet_timeout = min(_WAIT_FOR_OUTPUT_QUIET_TIMEOUT, timeout)
     # In IPython 5, we cannot send any output before IPython responds to the
     # tab, else it won't respond to the tab.  The purpose of this function is
     # to wait for IPython to respond to a tab.
@@ -1072,8 +1105,10 @@ def _wait_for_output(child, timeout=None):
             break
         if got_data_already:
             # If we previously got any data (after ansi filtering), then keep
-            # going while there's pending data.
-            remaining_timeout = timeout
+            # going while there's pending data.  Only a short quiet period is
+            # needed here: the child has already started writing, so we are
+            # waiting for a gap between writes, not for it to be scheduled.
+            remaining_timeout = quiet_timeout
         else:
             # Wait until timeout.  This condition applies if it's the first
             # loop, or if we've gotten some non-empty data after ansi
@@ -1189,6 +1224,11 @@ def _clean_backspace(arg):
 def _clean_ipython_output(result):
     """Clean up IPython output."""
     result0 = result
+    # Remove Kitty keyboard protocol sequences (CSI with a private prefix and a
+    # final "u"): push b"\x1b[>1u", pop b"\x1b[<u", query b"\x1b[?u", etc.
+    # Newer prompt_toolkit emits these around each prompt; they produce no
+    # visible output, so they must not show up in the compared result.
+    result = re.sub(br"\x1b\[[?<>=][0-9;:]*u", b"", result)
     # Canonicalize newlines.
     result = re.sub(b"\r+\n", b"\n", result)
     # Clean things like "    ESC[4D".
