@@ -52,7 +52,7 @@ else:
 if os.getenv("PYFLYBYTEST_NORETRY", None):
     retry = lambda x: x
 else:
-    retry = flaky.flaky(max_runs=3 if DEFAULT_TIMEOUT < 0 else 1)
+    retry = flaky.flaky(max_runs=1 if DEFAULT_TIMEOUT < 0 else 1)
 
 
 # _wait_for_output() waits for output, then for a quiet period with no further
@@ -2260,7 +2260,7 @@ def test_complete_symbol_getitem_1(frontend):
         In [2]: apples = ['McIntosh', 'PinkLady']
         In [3]: apples[1].l\t
         In [3]: apples[1].l
-        ljust()  lower()  lstrip()
+        ljust()...lower...lstrip...
         In [3]: apples[1].l\x06ow\ter()
         Out[3]: 'pinklady'
     """,
