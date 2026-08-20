@@ -5,8 +5,10 @@
 
 
 
-from   pyflyby._util            import (longest_common_prefix, partition,
-                                        prefixes, stable_unique)
+import pytest
+
+from   pyflyby._util            import (_pragma_args, longest_common_prefix,
+                                        partition, prefixes, stable_unique)
 
 
 def test_stable_unique_1():
@@ -25,3 +27,20 @@ def test_partition_1():
     result = partition('12321233221', lambda c: int(c) % 2 == 0)
     expected = (['2', '2', '2', '2', '2'], ['1', '3', '1', '3', '3', '1'])
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("line", "directive", "expected"),
+    [
+        ("import os  # tidy-imports: ignore-import", "ignore-import", []),
+        # Spacing is strict: exactly one space after the '#' and after the ':'.
+        ("import os  #tidy-imports:ignore-import", "ignore-import", None),
+        ("import os  #  tidy-imports:  ignore-import", "ignore-import", None),
+        ("import os  # tidy-imports: ignore-import x , y", "ignore-import", ["x", "y"]),
+        # Directives match in full, not as a prefix.
+        ("import os  # tidy-imports: ignore-imports", "ignore-import", None),
+        ("x = 1  # ordinary comment", "ignore-import", None),
+    ],
+)
+def test_pragma_args(line, directive, expected):
+    assert _pragma_args(line, directive) == expected
