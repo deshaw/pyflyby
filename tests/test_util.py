@@ -7,8 +7,14 @@
 
 import pytest
 
-from   pyflyby._util            import (_pragma_args, longest_common_prefix,
-                                        partition, prefixes, stable_unique)
+from pyflyby._util import (
+    _parse_ignore_undefined_pragmas,
+    _pragma_args,
+    longest_common_prefix,
+    partition,
+    prefixes,
+    stable_unique,
+)
 
 
 def test_stable_unique_1():
@@ -48,3 +54,13 @@ def test_partition_1():
 )
 def test_pragma_args(line, directive, expected):
     assert _pragma_args(line, directive) == expected
+
+
+def test_parse_ignore_undefined_pragmas():
+    lines = [
+        "# tidy-imports: ignore-undefined[c, get_config]",
+        "d.foo  # tidy-imports: ignore-undefined",
+        "e.foo",
+    ]
+    assert _parse_ignore_undefined_pragmas(lines) == ({"c", "get_config"}, {2})
+    assert _parse_ignore_undefined_pragmas([]) == (set(), set())
