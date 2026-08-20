@@ -984,7 +984,9 @@ def fix_unused_and_missing_imports(
     Individual imports can be excluded from removal by adding
     ``# tidy-imports: ignore-import`` as a trailing comment.
     This is whitespace sensitive: there must be exactly one space after the
-    ``#``, and one after the ``:``.
+    ``#``, and one after the ``:``.  Several directives may share one pragma,
+    separated by commas, and a directive that takes arguments is written
+    ``directive[arg1,arg2]``.
 
     In the example below, ``m1`` and ``m3`` are unused, so are automatically
     removed.  ``np`` was undefined, so an ``import numpy as np`` was

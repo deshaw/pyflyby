@@ -36,7 +36,11 @@ def test_partition_1():
         # Spacing is strict: exactly one space after the '#' and after the ':'.
         ("import os  #tidy-imports:ignore-import", "ignore-import", None),
         ("import os  #  tidy-imports:  ignore-import", "ignore-import", None),
-        ("import os  # tidy-imports: ignore-import x , y", "ignore-import", ["x", "y"]),
+        # Arguments go in brackets; several directives can share one pragma.
+        ("x  # tidy-imports: some[ a , b ]", "some", ["a", "b"]),
+        ("x  # tidy-imports: one[a],two[b]", "two", ["b"]),
+        ("x  # tidy-imports: one[a],two", "two", []),
+        ("x  # tidy-imports: one[a],two[b]", "three", None),
         # Directives match in full, not as a prefix.
         ("import os  # tidy-imports: ignore-imports", "ignore-import", None),
         ("x = 1  # ordinary comment", "ignore-import", None),
