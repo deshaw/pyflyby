@@ -20,6 +20,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock, PythonStatement
 from   pyflyby._util            import (ImportPathCtx, Inf, _has_ignore_pragma,
+                                        _parse_ignore_undefined_pragmas,
                                         memoize)
 
 import re
@@ -984,7 +985,22 @@ def fix_unused_and_missing_imports(
     Individual imports can be excluded from removal by adding
     ``# tidy-imports: ignore-import`` as a trailing comment.
     This is whitespace sensitive: there must be exactly one space after the
-    ``#``, and one after the ``:``.
+    ``#``, and one after the ``:``.  Several directives may share one pragma,
+    separated by commas, and a directive that takes arguments is written
+    ``directive[arg1,arg2]``.
+
+    Undefined names for which no import is known can be excluded from the
+    "undefined name ... and no known import for it" warning with a
+    ``# tidy-imports: ignore-undefined`` pragma.  Listing the names in
+    brackets ignores them anywhere in the file::
+
+        # tidy-imports: ignore-undefined[c,get_config]
+
+    while a bare pragma infers them from its own line, so it only needs to be
+    written once, on the first use::
+
+        c.NotebookApp.port = 8888  # tidy-imports: ignore-undefined
+        c.NotebookApp.ip = "*"     # no pragma needed here
 
     In the example below, ``m1`` and ``m3`` are unused, so are automatically
     removed.  ``np`` was undefined, so an ``import numpy as np`` was
@@ -1097,8 +1113,19 @@ def fix_unused_and_missing_imports(
         # block with the longest common prefix.  Tie-break by preferring later
         # blocks.
         added_imports = set()
+        ignored_names, ignored_linenos = _parse_ignore_undefined_pragmas(
+            str(_codeblock.text).split("\n"))
+        # A bare pragma infers its names from the undefined ones on its line.
+        ignored_names |= set(
+            ident.parts[0]
+            for lineno, ident in missing_imports
+            if lineno in ignored_linenos)
         for lineno, ident in missing_imports:
             import_as = ident.parts[0]
+            if import_as in ignored_names or str(ident) in ignored_names:
+                logger.debug("%s:%s: ignoring undefined name %r",
+                             filename, lineno, import_as)
+                continue
             try:
                 imports = known[import_as]
             except KeyError:

@@ -26,25 +26,48 @@ __all__ = ["cached_attribute", "memoize"]
 _T = TypeVar("_T")
 
 
-# Pragmas all have the shape ``# tidy-imports: <directive>[ arg, arg, ...]``,
-# with exactly one space after the ``#`` and after the ``:``.
+# A pragma comment is ``# tidy-imports: `` -- exactly one space after the ``#``
+# and after the ``:`` -- followed by a comma-separated list of directives,
+# each of which may carry bracketed arguments, e.g.::
+#
+#     # tidy-imports: ignore-import
+#     # tidy-imports: ignore-undefined[c,get_config]
+#     # tidy-imports: ignore-import,ignore-undefined[c,d]
 _PRAGMA_MARKER = "# tidy-imports: "
+
+
+def _split_toplevel_commas(text: str) -> "Iterator[str]":
+    """Split ``text`` on commas that are not inside ``[]``.
+
+      >>> list(_split_toplevel_commas("a[1,2],b"))
+      ['a[1,2]', 'b']
+    """
+    depth = 0
+    start = 0
+    for i, c in enumerate(text):
+        if c == "[":
+            depth += 1
+        elif c == "]":
+            depth = max(0, depth - 1)
+        elif c == "," and depth == 0:
+            yield text[start:i]
+            start = i + 1
+    yield text[start:]
 
 
 def _pragma_args(line: str, directive: str) -> "Optional[List[str]]":
     """Return the arguments passed to ``directive`` on ``line``.
 
-    Arguments are comma-separated; surrounding whitespace is stripped.
-    Returns ``None`` if ``line`` carries no such pragma, and ``[]`` if the
-    pragma is bare.  The pragma is spelled with exactly one space after the
-    ``#`` and after the ``:``.
+    Arguments are given in brackets and separated by commas; whitespace around
+    directives and arguments is stripped.  Returns ``None`` if ``line`` carries
+    no such directive, and ``[]`` if it is given without arguments.
 
-      >>> _pragma_args("x  # tidy-imports: some-directive foo, bar", "some-directive")
+      >>> _pragma_args("x  # tidy-imports: some-directive[foo, bar]", "some-directive")
       ['foo', 'bar']
-      >>> _pragma_args("import os  # tidy-imports: ignore-import", "ignore-import")
+      >>> _pragma_args("x  # tidy-imports: ignore-import, other[a]", "ignore-import")
       []
       >>> _pragma_args("import os  #tidy-imports:ignore-import", "ignore-import")
-      >>> _pragma_args("import os  # tidy-imports: ignore-import", "some-directive")
+      >>> _pragma_args("import os  # tidy-imports: ignore-import", "other")
     """
     result: Optional[List[str]] = None
     pos = 0
@@ -54,12 +77,15 @@ def _pragma_args(line: str, directive: str) -> "Optional[List[str]]":
             return result
         pos = idx + len(_PRAGMA_MARKER)
         # Anything from a subsequent '#' on belongs to another comment.
-        found, _, args = line[pos:].split("#", 1)[0].partition(" ")
-        if found != directive:
-            continue
-        if result is None:
-            result = []
-        result.extend(a for a in (arg.strip() for arg in args.split(",")) if a)
+        for chunk in _split_toplevel_commas(line[pos:].split("#", 1)[0]):
+            name, bracket, rest = chunk.partition("[")
+            if name.strip() != directive:
+                continue
+            if result is None:
+                result = []
+            if bracket:
+                args = rest.rpartition("]")[0] if "]" in rest else rest
+                result.extend(a for a in (arg.strip() for arg in args.split(",")) if a)
 
 
 def _lines_have_pragma(
@@ -97,6 +123,28 @@ def _has_ignore_pragma(
     only ``lineno`` is checked.
     """
     return _lines_have_pragma(lines, "ignore-import", lineno, end_lineno)
+
+
+def _parse_ignore_undefined_pragmas(
+    lines: "Sequence[str] | None",
+) -> "Tuple[set, set]":
+    """Find ``# tidy-imports: ignore-undefined`` pragmas in ``lines``.
+
+    :return:
+      ``(names, linenos)``: names listed explicitly, and the 1-indexed line
+      numbers of bare pragmas, whose names the caller infers.
+    """
+    names: set = set()
+    linenos: set = set()
+    for lineno, line in enumerate(lines or (), 1):
+        args = _pragma_args(line, "ignore-undefined")
+        if args is None:
+            continue
+        if args:
+            names.update(args)
+        else:
+            linenos.add(lineno)
+    return names, linenos
 
 
 def stable_unique(items: Iterable[_T]) -> List[_T]:
