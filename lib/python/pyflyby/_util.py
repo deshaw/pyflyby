@@ -125,6 +125,28 @@ def _has_ignore_pragma(
     return _lines_have_pragma(lines, "ignore-import", lineno, end_lineno)
 
 
+def _parse_ignore_undefined_pragmas(
+    lines: "Sequence[str] | None",
+) -> "Tuple[set, set]":
+    """Find ``# tidy-imports: ignore-undefined`` pragmas in ``lines``.
+
+    :return:
+      ``(names, linenos)``: names listed explicitly, and the 1-indexed line
+      numbers of bare pragmas, whose names the caller infers.
+    """
+    names: set = set()
+    linenos: set = set()
+    for lineno, line in enumerate(lines or (), 1):
+        args = _pragma_args(line, "ignore-undefined")
+        if args is None:
+            continue
+        if args:
+            names.update(args)
+        else:
+            linenos.add(lineno)
+    return names, linenos
+
+
 def stable_unique(items: Iterable[_T]) -> List[_T]:
     """
     Return a copy of ``items`` without duplicates.  The order of other items is
