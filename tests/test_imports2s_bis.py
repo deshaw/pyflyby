@@ -544,3 +544,55 @@ def test_ignore_import_pragma(
     for s in expect_absent:
         with subtests.test(msg="absent", i=s):
             assert s not in result, f"expected {s!r} to be absent"
+
+
+@pytest.mark.parametrize(
+    ("code", "expect_warned", "expect_unwarned"),
+    [
+        pytest.param(
+            """\
+# tidy-imports: ignore-undefined[c,get_config]
+c.NotebookApp.port = 8888
+get_config()
+other_thing()
+""",
+            ["other_thing"],
+            ["c", "get_config"],
+            id="names_listed_explicitly",
+        ),
+        pytest.param(
+            """\
+print(c)
+c.port = foo(bar)  # tidy-imports: ignore-undefined
+print(c, foo)
+d.foo = 1
+""",
+            ["d"],
+            ["c", "foo", "bar"],
+            id="bare_pragma_infers_names_for_whole_file",
+        ),
+    ],
+)
+def test_ignore_undefined_pragma(
+    subtests, capsys, code, expect_warned, expect_unwarned
+):
+    fix_unused_and_missing_imports(PythonBlock(dedent(code).lstrip()), db=ImportDB(""))
+    out, err = capsys.readouterr()
+    assert not err
+    for name in expect_warned:
+        with subtests.test(msg="warned", i=name):
+            assert "undefined name %r" % name in out
+    for name in expect_unwarned:
+        with subtests.test(msg="unwarned", i=name):
+            assert "undefined name %r" % name not in out
+
+
+def test_ignore_undefined_pragma_suppresses_add(capsys):
+    """An ignored name is not auto-imported either."""
+    input_block = PythonBlock("# tidy-imports: ignore-undefined[np]\nnp.zeros(3)\n")
+    db = ImportDB("import numpy as np")
+    output = fix_unused_and_missing_imports(input_block, db=db, add_mandatory=False)
+    assert "import numpy" not in str(output)
+    out, err = capsys.readouterr()
+    assert not err
+    assert "undefined name" not in out

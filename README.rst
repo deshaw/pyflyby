@@ -198,6 +198,35 @@ This works for both top-level and local imports, and for ``from`` style imports:
        import pdb  # tidy-imports: ignore-import
        ...
 
+Ignoring undefined names
+------------------------
+
+Some files use names that are injected by the runtime rather than imported,
+such as ``c`` and ``get_config`` in IPython/Jupyter configuration files.
+``tidy-imports`` reports those as ``undefined name 'c' and no known import for
+it``.  To silence that, list the names in brackets after a
+``# tidy-imports: ignore-undefined`` pragma; they are then ignored anywhere in
+the file:
+
+.. code:: python
+
+   # tidy-imports: ignore-undefined[c,get_config]
+
+   c.NotebookApp.port = 8888
+
+Alternatively, put a bare pragma as a trailing comment on the line where the
+name is used.  The names are then inferred from that line and treated as
+defined for the whole file, so the pragma only needs to be written once, on
+the first use:
+
+.. code:: python
+
+   c.NotebookApp.port = 8888  # tidy-imports: ignore-undefined
+   c.NotebookApp.ip = "*"     # no pragma needed here
+
+An ignored name is neither warned about nor auto-imported, even if a known
+import exists for it.
+
 Quick start: import libraries
 =============================
 
