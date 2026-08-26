@@ -15,6 +15,7 @@ import inspect
 import operator
 import sys
 
+import pickle
 import pytest
 
 from   pyflyby._py              import LoggedList
@@ -191,3 +192,16 @@ def test_copy_preserves_tracking(clone):
     assert c.unaccessed == ["a", "c"]
     c[0]
     assert (c.unaccessed, ll.unaccessed) == (["c"], ["a", "c"])
+
+
+def test_pickle_preserves_tracking():
+    ll = LoggedList(["a", "b", "c"])
+    ll[1]  # access "b"
+    c = pickle.loads(pickle.dumps(ll))
+    assert isinstance(c, LoggedList)
+    assert _raw(c) == ["a", "b", "c"]
+    assert c.unaccessed == ["a", "c"]
+    _check_aligned(c)
+    c[0]
+    assert c.unaccessed == ["c"]
+    assert ll.unaccessed == ["a", "c"]

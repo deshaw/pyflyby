@@ -1073,8 +1073,8 @@ class LoggedList(list):
     GOTCHA: a method left un-overridden reads the underlying storage directly,
     bypassing the tracking silently rather than failing loudly.
     ``test_inherits_only_tracking_neutral_methods`` pins down which ones may be
-    inherited.  Copying is supported; pickling is not, nor is a list that
-    contains itself -- sys.argv is neither.
+    inherited.  Copying and pickling are supported; a list that contains
+    itself is not -- sys.argv is not one.
     """
 
     # prevent arbitrary item assigments like `list`
@@ -1147,6 +1147,17 @@ class LoggedList(list):
         # Assign through ``list``: our own __setitem__ would mark everything.
         super().__setitem__(slice(None), [items[i] for i in indexes])
         self._unaccessed[:] = [self._unaccessed[i] for i in indexes]
+
+    def __reduce__(self):
+        items = super().copy()
+        accessed = [x is self._ACCESSED for x in self._unaccessed]
+        return (self.__class__, (items,), accessed)
+
+    def __setstate__(self, accessed):
+        items = super().copy()
+        self._unaccessed[:] = [
+            self._ACCESSED if a else item for (a, item) in zip(accessed, items)
+        ]
 
     def __copy__(self):
         new = LoggedList(super().copy())
