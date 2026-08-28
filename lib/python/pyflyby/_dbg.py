@@ -1072,11 +1072,29 @@ def inject(
     # https://github.com/lmacken/pyrasite/blob/master/pyrasite/inject.py
     # TODO: add error checking
     # TODO: consider using lldb, especially on Darwin.
-    gdb_commands = (
-        [ 'PyGILState_Ensure()' ]
-        + [ 'PyRun_SimpleString("%s")' % (_escape_for_gdb(statement),)
-            for statement in statements ]
-        + [ 'PyGILState_Release($1)' ])
+    #
+    # Unlike pyrasite, we put everything in a single gdb expression.  Running
+    # the handshake as three separate -eval-commands means that when gdb
+    # abandons the PyRun_SimpleString() call -- which happens whenever a
+    # signal reaches the target while the injected debugger session is still
+    # open -- gdb goes on to run the *next* command anyway, and
+    # PyGILState_Release() then executes against a thread state that is no
+    # longer current, which CPython answers by aborting the process.  That is
+    # issue #131.  Joined with "," (gdb's expression separator) there is no
+    # next command: if the payload is abandoned, the paired release is simply
+    # never evaluated.  That leaks the GIL state we acquired, which is the
+    # deliberate trade-off here -- it only ever happens to a process someone
+    # is already attaching a debugger to.
+    gdb_expression = "(%s)" % (
+        ", ".join(
+            ["$gilstate = PyGILState_Ensure()"]
+            + [
+                'PyRun_SimpleString("%s")' % (_escape_for_gdb(statement),)
+                for statement in statements
+            ]
+            + ["PyGILState_Release($gilstate)", "0"]
+        ),
+    )
     python_path = get_executable(pid)
     if "python" not in python_path.base:
         raise ValueError(
@@ -1097,7 +1115,8 @@ def inject(
         str(pid),
         "-batch",
         "--interpreter=mi",
-    ] + ["-eval-command=call %s" % (c,) for c in gdb_commands]
+        f"-eval-command=call {gdb_expression}",
+    ]
 
     output = subprocess.PIPE if show_gdb_output else _dev_null()
 
