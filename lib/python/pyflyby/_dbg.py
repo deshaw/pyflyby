@@ -18,6 +18,7 @@ from   types                    import CodeType, FrameType, TracebackType
 from   collections.abc          import Callable
 
 from   pyflyby._file            import Filename
+import textwrap
 
 
 """
@@ -1250,18 +1251,33 @@ def attach_debugger(pid):
     #
     # As a concrete example, `typing` module is a package as well a built-in
     # module from Python version >= 3.5
-    statements = [
-        "loader = __import__('importlib').machinery.PathFinder.find_module("
-        "fullname='pyflyby', path=['{pyflyby_dir}'])".format(
-            pyflyby_dir=pyflyby_lib_path),
-        "pyflyby = loader.load_module('pyflyby')"
-    ]
-    statements.append(
-        ("pyflyby.debugger(tty=%r, on_continue=%s)"
-         % (terminal.ttyname, on_continue))
+    block = (
+        textwrap.dedent(
+            """
+        import sys
+        try:
+            pyflyby = sys.modules.get('pyflyby')
+            if pyflyby is None:
+                import importlib.machinery
+                import importlib.util
+                _spec = importlib.machinery.PathFinder.find_spec(
+                    'pyflyby', [__PYFLYBY_DIR__])
+                pyflyby = importlib.util.module_from_spec(_spec)
+                sys.modules['pyflyby'] = pyflyby
+                _spec.loader.exec_module(pyflyby)
+            pyflyby.debugger(tty=__PYFLYBY_TTY__,
+                             on_continue=__PYFLYBY_ON_CONTINUE__)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+        """
         )
+        .replace("__PYFLYBY_DIR__", repr(pyflyby_lib_path))
+        .replace("__PYFLYBY_TTY__", repr(terminal.ttyname))
+        .replace("__PYFLYBY_ON_CONTINUE__", on_continue)
+    )
 
-    gdb_pid = inject(pid, statements=";".join(statements), wait=False)
+    gdb_pid = inject(pid, statements=block, wait=False)
     # Fork a watchdog process to make sure we exit if the target process or
     # gdb process exits, and make sure the gdb process exits if we exit.
     parent_pid = os.getpid()
