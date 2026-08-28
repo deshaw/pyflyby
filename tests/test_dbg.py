@@ -794,6 +794,15 @@ def test_escape_for_gdb_unsafe_chars():
     assert result.startswith("a")
 
 
+def test_escape_for_gdb_escapes_backslash():
+    assert dbg._escape_for_gdb("\\") == r"\134"
+    assert "\\" not in dbg._escape_for_gdb("a\\nb").replace(r"\134", "")
+
+
+def test_escape_for_gdb_octal_is_three_digits():
+    assert dbg._escape_for_gdb("\N{EURO SIGN}") == r"\342\202\254"
+
+
 # ---------------------------------------------------------------------------
 # _dev_null
 # ---------------------------------------------------------------------------
