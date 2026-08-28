@@ -12,6 +12,7 @@ import pwd
 import signal
 import sys
 import time
+import tty
 from   types                    import CodeType, FrameType, TracebackType
 
 from   collections.abc          import Callable
@@ -1022,7 +1023,12 @@ def _dev_null():
     return _memoized_dev_null
 
 
-def inject(pid, statements, wait=True, show_gdb_output=False):
+def inject(
+    pid: int,
+    statements: list[str] | str,
+    wait: bool = True,
+    show_gdb_output: bool = False,
+):
     """
     Execute ``statements`` in a running Python process.
 
@@ -1083,9 +1089,15 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     # easier to parse than the normal human-oriented output (it is also worth
     # noting that at the moment we are never parsig the output, but it's still
     # a good practice to use --interpreter=mi).
-    command = (
-        ['gdb', '-n', str(python_path), '-p', str(pid), '-batch', '--interpreter=mi']
-        + [ '-eval-command=call %s' % (c,) for c in gdb_commands ])
+    command = [
+        "gdb",
+        "-n",
+        str(python_path),
+        "-p",
+        str(pid),
+        "-batch",
+        "--interpreter=mi",
+    ] + ["-eval-command=call %s" % (c,) for c in gdb_commands]
 
     output = subprocess.PIPE if show_gdb_output else _dev_null()
 
@@ -1102,7 +1114,6 @@ def inject(pid, statements, wait=True, show_gdb_output=False):
     else:
         return process.pid
 
-import tty
 
 
 # Copy of tty.setraw that does not set ISIG,
