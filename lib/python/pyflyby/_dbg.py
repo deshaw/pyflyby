@@ -991,18 +991,19 @@ def get_executable(pid):
 
 _gdb_safe_chars = (
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    r"0123456789,./-_=+:;'[]{}\|`~!@#%^&*()<>? ")
+    r"0123456789,./-_=+:;'[]{}|`~!@#%^&*()<>? ")
 
 def _escape_for_gdb(string):
     """
     Escape a string to make it safe for passing to gdb.
     """
     result = []
-    for char in string:
+    for byte in string.encode("utf-8"):
+        char = chr(byte)
         if char in _gdb_safe_chars:
             result.append(char)
         else:
-            result.append(r"\0{0:o}".format(ord(char)))
+            result.append(r"\{0:03o}".format(byte))
     return ''.join(result)
 
 
