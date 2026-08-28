@@ -401,8 +401,10 @@ def _debug_code(arg, globals=None, locals=None, auto_import=True, tty="/dev/tty"
 _CURRENT_FRAME = object()
 
 
-def debugger(*args, **kwargs):
-    '''
+def debugger(*args, tty=None, on_continue=lambda: None, globals=None,
+             locals=None, wait_for_attach=Ellipsis, background=False,
+             mailto=None):
+    """
     Entry point for debugging.
 
     ``debugger()`` can be used in the following ways::
@@ -481,7 +483,14 @@ def debugger(*args, **kwargs):
       If ``False``, then pause execution to debug.
       If ``True``, then fork a process and wait for a debugger to attach in the
       forked child.
-    '''
+    :kwarg mailto:
+      When waiting for a debugger to attach, recipient to email
+      the attach instructions to; defaults to $USER.  Pass ``False`` to only
+      print the instructions (they always go to stderr) and not send any
+      email -- useful when there is no local MTA (Mail Transfer Agent),
+      or when whoever will attach is already watching this process's stderr
+      (e.g. debugging)
+    """
     from ._parse import PythonStatement, PythonBlock, FileText
     if len(args) in {1, 2}:
         arg = args[0]
@@ -489,16 +498,7 @@ def debugger(*args, **kwargs):
         arg = None
     else:
         arg = args
-    tty             = kwargs.pop("tty"            , None)
-    on_continue     = kwargs.pop("on_continue"    , lambda: None)
-    globals         = kwargs.pop("globals"        , None)
-    locals          = kwargs.pop("locals"         , None)
-    wait_for_attach = kwargs.pop("wait_for_attach", Ellipsis)
-    background      = kwargs.pop("background"     , False)
     _debugger_attached = False
-    if kwargs:
-        raise TypeError("debugger(): unexpected kwargs %s"
-                        % (', '.join(sorted(kwargs))))
     if arg is None and tty is not None and wait_for_attach != True:
         # If _waiting_for_debugger is not None, then attach to that
         # (whether it's a frame, traceback, etc).
@@ -512,10 +512,10 @@ def debugger(*args, **kwargs):
     if background:
         # Fork a process and wait for a debugger to attach in the background.
         # Todo: implement on_continue()
-        wait_for_debugger_to_attach(arg, background=True)
+        wait_for_debugger_to_attach(arg, mailto=mailto, background=True)
         return
     if wait_for_attach == True:
-        wait_for_debugger_to_attach(arg)
+        wait_for_debugger_to_attach(arg, mailto=mailto)
         return
     if tty is None:
         if tty_is_usable():
@@ -525,7 +525,7 @@ def debugger(*args, **kwargs):
             # debugger to attach from another (interactive) terminal.
             # Todo: implement on_continue()
             # TODO: capture globals/locals when relevant.
-            wait_for_debugger_to_attach(arg)
+            wait_for_debugger_to_attach(arg, mailto=mailto)
             return
     if isinstance(
         arg, (str, PythonStatement, PythonBlock, FileText, CodeType, Callable)
@@ -646,7 +646,8 @@ def wait_for_debugger_to_attach(arg, mailto=None, background=False, timeout=8640
       What to debug.  Should be a sys.exc_info() result or a sys._getframe()
       result.
     :param mailto:
-      Recipient to email.  Defaults to $USER or current user.
+      Recipient to email.  Defaults to $USER or current user.  Pass ``False``
+      to only print the instructions and not send any email.
     :param background:
       If True, fork a child process.  The parent process continues immediately
       without waiting.  The child process waits for a debugger to attach, and
@@ -704,7 +705,17 @@ def debug_on_exception(function, background=False):
     return wrapped_function
 
 
-def _send_email_with_attach_instructions(arg, mailto, originalpid):
+def _send_email_with_attach_instructions(
+    arg, mailto: str | bool | None, originalpid: int
+):
+    """
+    Print instructions for attaching a debugger to this process, and email
+    them to ``mailto``.
+
+    :param mailto:
+      Recipient to email.  ``None`` means $USER; ``False`` means don't send
+      any email, just print the instructions.
+    """
     from   email.mime.text import MIMEText
     import smtplib
     import socket
@@ -808,6 +819,8 @@ def _send_email_with_attach_instructions(arg, mailto, originalpid):
     prefixed = "".join("[PYFLYBY] %s\n" % line
                        for line in email_body.splitlines())
     sys.stderr.write(prefixed)
+    if mailto is False:
+        return
     # Send email.
     if mailto is None:
         mailto = os.getenv("USER") or user
