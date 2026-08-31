@@ -126,9 +126,16 @@ def test_fast_iter_modules():
 
     assert fast == slow
 
+@pytest.fixture
+def cache_dir(tmp_path):
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    with mock.patch("pyflyby._modules._CACHE_DIR", cache):
+        yield cache
+
+
 @mock.patch.dict(os.environ, {"PYFLYBY_SUPPRESS_CACHE_REBUILD_LOGS": "0"})
-@mock.patch("platformdirs.user_cache_dir")
-def test_import_cache(mock_user_cache_dir, tmp_path):
+def test_import_cache(cache_dir, tmp_path):
     """Test that the import cache is built when iterating modules.
 
     Also:
@@ -137,38 +144,54 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     - Subsequent calls use the cached modules
     - If the mtime of one of the importer paths is updated, the corresponding
       cache file gets regenerated
+
+    The real sys.path is replaced with two directories owned by this test:
+    the cache is keyed on each importer directory's mtime, so with the real
+    sys.path the test races against anything concurrently writing to those
+    directories (e.g. other xdist workers' subprocesses dropping .coverage.*
+    files in the repo root, which is sys.path[0]).
     """
 
-    mock_user_cache_dir.return_value = tmp_path
+    path_one = tmp_path / "path_one"
+    path_one.mkdir()
+    (path_one / "pyflyby_test_mod_one.py").write_text("")
+    path_two = tmp_path / "path_two"
+    path_two.mkdir()
+    (path_two / "pyflyby_test_pkg_two").mkdir()
+    (path_two / "pyflyby_test_pkg_two" / "__init__.py").write_text("")
+    sys_path = [str(path_one), str(path_two)]
 
-    assert len(list(tmp_path.iterdir())) == 0
+    assert len(list(cache_dir.iterdir())) == 0
     with (
+        mock.patch.object(sys, "path", sys_path),
         mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
         mock.patch(
             "pyflyby._modules._iter_file_finder_modules",
             wraps=_iter_file_finder_modules,
         ) as mock_iffm,
     ):
-        list(_fast_iter_modules())
+        modules = {m.name for m in _fast_iter_modules()}
 
-    paths = [str(path.name) for path in tmp_path.iterdir()]
+    assert {"pyflyby_test_mod_one", "pyflyby_test_pkg_two"} <= modules
+    paths = [str(path.name) for path in cache_dir.iterdir()]
     n_cached_paths = len(paths)
     n_log_messages = len(mock_logger.info.call_args_list)
 
     # On the first call, log messages should be generated for each import path. Check
     # that _iter_file_finder_modules was called once for each cached path.
-    assert (n_cached_paths == n_log_messages) and n_cached_paths > 0
+    assert n_cached_paths == n_log_messages == 2
     assert len(mock_iffm.call_args_list) == n_cached_paths
     assert "Rebuilding cache for " in mock_logger.info.call_args.args[0]
     for call_args in mock_logger.info.call_args_list:
         # Grab the path names from the log messages; make sure the sha256 checksum
         # can be found in the paths of the cache directory
         path = pathlib.Path(
-            call_args.args[0].lstrip("Rebuilding cache for ").rstrip("...")
+            call_args.args[0][len("Rebuilding cache for ") :].rstrip(".")
         ).expanduser()
         assert hashlib.sha256(str(path).encode()).hexdigest() in paths
 
     with (
+        mock.patch.object(sys, "path", sys_path),
         mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
         mock.patch(
             "pyflyby._modules._iter_file_finder_modules",
@@ -179,13 +202,13 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
 
     # On the second call, no additional messages should be emitted because the cache has
     # already been built. Check that _iter_file_finder_modules was never called.
-    n_log_messages = len(mock_logger.info.call_args_list)
-    assert n_log_messages == 0
+    assert mock_logger.info.call_args_list == []
     mock_iffm.assert_not_called()
 
     # Update the mtime of one of the importer paths
-    path.touch()
+    path_one.touch()
     with (
+        mock.patch.object(sys, "path", sys_path),
         mock.patch("pyflyby._modules.logger", wraps=logger) as mock_logger,
         mock.patch(
             "pyflyby._modules._iter_file_finder_modules",
@@ -197,23 +220,20 @@ def test_import_cache(mock_user_cache_dir, tmp_path):
     # Only one path should have been updated and only 1 message logged. The number
     # of cache directories should not change.
     assert len(mock_logger.info.call_args_list) == 1
-    assert len(list(tmp_path.iterdir())) == n_cached_paths
+    assert len(list(cache_dir.iterdir())) == n_cached_paths
     mock_iffm.assert_called_once()
 
     # Regression: when the importer's mtime changes, a new <mtime_ns> cache file
     # is written and the stale one must be removed.  Otherwise stale cache files
     # (which are files, not dirs, inside the per-importer cache directory)
-    # accumulate without bound.  `path` here is the importer whose mtime we just
+    # accumulate without bound.  path_one is the importer whose mtime we just
     # bumped; its cache directory should hold exactly the one current file.
-    touched_cache_dir = tmp_path / hashlib.sha256(str(path).encode()).hexdigest()
+    touched_cache_dir = cache_dir / hashlib.sha256(str(path_one).encode()).hexdigest()
     assert len(list(touched_cache_dir.iterdir())) == 1
 
 @mock.patch.dict(os.environ, {"PYFLYBY_DISABLE_CACHE": "1"})
-@mock.patch("platformdirs.user_cache_dir")
-def test_import_perms(mock_user_cache_dir, tmp_path):
+def test_import_perms(cache_dir):
     """Test that the import cache does not fail on unreadable paths."""
-
-    mock_user_cache_dir.return_value = tmp_path
 
     with TemporaryDirectory(suffix="_pyflyby_restricted") as restricted:
         try:
@@ -226,12 +246,10 @@ def test_import_perms(mock_user_cache_dir, tmp_path):
             sys.path.remove(restricted)
 
 
-@mock.patch("platformdirs.user_cache_dir")
-def test_rebuild_import_cache(mock_user_cache_dir, tmp_path):
+def test_rebuild_import_cache(cache_dir):
     """rebuild_import_cache() clears existing cache directories and repopulates."""
-    mock_user_cache_dir.return_value = tmp_path
     # Seed a stale cache directory; rebuild should remove it.
-    stale = tmp_path / "deadbeef"
+    stale = cache_dir / "deadbeef"
     stale.mkdir()
     (stale / "modules.json").write_text("{}")
     with mock.patch("pyflyby._modules._fast_iter_modules") as mock_fim:
@@ -240,11 +258,12 @@ def test_rebuild_import_cache(mock_user_cache_dir, tmp_path):
     mock_fim.assert_called_once()  # cache repopulated
 
 
-@mock.patch("platformdirs.user_cache_dir")
-def test_rebuild_import_cache_missing_dir(mock_user_cache_dir, tmp_path):
+def test_rebuild_import_cache_missing_dir(tmp_path):
     """rebuild_import_cache() doesn't crash when the cache dir doesn't exist yet."""
-    mock_user_cache_dir.return_value = tmp_path / "does_not_exist"
-    with mock.patch("pyflyby._modules._fast_iter_modules") as mock_fim:
+    with (
+        mock.patch("pyflyby._modules._CACHE_DIR", tmp_path / "does_not_exist"),
+        mock.patch("pyflyby._modules._fast_iter_modules") as mock_fim,
+    ):
         rebuild_import_cache()  # must not raise FileNotFoundError
     mock_fim.assert_called_once()
 
