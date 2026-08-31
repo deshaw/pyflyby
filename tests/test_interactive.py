@@ -12,6 +12,7 @@ import sys
 import time
 
 from   contextlib               import contextmanager
+from   functools                import cached_property
 from   io                       import BytesIO
 from   shutil                   import rmtree
 from   subprocess               import check_call
@@ -26,7 +27,6 @@ import requests
 
 import pyflyby
 from   pyflyby._file            import Filename
-from   pyflyby._util            import cached_attribute
 from   tests._test_utils        import EnvVarCtx
 from   typing                   import Union
 
@@ -109,14 +109,14 @@ class _TmpFixture(object):
     def __init__(self, request):
         self._request = request
 
-    @cached_attribute
+    @cached_property
     def dir(self):
         """
         Single memoized new_tempdir()
         """
         return self.new_tempdir()
 
-    @cached_attribute
+    @cached_property
     def file(self):
         """
         Single memoized new_tempfile().
@@ -124,7 +124,7 @@ class _TmpFixture(object):
         """
         return self.new_tempfile()
 
-    @cached_attribute
+    @cached_property
     def ipython_dir(self):
         d = self.new_tempdir()
         _init_ipython_dir(d)

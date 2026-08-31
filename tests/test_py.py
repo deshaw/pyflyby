@@ -6,6 +6,7 @@
 from __future__ import print_function
 
 import ast
+from   functools                import cached_property
 import json
 import os
 import shutil
@@ -21,7 +22,6 @@ import pytest
 
 from   pyflyby._dbg             import inject
 from   pyflyby._file            import Filename
-from   pyflyby._util            import cached_attribute
 
 from   tests.test_interactive   import _build_pythonpath
 
@@ -86,7 +86,7 @@ class _TmpFixture(object):
     def __init__(self, request):
         self._request = request
 
-    @cached_attribute
+    @cached_property
     def dir(self):
         """
         Single memoized new_tempdir()
