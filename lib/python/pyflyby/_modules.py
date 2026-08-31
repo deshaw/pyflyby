@@ -43,14 +43,18 @@ class ErrorDuringImportError(ImportError):
     exist.
     """
 
+
+_CACHE_DIR = pathlib.Path(
+    platformdirs.user_cache_dir(appname="pyflyby", appauthor=False)
+)
+
+
 def rebuild_import_cache() -> None:
     """Force the import cache to be rebuilt.
 
     The cache is deleted before calling _fast_iter_modules, which repopulates the cache.
     """
-    cache_dir = pathlib.Path(
-        platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
-    )
+    cache_dir = _CACHE_DIR
     if cache_dir.is_dir():
         for path in cache_dir.iterdir():
             _remove_import_cache_entry(path)
@@ -646,9 +650,7 @@ def _cached_module_finder(
             yield prefix + module, ispkg
         return
 
-    cache_dir = pathlib.Path(
-        platformdirs.user_cache_dir(appname='pyflyby', appauthor=False)
-    ) / hashlib.sha256(str(importer.path).encode()).hexdigest()
+    cache_dir = _CACHE_DIR / hashlib.sha256(str(importer.path).encode()).hexdigest()
     cache_file = cache_dir / str(os.stat(importer.path).st_mtime_ns)
 
     if cache_file.exists():
