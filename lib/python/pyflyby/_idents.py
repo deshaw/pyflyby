@@ -5,11 +5,11 @@
 from __future__ import annotations, print_function
 
 
-from   functools                import total_ordering
+from   functools                import cached_property, total_ordering
 from   keyword                  import iskeyword
 import re
 
-from   pyflyby._util            import cached_attribute, cmp
+from   pyflyby._util            import cmp
 
 from   typing                   import (Any, Dict, Iterator, List, Optional,
                                         Tuple, Union)
@@ -168,14 +168,14 @@ class DottedIdentifier:
         self.parts = tuple(self.name.split('.'))
         return self
 
-    @cached_attribute
+    @cached_property
     def parent(self) -> Optional["DottedIdentifier"]:
         if len(self.parts) > 1:
             return DottedIdentifier('.'.join(self.parts[:-1]))
         else:
             return None
 
-    @cached_attribute
+    @cached_property
     def prefixes(self) -> Tuple["DottedIdentifier", ...]:
         parts = self.parts
         idxes = range(1, len(parts)+1)
