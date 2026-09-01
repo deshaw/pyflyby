@@ -427,6 +427,7 @@ class _MissingImportFinder:
     _lineno: Optional[int]
     missing_imports: List[Tuple[Optional[int], DottedIdentifier]]
     parse_docstrings: bool
+    _in_annotation: bool = False
     find_unused_imports: bool
     """List of unused imports found during analysis.
 
@@ -654,6 +655,18 @@ class _MissingImportFinder:
                 )
 
     @contextlib.contextmanager
+    def _annotation_context(self):
+        """
+        context manager to track whether we we are in annotation scope
+        """
+        save = self._in_annotation
+        self._in_annotation = True
+        try:
+            yield
+        finally:
+            self._in_annotation = save
+
+    @contextlib.contextmanager
     def _NewScopeCtx(
         self,
         include_class_scopes: bool = False,
@@ -757,7 +770,8 @@ class _MissingImportFinder:
         # visit_Assign's RHS-then-LHS order ('x: int = x + 1' loads x before
         # storing it).  The default field order would visit the target
         # (Store) first.
-        self.visit(node.annotation)
+        with self._annotation_context():
+            self.visit(node.annotation)
         if node.value is not None:
             self.visit(node.value)
         self.visit(node.target)
@@ -841,7 +855,8 @@ class _MissingImportFinder:
             self.visit(node.decorator_list)
             self.visit(node.args)
             if node.returns:
-                self.visit(node.returns)
+                with self._annotation_context():
+                    self.visit(node.returns)
             self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
             self._in_FunctionDef = True
@@ -1080,7 +1095,8 @@ class _MissingImportFinder:
     def visit_arg(self, node: ast.arg) -> None:
         assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         if node.annotation:
-            self.visit(node.annotation)
+            with self._annotation_context():
+                self.visit(node.annotation)
         # Treat it like a Name node would from Python 2
         self._visit_fullname(node.arg, ast.Param())
         self._visit_typecomment(node.type_comment)
@@ -1251,12 +1267,7 @@ class _MissingImportFinder:
             scopestack = missing_ident.scope_info['scopestack']  # type: ignore[index]
             in_class_scope = isinstance(scopestack[-1], _ClassScope)
             inside_class = missing_ident.scope_info.get('_in_class_def')  # type: ignore[union-attr]
-            # Remove if it's in class scope or not inside a class definition
-            # Also remove if it's a simple identifier (forward reference in type annotation)
-            # that matches the class name, regardless of scope
-            is_simple_identifier = (len(missing_ident.parts) == 1 and
-                                    missing_ident.parts[0] == fullname)
-            if in_class_scope or not inside_class or is_simple_identifier:
+            if in_class_scope or not inside_class:
                 self.missing_imports.remove(missing_import)
 
     def _get_scope_info(self) -> Dict[str, Any]:
@@ -1320,7 +1331,10 @@ class _MissingImportFinder:
 
     def _visit_Load(self, fullname: str) -> None:
         logger.debug("_visit_Load(%r)", fullname)
-        if self._in_FunctionDef:
+        if self._in_annotation:
+            # annotation may refer to forward defined names
+            self._visit_Load_defered_global(fullname)
+        elif self._in_FunctionDef:
             # We're in a FunctionDef.  We need to defer checking whether this
             # references undefined names.  The reason is that globals (or
             # stores in a parent function scope) may be stored later.

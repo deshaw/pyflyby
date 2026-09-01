@@ -2056,6 +2056,24 @@ def test_scan_for_import_issues_class_in_type_annotation_before_definition():
     assert unused == []
 
 
+def test_scan_for_import_issues_annotation_not_masked_by_nested_class():
+    code = dedent(
+        """
+    from __future__ import annotations
+
+    def load(path: Path) -> None:
+        pass
+
+    class Loader:
+        class Path:
+            pass
+    """
+    )
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(4, DottedIdentifier("Path"))]
+    assert unused == []
+
+
 def test_setattr_is_not_unused():
     code = dedent("""
         from a import b
