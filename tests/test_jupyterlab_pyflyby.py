@@ -4,13 +4,18 @@ Jupyterlab-pyflyby extension related test
 Some of these test do not need the full extension installed so we put them here.
 """
 
+import comm
+from   comm.base_comm           import BaseComm, CommManager
 from   pyflyby                  import _comms
-from   pyflyby._comms           import (FORMATTING_IMPORTS, TIDY_IMPORTS,
-                                        _reformat_helper, _register_target,
-                                        comm_close_handler, comm_open_handler,
+from   pyflyby._comms           import (FORMATTING_IMPORTS, MISSING_IMPORTS,
+                                        TIDY_IMPORTS, _reformat_helper,
+                                        _register_target, comm_open_handler,
                                         extract_import_statements,
-                                        run_tidy_imports)
+                                        pyflyby_comm_targets, remove_comms,
+                                        run_tidy_imports, send_comm_message)
 import pytest
+import types
+import uuid
 
 
 # insert between marker
@@ -111,31 +116,54 @@ def test_tidy_imports(code_block):
 # Helpers / fixtures for the comm-handling tests below.
 # ---------------------------------------------------------------------------
 
+# These tests drive the handlers through the real comm machinery: the
+# ``CommManager`` a kernel installs and the ``BaseComm`` it creates.  Only the
+# iopub socket is replaced.  See https://github.com/deshaw/pyflyby/issues/598.
 
-class FakeComm:
-    """Minimal stand-in for an ``ipykernel`` ``Comm`` object.
 
-    Records callbacks registered via ``on_close``/``on_msg`` and messages
-    passed to ``send`` so tests can drive and inspect the comm handlers
-    without a live Jupyter kernel.
-    """
+class RecordingComm(BaseComm):
+    """A kernel-side comm that records what it publishes to the frontend."""
 
-    def __init__(self, comm_id="cid"):
-        self.comm_id = comm_id
-        self.sent = []
-        self.on_close_handler = None
-        self.on_msg_handler = None
+    def __init__(self, *args, **kwargs):
+        self.published = []
+        super().__init__(*args, **kwargs)
 
-    def on_close(self, handler):
-        self.on_close_handler = handler
+    def publish_msg(self, msg_type, data=None, **keys):
+        self.published.append((msg_type, data))
 
-    def on_msg(self, func):
-        # Used as a decorator: ``@comm.on_msg``.
-        self.on_msg_handler = func
-        return func
+    @property
+    def sent(self):
+        return [data for msg_type, data in self.published
+                if msg_type == "comm_msg"]
 
-    def send(self, msg):
-        self.sent.append(msg)
+    @property
+    def closed(self):
+        return any(msg_type == "comm_close" for msg_type, _ in self.published)
+
+
+def _message(comm_id, **content):
+    """The part of a kernel message that the comm manager reads."""
+    return {"content": dict(content, comm_id=comm_id)}
+
+
+class Frontend:
+    """Sends comm messages to the kernel the way jupyterlab-pyflyby does."""
+
+    def __init__(self, comm_manager):
+        self.comm_manager = comm_manager
+
+    def open(self, target_name):
+        comm_id = uuid.uuid4().hex
+        self.comm_manager.comm_open(
+            None, None, _message(comm_id, target_name=target_name))
+        return self.comm_manager.comms[comm_id]
+
+    def send(self, comm, data):
+        self.comm_manager.comm_msg(
+            None, None, _message(comm.comm_id, data=data))
+
+    def close(self, comm):
+        self.comm_manager.comm_close(None, None, _message(comm.comm_id))
 
 
 @pytest.fixture
@@ -148,6 +176,32 @@ def clean_comms():
     finally:
         _comms.comms.clear()
         _comms.comms.update(saved)
+
+
+@pytest.fixture
+def frontend(monkeypatch, clean_comms, caplog):
+    """A frontend talking to pyflyby through a real kernel-side comm manager."""
+    comm_manager = CommManager()
+    # ``in_jupyter`` looks for kernel.comm_manager, and ``handle_msg`` triggers
+    # the shell's pre_execute/post_execute events around every comm message.
+    shell = types.SimpleNamespace(
+        kernel=types.SimpleNamespace(comm_manager=comm_manager),
+        events=types.SimpleNamespace(trigger=lambda event: None))
+
+    import IPython.core.getipython as getipython
+    monkeypatch.setattr(getipython, "get_ipython", lambda: shell)
+    monkeypatch.setattr(comm, "create_comm", RecordingComm)
+    monkeypatch.setattr(comm, "get_comm_manager", lambda: comm_manager)
+
+    for target_name in pyflyby_comm_targets:
+        _register_target(target_name)
+
+    yield Frontend(comm_manager)
+
+    # CommManager catches whatever a handler raises and only logs it, so a
+    # handler that fails outright can leave the assertions above intact.
+    assert [record.getMessage() for record in caplog.get_records("call")
+            if record.name == "Comm"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -189,57 +243,10 @@ def test_extract_import_statements_syntax_error():
 # ---------------------------------------------------------------------------
 
 
-def test_register_target(monkeypatch):
-    registered = []
-
-    class FakeCommManager:
-        def register_target(self, target_name, handler):
-            registered.append((target_name, handler))
-
-    class FakeKernel:
-        comm_manager = FakeCommManager()
-
-    class FakeIP:
-        kernel = FakeKernel()
-
-    import IPython.core.getipython as getipython
-    monkeypatch.setattr(getipython, "get_ipython", lambda: FakeIP())
-
-    _register_target("pyflyby.some_target")
-
-    assert registered == [("pyflyby.some_target", comm_open_handler)]
-
-
-# ---------------------------------------------------------------------------
-# comm_close_handler
-# ---------------------------------------------------------------------------
-
-
-def test_comm_close_handler_empty_is_noop(clean_comms):
-    # With no comms registered the loop body never runs; the call is a no-op
-    # and must not raise.
-    comm_close_handler(object(), {"comm_id": "cid"})
-    assert clean_comms == {}
-
-
-def test_comm_close_handler_removes_matching_comm(clean_comms):
-    keep = FakeComm(comm_id="keep")
-    drop = FakeComm(comm_id="drop")
-    clean_comms[FORMATTING_IMPORTS] = keep
-    clean_comms[TIDY_IMPORTS] = drop
-
-    comm_close_handler(drop, {"comm_id": "drop"})
-
-    assert clean_comms == {FORMATTING_IMPORTS: keep}
-
-
-def test_comm_close_handler_unknown_comm_id_is_noop(clean_comms):
-    keep = FakeComm(comm_id="keep")
-    clean_comms[FORMATTING_IMPORTS] = keep
-
-    comm_close_handler(keep, {"comm_id": "nomatch"})
-
-    assert clean_comms == {FORMATTING_IMPORTS: keep}
+def test_register_target(frontend):
+    assert frontend.comm_manager.targets == {
+        target_name: comm_open_handler for target_name in pyflyby_comm_targets
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -247,33 +254,23 @@ def test_comm_close_handler_unknown_comm_id_is_noop(clean_comms):
 # ---------------------------------------------------------------------------
 
 
-def test_comm_open_handler_registers_comm(clean_comms):
-    comm = FakeComm()
-    comm_open_handler(comm, {"content": {"target_name": FORMATTING_IMPORTS}})
+def test_comm_open_registers_comm(frontend, clean_comms):
+    opened = frontend.open(FORMATTING_IMPORTS)
 
-    assert clean_comms[FORMATTING_IMPORTS] is comm
-    assert comm.on_close_handler is comm_close_handler
-    assert comm.on_msg_handler is not None
+    assert clean_comms == {FORMATTING_IMPORTS: opened}
 
 
-def test_comm_open_handler_formatting_imports(clean_comms):
-    comm = FakeComm()
-    comm_open_handler(comm, {"content": {"target_name": FORMATTING_IMPORTS}})
+def test_comm_open_formatting_imports(frontend, clean_comms):
+    opened = frontend.open(FORMATTING_IMPORTS)
 
-    comm.on_msg_handler(
-        {
-            "content": {
-                "data": {
-                    "type": FORMATTING_IMPORTS,
-                    "input_code": "import os\nos.getcwd()",
-                    "imports": ["import sys"],
-                    "msg_id": "m1",
-                }
-            }
-        }
-    )
+    frontend.send(opened, {
+        "type": FORMATTING_IMPORTS,
+        "input_code": "import os\nos.getcwd()",
+        "imports": ["import sys"],
+        "msg_id": "m1",
+    })
 
-    assert comm.sent == [
+    assert opened.sent == [
         {
             "msg_id": "m1",
             "formatted_code": "import os\nimport sys\nos.getcwd()\n",
@@ -282,21 +279,19 @@ def test_comm_open_handler_formatting_imports(clean_comms):
     ]
 
 
-def test_comm_open_handler_tidy_imports(clean_comms):
-    comm = FakeComm()
-    comm_open_handler(comm, {"content": {"target_name": TIDY_IMPORTS}})
+def test_comm_open_tidy_imports(frontend, clean_comms):
+    opened = frontend.open(TIDY_IMPORTS)
 
     cells = [
         {"type": "code", "text": "import os\nimport sys\nos.getcwd()"},
         {"type": "code", "text": "%magic line"},
         {"type": "markdown", "text": "hello"},
     ]
-    comm.on_msg_handler(
-        {"content": {"data": {"type": TIDY_IMPORTS, "cellArray": cells, "checksum": "abc"}}}
-    )
+    frontend.send(opened, {
+        "type": TIDY_IMPORTS, "cellArray": cells, "checksum": "abc"})
 
-    assert len(comm.sent) == 1
-    reply = comm.sent[0]
+    assert len(opened.sent) == 1
+    reply = opened.sent[0]
     assert reply["type"] == TIDY_IMPORTS
     assert reply["checksum"] == "abc"
     # ``import sys`` is unused and dropped from the tidied imports.
@@ -309,3 +304,55 @@ def test_comm_open_handler_tidy_imports(clean_comms):
     assert processed[1]["text"] == "%magic line"
     # Non-code cells are passed through untouched and never ignored.
     assert processed[2] == {"text": "hello", "type": "markdown", "ignore": False}
+
+
+# ---------------------------------------------------------------------------
+# comm_close_handler
+# ---------------------------------------------------------------------------
+
+
+def test_comm_close_stops_sending_to_closed_comm(frontend, clean_comms):
+    opened = frontend.open(MISSING_IMPORTS)
+    send_comm_message(MISSING_IMPORTS, {"missing_imports": "import numpy"})
+
+    frontend.close(opened)
+    send_comm_message(MISSING_IMPORTS, {"missing_imports": "import pandas"})
+
+    assert clean_comms == {}
+    assert opened.sent == [
+        {"missing_imports": "import numpy", "type": MISSING_IMPORTS}]
+
+
+def test_comm_close_keeps_other_comms(frontend, clean_comms):
+    kept = frontend.open(FORMATTING_IMPORTS)
+
+    frontend.close(frontend.open(TIDY_IMPORTS))
+
+    assert clean_comms == {FORMATTING_IMPORTS: kept}
+
+
+def test_comm_close_keeps_reopened_comm(frontend, clean_comms):
+    # Reopening a target without closing the old comm replaces what is
+    # registered for it; closing the old comm then matches nothing.
+    old = frontend.open(TIDY_IMPORTS)
+    new = frontend.open(TIDY_IMPORTS)
+
+    frontend.close(old)
+
+    assert clean_comms == {TIDY_IMPORTS: new}
+
+
+# ---------------------------------------------------------------------------
+# remove_comms
+# ---------------------------------------------------------------------------
+
+
+def test_remove_comms_closes_and_forgets(frontend, clean_comms):
+    # Called when the extension is unloaded.
+    opened = [frontend.open(target_name)
+              for target_name in (FORMATTING_IMPORTS, TIDY_IMPORTS)]
+
+    remove_comms()
+
+    assert clean_comms == {}
+    assert [comm.closed for comm in opened] == [True, True]
