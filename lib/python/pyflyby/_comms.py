@@ -72,6 +72,7 @@ def remove_comms() -> None:
     for target_name, comm in comms.items():
         comm.close()
         logger.debug("Closing comm for " + target_name)
+    comms.clear()
 
 def send_comm_message(target_name: str, msg: Dict[str, Any]) -> None:
     if in_jupyter():
@@ -87,11 +88,16 @@ def send_comm_message(target_name: str, msg: Dict[str, Any]) -> None:
             logger.debug("Sending comm message for target " + target_name)
 
 
-def comm_close_handler(comm: Any, message: Dict[str, Any]) -> None:
-    comm_id = message["comm_id"]
+def comm_close_handler(message: Dict[str, Any]) -> None:
+    """
+    Handles comm_close message for pyflyby custom comm messages.
+    https://jupyter-client.readthedocs.io/en/stable/messaging.html#tearing-down-comms
+    """
+    comm_id = message["content"]["comm_id"]
     for target, comm in list(comms.items()):
         if comm.comm_id == comm_id:
-            comms.pop(target)
+            del comms[target]
+            logger.debug("Comm for target " + target + " was closed by the frontend")
 
 
 def _reformat_helper(
