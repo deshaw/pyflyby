@@ -13,7 +13,7 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 
 
-def main():
+def main() -> None:
     # ``parse_args``/``syntax`` derive the --help/usage banner from
     # ``__main__.__doc__`` (see ``pyflyby._cmdline.maindoc``).  When invoked
     # through the console script entry point the ``__main__`` module is the
@@ -22,7 +22,7 @@ def main():
     if not (__main__.__doc__ or '').strip():
         __main__.__doc__ = __doc__
 
-    options, args = parse_args()
+    options, args = parse_args()  # type:ignore [no-untyped-call]
     if not args:
         syntax()
     db = ImportDB.get_default(".")

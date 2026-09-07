@@ -618,7 +618,7 @@ class FileText:
             raise TypeError("bad type %r" % (type(arg),))
 
     @classmethod
-    def concatenate(cls, args):
+    def concatenate(cls, args: list[FileText]):
         """
         Concatenate a bunch of `FileText` arguments.  Uses the ``filename``
         and ``startpos`` from the first argument.

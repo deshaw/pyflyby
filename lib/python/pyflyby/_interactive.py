@@ -2,7 +2,7 @@
 # Copyright (C) 2011, 2012, 2013, 2014, 2015, 2018 Karl Chen.
 # License: MIT http://opensource.org/licenses/MIT
 
-from __future__ import print_function
+from __future__ import annotations
 
 import ast
 import builtins
@@ -16,7 +16,8 @@ import re
 import subprocess
 import sys
 
-from   typing                   import Any, Dict, List, Literal, Union
+from   typing                   import (Any, Dict, List, Literal,
+                                        TYPE_CHECKING, Union)
 
 
 from   pyflyby._autoimp         import (ScopeStack, auto_import,
@@ -34,6 +35,9 @@ from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
                                         FunctionWithGlobals, advise)
+
+if TYPE_CHECKING:
+    from IPython.core.application import BaseIPythonApplication
 
 if False:
     __original__ = None # for pyflakes
@@ -167,7 +171,9 @@ def get_ipython_terminal_app_with_autoimporter():
     return app
 
 
-def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
+def start_ipython_with_autoimporter(
+    argv=None, app=None, _user_ns=None
+) -> BaseIPythonApplication:
     """
     Start IPython (terminal) with autoimporter enabled.
     """
@@ -228,7 +234,7 @@ def start_ipython_with_autoimporter(argv=None, app=None, _user_ns=None):
     return _initialize_and_start_app_with_autoimporter(app, argv)
 
 
-def start_ipython_kernel_with_autoimporter(argv=None):
+def start_ipython_kernel_with_autoimporter(argv=None) -> BaseIPythonApplication:
     """
     Start IPython kernel with autoimporter enabled.
     """
@@ -236,7 +242,7 @@ def start_ipython_kernel_with_autoimporter(argv=None):
     return _initialize_and_start_app_with_autoimporter(app, argv)
 
 
-def _initialize_and_start_app_with_autoimporter(app, argv):
+def _initialize_and_start_app_with_autoimporter(app, argv) -> BaseIPythonApplication:
     """
     Initialize and start an IPython app, with autoimporting enabled.
 
@@ -313,7 +319,7 @@ def _python_can_import_pyflyby(expected_path, sys_path_entry=None):
         return False
 
 
-def install_in_ipython_config_file():
+def install_in_ipython_config_file() -> None:
     """
     Install the call to 'pyflyby.enable_auto_importer()' to the default
     IPython startup file.

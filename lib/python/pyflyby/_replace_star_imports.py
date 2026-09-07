@@ -26,7 +26,7 @@ from   pyflyby._imports2s       import replace_star_imports
 from   pyflyby._parse           import PythonBlock
 
 
-def main():
+def main() -> None:
     # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
     # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
     # script entry point the ``__main__`` module is the generated wrapper and
@@ -49,7 +49,7 @@ def main():
                               (Default) Only parse module source
                               statically.'''))
 
-    options, args = parse_args(addopts, modify_action_params=True)
+    options, args = parse_args(addopts, modify_action_params=True) # type: ignore [no-untyped-call]
     def modify(x:FileText,/) -> PythonBlock:
         return replace_star_imports(
             PythonBlock(x), params=options.params,

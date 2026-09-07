@@ -166,7 +166,7 @@ def main() -> None:
     options, args = parse_args(
         _add_opts_and_defaults,
         modify_action_params=True,
-    )
+    )  # type: ignore [no-untyped-call]
 
     def modify(file_text: FileText) -> PythonBlock:
         block = PythonBlock(file_text)
