@@ -14,7 +14,7 @@ from   pyflyby._cmdline         import parse_args, process_actions
 from   pyflyby._imports2s       import reformat_import_statements
 
 
-def main():
+def main() -> None:
     # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
     # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
     # script entry point the ``__main__`` module is the generated wrapper and
@@ -23,7 +23,7 @@ def main():
     if not (__main__.__doc__ or '').strip():
         __main__.__doc__ = __doc__
 
-    options, args = parse_args(modify_action_params=True)
+    options, args = parse_args(modify_action_params=True) # type: ignore [no-untyped-call]
     def modify(x):
         return reformat_import_statements(x, params=options.params)
     process_actions(args, options.actions, modify)

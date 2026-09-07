@@ -395,7 +395,7 @@ class ModuleHandle(object):
             ast.FunctionDef: lambda x: [x.name],
         }
         if isinstance(node, tuple(extractors.keys())):
-            return extractors[type(node)](node)
+            return extractors[type(node)](node)  # type: ignore[no-untyped-call]
         return []
 
     @cached_property

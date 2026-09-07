@@ -452,7 +452,9 @@ class SourceToSourceFileImportsTransformation(SourceToSourceTransformationBase):
             params = FormatParams()
         # Apply deferred local-import removals before rendering the blocks.
         self._apply_local_import_removals(params)
-        result = [block.pretty_print(params=params) for block in self.blocks]
+        result: list[FileText] = [
+            FileText(block.pretty_print(params=params)) for block in self.blocks
+        ]
         output = FileText.concatenate(result)
 
         # Handle semicolons in import statements

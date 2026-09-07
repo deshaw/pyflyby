@@ -23,7 +23,7 @@ from   pyflyby._cmdline         import hfmt, parse_args, process_actions
 from   pyflyby._imports2s       import transform_imports
 
 
-def main():
+def main() -> None:
     # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
     # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
     # script entry point the ``__main__`` module is the generated wrapper and
@@ -49,7 +49,7 @@ def main():
                                 When using --transform, also replace matches
                                 inside string literals (including docstrings
                                 and f-string text).  Off by default.'''))
-    options, args = parse_args(
+    options, args = parse_args( # type: ignore [no-untyped-call]
         addopts, modify_action_params=True)
     def modify(x):
         return transform_imports(x, transformations, params=options.params,

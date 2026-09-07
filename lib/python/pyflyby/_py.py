@@ -2241,7 +2241,7 @@ class _PyMain(object):
             self.start_ipython()
 
 
-def py_main(args=None):
+def py_main(args=None) -> None:
     if args is None:
         args = sys.argv[1:]
     _PyMain(args).run()

@@ -108,7 +108,8 @@ from   pyflyby._saveframe       import (_SAVEFRAME_LOGGER,
                                         _validate_saveframe_arguments)
 
 
-def getargs():
+
+def getargs() -> argparse.Namespace:
     """
     Parse the command-line arguments.
     """
@@ -187,7 +188,7 @@ def getargs():
     return args
 
 
-def which(program):
+def which(program:str)->str|None:
     """
     Find the complete path of the ``program``.
 
@@ -212,7 +213,7 @@ def which(program):
     return None
 
 
-def execfile(filepath):
+def execfile(filepath:str) -> None:
     """
     Execute the script stored in ``filepath``.
 
@@ -227,7 +228,7 @@ def execfile(filepath):
         exec(compile(file.read(), filepath, 'exec'), globals_cpy)
 
 
-def run_program(command):
+def run_program(command: list[str]) -> None:
     """
     Run a program.
 
@@ -257,7 +258,7 @@ def run_program(command):
         execfile(prog)
 
 
-def main():
+def main() -> None:
     """
     Main body of the script.
     """

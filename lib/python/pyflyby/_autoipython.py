@@ -46,7 +46,7 @@ from   pyflyby._interactive     import (install_in_ipython_config_file,
                                         start_ipython_with_autoimporter)
 
 
-def main(args=None):
+def main(args=None) -> None:
     # ``maindoc`` derives the --help banner from ``__main__.__doc__`` (see
     # ``pyflyby._cmdline.maindoc``).  When invoked through the console script
     # entry point the ``__main__`` module is the generated wrapper and has no

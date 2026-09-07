@@ -22,7 +22,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 
 
-def main():
+def main() -> None:
     # ``parse_args`` derives the --help/usage banner from ``__main__.__doc__``
     # (see ``pyflyby._cmdline.maindoc``).  When invoked through the console
     # script entry point the ``__main__`` module is the generated wrapper and
@@ -50,7 +50,7 @@ def main():
                           help=hfmt('''
                                 (Default) Scan only modules listed explicitly
                                 on the command line.'''))
-    options, args = parse_args(addopts)
+    options, args = parse_args(addopts) # type: ignore [no-untyped-call]
     if options.expand_known:
         db = ImportDB.get_default(".")
         known = db.known_imports.imports
@@ -69,7 +69,8 @@ def main():
         if not imports:
             continue
         if options.ignore_known:
-            db = ImportDB.get_default(module.__file__)
+            # TODO: according to mypy, there is no __file__ here, maybe it's `.filename`
+            db = ImportDB.get_default(module.__file__) # type: ignore[attr-defined]
             imports = imports.without_imports(db)
         sys.stdout.write(imports.pretty_print(
                 allow_conflicts=True, params=options.params))
