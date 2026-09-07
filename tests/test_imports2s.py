@@ -875,7 +875,7 @@ def test_remove_broken_imports_1():
     assert output == expected
 
 
-def test_replace_star_imports_acceps_str():
+def test_replace_star_imports_accepts_str():
     replace_star_imports("from os import *\n")
 
 
