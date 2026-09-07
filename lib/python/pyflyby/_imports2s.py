@@ -28,7 +28,7 @@ import sys
 import warnings
 
 from   typing                   import (Any, ContextManager, Dict, List,
-                                        Literal, Optional, Union)
+                                        Literal, Optional, Union, cast)
 
 from   textwrap                 import dedent, indent
 
@@ -1238,7 +1238,7 @@ def replace_star_imports(
     :rtype:
       `PythonBlock`
     """
-    if not isinstance(codeblock, (PythonBlock, str)):
+    if not isinstance(cast(Any, codeblock), (PythonBlock, str)):
         warnings.warn(
             "replace_star_imports will only accept PythonBlock or str as "
             "first argument in the future, (warning "
