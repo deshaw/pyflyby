@@ -212,6 +212,7 @@ class ImportDB:
             raise TypeError
         arg, = args
         if isinstance(arg, cls):
+            assert False
             return arg
         if isinstance(arg, ImportSet):
             return cls._from_data(arg, [], [], [])
@@ -358,6 +359,10 @@ class ImportDB:
         if arg is None:
             return cls.get_default(target_filename)
         else:
+            # TODO
+            if isinstance(arg, cls):
+                #assert target_filename is None, "TODO: fix, it is weird to drop target_filename, should we duplicate and just not return ?"
+                return arg
             return cls(arg)
 
     @classmethod
@@ -367,7 +372,6 @@ class ImportDB:
         self.forget_imports    = ImportSet(forget_imports   )
         self.known_imports     = ImportSet(known_imports    ).without_imports(forget_imports)
         self.mandatory_imports = ImportSet(mandatory_imports).without_imports(forget_imports)
-        # TODO: provide more fine-grained control about canonical_imports.
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
 
