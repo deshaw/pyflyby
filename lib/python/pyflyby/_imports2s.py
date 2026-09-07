@@ -1191,9 +1191,13 @@ def remove_broken_imports(
     return transformer.output(params=params)
 
 
-def replace_star_imports(codeblock: PythonBlock, /,
-                         params:ImportFormatParams|None = None, *,
-                         exec_star_imports: bool=False) -> PythonBlock:
+def replace_star_imports(
+    codeblock: Union[PythonBlock, str],
+    /,
+    params: ImportFormatParams | None = None,
+    *,
+    exec_star_imports: bool = False,
+) -> PythonBlock:
     r"""
     Replace lines such as::
 
@@ -1234,14 +1238,16 @@ def replace_star_imports(codeblock: PythonBlock, /,
     :rtype:
       `PythonBlock`
     """
-    if not isinstance(codeblock, PythonBlock):
+    if not isinstance(codeblock, (PythonBlock, str)):
         warnings.warn(
-            "replace_star_imports will only accept PythonBlock as "
+            "replace_star_imports will only accept PythonBlock or str as "
             "first argument in the future, (warning "
             "emitted since pyflyby 1.12)",
             PendingDeprecationWarning,
-            stack_level=2,
+            stacklevel=2,
         )
+        codeblock = PythonBlock(codeblock)
+    if isinstance(codeblock, str):
         codeblock = PythonBlock(codeblock)
     if params is None:
         params = ImportFormatParams()

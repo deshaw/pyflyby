@@ -875,6 +875,15 @@ def test_remove_broken_imports_1():
     assert output == expected
 
 
+def test_replace_star_imports_acceps_str():
+    replace_star_imports("from os import *\n")
+
+
+@pytest.mark.parametrize("ty", (FileText,))
+def test_replace_star_imports_deprecation_other(ty):
+    with pytest.warns(PendingDeprecationWarning):
+        replace_star_imports(ty("from os import *\n"))
+
 def test_replace_star_no_imports_found(capsys):
     m = types.ModuleType("fake_test_module_345490")
     sys.modules["fake_test_module_345490"] = m

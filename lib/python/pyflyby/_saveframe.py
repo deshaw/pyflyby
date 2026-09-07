@@ -312,7 +312,7 @@ def _get_frame_code_line(frame: types.FrameType) -> str:
     """
     filename = frame.f_code.co_filename
     lineno = frame.f_lineno
-    code_line = linecache.getline(filename, lineno).strip()
+    code_line: str | None = linecache.getline(filename, lineno).strip()
     if code_line is None:
         code_line = f"No code content found at {filename!a}: {lineno}"
         _SAVEFRAME_LOGGER.info(code_line + f" for frame {_get_frame_repr(frame)}")
