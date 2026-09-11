@@ -10,7 +10,8 @@ from   pyflyby._importstmt      import Import
 from   pyflyby._log             import logger
 from   pyflyby._parse           import PythonBlock
 
-from   typing                   import Any, Dict, List, Optional, Tuple, Union
+from   typing                   import (Any, Dict, List, Optional, Tuple,
+                                        Union, cast)
 
 # These are comm targets that the frontend (lab/notebook) is expected to
 # open. At this point, we handle only missing imports and
@@ -40,6 +41,7 @@ def in_jupyter() -> bool:
                      "be added in an Jupyter notebook/lab/console environment")
         return False
     else:
+        ip = cast(Any, ip)
         try:
             ip.kernel.comm_manager
         except AttributeError:
@@ -53,6 +55,7 @@ def in_jupyter() -> bool:
 def _register_target(target_name: str) -> None:
     from IPython.core.getipython import get_ipython
     ip = get_ipython()
+    ip = cast(Any, ip)
     comm_manager = ip.kernel.comm_manager
     comm_manager.register_target(target_name, comm_open_handler)
 
@@ -62,7 +65,7 @@ def initialize_comms() -> None:
         for target in pyflyby_comm_targets:
             _register_target(target)
         from ipykernel.comm import Comm
-        comm = Comm(target_name=INIT_COMMS)
+        comm = Comm(target_name=INIT_COMMS)  # type: ignore[no-untyped-call]
         msg = {"type": INIT_COMMS}
         logger.debug("Requesting frontend to (re-)initialize comms")
         comm.send(msg)
@@ -72,6 +75,7 @@ def remove_comms() -> None:
     for target_name, comm in comms.items():
         comm.close()
         logger.debug("Closing comm for " + target_name)
+    comms.clear()
 
 def send_comm_message(target_name: str, msg: Dict[str, Any]) -> None:
     if in_jupyter():
@@ -87,11 +91,16 @@ def send_comm_message(target_name: str, msg: Dict[str, Any]) -> None:
             logger.debug("Sending comm message for target " + target_name)
 
 
-def comm_close_handler(comm: Any, message: Dict[str, Any]) -> None:
-    comm_id = message["comm_id"]
+def comm_close_handler(message: Dict[str, Any]) -> None:
+    """
+    Handles comm_close message for pyflyby custom comm messages.
+    https://jupyter-client.readthedocs.io/en/stable/messaging.html#tearing-down-comms
+    """
+    comm_id = message["content"]["comm_id"]
     for target, comm in list(comms.items()):
         if comm.comm_id == comm_id:
-            comms.pop(target)
+            del comms[target]
+            logger.debug("Comm for target " + target + " was closed by the frontend")
 
 
 def _reformat_helper(

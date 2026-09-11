@@ -206,10 +206,7 @@ class ImportDB:
 
     _default_cache: Dict[Any, Any] = {}
 
-    def __new__(cls, *args: Any) -> "ImportDB":
-        if len(args) != 1:
-            raise TypeError
-        arg, = args
+    def __new__(cls, arg: Any) -> "ImportDB":
         if isinstance(arg, cls):
             return cls._from_data( arg.known_imports, arg.mandatory_imports, arg.canonical_imports, arg.forget_imports,)
         if isinstance(arg, ImportSet):
@@ -372,6 +369,7 @@ class ImportDB:
         self.mandatory_imports = ImportSet(mandatory_imports).without_imports(forget_imports)
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
+
 
     def __or__(self, other: "ImportDB") -> "ImportDB":
         assert isinstance(other, ImportDB)
