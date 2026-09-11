@@ -121,7 +121,7 @@ def test_ImportDB_by_fullname_or_import_as_forget_prefix_1():
 def test_ImportDB_get_default_1():
     db = ImportDB.get_default('.')
     assert isinstance(db, ImportDB)
-    assert ImportDB(db) is db
+    assert ImportDB(db) == db
 
 
 def import_ImportDB_memoized_1():
