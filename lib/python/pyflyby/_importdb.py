@@ -5,7 +5,6 @@
 from __future__ import annotations, print_function
 
 
-
 from   collections              import defaultdict
 import logging
 import os
@@ -200,19 +199,16 @@ class ImportDB:
       canonical_imports.
     """
 
-    forget_imports   : ImportSet
     known_imports    : ImportSet
     mandatory_imports: ImportSet
     canonical_imports: ImportMap
+    forget_imports   : ImportSet
 
     _default_cache: Dict[Any, Any] = {}
 
-    def __new__(cls, *args: Any) -> "ImportDB":
-        if len(args) != 1:
-            raise TypeError
-        arg, = args
+    def __new__(cls, arg: Any) -> "ImportDB":
         if isinstance(arg, cls):
-            return arg
+            return cls._from_data( arg.known_imports, arg.mandatory_imports, arg.canonical_imports, arg.forget_imports,)
         if isinstance(arg, ImportSet):
             return cls._from_data(arg, [], [], [])
         return cls._from_code(arg) # PythonBlock, Filename, etc
@@ -358,6 +354,10 @@ class ImportDB:
         if arg is None:
             return cls.get_default(target_filename)
         else:
+            # TODO
+            if isinstance(arg, cls):
+                #assert target_filename is None, "TODO: fix, it is weird to drop target_filename, should we duplicate and just not return ?"
+                return arg
             return cls(arg)
 
     @classmethod
@@ -367,9 +367,9 @@ class ImportDB:
         self.forget_imports    = ImportSet(forget_imports   )
         self.known_imports     = ImportSet(known_imports    ).without_imports(forget_imports)
         self.mandatory_imports = ImportSet(mandatory_imports).without_imports(forget_imports)
-        # TODO: provide more fine-grained control about canonical_imports.
         self.canonical_imports = ImportMap(canonical_imports).without_imports(forget_imports)
         return self
+
 
     def __or__(self, other: "ImportDB") -> "ImportDB":
         assert isinstance(other, ImportDB)
@@ -525,6 +525,26 @@ class ImportDB:
         printed = self.pretty_print()
         lines = "".join("  "+line for line in printed.splitlines(True))
         return "%s('''\n%s''')" % (type(self).__name__, lines)
+
+    def _data(self) -> Tuple[ImportSet, ImportSet, ImportMap, ImportSet]:
+        return (self.known_imports, self.mandatory_imports,
+                self.canonical_imports, self.forget_imports)
+
+    def __eq__(self, other: Any) -> bool:
+        if self is other:
+            return True
+        if not isinstance(other, ImportDB):
+            return NotImplemented
+        return self._data() == other._data()
+
+    def __ne__(self, other: Any) -> bool:
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
+
+    def __hash__(self) -> int:
+        return hash(self._data())
 
     def pretty_print(self) -> str:
         s = self.known_imports.pretty_print()

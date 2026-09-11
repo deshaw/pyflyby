@@ -28,9 +28,12 @@ def pytest_runtest_setup(item):
 def pytest_assertrepr_compare(config, op, left, right):
     """
     Provide a rich, line-by-line diff when an ``assert a == b`` of two
-    ``PythonBlock`` objects fails, instead of pytest's opaque
-    ``<PythonBlock ...> == <PythonBlock ...>``.
+    ``PythonBlock`` or ``ImportDB`` objects fails, instead of pytest's
+    opaque ``<PythonBlock ...> == <PythonBlock ...>``.
     """
+    importdb_result = _pytest_assertrepr_compare_importdb(op, left, right)
+    if importdb_result is not None:
+        return importdb_result
     if op != "==":
         return None
     from pyflyby._parse import PythonBlock
@@ -50,6 +53,35 @@ def pytest_assertrepr_compare(config, op, left, right):
         lines.append("  flags differ:")
         lines.append("    left:  %s" % (left.flags,))
         lines.append("    right: %s" % (right.flags,))
+    return lines
+
+
+def _pytest_assertrepr_compare_importdb(op, left, right):
+    """
+    Provide a rich, field-by-field diff when an ``assert a == b`` of two
+    ``ImportDB`` objects fails, instead of pytest's opaque
+    ``ImportDB(...) == ImportDB(...)``.
+    """
+    if op != "==":
+        return None
+    from pyflyby._importdb import ImportDB
+    if not (isinstance(left, ImportDB) and isinstance(right, ImportDB)):
+        return None
+    import difflib
+    lines = ["ImportDB(left) == ImportDB(right) failed:"]
+    for attr in ("known_imports", "mandatory_imports",
+                 "canonical_imports", "forget_imports"):
+        left_val = getattr(left, attr)
+        right_val = getattr(right, attr)
+        if left_val == right_val:
+            continue
+        lines.append("  %s differs (- left, + right):" % (attr,))
+        left_lines = repr(left_val).splitlines()
+        right_lines = repr(right_val).splitlines()
+        diff = difflib.unified_diff(
+            left_lines, right_lines, lineterm="",
+            fromfile="left", tofile="right")
+        lines.extend("    " + line for line in diff)
     return lines
 
 

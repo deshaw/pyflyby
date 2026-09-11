@@ -120,7 +120,7 @@ addopts = [
     # Most tests spawn a `py`/IPython subprocess, so the suite is dominated by
     # process startup rather than CPU.  Run them in parallel; use `-n0` to
     # disable (e.g. when debugging with pdb).
-    "-n", "auto",
+    # "-n", "auto",
 ]
 filterwarnings = [
     "error::Warning",

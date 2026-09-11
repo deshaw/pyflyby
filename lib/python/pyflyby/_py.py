@@ -322,11 +322,15 @@ from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import indent, prefixes
 
 # TODO: add --tidy-imports, etc
+#       note: I believe this that we should support running tidy-imports via
+#       $ py --tidy-import
 
 # TODO: new --action="concat_eval eval apply" etc.  specifying multiple
 # actions means try each of them in that order.  then --safe can exclude
 # concat-eval, and users can customize which action modes are included.
 # --apply would be equivalent to --action=apply.
+#       note: right now action does a single dispatch, we can loop, 
+#             I do not know what `concat_eval` would do.
 
 # TODO: plug-in system.  'py foo' should attempt something that the
 # user/vendor can add to the system.  leading candidate: use entry_point
@@ -1975,7 +1979,7 @@ class _PyMain(object):
         enable_sigterm_handler()
         add_debug_functions_to_builtins(add_deprecated=add_deprecated)
 
-    def run(self):
+    def run(self) -> None:
         # Parse global options.
         sys.orig_argv = list(sys.argv)
         self._parse_global_opts()
