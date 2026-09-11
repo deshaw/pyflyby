@@ -83,6 +83,7 @@ docs = [
     'sphinx',
     'sphinx_rtd_theme',
     'sphinx-autodoc-typehints',
+    'ipython',
 ]
 
 [tool.mypy]
@@ -99,7 +100,6 @@ follow_imports = "silent"
 ignore_errors = false
 ignore_missing_imports = false
 warn_incomplete_stub = true
-warn_redundant_casts = true
 warn_redundant_casts = true
 warn_unused_configs = true
 
