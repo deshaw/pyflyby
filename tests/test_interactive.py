@@ -3703,6 +3703,32 @@ def test_breakpoint_auto_import_p_1(enter_debugger, frontend):
     """, frontend=frontend)
 
 
+# "%debug pass" is excluded: it runs the given statement under the debugger,
+# so it legitimately stops elsewhere.
+caller_frame_debugger_activations = [
+    "breakpoint()",
+    "import ipdb; ipdb.set_trace()",
+]
+
+
+@pytest.mark.parametrize("enter_debugger", caller_frame_debugger_activations)
+def test_breakpoint_stops_in_caller_frame_1(enter_debugger, frontend):
+    # Verify that the debugger stops in the frame that entered it
+    ipython(f"""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def f():
+           ...:     wallaby53023190 = 1
+           ...:     {enter_debugger}
+           ...:
+        In [3]: f()
+        > <ipython-input>(3)f()
+        ....
+        ipdb> p wallaby53023190
+        1
+        ipdb> q
+    """, frontend=frontend)
+
+
 @pytest.mark.skipif(
     (3, 14, 1) <= sys.version_info[:3] <= (3, 14, 5),
     reason="linux + >=3.14.1 show some extra stacks.",
