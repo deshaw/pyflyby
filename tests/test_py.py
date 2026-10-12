@@ -2441,3 +2441,22 @@ def test_inject_insufficient_permissions():
 # TODO: test py -i 'code ...'
 # TODO: test 'py -i' == 'py' (no double shell)
 # TODO: exiting debugger with EOF (control-D)
+
+
+def test_traceback_hides_tracebackhide_frames(tmp: _TmpFixture) -> None:
+    f = os.path.join(str(tmp.dir), "tbhide.py")
+    with open(f, "w") as fh:
+        fh.write(dedent("""
+        def wrapper(fn):
+            __tracebackhide__ = True
+            return fn()
+
+        def user_code():
+            raise ValueError("boom")
+
+        wrapper(user_code)
+    """))
+    result, _ = py("--postmortem=no", f)
+    assert "in user_code" in result
+    assert "ValueError: boom" in result
+    assert "in wrapper" not in result

@@ -296,6 +296,7 @@ from   pathlib                  import Path
 import re
 from   shlex                    import quote as shquote
 import sys
+import traceback
 import types
 from   types                    import FunctionType, MethodType, ModuleType
 from   typing                   import Any
@@ -967,6 +968,67 @@ def _get_help(expr:UserExpr, verbosity:int=1) -> str:
 
 _enable_postmortem_debugger = None
 
+
+def _hidden(f: types.FrameType) -> bool:
+    """
+    Predicate for _filter_te
+    """
+    return bool(
+        f.f_locals.get("__tracebackhide__") or f.f_globals.get("__tracebackhide__")
+    )
+
+
+def _filter_te(
+    te: traceback.TracebackException,
+    exc: BaseException,
+    tb: types.TracebackType | None,
+    seen: set[int],
+) -> None:
+    """
+    Warning: Mutating arguments function
+
+    Recursively filter out frames from stacked exceptions
+    (group exception to do later) where ``__tracebackhide__`` is ``True``
+    """
+    seen.add(id(te))
+    frames = []
+    while tb is not None:
+        frames.append(tb.tb_frame)
+        tb = tb.tb_next
+    if len(frames) == len(te.stack):
+        keep = [not _hidden(f) for f in frames[:-1]] + [True]
+        te.stack = traceback.StackSummary.from_list(
+            [fs for fs, k in zip(te.stack, keep) if k]
+        )
+    for sub_te, sub_exc in (
+        (te.__cause__, exc.__cause__),
+        (te.__context__, exc.__context__),
+    ):
+        if sub_te is not None and sub_exc is not None and id(sub_te) not in seen:
+            _filter_te(sub_te, sub_exc, sub_exc.__traceback__, seen)
+
+
+def _hide_tracebackhide_frames(
+    exc: BaseException, tb: types.TracebackType | None
+) -> traceback.TracebackException:
+    """
+    Return a ``traceback.TracebackException`` for ``exc`` (and its chained
+    exceptions) without the entries whose frame sets ``__tracebackhide__`` to
+    a true value (the convention honored by pytest and IPython).  The final
+    entry (where the exception was raised) is always kept.  ``exc`` and its
+    traceback objects are not modified.
+
+    :param exc:
+      The exception to format.
+    :param tb:
+      The traceback of ``exc`` to use.
+    """
+
+    te = traceback.TracebackException(type(exc), exc, tb)
+    _filter_te(te, exc, tb, set())
+    return te
+
+
 def _handle_user_exception(exc_info=None):
     """
     Handle an exception in user code.
@@ -993,8 +1055,10 @@ def _handle_user_exception(exc_info=None):
         # *** Run debugger. ***
         debugger(exc_info)
     # TODO: consider using print_verbose_tb(*exc_info)
-    import traceback
-    traceback.print_exception(*exc_info)
+    te = _hide_tracebackhide_frames(exc_info[1], exc_info[2])
+    # TODO: use ``te.print()`` once Python 3.10 is dropped
+    # (``TracebackException.print`` was added in 3.11).
+    sys.stderr.writelines(te.format())
     raise SystemExit(1)
 
 
