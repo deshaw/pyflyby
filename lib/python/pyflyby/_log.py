@@ -114,6 +114,11 @@ def _get_logger() -> Logger:
                for h in logger.handlers):
         logger.addHandler(_PyflybyHandler())
     logger.setLevel((os.getenv("PYFLYBY_LOG_LEVEL") or "INFO").upper())
+    # pyflyby prints its messages itself via _PyflybyHandler; propagating to
+    # ancestor handlers (e.g. after ``logging.basicConfig()``) would emit each
+    # message a second time.  Applications that want pyflyby records in their
+    # root log stream can set ``logging.getLogger("pyflyby").propagate = True``.
+    logger.propagate = False
     return logger
 
 
