@@ -33,8 +33,8 @@ from   pyflyby._importdb        import ImportDB
 from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, advise, nested)
+from   pyflyby._util            import (Aspect, CwdCtx, FunctionWithGlobals,
+                                        advise)
 
 if TYPE_CHECKING:
     from IPython.core.application import BaseIPythonApplication
@@ -646,6 +646,10 @@ def _enable_pdb_hooks(pdb_instance):
     # Enable hooks in pdb.Pdb.
     # Should be called after pdb.Pdb.__init__().
     logger.debug("_enable_pdb_hooks(%r)", pdb_instance)
+    # Already done by our advice on pdb.Pdb.__init__, if it's installed.
+    if getattr(pdb_instance, "_pyflyby_hooks_enabled", False):
+        return
+    pdb_instance._pyflyby_hooks_enabled = True
     # Patch Pdb._getval() to use auto_eval.
     # This supports 'ipdb> p foo'.
     @advise(pdb_instance._getval)
@@ -1571,92 +1575,32 @@ class AutoImporter:
 
     def _enable_debugger_hook(self, ip):
         import pdb
-        try:
-            Pdb = _get_IPdb_class()
-        except Exception as e:
-            logger.debug("Couldn't locate Pdb class: %s: %s",
-                         type(e).__name__, e)
-            return False
+        # Advise the debugger classes rather than the ways of entering a
+        # debugger: advice around e.g. breakpoint() adds pyflyby frames below
+        # the user's, and the debugger would open in those.  IPython's Pdb and
+        # TerminalPdb reach pdb.Pdb.__init__ via super().
+        @self._advise(pdb.Pdb.__init__)
+        def Pdb_with_autoimport(self_pdb, *args, **kwargs):
+            __original__(self_pdb, *args, **kwargs)
+            # This runs for every debugger: never stop one from starting.
+            try:
+                _enable_pdb_hooks(self_pdb)
+            except Exception as e:
+                logger.error("%s: %s", type(e).__name__, e)
         try:
             TerminalPdb = _get_TerminalPdb_class()
         except Exception as e:
             logger.debug("Couldn't locate TerminalPdb class: %s: %s",
                          type(e).__name__, e)
-            TerminalPdb = None
-        @contextmanager
-        def HookPdbCtx():
-            def Pdb_with_autoimport(self_pdb, *args):
-                __original__(self_pdb, *args)
-                _enable_pdb_hooks(self_pdb)
-            def TerminalPdb_with_autoimport(self_pdb, *args):
-                __original__(self_pdb, *args)
-                _enable_terminal_pdb_hooks(self_pdb, self)
-            def set_trace_in_caller_frame(self_pdb, frame=None, **kwargs):
-                # Skip the frames that our own advice adds, so that the
-                # debugger opens where the user entered it.
-                if frame is None:
-                    frame = sys._getframe().f_back
-                target = _skip_frames(frame, {"pyflyby"})[0] or frame
-                result = __original__(self_pdb, target, **kwargs)
-                if target is not frame:
-                    # set_trace() leaves the debugger stepping, so it would
-                    # stop in the first call made while unwinding our advice.
-                    # Pin the stop to the user's frame instead.  Not with
-                    # Bdb.set_next(): calling it would itself be traced, and
-                    # it turns off the opcode tracing this relies on (below).
-                    self_pdb.stopframe   = target
-                    self_pdb.returnframe = None
-                    self_pdb.stoplineno  = 0
-                return result
-            mgrs = [AdviceCtx(Pdb.__init__, Pdb_with_autoimport)]
-            if TerminalPdb is not None:
-                mgrs.append(AdviceCtx(TerminalPdb.__init__,
-                                      TerminalPdb_with_autoimport))
-            # Pinning the stop relies on set_trace() turning on opcode
-            # tracing, which it does since 3.13.  Without that, bdb ignores
-            # return events in generators and coroutines unless stepping, so
-            # a breakpoint() at the end of one would never stop.
-            if sys.version_info >= (3, 13):
-                # IPython's Pdb overrides set_trace() to record
-                # `initial_frame`; plain pdb.Pdb inherits Bdb's.
-                mgrs.append(AdviceCtx((Pdb, "set_trace"),
-                                      set_trace_in_caller_frame))
-                mgrs.append(AdviceCtx((pdb.Pdb, "set_trace"),
-                                      set_trace_in_caller_frame))
-            with nested(*mgrs):
-                yield
-        ok = True
-
-        @self._advise(sys.breakpointhook)
-        def breakpoint_debugger_with_autoimport(*args, **kwargs):
-            with HookPdbCtx():
-                return __original__(*args, **kwargs)
-
-        try:
-            import ipdb
-
-            if hasattr(ipdb, "set_trace"):
-                @self._advise((ipdb, "set_trace"))
-                def ipdb_debugger_with_autoimport(*args, **kwargs):
-                    with HookPdbCtx():
-                        return __original__(*args, **kwargs)
-            else:
-                ok = False
-        except ModuleNotFoundError:
-            pass
-
-        iptb = getattr(ip, "InteractiveTB", None)
-        if hasattr(iptb, "debugger"):
-            # Hook ip.InteractiveTB.debugger().  This implements auto
-            # importing for "%debug" (postmortem mode).
-            # Tested with IPython 0.10, 0.11, 0.12, 0.13, 1.0, 1.1, 1.2, 2.0,
-            # 2.1, 2.2, 2.3, 2.4, 3.0, 3.1, 3.2, 4.0.
-            @self._advise(iptb.debugger)
-            def debugger_with_autoimport(*args, **kwargs):
-                with HookPdbCtx():
-                    return __original__(*args, **kwargs)
         else:
-            ok = False
+            @self._advise(TerminalPdb.__init__)
+            def TerminalPdb_with_autoimport(self_pdb, *args, **kwargs):
+                __original__(self_pdb, *args, **kwargs)
+                try:
+                    _enable_terminal_pdb_hooks(self_pdb, self)
+                except Exception as e:
+                    logger.error("%s: %s", type(e).__name__, e)
+        ok = True
         if hasattr(ip, 'magics_manager'):
             # Hook ExecutionMagics._run_with_debugger().  This implements auto
             # importing for "%debug <statement>".
@@ -1671,10 +1615,8 @@ class AutoImporter:
                                                       *args, **kwargs):
                     db = ImportDB.get_default(filename or ".")
                     auto_import(code, namespaces=[code_ns], db=db)
-                    with HookPdbCtx():
-                        return __original__(code, code_ns, filename,
-                                            *args, **kwargs
-                        )
+                    return __original__(code, code_ns, filename,
+                                        *args, **kwargs)
         else:
             ok = False
         return ok

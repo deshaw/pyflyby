@@ -218,7 +218,7 @@ def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
     input = []
     expected = b""
-    pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
+    pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|\(Pdb\)|>>>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
@@ -483,10 +483,12 @@ _IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
 _IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
 _IPDB_PROMPT = br"\nipdb> "
+_PDB_PROMPT = br"\n\(Pdb\) "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
-                    _IPDB_PROMPT]
+                    _IPDB_PROMPT,
+                    _PDB_PROMPT]
 # Currently _interact_ipython() assumes the first is "In [nn]:"
 assert b"In " in _IPYTHON_PROMPTS[0]
 
@@ -3718,28 +3720,71 @@ caller_frame_functions = {
 }
 
 
-@pytest.mark.skipif(sys.version_info < (3, 13),
-                    reason="The debugger frame is only corrected on 3.13+")
 @pytest.mark.parametrize("kind", caller_frame_functions)
 @pytest.mark.parametrize("enter_debugger", caller_frame_debugger_activations)
 def test_breakpoint_stops_in_caller_frame_1(enter_debugger, kind, frontend):
     # Verify that the debugger stops in the frame that entered it
     header, body, call = caller_frame_functions[kind]
+    newline = "\n" + " " * 8
     lines = ["wallaby53023190 = 1", *body, enter_debugger]
-    cell = ("\n" + " " * 8).join("   ...:     " + line for line in lines)
+    cell = newline.join("   ...:     " + line for line in lines)
+    stop = ["> <ipython-input>(...)f()"]
+    if sys.version_info < (3, 13):
+        # With no next line to step to, older versions stop on the return.
+        stop = ["--Return--", "None", *stop]
+    stop = newline.join(stop)
     ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: {header}
         {cell}
            ...:
         In [3]: {call}
-        > <ipython-input>(...)f()
+        {stop}
         ....
         ipdb> p wallaby53023190
         1
         ipdb> q
     """, frontend=frontend)
 
+
+def test_breakpoint_stdlib_pdb_1(frontend):
+    # Verify auto importing, and the stop frame, in plain pdb: what
+    # breakpoint() uses when PYTHONBREAKPOINT is unset.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: import os; del os.environ["PYTHONBREAKPOINT"]
+        In [3]: def f():
+           ...:     wallaby53023190 = 1
+           ...:     breakpoint()
+           ...:     wallaby53023190 = 2
+           ...:
+        In [4]: f()
+        > <ipython-input>(...)f()
+        -> ...
+        (Pdb) p wallaby53023190
+        1
+        (Pdb) p b64decode("UGFzY2Fs")
+        [PYFLYBY] from base64 import b64decode
+        b'Pascal'
+        (Pdb) c
+    """, frontend=frontend)
+
+
+def test_ipdb_set_trace_context_1(frontend):
+    # Verify that the context ipdb asks for reaches its debugger.  ipdb passes
+    # it to the constructor, and falls back to the defaults on TypeError.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def f():
+           ...:     wallaby53023190 = 1
+           ...:     wallaby53023190 = 2
+           ...:     import ipdb; ipdb.set_trace(context=1)
+           ...:     wallaby53023190 = 3
+           ...:
+        In [3]: f()
+        > <ipython-input>(...)f()
+        ipdb> q
+    """, frontend=frontend)
 
 @pytest.mark.skipif(
     (3, 14, 1) <= sys.version_info[:3] <= (3, 14, 5),
