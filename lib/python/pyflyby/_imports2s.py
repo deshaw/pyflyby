@@ -30,7 +30,7 @@ import warnings
 from   typing                   import (Any, ContextManager, Dict, List,
                                         Literal, Optional, Union, cast)
 
-from   textwrap                 import dedent, indent
+from   textwrap                 import indent
 
 
 # A mapping of dotted-name prefixes to replacements.  ``transform_imports`` and
@@ -1313,6 +1313,64 @@ def replace_star_imports(
     return transformer.output(params=params)
 
 
+def _dedent_keeping_blank_lines(text: str) -> str:
+    r"""
+    Remove any common leading whitespace from the lines of ``text``, leaving
+    whitespace-only lines untouched.
+
+    This is similar to what `textwrap.dedent` does, except this function keeps
+    blank lines unchanges instead of stripping them.
+
+
+       >>> # append $ at end of line for visibility.
+       >>> print(_dedent_keeping_blank_lines("    a\n   \n    b\n").replace('\n','$\n'))
+       a$
+          $
+       b$
+       <BLANKLINE>
+
+    For this to work properly we do need to ignore the blank lines when computing prefixes.
+
+
+      >>> _dedent_keeping_blank_lines("    a\n        \n    b\n")
+      'a\n        \nb\n'
+
+    That is what makes this the exact inverse of `textwrap.indent`, which
+    by befault leaves whitespace-only lines alone.
+
+    :rtype:
+      ``str``
+    """
+    # implementation notes:
+    # we do not use the length and actually consider
+    # prefixes as \t and SPACE may not have the same length.
+    lines = text.split("\n")
+    margin = None
+    for line in lines:
+        stripped = line.lstrip()
+        if not stripped:
+            continue
+        indentation: str = line[: len(line) - len(stripped)]
+        if margin is None:
+            margin = indentation
+        elif not indentation.startswith(margin):
+            for i, (a, b) in enumerate(zip(margin, indentation)):
+                if a != b:
+                    margin = margin[:i]
+                    break
+            else:
+                margin = margin[: len(indentation)]
+        if not margin:
+            return text
+    if not margin:
+        return text
+    n = len(margin)
+    return "\n".join(
+        line[n:] if line.strip() and line.startswith(margin) else line
+        for line in lines
+    )
+
+
 class _NoImportBlockTransformer:
     """
     AST-aware textual rewriter for a single block of (non-top-level-import)
@@ -1353,8 +1411,12 @@ class _NoImportBlockTransformer:
         # text; dedent here too so that ``_data``/``_line_starts`` (which we
         # splice against using those positions) stay in sync.  For normal
         # top-level blocks the first line is already at column 0 and dedent is
-        # a no-op.
-        source = dedent(block.text.joined)
+        # a no-op.  Use `_dedent_keeping_blank_lines` rather than
+        # `textwrap.dedent` so that whitespace-only lines are left byte-for-byte
+        # alone; `textwrap.dedent` would blank them out even when there is no
+        # common indentation to strip, which would make us rewrite parts of the
+        # file we were never asked to touch.
+        source = _dedent_keeping_blank_lines(block.text.joined)
         self._block = PythonBlock(source, flags=block.flags)
         if not self._block.parsable:
             raise SyntaxError(
