@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 import builtins
-from   contextlib               import contextmanager
+from   contextlib               import ExitStack, contextmanager
 import errno
 import inspect
 import logging
@@ -1570,6 +1570,7 @@ class AutoImporter:
             return False
 
     def _enable_debugger_hook(self, ip):
+        import pdb
         try:
             Pdb = _get_IPdb_class()
         except Exception as e:
@@ -1590,12 +1591,33 @@ class AutoImporter:
             def TerminalPdb_with_autoimport(self_pdb, *args):
                 __original__(self_pdb, *args)
                 _enable_terminal_pdb_hooks(self_pdb, self)
-            with AdviceCtx(Pdb.__init__, Pdb_with_autoimport):
-                if TerminalPdb is None:
-                    yield
-                else:
-                    with AdviceCtx(TerminalPdb.__init__, TerminalPdb_with_autoimport):
-                        yield
+            def set_trace_in_caller_frame(self_pdb, frame=None, **kwargs):
+                # Skip the frames that our own advice adds, so that the
+                # debugger opens where the user entered it.
+                if frame is None:
+                    frame = sys._getframe().f_back
+                frame = _skip_frames(frame, {"pyflyby"})[0] or frame
+                result = __original__(self_pdb, frame, **kwargs)
+                # Equivalent to Bdb.set_next(frame): stop in the user's
+                # frame, rather than in "step" mode, which would stop at the
+                # next event in the advice we are about to return through.
+                # Assigned rather than called, because tracing is enabled by
+                # now, so the call itself would be traced (and stopped in).
+                self_pdb.stopframe   = frame
+                self_pdb.returnframe = None
+                self_pdb.stoplineno  = 0
+                return result
+            with ExitStack() as stack:
+                enter = stack.enter_context
+                enter(AdviceCtx(Pdb.__init__, Pdb_with_autoimport))
+                # IPython's Pdb overrides set_trace() to record
+                # `initial_frame`; plain pdb.Pdb inherits Bdb's.
+                enter(AdviceCtx((Pdb, "set_trace"), set_trace_in_caller_frame))
+                enter(AdviceCtx((pdb.Pdb, "set_trace"), set_trace_in_caller_frame))
+                if TerminalPdb is not None:
+                    enter(AdviceCtx(TerminalPdb.__init__,
+                                    TerminalPdb_with_autoimport))
+                yield
         ok = True
 
         @self._advise(sys.breakpointhook)
