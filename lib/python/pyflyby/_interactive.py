@@ -34,8 +34,7 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, advise,
-                                        nested)
+                                        FunctionWithGlobals, advise, nested)
 
 if TYPE_CHECKING:
     from IPython.core.application import BaseIPythonApplication
