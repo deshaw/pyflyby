@@ -3723,23 +3723,19 @@ caller_frame_functions = {
 @pytest.mark.parametrize("kind", caller_frame_functions)
 @pytest.mark.parametrize("enter_debugger", caller_frame_debugger_activations)
 def test_breakpoint_stops_in_caller_frame_1(enter_debugger, kind, frontend):
-    # Verify that the debugger stops in the frame that entered it
+    # Verify that the debugger stops in the frame that entered it, the only
+    # place the local is visible. What's printed before the prompt varies:
+    # Python 3.12 and older, or another sys.monitoring tool such as
+    # coverage's, print "--Return--" first.
     header, body, call = caller_frame_functions[kind]
-    newline = "\n" + " " * 8
     lines = ["wallaby53023190 = 1", *body, enter_debugger]
-    cell = newline.join("   ...:     " + line for line in lines)
-    stop = ["> <ipython-input>(...)f()"]
-    if sys.version_info < (3, 13):
-        # With no next line to step to, older versions stop on the return.
-        stop = ["--Return--", "None", *stop]
-    stop = newline.join(stop)
+    cell = ("\n" + " " * 8).join("   ...:     " + line for line in lines)
     ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
         In [2]: {header}
         {cell}
            ...:
         In [3]: {call}
-        {stop}
         ....
         ipdb> p wallaby53023190
         1
@@ -3767,6 +3763,27 @@ def test_breakpoint_stdlib_pdb_1(frontend):
         [PYFLYBY] from base64 import b64decode
         b'Pascal'
         (Pdb) c
+    """, frontend=frontend)
+
+
+def test_debugger_hook_with_replaced_pdb_init_1(frontend):
+    # Verify that the auto importer still enables, and hooks the debugger,
+    # when something else has already replaced pdb.Pdb.__init__.
+    ipython("""
+        In [1]: import pdb
+        In [2]: def wrap(init):
+           ...:     def wrapper(self, *args, **kwargs):
+           ...:         init(self, *args, **kwargs)
+           ...:     return wrapper
+           ...:
+        In [3]: pdb.Pdb.__init__ = wrap(pdb.Pdb.__init__)
+        In [4]: import pyflyby; pyflyby.enable_auto_importer()
+        In [5]: %debug pass
+        ....
+        ipdb> p b64decode("V29tYmF0")
+        [PYFLYBY] from base64 import b64decode
+        b'Wombat'
+        ipdb> q
     """, frontend=frontend)
 
 

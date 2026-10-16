@@ -1578,28 +1578,22 @@ class AutoImporter:
         # Advise the debugger classes rather than the ways of entering a
         # debugger: advice around e.g. breakpoint() adds pyflyby frames below
         # the user's, and the debugger would open in those.  IPython's Pdb and
-        # TerminalPdb reach pdb.Pdb.__init__ via super().
-        @self._advise(pdb.Pdb.__init__)
+        # TerminalPdb call pdb.Pdb.__init__ from theirs; in a kernel, pdb.Pdb
+        # is already IPython's InterruptiblePdb.
+        @self._advise((pdb.Pdb, "__init__"))
         def Pdb_with_autoimport(self_pdb, *args, **kwargs):
             __original__(self_pdb, *args, **kwargs)
-            # This runs for every debugger: never stop one from starting.
-            try:
-                _enable_pdb_hooks(self_pdb)
-            except Exception as e:
-                logger.error("%s: %s", type(e).__name__, e)
+            _enable_pdb_hooks(self_pdb)
         try:
             TerminalPdb = _get_TerminalPdb_class()
         except Exception as e:
             logger.debug("Couldn't locate TerminalPdb class: %s: %s",
                          type(e).__name__, e)
         else:
-            @self._advise(TerminalPdb.__init__)
+            @self._advise((TerminalPdb, "__init__"))
             def TerminalPdb_with_autoimport(self_pdb, *args, **kwargs):
                 __original__(self_pdb, *args, **kwargs)
-                try:
-                    _enable_terminal_pdb_hooks(self_pdb, self)
-                except Exception as e:
-                    logger.error("%s: %s", type(e).__name__, e)
+                _enable_terminal_pdb_hooks(self_pdb, self)
         ok = True
         if hasattr(ip, 'magics_manager'):
             # Hook ExecutionMagics._run_with_debugger().  This implements auto
