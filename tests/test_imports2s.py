@@ -10,13 +10,14 @@ import tempfile
 
 import pytest
 import sys
-from   textwrap                 import dedent
+from   textwrap                 import dedent, indent
 import types
 
 from   pyflyby._file            import FileText
 from   pyflyby._format          import FormatParams
 from   pyflyby._importdb        import ImportDB
-from   pyflyby._imports2s       import (canonicalize_imports,
+from   pyflyby._imports2s       import (_dedent_keeping_blank_lines,
+                                        canonicalize_imports,
                                         fix_unused_and_missing_imports,
                                         reformat_import_statements,
                                         remove_broken_imports,
@@ -955,6 +956,194 @@ def test_replace_star_imports_unknown_module_1():
     assert output == expected
 
 
+def _lines(*lines):
+    """
+    Build a source string from one string per physical line.
+
+    Writing these tests a line per string keeps the trailing whitespace that
+    they are about visible (and safe from editors and linters that strip it
+    from source lines), instead of hiding it inside a ``\n``-laden one-liner.
+    """
+    return "".join(line + "\n" for line in lines)
+
+
+# ``_dedent_keeping_blank_lines`` must be the exact inverse of
+# ``textwrap.indent``: dedenting an indented block and re-indenting it by the
+# same margin has to give back the original bytes.  ``textwrap.indent``'s
+# default predicate leaves whitespace-only lines alone, so the dedent must too
+# -- including when such a line is indented *less* than the margin (e.g. a
+# 2-space line in a 4-space block), which is the case that would silently lose
+# bytes if we stripped a partial margin from it.
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Whitespace-only line indented less than the 4-space margin.
+        pytest.param(
+            _lines(
+                "    a = 1",
+                "  ",
+                "    b = 2",
+            ),
+            id="blank_line_under_indented"),
+        # ... exactly at the margin.
+        pytest.param(
+            _lines(
+                "    a = 1",
+                "    ",
+                "    b = 2",
+            ),
+            id="blank_line_at_margin"),
+        # ... more than the margin.
+        pytest.param(
+            _lines(
+                "    a = 1",
+                "        ",
+                "    b = 2",
+            ),
+            id="blank_line_over_indented"),
+        # ... empty.
+        pytest.param(
+            _lines(
+                "    a = 1",
+                "",
+                "    b = 2",
+            ),
+            id="empty_line"),
+        # ... a lone tab.
+        pytest.param(
+            _lines(
+                "    a = 1",
+                "\t",
+                "    b = 2",
+            ),
+            id="tab_only_line"),
+        # Deeper nesting inside the block, so the margin is a strict prefix of
+        # some content lines' indentation.
+        pytest.param(
+            _lines(
+                "    def f():",
+                "        return 1",
+                "  ",
+                "    c = f()",
+            ),
+            id="nested_indentation"),
+        # Whitespace-only lines inside a multi-line string literal.
+        pytest.param(
+            _lines(
+                '    s = """',
+                "  ",
+                "        ",
+                '    """',
+            ),
+            id="blank_lines_in_string"),
+    ],
+)
+def test_dedent_keeping_blank_lines_roundtrip(body):
+    margin = "    "
+    dedented = _dedent_keeping_blank_lines(body)
+    # The dedent really did something (otherwise the round trip is vacuous).
+    assert dedented != body
+    assert indent(dedented, margin) == body
+
+
+def test_dedent_keeping_blank_lines_roundtrip_vs_textwrap_dedent():
+    # The same round trip with ``textwrap.dedent`` loses the whitespace-only
+    # line -- this is the behavior we are deliberately not inheriting.
+    body = _lines(
+        "    a = 1",
+        "  ",
+        "    b = 2",
+    )
+    assert indent(dedent(body), "    ") != body
+
+
+# Indentation is compared as a literal character prefix, exactly as
+# ``textwrap.dedent`` does -- *not* as a count of characters or visual columns.
+# That equivalence is load-bearing rather than cosmetic: ``_parse.py`` dedents
+# with ``textwrap.dedent`` before parsing, so if we picked a different margin
+# than it did, the AST positions would no longer line up with the byte offsets
+# that ``_NoImportBlockTransformer`` splices against.
+@pytest.mark.parametrize(
+    "body",
+    [
+        # A tab and four spaces share no common prefix, so nothing is stripped
+        # -- even though both lines are "indented by some amount".  Stripping a
+        # character *count* here would eat into the code.
+        pytest.param(
+            _lines(
+                "\ta = 1",
+                "    b = 2",
+            ),
+            id="tab_vs_spaces_no_common_prefix"),
+        # Common prefix is a single tab, not two characters.
+        pytest.param(
+            _lines(
+                "\t\ta = 1",
+                "\t b = 2",
+            ),
+            id="tab_tab_vs_tab_space"),
+        # Consistent tab indentation does dedent.
+        pytest.param(
+            _lines(
+                "\ta = 1",
+                "\t\tb = 2",
+            ),
+            id="all_tabs"),
+        # Mixed but consistently-prefixed indentation.
+        pytest.param(
+            _lines(
+                "\t  a = 1",
+                "\t    b = 2",
+            ),
+            id="tab_then_spaces"),
+        # Spaces before a tab is a different prefix than a tab before spaces.
+        pytest.param(
+            _lines(
+                " \ta = 1",
+                "\t b = 2",
+            ),
+            id="space_tab_vs_tab_space"),
+        # ... and with whitespace-only lines of each flavor mixed in.
+        pytest.param(
+            _lines(
+                "\t  a = 1",
+                "\t",
+                "  ",
+                "\t   ",
+                "",
+                "\t  b = 2",
+            ),
+            id="mixed_with_blank_lines"),
+    ],
+)
+def test_dedent_keeping_blank_lines_matches_textwrap_dedent(body):
+    ours = _dedent_keeping_blank_lines(body)
+    theirs = dedent(body)
+    # Same number of lines, and the lines with actual content are dedented
+    # identically to ``textwrap.dedent``.
+    assert len(ours.split("\n")) == len(body.split("\n"))
+    assert ([l for l in ours.split("\n") if l.strip()]
+            == [l for l in theirs.split("\n") if l.strip()])
+    # Whitespace-only lines are ours alone: passed through verbatim, where
+    # ``textwrap.dedent`` would have blanked them.
+    assert ([l for l in ours.split("\n") if not l.strip()]
+            == [l for l in body.split("\n") if not l.strip()])
+
+
+def test_dedent_keeping_blank_lines_no_common_indent_is_identity():
+    # A top-level block has no common margin, so this must be a strict no-op,
+    # whitespace-only lines included.
+    text = _lines(
+        "a = 1",
+        "  ",
+        "\t",
+        "def f():",
+        "    return 1",
+        "    ",
+    )
+    assert _dedent_keeping_blank_lines(text) == text
+
+
 def test_transform_imports_1():
     input = PythonBlock(dedent('''
         from m import x
@@ -976,6 +1165,21 @@ def test_transform_imports_1():
 _fstring_skipif = pytest.mark.skipif(
     sys.version_info < (3, 12),
     reason="f-string node positions are unreliable before 3.12")
+
+# Whitespace-only lines that must survive a transform pass untouched.  Written
+# a line per string so the trailing whitespace under test stays visible.
+_TAB_ONLY_LINE_BODY = _lines(
+    "def f():",
+    "    x = 1",
+    "\t",
+    "    return x",
+)
+_BLANK_LINE_IN_STRING_BODY = _lines(
+    'doc = """',
+    "  ",
+    "alpha.beta",
+    '"""',
+)
 
 
 @pytest.mark.parametrize(
@@ -1051,6 +1255,33 @@ _fstring_skipif = pytest.mark.skipif(
             'f"{alpha.beta} alpha.beta"\n', {"alpha.beta": "gamma.delta"}, True,
             'f"{gamma.delta} gamma.delta"\n',
             id="fstring_expression_opt_in", marks=_fstring_skipif),
+        # Whitespace-only lines must be left byte-for-byte alone, both when
+        # there is a transformation to apply and when there isn't.  See
+        # https://github.com/Quansight/deshaw/issues/735
+        pytest.param(
+            _lines(
+                "def f():",
+                "    alpha.beta",
+                "    ",
+                "    return 1",
+            ),
+            {"alpha.beta": "gamma.delta"}, False,
+            _lines(
+                "def f():",
+                "    gamma.delta",
+                "    ",
+                "    return 1",
+            ),
+            id="whitespace_only_line_preserved"),
+        pytest.param(
+            _TAB_ONLY_LINE_BODY, {}, False, _TAB_ONLY_LINE_BODY,
+            id="whitespace_only_line_preserved_no_transformations"),
+        # ... including inside a string literal we aren't rewriting.
+        pytest.param(
+            _BLANK_LINE_IN_STRING_BODY,
+            {"alpha.beta": "gamma.delta"}, False,
+            _BLANK_LINE_IN_STRING_BODY,
+            id="whitespace_only_line_in_string_preserved"),
     ],
 )
 def test_transform_imports_noimport_block(
