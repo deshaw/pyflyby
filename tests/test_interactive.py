@@ -3706,22 +3706,34 @@ def test_breakpoint_auto_import_p_1(enter_debugger, frontend):
 # "%debug pass" is excluded: it runs the given statement under the debugger,
 # so it legitimately stops elsewhere.
 caller_frame_debugger_activations = [
-    "breakpoint()",
-    "import ipdb; ipdb.set_trace()",
+    a for a in debugger_activations if not a.startswith("%debug")
 ]
 
+# The debugger is entered on the last line of each: with no next line to stop
+# on, this is where generators and coroutines behave differently.
+caller_frame_functions = {
+    "function":  ("def f():",       [],          "f()"),
+    "generator": ("def f():",       ["yield 1"], "list(f())"),
+    "coroutine": ("async def f():", [],          "await f()"),
+}
 
+
+@pytest.mark.skipif(sys.version_info < (3, 13),
+                    reason="The debugger frame is only corrected on 3.13+")
+@pytest.mark.parametrize("kind", caller_frame_functions)
 @pytest.mark.parametrize("enter_debugger", caller_frame_debugger_activations)
-def test_breakpoint_stops_in_caller_frame_1(enter_debugger, frontend):
+def test_breakpoint_stops_in_caller_frame_1(enter_debugger, kind, frontend):
     # Verify that the debugger stops in the frame that entered it
+    header, body, call = caller_frame_functions[kind]
+    lines = ["wallaby53023190 = 1", *body, enter_debugger]
+    cell = ("\n" + " " * 8).join("   ...:     " + line for line in lines)
     ipython(f"""
         In [1]: import pyflyby; pyflyby.enable_auto_importer()
-        In [2]: def f():
-           ...:     wallaby53023190 = 1
-           ...:     {enter_debugger}
+        In [2]: {header}
+        {cell}
            ...:
-        In [3]: f()
-        > <ipython-input>(3)f()
+        In [3]: {call}
+        > <ipython-input>(...)f()
         ....
         ipdb> p wallaby53023190
         1

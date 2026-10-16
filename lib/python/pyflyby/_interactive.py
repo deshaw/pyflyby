@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 import builtins
-from   contextlib               import ExitStack, contextmanager
+from   contextlib               import contextmanager
 import errno
 import inspect
 import logging
@@ -34,7 +34,8 @@ from   pyflyby._log             import logger
 from   pyflyby._modules         import ModuleHandle
 from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import (AdviceCtx, Aspect, CwdCtx,
-                                        FunctionWithGlobals, advise)
+                                        FunctionWithGlobals, advise,
+                                        nested)
 
 if TYPE_CHECKING:
     from IPython.core.application import BaseIPythonApplication
@@ -1596,27 +1597,34 @@ class AutoImporter:
                 # debugger opens where the user entered it.
                 if frame is None:
                     frame = sys._getframe().f_back
-                frame = _skip_frames(frame, {"pyflyby"})[0] or frame
-                result = __original__(self_pdb, frame, **kwargs)
-                # Equivalent to Bdb.set_next(frame): stop in the user's
-                # frame, rather than in "step" mode, which would stop at the
-                # next event in the advice we are about to return through.
-                # Assigned rather than called, because tracing is enabled by
-                # now, so the call itself would be traced (and stopped in).
-                self_pdb.stopframe   = frame
-                self_pdb.returnframe = None
-                self_pdb.stoplineno  = 0
+                target = _skip_frames(frame, {"pyflyby"})[0] or frame
+                result = __original__(self_pdb, target, **kwargs)
+                if target is not frame:
+                    # set_trace() leaves the debugger stepping, so it would
+                    # stop in the first call made while unwinding our advice.
+                    # Pin the stop to the user's frame instead.  Not with
+                    # Bdb.set_next(): calling it would itself be traced, and
+                    # it turns off the opcode tracing this relies on (below).
+                    self_pdb.stopframe   = target
+                    self_pdb.returnframe = None
+                    self_pdb.stoplineno  = 0
                 return result
-            with ExitStack() as stack:
-                enter = stack.enter_context
-                enter(AdviceCtx(Pdb.__init__, Pdb_with_autoimport))
+            mgrs = [AdviceCtx(Pdb.__init__, Pdb_with_autoimport)]
+            if TerminalPdb is not None:
+                mgrs.append(AdviceCtx(TerminalPdb.__init__,
+                                      TerminalPdb_with_autoimport))
+            # Pinning the stop relies on set_trace() turning on opcode
+            # tracing, which it does since 3.13.  Without that, bdb ignores
+            # return events in generators and coroutines unless stepping, so
+            # a breakpoint() at the end of one would never stop.
+            if sys.version_info >= (3, 13):
                 # IPython's Pdb overrides set_trace() to record
                 # `initial_frame`; plain pdb.Pdb inherits Bdb's.
-                enter(AdviceCtx((Pdb, "set_trace"), set_trace_in_caller_frame))
-                enter(AdviceCtx((pdb.Pdb, "set_trace"), set_trace_in_caller_frame))
-                if TerminalPdb is not None:
-                    enter(AdviceCtx(TerminalPdb.__init__,
-                                    TerminalPdb_with_autoimport))
+                mgrs.append(AdviceCtx((Pdb, "set_trace"),
+                                      set_trace_in_caller_frame))
+                mgrs.append(AdviceCtx((pdb.Pdb, "set_trace"),
+                                      set_trace_in_caller_frame))
+            with nested(*mgrs):
                 yield
         ok = True
 
