@@ -218,7 +218,7 @@ def parse_template(template, clear_tab_completions=False):
     template = dedent(template).strip().encode('utf-8')
     input = []
     expected = b""
-    pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|>>>)(?: |$)", re.M)
+    pattern = re.compile(br"^(?:In \[[0-9]+\]:|   [.][.][.]+:|ipdb>|\(Pdb\)|>>>)(?: |$)", re.M)
     while template:
         m = pattern.search(template)
         if not m:
@@ -483,10 +483,12 @@ _IPYTHON_PROMPT1 = br"\n\r?In \[([0-9]+)\]: "
 _IPYTHON_PROMPT2 = br"\n\r?   [.][.][.]+: "
 _PYTHON_PROMPT = br">>> "
 _IPDB_PROMPT = br"\nipdb> "
+_PDB_PROMPT = br"\n\(Pdb\) "
 _IPYTHON_PROMPTS = [_IPYTHON_PROMPT1,
                     _IPYTHON_PROMPT2,
                     _PYTHON_PROMPT,
-                    _IPDB_PROMPT]
+                    _IPDB_PROMPT,
+                    _PDB_PROMPT]
 # Currently _interact_ipython() assumes the first is "In [nn]:"
 assert b"In " in _IPYTHON_PROMPTS[0]
 
@@ -3702,6 +3704,104 @@ def test_breakpoint_auto_import_p_1(enter_debugger, frontend):
         ipdb> q
     """, frontend=frontend)
 
+
+# "%debug pass" is excluded: it runs the given statement under the debugger,
+# so it legitimately stops elsewhere.
+caller_frame_debugger_activations = [
+    a for a in debugger_activations if not a.startswith("%debug")
+]
+
+# The debugger is entered on the last line of each: with no next line to stop
+# on, this is where generators and coroutines behave differently.
+caller_frame_functions = {
+    "function":  ("def f():",       [],          "f()"),
+    "generator": ("def f():",       ["yield 1"], "list(f())"),
+    "coroutine": ("async def f():", [],          "await f()"),
+}
+
+
+@pytest.mark.parametrize("kind", caller_frame_functions)
+@pytest.mark.parametrize("enter_debugger", caller_frame_debugger_activations)
+def test_breakpoint_stops_in_caller_frame_1(enter_debugger, kind, frontend):
+    # Verify that the debugger stops in the frame that entered it, the only
+    # place the local is visible. What's printed before the prompt varies:
+    # Python 3.12 and older, or another sys.monitoring tool such as
+    # coverage's, print "--Return--" first.
+    header, body, call = caller_frame_functions[kind]
+    lines = ["wallaby53023190 = 1", *body, enter_debugger]
+    cell = ("\n" + " " * 8).join("   ...:     " + line for line in lines)
+    ipython(f"""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: {header}
+        {cell}
+           ...:
+        In [3]: {call}
+        ....
+        ipdb> p wallaby53023190
+        1
+        ipdb> q
+    """, frontend=frontend)
+
+
+def test_breakpoint_stdlib_pdb_1(frontend):
+    # Verify auto importing, and the stop frame, in plain pdb: what
+    # breakpoint() uses when PYTHONBREAKPOINT is unset.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: import os; del os.environ["PYTHONBREAKPOINT"]
+        In [3]: def f():
+           ...:     wallaby53023190 = 1
+           ...:     breakpoint()
+           ...:     wallaby53023190 = 2
+           ...:
+        In [4]: f()
+        > <ipython-input>(...)f()
+        -> ...
+        (Pdb) p wallaby53023190
+        1
+        (Pdb) p b64decode("UGFzY2Fs")
+        [PYFLYBY] from base64 import b64decode
+        b'Pascal'
+        (Pdb) c
+    """, frontend=frontend)
+
+
+def test_debugger_hook_with_replaced_pdb_init_1(frontend):
+    # Verify that the auto importer still enables, and hooks the debugger,
+    # when something else has already replaced pdb.Pdb.__init__.
+    ipython("""
+        In [1]: import pdb
+        In [2]: def wrap(init):
+           ...:     def wrapper(self, *args, **kwargs):
+           ...:         init(self, *args, **kwargs)
+           ...:     return wrapper
+           ...:
+        In [3]: pdb.Pdb.__init__ = wrap(pdb.Pdb.__init__)
+        In [4]: import pyflyby; pyflyby.enable_auto_importer()
+        In [5]: %debug pass
+        ....
+        ipdb> p b64decode("V29tYmF0")
+        [PYFLYBY] from base64 import b64decode
+        b'Wombat'
+        ipdb> q
+    """, frontend=frontend)
+
+
+def test_ipdb_set_trace_context_1(frontend):
+    # Verify that the context ipdb asks for reaches its debugger.  ipdb passes
+    # it to the constructor, and falls back to the defaults on TypeError.
+    ipython("""
+        In [1]: import pyflyby; pyflyby.enable_auto_importer()
+        In [2]: def f():
+           ...:     wallaby53023190 = 1
+           ...:     wallaby53023190 = 2
+           ...:     import ipdb; ipdb.set_trace(context=1)
+           ...:     wallaby53023190 = 3
+           ...:
+        In [3]: f()
+        > <ipython-input>(...)f()
+        ipdb> q
+    """, frontend=frontend)
 
 @pytest.mark.skipif(
     (3, 14, 1) <= sys.version_info[:3] <= (3, 14, 5),
