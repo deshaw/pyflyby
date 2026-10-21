@@ -88,7 +88,7 @@ def _is_ast_str(node: Any) -> bool:
 
 def _ast_str_literal_value(node: Any) -> Any:
     if _is_ast_str_or_byte(node):
-        return node.s
+        return node.value
     if isinstance(node, ast.Expr) and _is_ast_str_or_byte(node.value):
         return node.value.value  # type: ignore[attr-defined]
     else:
@@ -973,7 +973,7 @@ class PythonBlock:
             try:
                 examples = parser.get_examples(ast_node.value)
             except Exception:
-                blob = ast_node.s
+                blob = ast_node.value
                 if len(blob) > 60:
                     blob = blob[:60] + '...'
                 # TODO: let caller decide how to handle
