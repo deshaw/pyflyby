@@ -63,7 +63,13 @@ def _is_ast_str_or_byte(node: Any) -> bool:
     utility function that test if node is an ast.Str|ast.Bytes in Python < 3.12,
     and if it is a ast.Constant, with node.value being a str in newer version.
     """
-    return _is_ast_str(node) or _is_ast_bytes(node)
+
+    # split into if/else instead of or expression for coverage.
+    if _is_ast_str(node):
+        return True
+    elif _is_ast_bytes(node):
+        return True
+    return False
 
 def _is_ast_bytes(node: Any) -> bool:
     """
