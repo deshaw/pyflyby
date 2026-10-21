@@ -1130,6 +1130,20 @@ def test_PythonBlock_doctest_ignore_doctest_options_1():
     assert doctest_block.statements == expected
 
 
+def test_PythonBlock_doctest_malformed_is_ignored_1():
+    block = PythonBlock(
+        dedent(
+            '''
+        def foo():
+            """
+            >>> x = (1,
+            """
+    '''
+        )
+    )
+    assert block.get_doctests() == []
+
+
 def test_PythonBlock_with_multi_1():
     block = PythonBlock(dedent('''
         with   A  as  a, B as b, C as c:
