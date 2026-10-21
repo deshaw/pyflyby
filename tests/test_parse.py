@@ -1144,6 +1144,14 @@ def test_PythonBlock_doctest_malformed_is_ignored_1():
     assert block.get_doctests() == []
 
 
+def test_PythonStatement_string_literal_1():
+    # A bare str/bytes expression statement is a string literal (the
+    # `ast.Expr` branch of `_ast_str_literal_value`).
+    assert PythonStatement('"doc"\n').is_comment_or_blank_or_string_literal
+    assert PythonStatement('b"doc"\n').is_comment_or_blank_or_string_literal
+    assert not PythonStatement('x = "doc"\n').is_comment_or_blank_or_string_literal
+
+
 def test_PythonBlock_with_multi_1():
     block = PythonBlock(dedent('''
         with   A  as  a, B as b, C as c:
