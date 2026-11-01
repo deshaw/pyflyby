@@ -28,7 +28,7 @@ import requests
 import pyflyby
 from   pyflyby._file            import Filename
 from   tests._test_utils        import EnvVarCtx
-from   typing                   import Union
+from   typing                   import Any, Optional, Sequence, Union
 
 from   _pytest.outcomes         import OutcomeException as _Failed
 
@@ -871,7 +871,16 @@ def _interpret_frontend_arg(frontend):
     return frontend
 
 
-def ipython(template, *, args=(), kernel=None, **kwargs):
+def ipython(
+    template: str,
+    *,
+    args: Union[str, Sequence[str]] = (),
+    kernel: Optional[str] = None,
+    exitstr: bytes = b"exit()\n",
+    sendeof: bool = False,
+    waiteof: bool = True,
+    **kwargs: Any,
+) -> None:
     """
     Run IPython in a pty subprocess.  Send it input and expect output based on
     the template.  Assert that the result matches.
@@ -890,9 +899,6 @@ def ipython(template, *, args=(), kernel=None, **kwargs):
     assert kernel is None
     assert app != "console"
 
-    exitstr              = kwargs.pop("exitstr"             , b"exit()\n")
-    sendeof              = kwargs.pop("sendeof"             , False)
-    waiteof              = kwargs.pop("waiteof"             , True)
     print("Input:")
     print("".join("    %s\n"%line for line in input.splitlines()))
     with IPythonCtx(args=args, **kwargs) as child:
