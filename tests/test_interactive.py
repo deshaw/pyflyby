@@ -10,6 +10,7 @@ import random
 import re
 import sys
 import time
+import warnings
 
 from   contextlib               import contextmanager
 from   functools                import cached_property
@@ -913,8 +914,17 @@ def ipython(
 def IPythonNotebookCtx(**kwargs):
     """
     Launch IPython Notebook.
+
+    Deprecated since pyflyby 1.12: the Jupyter console tests have been
+    removed.  The ``kernel_info`` attribute set below is only used by them.
     """
     __tracebackhide__ = True
+    warnings.warn(
+        "IPythonNotebookCtx is deprecated since pyflyby 1.12 "
+        "(Jupyter console tests were removed)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     args = kwargs.pop("args", [])
     args = args + ['notebook', '--no-browser', '--ip=127.0.0.1']
     notebook_dir = kwargs.pop("notebook_dir", None)
@@ -1119,6 +1129,10 @@ def _render_pty_output(raw):
     stream at once also makes the result independent of read boundaries.
     """
     raw = bytes(raw)
+    # Drop kitty keyboard protocol sequences (prompt_toolkit's "CSI ? u" query
+    # and "CSI > 1 u" push).  pyte doesn't implement them and would print the
+    # final "u" as text.
+    raw = re.sub(rb"\x1b\[[?>=<]?[0-9;]*u", b"", raw)
     main, main_stream = _new_screen(raw)
     transcript = []
     # Number of main-screen lines already copied into the transcript.
@@ -2577,7 +2591,6 @@ def test_run_i_auto_import_1(tmp):
         Out[3]: b'Gauss'
     """.format(tmp=tmp))
 
-@pytest.mark.skip(reason="This is one of the slowest test and it's xfail")
 @pytest.mark.xfail(strict=True)
 def test_run_d_donterase(tmp):
     """
@@ -2916,71 +2929,6 @@ def test_error_during_enable_1():
 # it only supports highlight_matching_brackets, not
 # display_completions='readlinelike', so any test that uses tab completion
 # won't work.
-
-
-@pytest.mark.skip(
-    reason="jupyter client is now completely async but JupyterConsole is not"
-)
-@pytest.mark.parametrize("sendeof", [False, True])
-def test_ipython_console_1(sendeof):
-    # Verify that autoimort land tab completion work in IPython console.
-    # For some versions of ipython, in some configurations, 'ipython console'
-    # occasionally hangs on startup; not sure why, but it seems unrelated to
-    # pyflyby, since it happens before any pyflyby commands.
-    # The reason for the 'In [1]: x = 91976012' is to make this test more
-    # robust in older versions of IPython.  In some versions (0.x), IPython
-    # console occasionally doesn't print the first output (i.e. Out[1]).  We
-    # work around this by first running something where we don't expect an
-    # Out[1].
-    if sendeof: pytest.skip()
-    ipython("""
-        In [1]: x = 91976012
-        In [2]: 'acorn'
-        Out[2]: 'acorn'
-        In [3]: import pyflyby; pyflyby.enable_auto_importer()
-        In [4]: b64deco\tde('cGVhbnV0')
-        [PYFLYBY] from base64 import b64decode
-        Out[4]: b'peanut'
-    """, args='console', sendeof=sendeof)
-
-
-
-@pytest.mark.skip(reason="hangs")
-def test_ipython_notebook_basic_1():
-    with IPythonNotebookCtx() as kernel:
-        ipython(
-            # Verify that the auto importer isn't enabled yet.
-            """
-            In [1]: 3+4
-            Out[1]: 7
-            In [2]: 33+44
-            Out[2]: 77
-            """, args=['console'], kernel=kernel)
-
-@pytest.mark.skip(
-    reason="Always hang, need to investigate",
-)
-def test_ipython_notebook_1():
-    with IPythonNotebookCtx() as kernel:
-        # 1. Verify that the auto importer isn't enabled yet.
-        # 2. Enable the auto importer.
-        # 3. Verify that the auto importer and tab completion work.
-        ipython(
-            """
-            In [1]: b64decode('x')
-            ---------------------------------------------------------------------------
-            NameError                                 Traceback (most recent call last)
-            ... in ...
-            NameError: name 'b64decode' is not defined
-            In [2]: import pyflyby; pyflyby.enable_auto_importer()
-            In [3]: b64deco\tde('aGF6ZWxudXQ=')
-            [PYFLYBY] from base64 import b64decode
-            Out[3]: b'hazelnut'
-            """,
-            args=["console"],
-            kernel=kernel,
-        )
-
 
 
 @pytest.mark.skipif(_SUPPORTS_TAB_AUTO_IMPORT, reason='Autoimport on Tab requires IPython 9.3+')
