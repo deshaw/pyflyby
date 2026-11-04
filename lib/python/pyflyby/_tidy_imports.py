@@ -14,6 +14,10 @@ stdin is not a tty, read from stdin and write to stdout.
 Only top-level import statements are tidied by default. Use
 --tidy-local-imports to also tidy imports within function and class bodies.
 
+Use --type-checking-imports=report to list imports that are only needed by
+type checkers, or --type-checking-imports=move to move them into an
+``if TYPE_CHECKING:`` block.
+
 """
 
 # pyflyby/_tidy_imports.py
@@ -142,6 +146,20 @@ def _addopts(parser):
                         help=hfmt('''
                             (Default) Don't tidy imports within function and
                             class bodies.'''))
+    parser.add_option('--type-checking-imports',
+                        dest='type_checking_imports', type='choice',
+                        choices=['ignore', 'report', 'move'],
+                        default='ignore', metavar='MODE',
+                        help=hfmt('''
+                            What to do with top-level imports that are only
+                            used for type checking (in string annotations,
+                            annotations under "from __future__ import
+                            annotations", local variable annotations, type
+                            comments, or "if TYPE_CHECKING:" blocks).
+                            "report" lists them and warns about imports
+                            under "if TYPE_CHECKING:" that are used at
+                            runtime; "move" also moves them into an
+                            "if TYPE_CHECKING:" block.  Default: "ignore".'''))
 
 
 def main() -> None:
@@ -185,6 +203,7 @@ def main() -> None:
             add_mandatory=options.add_mandatory,
             tidy_local_imports=options.tidy_local_imports,
             exec_star_imports=options.exec_star_imports,
+            type_checking_imports=options.type_checking_imports,
             )
         # TODO: disable sorting until we figure out #287
         # https://github.com/deshaw/pyflyby/issues/287
