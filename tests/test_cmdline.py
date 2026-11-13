@@ -1404,3 +1404,34 @@ def test_py_no_exec_star_imports_1():
         result = p.run("_py", "--no-exec-star-imports", t)
     assert "NameError: name 'mkstemp' is not defined" in result
     assert "[PYFLYBY]" not in result
+
+
+@pytest.mark.parametrize("extra_args", [[], ["--no-canonicalize"]])
+def test_tidy_imports_mandatory_import_conflict(tmp_path, extra_args):
+    """
+    A mandatory import binding the same name as an existing import must be
+    reported as a conflict (non-zero exit), not silently replace/drop either.
+    """
+    mand = tmp_path / "mand.py"
+    mand.write_text("__mandatory_imports__ = ['import numpy as np']\n")
+    src = "import os\nimport jax.numpy as np\n\nprint(os.sep, np.zeros(3))\n"
+    ff = tmp_path / "ff.py"
+    ff.write_text(src)
+    env = dict(os.environ, PYFLYBY_PATH=str(mand))
+    result = subprocess.run(
+        [sys.executable, "-m", "pyflyby._tidy_imports", "-r", *extra_args,
+         str(ff)],
+        capture_output=True, text=True, env=env)
+    assert result.returncode != 0
+    assert "ConflictingImportsError" in result.stderr
+    assert ff.read_text() == src
+
+
+def test_run_tidy_imports_mandatory_import_conflict(tmp_path, monkeypatch):
+    from pyflyby._importclns import ConflictingImportsError
+    from pyflyby._comms import run_tidy_imports
+    mand = tmp_path / "mand.py"
+    mand.write_text("__mandatory_imports__ = ['import numpy as np']\n")
+    monkeypatch.setenv("PYFLYBY_PATH", str(mand))
+    with pytest.raises(ConflictingImportsError):
+        run_tidy_imports("import jax.numpy as np\nnp.zeros(3)\n")

@@ -414,7 +414,7 @@ class ImportSet:
     def pretty_print(
         self,
         params: Optional[FormatParams] = None,
-        allow_conflicts: bool = True,
+        allow_conflicts: bool = False,
     ) -> str:
         """
         Pretty-print a block of import statements into a single string.
