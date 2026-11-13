@@ -1326,10 +1326,12 @@ class _MissingImportFinder:
             scope_name = self._scope_name_stack[-1] if self._scope_name_stack else None
             # An import under ``if TYPE_CHECKING:`` that re-imports a name
             # already bound at runtime doesn't make that name typing-only.
-            in_type_checking = (
-                self._type_checking_depth > 0
-                and self.scopestack[-1].get(name, _MISSING) is _MISSING
-            )
+            in_type_checking = self._type_checking_depth > 0
+            if (in_type_checking
+                    and self.scopestack[-1].get(name, _MISSING) is not _MISSING):
+                # Keep the existing binding: replacing it would make a prior
+                # runtime import look unused.
+                return
             value = _UseChecker(
                 name,
                 imp,

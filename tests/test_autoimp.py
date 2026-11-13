@@ -2858,6 +2858,18 @@ def test_type_checking_dotted_import_is_runtime_1():
     assert typing_only == []
 
 
+def test_type_checking_reimport_keeps_runtime_import_1():
+    _, unused, _, needed = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        x = Decimal(1)
+    """)
+    assert unused == []
+    assert needed == []
+
+
 def test_type_checking_mixed_use_is_runtime_1():
     _, _, typing_only, _ = _type_checking_issues("""
         from __future__ import annotations

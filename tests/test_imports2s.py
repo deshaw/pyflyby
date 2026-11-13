@@ -2200,6 +2200,21 @@ def test_fix_type_checking_imports_move_class_in_function_1():
     assert output == input
 
 
+def test_fix_type_checking_imports_reimport_keeps_runtime_import_1():
+    input = PythonBlock(dedent('''
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        x = Decimal(1)
+    ''').lstrip(), filename="/foo/test_type_checking_move_11.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    # The runtime import is kept (the file may only be reordered).
+    assert str(output).count("from decimal import Decimal") == 2
+    assert "removed unused" not in str(output)
+
+
 def test_fix_type_checking_imports_move_after_type_checking_import_1():
     # The new block must come after the import that binds TYPE_CHECKING, even
     # when that import lands in a later group of imports.
