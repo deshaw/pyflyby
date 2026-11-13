@@ -7,8 +7,8 @@ from __future__ import annotations, print_function
 import ast
 from   collections              import defaultdict
 from   contextlib               import nullcontext
-from   pyflyby._autoimp         import (ScopeStack, _MissingImportFinder,
-                                        _is_type_checking_test)
+from   pyflyby._autoimp         import (_is_type_checking_test,
+                                        _scan_with_finder)
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams
@@ -1110,14 +1110,9 @@ def fix_unused_and_missing_imports(
         raise ValueError(
             "Invalid type_checking_imports=%r" % (type_checking_imports,))
     with ImportPathForRelativeImportsCtx(_codeblock):
-        finder = _MissingImportFinder(
-            ScopeStack([{}]),
-            find_unused_imports=bool(remove_unused),
-            parse_docstrings=True,
-            exec_star_imports=exec_star_imports,
-        )
-        missing_imports, unused_imports = finder.scan_for_import_issues(
-            _codeblock)
+        finder, missing_imports, unused_imports = _scan_with_finder(
+            _codeblock, find_unused_imports=bool(remove_unused),
+            parse_docstrings=True, exec_star_imports=exec_star_imports)
         typing_only_imports: List[Any] = []
         # Like unused imports, typing-only imports are left alone when we
         # don't remove unused imports (e.g. in ``__init__.py``, where imports

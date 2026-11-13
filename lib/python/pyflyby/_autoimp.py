@@ -30,7 +30,7 @@ import sys
 import types
 from   types                    import EllipsisType, NoneType
 from   typing                   import (Any, Callable, Dict, Iterator, List,
-                                        Optional, Set, Tuple, Union)
+                                        NamedTuple, Optional, Set, Tuple, Union)
 
 
 if sys.version_info >= (3, 13):
@@ -50,6 +50,8 @@ if sys.version_info > (3, 11):
     LOAD_SHIFT = 1
 else:
     LOAD_SHIFT = 0
+
+_MISSING = object()
 
 
 
@@ -375,9 +377,6 @@ def symbol_needs_import(
     return True
 
 
-_MISSING = object()
-
-
 def _is_type_checking_test(test: ast.expr) -> bool:
     """
     Return whether ``test`` is the condition of an ``if TYPE_CHECKING:`` block,
@@ -444,6 +443,21 @@ class _UseChecker:
         return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used} used_at_runtime:{self.used_at_runtime} in_type_checking:{self.in_type_checking} scope_name:{self.scope_name!r} used_in_scopes:{self.used_in_scopes!r}>"
 
 
+class _DeferredLoad(NamedTuple):
+    """A name load to check once the whole scope has been visited."""
+
+    fullname: str
+    scopestack: ScopeStack
+    lineno: Optional[int]
+    #: Scope where the load occurred (e.g. "MyClass.my_method"), None at
+    #: module level.
+    scope_name: Optional[str]
+    #: Whether the load is only seen by type checkers.
+    typing_only: bool = False
+    #: Whether to report the name if it is undefined.
+    report_missing: bool = True
+
+
 class _MissingImportFinder:
     """
     A helper class to be used only by `_find_missing_imports_in_ast`.
@@ -490,20 +504,7 @@ class _MissingImportFinder:
     """
     unused_imports: List[Tuple[Optional[int], Any, Optional[str]]]
 
-    """Function bodies that we need to check after defining names in this function scope.
-
-    Each tuple contains:
-      - fullname (str): The full name of the symbol that needs to be checked
-      - scopestack (ScopeStack): The scope stack at the time the check was deferred
-      - lineno (Optional[int]): The line number where the load occurred, or None
-      - scope_name (Optional[str]): The name of the scope where the load occurred
-        (e.g., "MyClass.my_method"), or None for module-level loads
-      - typing_only (bool): Whether the load is only seen by type checkers
-      - report_missing (bool): Whether to report the name if it is undefined
-    """
-    _deferred_load_checks: list[
-        tuple[str, ScopeStack, Optional[int], Optional[str], bool, bool]
-    ]
+    _deferred_load_checks: list[_DeferredLoad]
 
     def __init__(
         self,
@@ -1471,9 +1472,7 @@ class _MissingImportFinder:
             using_scope_name=current_scope,
             typing_only=self._typing_only,
         ):
-            data = (fullname, self.scopestack, self._lineno, current_scope,
-                    self._typing_only, not self._in_string_annotation)
-            self._deferred_load_checks.append(data)
+            self._defer_load(fullname, self.scopestack, current_scope)
 
 
     def _visit_Load_defered(self, fullname: str) -> None:
@@ -1485,10 +1484,8 @@ class _MissingImportFinder:
             using_scope_name=current_scope,
             typing_only=self._typing_only,
         ):
-            data = (fullname, self.scopestack.clone_top(), self._lineno,
-                    current_scope, self._typing_only,
-                    not self._in_string_annotation)
-            self._deferred_load_checks.append(data)
+            self._defer_load(
+                fullname, self.scopestack.clone_top(), current_scope)
 
     def _visit_Load_immediate(self, fullname: str) -> None:
         logger.debug("_visit_Load_immediate(%r)", fullname)
@@ -1567,26 +1564,33 @@ class _MissingImportFinder:
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
 
+    def _defer_load(
+        self, fullname: str, scopestack: ScopeStack, scope_name: Optional[str]
+    ) -> None:
+        self._deferred_load_checks.append(
+            _DeferredLoad(
+                fullname,
+                scopestack,
+                self._lineno,
+                scope_name,
+                typing_only=self._typing_only,
+                report_missing=not self._in_string_annotation,
+            )
+        )
+
     def _finish_deferred_load_checks(self) -> None:
         for item in self._deferred_load_checks:
-            # Handle the old 3-tuple format for compatibility
-            if len(item) == 6:
-                (fullname, scopestack, lineno, scope_name, typing_only,
-                 report_missing) = item
-                # Temporarily set scope for the check
-                old_scope_stack = self._scope_name_stack
-                self._scope_name_stack = [scope_name] if scope_name else []
-                self._check_load(
-                    fullname,
-                    scopestack,
-                    lineno,
-                    typing_only=typing_only,
-                    report_missing=report_missing,
-                )
-                self._scope_name_stack = old_scope_stack
-            else:
-                fullname, scopestack, lineno = item[:3]
-                self._check_load(fullname, scopestack, lineno)
+            # Temporarily set scope for the check
+            old_scope_stack = self._scope_name_stack
+            self._scope_name_stack = [item.scope_name] if item.scope_name else []
+            self._check_load(
+                item.fullname,
+                item.scopestack,
+                item.lineno,
+                typing_only=item.typing_only,
+                report_missing=item.report_missing,
+            )
+            self._scope_name_stack = old_scope_stack
         self._deferred_load_checks = []
 
     def find_type_checking_issues(
@@ -1698,6 +1702,33 @@ class _MissingImportFinder:
         return redundant_imports
 
 
+def _scan_with_finder(
+    codeblock: PythonBlock,
+    find_unused_imports: bool = True,
+    parse_docstrings: bool = False,
+    exec_star_imports: bool = False,
+) -> Tuple[
+    _MissingImportFinder,
+    List[Tuple[Optional[int], DottedIdentifier]],
+    List[Tuple[Optional[int], Any, Optional[str]]],
+]:
+    """
+    Like `scan_for_import_issues`, but also return the finder, so that callers
+    can query it further (e.g. `_MissingImportFinder.find_type_checking_issues`).
+
+    :return:
+      ``(finder, missing_imports, unused_imports)``
+    """
+    finder = _MissingImportFinder(
+        ScopeStack([{}]),
+        find_unused_imports=find_unused_imports,
+        parse_docstrings=parse_docstrings,
+        exec_star_imports=exec_star_imports,
+    )
+    missing_imports, unused_imports = finder.scan_for_import_issues(codeblock)
+    return finder, missing_imports, unused_imports
+
+
 def scan_for_import_issues(
     codeblock: Union[PythonBlock, str, FileText, Filename],
     find_unused_imports: bool = True,
@@ -1747,12 +1778,13 @@ def scan_for_import_issues(
     logger.debug("global scan_for_import_issues()")
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
-    namespaces = ScopeStack([{}])
-    finder = _MissingImportFinder(namespaces,
-                                  find_unused_imports=find_unused_imports,
-                                  parse_docstrings=parse_docstrings,
-                                  exec_star_imports=exec_star_imports)
-    return finder.scan_for_import_issues(codeblock)
+    _, missing_imports, unused_imports = _scan_with_finder(
+        codeblock,
+        find_unused_imports=find_unused_imports,
+        parse_docstrings=parse_docstrings,
+        exec_star_imports=exec_star_imports,
+    )
+    return missing_imports, unused_imports
 
 
 def _find_missing_imports_in_ast(
