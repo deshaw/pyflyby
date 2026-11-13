@@ -2797,6 +2797,56 @@ def test_type_checking_class_annotation_is_runtime_1():
     assert typing_only == []
 
 
+def test_type_checking_class_in_function_annotation_is_runtime_1():
+    # A class nested in a function still has its annotations evaluated.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f():
+            class C:
+                x: Decimal
+            return C
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_method_local_annotation_is_typing_only_1():
+    # ... but a local variable in a method of a class is not evaluated.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        class C:
+            def m(self):
+                x: Decimal = None
+    """)
+    assert typing_only == ["from decimal import Decimal"]
+
+
+def test_type_checking_class_string_annotation_is_runtime_1():
+    # String annotations in a class body are resolved at runtime by pydantic,
+    # typing.get_type_hints, ...
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        class C:
+            x: "Decimal"
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_method_string_annotation_is_typing_only_1():
+    _, _, typing_only, needed = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        from collections import OrderedDict
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from fractions import Fraction
+        class A:
+            def m(self, x: "Decimal", y: "Fraction") -> "OrderedDict":
+                pass
+    """)
+    assert typing_only == ["from collections import OrderedDict",
+                           "from decimal import Decimal"]
+    assert needed == []
+
+
 def test_type_checking_mixed_use_is_runtime_1():
     _, _, typing_only, _ = _type_checking_issues("""
         from __future__ import annotations

@@ -555,6 +555,8 @@ class _MissingImportFinder:
         # Current lineno.
         self._lineno = None
         self._in_class_def = 0
+        # Whether the innermost enclosing scope is a class body.
+        self._in_class_body = False
         # Stack of scope names (for functions/classes) to track where imports are defined
         self._scope_name_stack: List[str] = []
         # Source lines for pragma checking (set by scan_for_import_issues)
@@ -747,14 +749,13 @@ class _MissingImportFinder:
         return self._future_annotations
 
     def _variable_annotation_is_typing_only(self) -> bool:
+        if self._in_class_body:
+            # pydantic, attrs, get_type_hints... evaluate class annotations.
+            # Checked before _in_FunctionDef: holds for nested classes too.
+            return False
         if self._in_FunctionDef:
             # Annotations for local variables are never evaluated (PEP 526).
             return True
-        if self._in_class_def:
-            # Class-level annotations are commonly evaluated at runtime by
-            # dataclasses-like libraries (pydantic, attrs, typing.get_type_hints
-            # ...), so conservatively treat them as runtime uses.
-            return False
         return self._future_annotations
 
     @contextlib.contextmanager
@@ -915,8 +916,11 @@ class _MissingImportFinder:
             self.scopestack._class_delayed[node.name] = None
         with self._NewScopeCtx(new_class_scope=True, scope_name=node.name):
             self._in_class_def += 1
+            old_in_class_body = self._in_class_body
+            self._in_class_body = True
             self._visit_Store(node.name)
             self.visit(node.body)
+            self._in_class_body = old_in_class_body
             self._in_class_def -= 1
         assert self._in_class_def >= 0
         self._remove_from_missing_imports(node.name)
@@ -946,6 +950,9 @@ class _MissingImportFinder:
             if self._in_class_def:
                 self.scopestack[-1]["__class__"] = None  # we just need to to be defined
             self.visit(node.decorator_list)
+            # The signature's annotations are not class-level annotations.
+            old_in_class_body = self._in_class_body
+            self._in_class_body = False
             self.visit(node.args)
             if node.returns:
                 with self._annotation_context(
@@ -960,6 +967,7 @@ class _MissingImportFinder:
                     self._visit_Store(node.name)
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
+            self._in_class_body = old_in_class_body
         self._visit_Store(node.name)
 
     def visit_Lambda(self, node: ast.Lambda) -> None:
@@ -968,10 +976,13 @@ class _MissingImportFinder:
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             old_in_FunctionDef = self._in_FunctionDef
+            old_in_class_body = self._in_class_body
             self._in_FunctionDef = True
+            self._in_class_body = False
             with self._NewScopeCtx():
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
+            self._in_class_body = old_in_class_body
 
     def _visit_typecomment(self, typecomment: Optional[str]) -> None:
         """
@@ -1200,7 +1211,12 @@ class _MissingImportFinder:
         save_lineno = self._lineno
         self._in_string_annotation = True
         try:
-            with self._typing_only_context():
+            # Class-level string annotations are resolved at runtime.
+            with (
+                contextlib.nullcontext()
+                if self._in_class_body
+                else self._typing_only_context()
+            ):
                 # The parsed expression has line numbers relative to the
                 # string; keep reporting the line of the annotation itself.
                 for sub in ast.walk(expr):

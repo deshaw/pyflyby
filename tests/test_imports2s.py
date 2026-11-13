@@ -2186,6 +2186,20 @@ def test_fix_type_checking_imports_skips_init_files_1(capsys):
     assert "TYPE_CHECKING" not in out
 
 
+def test_fix_type_checking_imports_move_class_in_function_1():
+    # Annotations in a class nested in a function are evaluated at runtime.
+    input = PythonBlock(dedent('''
+        from decimal import Decimal
+        def f():
+            class C:
+                x: Decimal
+            return C
+    ''').lstrip(), filename="/foo/test_type_checking_move_8.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    assert output == input
+
+
 def test_fix_type_checking_imports_move_after_type_checking_import_1():
     # The new block must come after the import that binds TYPE_CHECKING, even
     # when that import lands in a later group of imports.
