@@ -211,7 +211,11 @@ imports under ``if TYPE_CHECKING:`` that are used at runtime.
         return os.sep
 
 Class-level annotations are treated as runtime uses, since libraries such as
-pydantic and attrs evaluate them. Like unused imports, ``__init__.py`` files
+pydantic and attrs evaluate them. Annotations of decorated functions are not:
+under ``from __future__ import annotations``, a decorator that evaluates them
+(``functools.singledispatch``, pydantic's ``validate_call``, FastAPI...) will
+break once their imports are moved, so review the result of
+``--type-checking-imports=move``. Like unused imports, ``__init__.py`` files
 are left alone. The default is ``ignore``; set ``type_checking_imports`` in
 ``pyproject.toml`` to change it for a project.
 

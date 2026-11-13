@@ -2894,6 +2894,21 @@ def test_type_checking_reimport_keeps_runtime_import_1():
     assert needed == []
 
 
+@pytest.mark.xfail(reason="annotations of decorated functions may be "
+                   "evaluated by the decorator (e.g. singledispatch)")
+def test_type_checking_decorated_function_annotation_is_runtime_1():
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from functools import singledispatch
+        from decimal import Decimal
+        @singledispatch
+        def f(x): pass
+        @f.register
+        def _(x: Decimal): pass
+    """)
+    assert typing_only == []
+
+
 def test_type_checking_mixed_use_is_runtime_1():
     _, _, typing_only, _ = _type_checking_issues("""
         from __future__ import annotations
