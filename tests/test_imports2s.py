@@ -2200,6 +2200,38 @@ def test_fix_type_checking_imports_move_class_in_function_1():
     assert output == input
 
 
+def test_fix_type_checking_imports_move_one_line_block_1():
+    # An ``if TYPE_CHECKING: import x`` on one line must not be rewritten
+    # (and must not lose its import).
+    input = PythonBlock(dedent('''
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING: import sys
+        def f(x: "Decimal"): pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_9.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    assert "import sys" in str(output)
+    compile(str(output), "<test>", "exec")
+
+
+@pytest.mark.parametrize("block", [
+    "if (TYPE_CHECKING\n    ): import sys\n",
+    "if TYPE_CHECKING: \\\n  import sys\n",
+])
+def test_fix_type_checking_imports_move_odd_block_layout_1(block):
+    input = PythonBlock(
+        "from typing import TYPE_CHECKING\n"
+        "from decimal import Decimal\n" + block +
+        "def f(x: 'Decimal'): pass\n",
+        filename="/foo/test_type_checking_move_10.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    compile(str(output), "<test>", "exec")
+    assert "import sys" in str(output)
+    assert "from decimal import Decimal" in str(output)
+
+
 def test_fix_type_checking_imports_reimport_keeps_runtime_import_1():
     input = PythonBlock(dedent('''
         from typing import TYPE_CHECKING

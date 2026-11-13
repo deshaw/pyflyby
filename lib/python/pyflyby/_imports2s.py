@@ -1130,7 +1130,7 @@ def fix_unused_and_missing_imports(
     existing_type_checking_block = None
     if type_checking_imports == "move" and typing_only_imports:
         existing_type_checking_block = _find_type_checking_block(
-            _codeblock.ast_node)
+            _codeblock.ast_node, str(_codeblock.text).split("\n"))
         if existing_type_checking_block is None:
             # We are about to create an ``if TYPE_CHECKING:`` block, so an
             # existing (so far unused) TYPE_CHECKING import is now needed.
@@ -1265,10 +1265,25 @@ _TYPE_CHECKING_IMPORTS = (
 )
 
 
-def _find_type_checking_block(module: Optional[ast.AST]) -> Optional[ast.If]:
+def _starts_own_line(stmt: ast.If, lines: List[str]) -> bool:
+    first = stmt.body[0]
+    test_end = getattr(stmt.test, "end_lineno", None) or stmt.lineno
+    if first.lineno <= test_end:
+        return False
+    if not lines[first.lineno - 1][:first.col_offset].isspace():
+        return False
+    # Not after a line continuation.
+    return not lines[first.lineno - 2].rstrip().endswith("\\")
+
+
+def _find_type_checking_block(
+    module: Optional[ast.AST], lines: List[str]
+) -> Optional[ast.If]:
     """
     Find the first top-level ``if TYPE_CHECKING:`` block of ``module`` that
-    only contains import statements and has no ``else`` branch.
+    only contains import statements and has no ``else`` branch.  Blocks whose
+    body is on the same line as the ``if`` are skipped, since we can't edit
+    them line by line.
     """
     if not isinstance(module, ast.Module):
         return None
@@ -1276,6 +1291,7 @@ def _find_type_checking_block(module: Optional[ast.AST]) -> Optional[ast.If]:
         if (isinstance(stmt, ast.If)
                 and _is_type_checking_test(stmt.test)
                 and not stmt.orelse
+                and _starts_own_line(stmt, lines)
                 and all(isinstance(s, _IMPORT_TYPES) for s in stmt.body)):
             return stmt
     return None
@@ -1294,7 +1310,7 @@ def _add_to_type_checking_block(
     text = str(codeblock.text)
     lines = text.split("\n")
     module = codeblock.ast_node
-    block = _find_type_checking_block(module)
+    block = _find_type_checking_block(module, lines)
     if block is not None:
         first, last = block.body[0], block.body[-1]
         start = first.lineno
