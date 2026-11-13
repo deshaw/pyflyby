@@ -7,7 +7,8 @@ from __future__ import annotations, print_function
 import ast
 from   collections              import defaultdict
 from   contextlib               import nullcontext
-from   pyflyby._autoimp         import scan_for_import_issues
+from   pyflyby._autoimp         import (_is_type_checking_test,
+                                        _scan_with_finder)
 from   pyflyby._file            import FileText, Filename
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams
@@ -975,6 +976,7 @@ def fix_unused_and_missing_imports(
     params: Optional[FormatParams] = None,
     tidy_local_imports: bool = False,
     exec_star_imports: bool = False,
+    type_checking_imports: Literal["ignore", "report", "move"] = "ignore",
 ) -> PythonBlock:
     r"""
     Check for unused and missing imports, and fix them automatically.
@@ -1029,6 +1031,46 @@ def fix_unused_and_missing_imports(
       If ``True``, import the module named by a ``from foo import *`` to find
       out which names it supplies, so the ones it doesn't can still be fixed.
       The star import itself is left in place; see `replace_star_imports`.
+    :param type_checking_imports:
+      How to handle imports that are only needed by type checkers, i.e.
+      only used in string annotations, in annotations under ``from
+      __future__ import annotations``, in local variable annotations, in type
+      comments, or inside ``if TYPE_CHECKING:`` blocks:
+
+        - ``"ignore"`` (default): do nothing.
+        - ``"report"``: log which top-level imports could be moved into an
+          ``if TYPE_CHECKING:`` block, and warn about imports inside
+          ``if TYPE_CHECKING:`` that are used at runtime.
+        - ``"move"``: like ``"report"``, but also move those imports into an
+          ``if TYPE_CHECKING:`` block (reusing an existing top-level one).
+
+      Class-level annotations are treated as runtime uses, since libraries
+      such as pydantic evaluate them.  Like ``remove_unused``, this has no
+      effect on files where unused imports are kept (e.g. ``__init__.py``).
+
+        >>> codeblock = PythonBlock(
+        ...     'from __future__ import annotations\n'
+        ...     'from decimal import Decimal\n'
+        ...     'import os\n'
+        ...     '\n'
+        ...     'def f(x: Decimal) -> str:\n'
+        ...     '    return os.sep\n', filename="/tmp/foo.py")
+
+        >>> print(fix_unused_and_missing_imports(
+        ...     codeblock, add_mandatory=False, type_checking_imports="move"))
+        [PYFLYBY] /tmp/foo.py: moved 'from decimal import Decimal' into 'if TYPE_CHECKING:'
+        [PYFLYBY] /tmp/foo.py: added 'from typing import TYPE_CHECKING'
+        from __future__ import annotations
+        import os
+        from typing import TYPE_CHECKING
+        <BLANKLINE>
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        <BLANKLINE>
+        def f(x: Decimal) -> str:
+            return os.sep
+        <BLANKLINE>
+
     :rtype:
       `PythonBlock`
     """
@@ -1064,13 +1106,37 @@ def fix_unused_and_missing_imports(
         transformer = SourceToSourceFileImportsTransformation(_codeblock)
     finally:
         SourceToSourceFileImportsTransformation.tidy_local_imports = original_tidy_local
+    if type_checking_imports not in ("ignore", "report", "move"):
+        raise ValueError(
+            "Invalid type_checking_imports=%r" % (type_checking_imports,))
     with ImportPathForRelativeImportsCtx(_codeblock):
-        missing_imports, unused_imports = scan_for_import_issues(
-            _codeblock, find_unused_imports=remove_unused,
-            parse_docstrings=True, exec_star_imports=exec_star_imports
-        )
+        finder, missing_imports, unused_imports = _scan_with_finder(
+            _codeblock, find_unused_imports=bool(remove_unused),
+            parse_docstrings=True, exec_star_imports=exec_star_imports)
+        typing_only_imports: List[Any] = []
+        # Like unused imports, typing-only imports are left alone when we
+        # don't remove unused imports (e.g. in ``__init__.py``, where imports
+        # are usually re-exports).
+        if type_checking_imports != "ignore" and remove_unused:
+            typing_only_imports, needed_at_runtime = (
+                finder.find_type_checking_issues())
+            for lineno, imp in needed_at_runtime:
+                logger.warning(
+                    "%s: '%s' is imported under 'if TYPE_CHECKING:' but is "
+                    "used at runtime", filename, imp)
     logger.debug("missing_imports = %r", missing_imports)
     logger.debug("unused_imports = %r", unused_imports)
+    logger.debug("typing_only_imports = %r", typing_only_imports)
+    existing_type_checking_block = None
+    if type_checking_imports == "move" and typing_only_imports:
+        existing_type_checking_block = _find_type_checking_block(
+            _codeblock.ast_node, str(_codeblock.text).split("\n"))
+        if existing_type_checking_block is None:
+            # We are about to create an ``if TYPE_CHECKING:`` block, so an
+            # existing (so far unused) TYPE_CHECKING import is now needed.
+            unused_imports = [
+                item for item in unused_imports
+                if item[1] not in _TYPE_CHECKING_IMPORTS]
     if remove_unused and unused_imports:
         # Go through imports to remove.  [This used to be organized by going
         # through import blocks and removing all relevant blocks from there,
@@ -1107,6 +1173,34 @@ def fix_unused_and_missing_imports(
                     )
                 else:
                     logger.info("%s: removed unused '%s'", filename, imp)
+
+    moved_imports: List[Import] = []
+    for lineno, imp in typing_only_imports:
+        if type_checking_imports == "move":
+            try:
+                imp = transformer.remove_import(imp, lineno)
+            except (NoSuchImportError, LineNumberNotFoundError):
+                # E.g. an import nested in a try/except block: leave it
+                # alone, but still report it below.
+                logger.debug("%s: can't move %r: not in a top-level import "
+                             "block", filename, imp)
+            else:
+                moved_imports.append(imp)
+                logger.info("%s: moved '%s' into 'if TYPE_CHECKING:'",
+                            filename, imp)
+                continue
+        logger.info(
+            "%s: '%s' is only used for type checking; it could be moved "
+            "into an 'if TYPE_CHECKING:' block", filename, imp)
+    if moved_imports and existing_type_checking_block is None:
+        type_checking_import = Import("from typing import TYPE_CHECKING")
+        try:
+            transformer.add_import(type_checking_import)
+        except ImportAlreadyExistsError:
+            pass
+        else:
+            logger.info("%s: added %r", filename,
+                        type_checking_import.pretty_print().strip())
 
     if add_missing and missing_imports:
         missing_imports.sort(key=lambda k: (k[1], k[0]))
@@ -1159,7 +1253,106 @@ def fix_unused_and_missing_imports(
                 logger.info("%s: added mandatory %r",
                             filename, imp.pretty_print().strip())
 
-    return transformer.output(params=params)
+    result = transformer.output(params=params)
+    if moved_imports:
+        result = _add_to_type_checking_block(result, moved_imports, params)
+    return result
+
+
+_TYPE_CHECKING_IMPORTS = (
+    Import("from typing import TYPE_CHECKING"),
+    Import("from typing_extensions import TYPE_CHECKING"),
+)
+
+
+def _starts_own_line(stmt: ast.If, lines: List[str]) -> bool:
+    first = stmt.body[0]
+    test_end = getattr(stmt.test, "end_lineno", None) or stmt.lineno
+    if first.lineno <= test_end:
+        return False
+    if not lines[first.lineno - 1][:first.col_offset].isspace():
+        return False
+    # Not after a line continuation.
+    return not lines[first.lineno - 2].rstrip().endswith("\\")
+
+
+def _find_type_checking_block(
+    module: Optional[ast.AST], lines: List[str]
+) -> Optional[ast.If]:
+    """
+    Find the first top-level ``if TYPE_CHECKING:`` block of ``module`` that
+    only contains import statements and has no ``else`` branch.  Blocks whose
+    body is on the same line as the ``if`` are skipped, since we can't edit
+    them line by line.
+    """
+    if not isinstance(module, ast.Module):
+        return None
+    for stmt in module.body:
+        if (isinstance(stmt, ast.If)
+                and _is_type_checking_test(stmt.test)
+                and not stmt.orelse
+                and _starts_own_line(stmt, lines)
+                and all(isinstance(s, _IMPORT_TYPES) for s in stmt.body)):
+            return stmt
+    return None
+
+
+def _add_to_type_checking_block(
+    codeblock: PythonBlock,
+    imports: List[Import],
+    params: Optional[FormatParams],
+) -> PythonBlock:
+    """
+    Add ``imports`` to the top-level ``if TYPE_CHECKING:`` block of
+    ``codeblock``, creating the block right after the module's first group of
+    imports if there is none.
+    """
+    text = str(codeblock.text)
+    lines = text.split("\n")
+    module = codeblock.ast_node
+    block = _find_type_checking_block(module, lines)
+    if block is not None:
+        first, last = block.body[0], block.body[-1]
+        start = first.lineno
+        end = getattr(last, "end_lineno", None) or last.lineno
+        body_indent = lines[start - 1][:first.col_offset]
+        region = lines[start - 1:end]
+        if any("#" in line or ";" in line for line in region):
+            # Don't rewrite (and lose) comments: append our imports instead.
+            new_body = ImportSet(imports).pretty_print(params=params)
+            lines[end:end] = indent(new_body, body_indent).rstrip("\n").split("\n")
+        else:
+            existing = ImportSet(PythonBlock(
+                "\n".join(line[len(body_indent):] for line in region) + "\n"))
+            new_body = existing.with_imports(imports).pretty_print(params=params)
+            lines[start - 1:end] = (
+                indent(new_body, body_indent).rstrip("\n").split("\n"))
+    else:
+        assert isinstance(module, ast.Module)
+        # Put the new block after the group of imports that defines
+        # TYPE_CHECKING (which we always add before calling this), so that
+        # the name is bound when the ``if`` runs.
+        anchor: Optional[Union[ast.Import, ast.ImportFrom]] = None
+        for stmt in module.body:
+            if anchor is None:
+                if isinstance(stmt, ast.ImportFrom) and any(
+                        (alias.asname or alias.name) == "TYPE_CHECKING"
+                        for alias in stmt.names):
+                    anchor = stmt
+            elif isinstance(stmt, _IMPORT_TYPES):
+                anchor = stmt
+            else:
+                break
+        assert anchor is not None
+        end = getattr(anchor, "end_lineno", None) or anchor.lineno
+        body_indent = " " * FormatParams.coerce(params).indent
+        new_body = ImportSet(imports).pretty_print(params=params)
+        new_lines = ["", "if TYPE_CHECKING:"] + (
+            indent(new_body, body_indent).rstrip("\n").split("\n"))
+        if end < len(lines) and lines[end].strip():
+            new_lines.append("")
+        lines[end:end] = new_lines
+    return PythonBlock("\n".join(lines), filename=codeblock.filename)
 
 
 def remove_broken_imports(

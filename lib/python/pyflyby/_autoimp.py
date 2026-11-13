@@ -30,7 +30,8 @@ import sys
 import types
 from   types                    import EllipsisType, NoneType
 from   typing                   import (Any, Callable, Dict, Iterator, List,
-                                        Optional, Set, Tuple, Union)
+                                        NamedTuple, Optional, Set, Tuple,
+                                        Union)
 
 
 if sys.version_info >= (3, 13):
@@ -50,6 +51,8 @@ if sys.version_info > (3, 11):
     LOAD_SHIFT = 1
 else:
     LOAD_SHIFT = 0
+
+_MISSING = object()
 
 
 
@@ -257,6 +260,7 @@ def symbol_needs_import(
     fullname: DottedIdentifier | str | Tuple[str, ...] | List[str],
     namespaces: ScopeStack | Dict[str, Any] | List[Dict[str, Any]],
     using_scope_name: Optional[str] = None,
+    typing_only: bool = False,
 ) -> bool:
     """
     Return whether ``fullname`` is a symbol that needs to be imported, given
@@ -279,6 +283,10 @@ def symbol_needs_import(
       Fully-qualified symbol name, e.g. "os.path.join".
     :param using_scope_name:
       Optional scope name where this symbol is being used.
+    :param typing_only:
+      Whether this use is only seen by type checkers (e.g. inside a string
+      annotation or an ``if TYPE_CHECKING:`` block) and never evaluated at
+      runtime.
     :type namespaces:
       ``list`` of ``dict``
     :param namespaces:
@@ -306,7 +314,8 @@ def symbol_needs_import(
             # imports are unused, then mark the used ones now.
             if isinstance(var, _UseChecker):
                 var.used = True
-                var.mark_used_in_scope(using_scope_name)
+                var.mark_used_in_scope(using_scope_name,
+                                       runtime=not typing_only)
             # Suppose the user accessed fullname="foo.bar.baz.quux" and
             # suppose we see "foo.bar" was imported (or otherwise assigned) in
             # the scope vars (most commonly this means it was imported
@@ -369,6 +378,24 @@ def symbol_needs_import(
     return True
 
 
+def _is_type_checking_test(test: ast.expr) -> bool:
+    """
+    Return whether ``test`` is the condition of an ``if TYPE_CHECKING:`` block,
+    i.e. ``TYPE_CHECKING`` or ``typing.TYPE_CHECKING`` (or any other
+    ``<module>.TYPE_CHECKING``, such as ``typing_extensions.TYPE_CHECKING``).
+
+      >>> _is_type_checking_test(ast.parse("typing.TYPE_CHECKING", mode="eval").body)
+      True
+      >>> _is_type_checking_test(ast.parse("not TYPE_CHECKING", mode="eval").body)
+      False
+    """
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    if isinstance(test, ast.Attribute):
+        return test.attr == "TYPE_CHECKING" and isinstance(test.value, ast.Name)
+    return False
+
+
 class _UseChecker:
     """
     An object that can check whether it was used.
@@ -380,6 +407,11 @@ class _UseChecker:
     lineno: Optional[int]
     scope_name: Optional[str] = None
     used_in_scopes: List[Optional[str]] = field(default_factory=list)
+    # Whether the name was used somewhere that is evaluated at runtime (as
+    # opposed to only in annotations/``if TYPE_CHECKING:`` blocks).
+    used_at_runtime: bool = False
+    # Whether the import statement itself is inside ``if TYPE_CHECKING:``.
+    in_type_checking: bool = False
 
     def __init__(
         self,
@@ -387,22 +419,44 @@ class _UseChecker:
         source: Any,
         lineno: Optional[int],
         scope_name: Optional[str] = None,
+        in_type_checking: bool = False,
     ) -> None:
         self.name = name
         self.source = source # generally an Import
         self.lineno = lineno
         self.scope_name = scope_name
         self.used_in_scopes = []
+        self.used_at_runtime = False
+        self.in_type_checking = in_type_checking
         logger.debug("Create _UseChecker : %r", self)
 
-    def mark_used_in_scope(self, using_scope_name: Optional[str]) -> None:
+    def mark_used_in_scope(
+        self, using_scope_name: Optional[str], runtime: bool = True
+    ) -> None:
         """Mark this import as used in a specific scope."""
         self.used = True
+        if runtime:
+            self.used_at_runtime = True
         if using_scope_name not in self.used_in_scopes:
             self.used_in_scopes.append(using_scope_name)
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used} scope_name:{self.scope_name!r} used_in_scopes:{self.used_in_scopes!r}>"
+        return f"<{type(self).__name__}: name:{self.name!r} source:{self.source!r} lineno:{self.lineno} used:{self.used} used_at_runtime:{self.used_at_runtime} in_type_checking:{self.in_type_checking} scope_name:{self.scope_name!r} used_in_scopes:{self.used_in_scopes!r}>"
+
+
+class _DeferredLoad(NamedTuple):
+    """A name load to check once the whole scope has been visited."""
+
+    fullname: str
+    scopestack: ScopeStack
+    lineno: Optional[int]
+    #: Scope where the load occurred (e.g. "MyClass.my_method"), None at
+    #: module level.
+    scope_name: Optional[str]
+    #: Whether the load is only seen by type checkers.
+    typing_only: bool = False
+    #: Whether to report the name if it is undefined.
+    report_missing: bool = True
 
 
 class _MissingImportFinder:
@@ -428,6 +482,18 @@ class _MissingImportFinder:
     missing_imports: List[Tuple[Optional[int], DottedIdentifier]]
     parse_docstrings: bool
     _in_annotation: bool = False
+    # Whether loads visited right now are only seen by type checkers, i.e.
+    # never evaluated at runtime (string annotations, ``if TYPE_CHECKING:``
+    # bodies, type comments, local variable annotations, and annotations
+    # under ``from __future__ import annotations``).
+    _typing_only: bool = False
+    # Whether we are inside a string annotation such as ``x: "Foo"``.  Names
+    # there are marked as used, but never reported as missing.
+    _in_string_annotation: bool = False
+    # Whether the module has ``from __future__ import annotations``.
+    _future_annotations: bool = False
+    # Nesting depth of ``if TYPE_CHECKING:`` bodies.
+    _type_checking_depth: int = 0
     find_unused_imports: bool
     """List of unused imports found during analysis.
 
@@ -439,16 +505,7 @@ class _MissingImportFinder:
     """
     unused_imports: List[Tuple[Optional[int], Any, Optional[str]]]
 
-    """Function bodies that we need to check after defining names in this function scope.
-
-    Each tuple contains:
-      - fullname (str): The full name of the symbol that needs to be checked
-      - scopestack (ScopeStack): The scope stack at the time the check was deferred
-      - lineno (Optional[int]): The line number where the load occurred, or None
-      - scope_name (Optional[str]): The name of the scope where the load occurred
-        (e.g., "MyClass.my_method"), or None for module-level loads
-    """
-    _deferred_load_checks: list[tuple[str, ScopeStack, Optional[int], Optional[str]]]
+    _deferred_load_checks: list[_DeferredLoad]
 
     def __init__(
         self,
@@ -499,6 +556,10 @@ class _MissingImportFinder:
         # Current lineno.
         self._lineno = None
         self._in_class_def = 0
+        # Whether the innermost enclosing scope is a class body.
+        self._in_class_body = False
+        # Whether strings in annotations are parsed as forward references.
+        self._parse_string_annotations = True
         # Stack of scope names (for functions/classes) to track where imports are defined
         self._scope_name_stack: List[str] = []
         # Source lines for pragma checking (set by scan_for_import_issues)
@@ -655,16 +716,50 @@ class _MissingImportFinder:
                 )
 
     @contextlib.contextmanager
-    def _annotation_context(self):
+    def _annotation_context(self, typing_only: bool = False):
         """
         context manager to track whether we we are in annotation scope
+
+        :param typing_only:
+          Whether this annotation is never evaluated at runtime.
         """
         save = self._in_annotation
+        save_typing_only = self._typing_only
         self._in_annotation = True
+        self._typing_only = save_typing_only or typing_only
         try:
             yield
         finally:
             self._in_annotation = save
+            self._typing_only = save_typing_only
+
+    @contextlib.contextmanager
+    def _typing_only_context(self) -> Iterator[None]:
+        """
+        Context manager for code that is only seen by type checkers.
+        """
+        save = self._typing_only
+        self._typing_only = True
+        try:
+            yield
+        finally:
+            self._typing_only = save
+
+    def _signature_annotations_are_typing_only(self) -> bool:
+        # Function signature annotations are evaluated when the ``def``
+        # statement runs, unless the module uses PEP 563 postponed
+        # evaluation.
+        return self._future_annotations
+
+    def _variable_annotation_is_typing_only(self) -> bool:
+        if self._in_class_body:
+            # pydantic, attrs, get_type_hints... evaluate class annotations.
+            # Checked before _in_FunctionDef: holds for nested classes too.
+            return False
+        if self._in_FunctionDef:
+            # Annotations for local variables are never evaluated (PEP 526).
+            return True
+        return self._future_annotations
 
     @contextlib.contextmanager
     def _NewScopeCtx(
@@ -770,7 +865,9 @@ class _MissingImportFinder:
         # visit_Assign's RHS-then-LHS order ('x: int = x + 1' loads x before
         # storing it).  The default field order would visit the target
         # (Store) first.
-        with self._annotation_context():
+        with self._annotation_context(
+            typing_only=self._variable_annotation_is_typing_only()
+        ):
             self.visit(node.annotation)
         if node.value is not None:
             self.visit(node.value)
@@ -822,8 +919,11 @@ class _MissingImportFinder:
             self.scopestack._class_delayed[node.name] = None
         with self._NewScopeCtx(new_class_scope=True, scope_name=node.name):
             self._in_class_def += 1
+            old_in_class_body = self._in_class_body
+            self._in_class_body = True
             self._visit_Store(node.name)
             self.visit(node.body)
+            self._in_class_body = old_in_class_body
             self._in_class_def -= 1
         assert self._in_class_def >= 0
         self._remove_from_missing_imports(node.name)
@@ -853,9 +953,14 @@ class _MissingImportFinder:
             if self._in_class_def:
                 self.scopestack[-1]["__class__"] = None  # we just need to to be defined
             self.visit(node.decorator_list)
+            # The signature's annotations are not class-level annotations.
+            old_in_class_body = self._in_class_body
+            self._in_class_body = False
             self.visit(node.args)
             if node.returns:
-                with self._annotation_context():
+                with self._annotation_context(
+                    typing_only=self._signature_annotations_are_typing_only()
+                ):
                     self.visit(node.returns)
             self._visit_typecomment(node.type_comment)
             old_in_FunctionDef = self._in_FunctionDef
@@ -865,6 +970,7 @@ class _MissingImportFinder:
                     self._visit_Store(node.name)
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
+            self._in_class_body = old_in_class_body
         self._visit_Store(node.name)
 
     def visit_Lambda(self, node: ast.Lambda) -> None:
@@ -873,10 +979,13 @@ class _MissingImportFinder:
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.args)
             old_in_FunctionDef = self._in_FunctionDef
+            old_in_class_body = self._in_class_body
             self._in_FunctionDef = True
+            self._in_class_body = False
             with self._NewScopeCtx():
                 self.visit(node.body)
             self._in_FunctionDef = old_in_FunctionDef
+            self._in_class_body = old_in_class_body
 
     def _visit_typecomment(self, typecomment: Optional[str]) -> None:
         """
@@ -907,7 +1016,9 @@ class _MissingImportFinder:
         else:
             node = ast.parse(typecomment)
 
-        self.visit(node)
+        # Type comments are never evaluated at runtime.
+        with self._typing_only_context():
+            self.visit(node)
 
     def visit_arguments(self, node: ast.arguments) -> None:
         assert node._fields == ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'), node._fields
@@ -1023,6 +1134,9 @@ class _MissingImportFinder:
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         modulename = "." * node.level + (node.module or "")
         logger.debug("visit_ImportFrom(%r, ...)", modulename)
+        if (modulename == "__future__"
+                and any(a.name == "annotations" for a in node.names)):
+            self._future_annotations = True
         for alias_node in node.names:
             self.visit_alias(alias_node, modulename)
 
@@ -1075,9 +1189,82 @@ class _MissingImportFinder:
         logger.debug("visit_Pass(%r)", node)
         return self.generic_visit(node)
 
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        # Strings in ``Literal[...]`` and in ``Annotated`` metadata are not
+        # forward references.
+        if not self._in_annotation:
+            return self.generic_visit(node)
+        value = node.value
+        name = (value.id if isinstance(value, ast.Name)
+                else value.attr if isinstance(value, ast.Attribute) else None)
+        if name not in ("Literal", "Annotated"):
+            return self.generic_visit(node)
+        self.visit(value)
+        elts = (node.slice.elts if isinstance(node.slice, ast.Tuple)
+                else [node.slice])
+        save = self._parse_string_annotations
+        try:
+            for i, elt in enumerate(elts):
+                self._parse_string_annotations = (
+                    save and name == "Annotated" and i == 0)
+                self.visit(elt)
+        finally:
+            self._parse_string_annotations = save
+
     def visit_Constant(self, node:ast.Constant) -> None:
         logger.debug("visit_Constant(%r)", node)
+        if (self._in_annotation and self._parse_string_annotations
+                and isinstance(node.value, str)):
+            self._visit_string_annotation(node.value)
         return self.generic_visit(node)
+
+    def _visit_string_annotation(self, annotation: str) -> None:
+        """
+        Visit the expression inside a string annotation (forward reference),
+        e.g. ``def f(x: "OrderedDict")`` or ``x: list["Decimal"]``.
+
+        Names used there count as (typing-only) uses of the corresponding
+        imports, so that those imports are not removed as unused.  Names
+        that are not defined are not reported as missing: string
+        annotations often hold arbitrary text (e.g. ``Literal["foo bar"]``,
+        ``Annotated[int, "doc"]``).
+        """
+        try:
+            expr = ast.parse(annotation.strip(), mode="eval")
+        except (SyntaxError, ValueError):
+            return
+        save = self._in_string_annotation
+        save_lineno = self._lineno
+        self._in_string_annotation = True
+        try:
+            # Class-level string annotations are resolved at runtime.
+            with (
+                contextlib.nullcontext()
+                if self._in_class_body
+                else self._typing_only_context()
+            ):
+                # The parsed expression has line numbers relative to the
+                # string; keep reporting the line of the annotation itself.
+                for sub in ast.walk(expr):
+                    if hasattr(sub, "lineno"):
+                        del sub.lineno  # type: ignore[attr-defined]
+                self.visit(expr.body)
+        finally:
+            self._in_string_annotation = save
+            self._lineno = save_lineno
+
+    def visit_If(self, node: ast.If) -> None:
+        if not _is_type_checking_test(node.test):
+            return self.generic_visit(node)
+        # ``if TYPE_CHECKING:``: the body is only seen by type checkers.
+        self.visit(node.test)
+        self._type_checking_depth += 1
+        try:
+            with self._typing_only_context():
+                self.visit(node.body)
+        finally:
+            self._type_checking_depth -= 1
+        self.visit(node.orelse)
 
     def visit_Module(self, node:ast.Module) -> None:
         logger.debug("visit_Module(%r)", node)
@@ -1095,7 +1282,9 @@ class _MissingImportFinder:
     def visit_arg(self, node: ast.arg) -> None:
         assert node._fields == ('arg', 'annotation', 'type_comment'), node._fields
         if node.annotation:
-            with self._annotation_context():
+            with self._annotation_context(
+                typing_only=self._signature_annotations_are_typing_only()
+            ):
                 self.visit(node.annotation)
         # Treat it like a Name node would from Python 2
         self._visit_fullname(node.arg, ast.Param())
@@ -1161,7 +1350,25 @@ class _MissingImportFinder:
             logger.debug("_visit_StoreImport(): imp = %r", imp)
             # Keep track of whether we've used this import.
             scope_name = self._scope_name_stack[-1] if self._scope_name_stack else None
-            value = _UseChecker(name, imp, self._lineno, scope_name=scope_name)
+            # An import under ``if TYPE_CHECKING:`` that re-imports a name
+            # already bound at runtime doesn't make that name typing-only.
+            in_type_checking = self._type_checking_depth > 0
+            if (in_type_checking
+                    and self.scopestack[-1].get(name, _MISSING) is not _MISSING):
+                # Keep the existing binding: replacing it would make a prior
+                # runtime import look unused.
+                return
+            value = _UseChecker(
+                name,
+                imp,
+                self._lineno,
+                scope_name=scope_name,
+                in_type_checking=in_type_checking,
+            )
+            if not in_type_checking and not node.asname and "." in node.name:
+                # 'import a.b' also binds 'a', whose runtime uses we don't
+                # attribute to this import: assume it is needed at runtime.
+                value.used_at_runtime = True
         self._visit_Store(name, value, in_import=True)
 
     def _visit_StoreStarImport(self, modulename: Optional[str]) -> bool:
@@ -1308,24 +1515,35 @@ class _MissingImportFinder:
         logger.debug("_visit_Load_defered_global(%r)", fullname)
         current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
         if symbol_needs_import(
-            fullname, self.scopestack, using_scope_name=current_scope
+            fullname,
+            self.scopestack,
+            using_scope_name=current_scope,
+            typing_only=self._typing_only,
         ):
-            data = (fullname, self.scopestack, self._lineno, current_scope)
-            self._deferred_load_checks.append(data)
+            self._defer_load(fullname, self.scopestack, current_scope)
 
 
     def _visit_Load_defered(self, fullname: str) -> None:
         logger.debug("_visit_Load_defered(%r)", fullname)
         current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
         if symbol_needs_import(
-            fullname, self.scopestack, using_scope_name=current_scope
+            fullname,
+            self.scopestack,
+            using_scope_name=current_scope,
+            typing_only=self._typing_only,
         ):
-            data = (fullname, self.scopestack.clone_top(), self._lineno, current_scope)
-            self._deferred_load_checks.append(data)
+            self._defer_load(
+                fullname, self.scopestack.clone_top(), current_scope)
 
     def _visit_Load_immediate(self, fullname: str) -> None:
         logger.debug("_visit_Load_immediate(%r)", fullname)
-        self._check_load(fullname, self.scopestack, self._lineno)
+        self._check_load(
+            fullname,
+            self.scopestack,
+            self._lineno,
+            typing_only=self._typing_only,
+            report_missing=not self._in_string_annotation,
+        )
 
 
 
@@ -1368,6 +1586,8 @@ class _MissingImportFinder:
         fullname: Union[str, DottedIdentifier],
         scopestack: ScopeStack,
         lineno: Optional[int],
+        typing_only: bool = False,
+        report_missing: bool = True,
     ) -> None:
         """
         Check if the symbol needs import.  (As a side effect, if the object
@@ -1380,26 +1600,77 @@ class _MissingImportFinder:
         fullname = DottedIdentifier(fullname, scope_info=self._get_scope_info())
         current_scope = self._scope_name_stack[-1] if self._scope_name_stack else None
         if (
-            symbol_needs_import(fullname, scopestack, using_scope_name=current_scope)
+            symbol_needs_import(
+                fullname,
+                scopestack,
+                using_scope_name=current_scope,
+                typing_only=typing_only,
+            )
             and not scopestack.has_star_import()
+            and report_missing
         ):
             if (lineno, fullname) not in self.missing_imports:
                 self.missing_imports.append((lineno, fullname))
 
+    def _defer_load(
+        self, fullname: str, scopestack: ScopeStack, scope_name: Optional[str]
+    ) -> None:
+        self._deferred_load_checks.append(
+            _DeferredLoad(
+                fullname,
+                scopestack,
+                self._lineno,
+                scope_name,
+                typing_only=self._typing_only,
+                report_missing=not self._in_string_annotation,
+            )
+        )
+
     def _finish_deferred_load_checks(self) -> None:
         for item in self._deferred_load_checks:
-            # Handle both old 3-tuple and new 4-tuple format for compatibility
-            if len(item) == 4:
-                fullname, scopestack, lineno, scope_name = item
-                # Temporarily set scope for the check
-                old_scope_stack = self._scope_name_stack
-                self._scope_name_stack = [scope_name] if scope_name else []
-                self._check_load(fullname, scopestack, lineno)
-                self._scope_name_stack = old_scope_stack
-            else:
-                fullname, scopestack, lineno = item
-                self._check_load(fullname, scopestack, lineno)
+            # Temporarily set scope for the check
+            old_scope_stack = self._scope_name_stack
+            self._scope_name_stack = [item.scope_name] if item.scope_name else []
+            self._check_load(
+                item.fullname,
+                item.scopestack,
+                item.lineno,
+                typing_only=item.typing_only,
+                report_missing=item.report_missing,
+            )
+            self._scope_name_stack = old_scope_stack
         self._deferred_load_checks = []
+
+    def find_type_checking_issues(
+        self,
+    ) -> Tuple[List[Tuple[Optional[int], Any]], List[Tuple[Optional[int], Any]]]:
+        """
+        After `scan_for_import_issues`, classify module-level imports by how
+        they are used.
+
+        Requires ``find_unused_imports=True``.
+
+        :return:
+          ``(typing_only, needed_at_runtime)``, two sorted lists of
+          ``(lineno, Import)``:
+
+          - ``typing_only``: runtime imports that are only used in places that
+            are never evaluated at runtime, so they could be moved into an
+            ``if TYPE_CHECKING:`` block.
+          - ``needed_at_runtime``: imports inside ``if TYPE_CHECKING:`` that
+            are used at runtime, which will raise ``NameError``.
+        """
+        typing_only: List[Tuple[Optional[int], Any]] = []
+        needed_at_runtime: List[Tuple[Optional[int], Any]] = []
+        for value in self.scopestack[-1].values():
+            if not isinstance(value, _UseChecker) or value.scope_name is not None:
+                continue
+            if value.in_type_checking:
+                if value.used_at_runtime:
+                    needed_at_runtime.append((value.lineno, value.source))
+            elif value.used and not value.used_at_runtime:
+                typing_only.append((value.lineno, value.source))
+        return sorted(typing_only), sorted(needed_at_runtime)
 
     def _scan_unused_imports(self) -> None:
         # If requested, then check which of our imports were unused.
@@ -1479,6 +1750,33 @@ class _MissingImportFinder:
         return redundant_imports
 
 
+def _scan_with_finder(
+    codeblock: PythonBlock,
+    find_unused_imports: bool = True,
+    parse_docstrings: bool = False,
+    exec_star_imports: bool = False,
+) -> Tuple[
+    _MissingImportFinder,
+    List[Tuple[Optional[int], DottedIdentifier]],
+    List[Tuple[Optional[int], Any, Optional[str]]],
+]:
+    """
+    Like `scan_for_import_issues`, but also return the finder, so that callers
+    can query it further (e.g. `_MissingImportFinder.find_type_checking_issues`).
+
+    :return:
+      ``(finder, missing_imports, unused_imports)``
+    """
+    finder = _MissingImportFinder(
+        ScopeStack([{}]),
+        find_unused_imports=find_unused_imports,
+        parse_docstrings=parse_docstrings,
+        exec_star_imports=exec_star_imports,
+    )
+    missing_imports, unused_imports = finder.scan_for_import_issues(codeblock)
+    return finder, missing_imports, unused_imports
+
+
 def scan_for_import_issues(
     codeblock: Union[PythonBlock, str, FileText, Filename],
     find_unused_imports: bool = True,
@@ -1528,12 +1826,13 @@ def scan_for_import_issues(
     logger.debug("global scan_for_import_issues()")
     if not isinstance(codeblock, PythonBlock):
         codeblock = PythonBlock(codeblock)
-    namespaces = ScopeStack([{}])
-    finder = _MissingImportFinder(namespaces,
-                                  find_unused_imports=find_unused_imports,
-                                  parse_docstrings=parse_docstrings,
-                                  exec_star_imports=exec_star_imports)
-    return finder.scan_for_import_issues(codeblock)
+    _, missing_imports, unused_imports = _scan_with_finder(
+        codeblock,
+        find_unused_imports=find_unused_imports,
+        parse_docstrings=parse_docstrings,
+        exec_star_imports=exec_star_imports,
+    )
+    return missing_imports, unused_imports
 
 
 def _find_missing_imports_in_ast(
