@@ -1337,6 +1337,10 @@ class _MissingImportFinder:
                 scope_name=scope_name,
                 in_type_checking=in_type_checking,
             )
+            if not in_type_checking and not node.asname and "." in node.name:
+                # 'import a.b' also binds 'a', whose runtime uses we don't
+                # attribute to this import: assume it is needed at runtime.
+                value.used_at_runtime = True
         self._visit_Store(name, value, in_import=True)
 
     def _visit_StoreStarImport(self, modulename: Optional[str]) -> bool:

@@ -2847,6 +2847,17 @@ def test_type_checking_method_string_annotation_is_typing_only_1():
     assert needed == []
 
 
+def test_type_checking_dotted_import_is_runtime_1():
+    # 'import os.path' also binds 'os', which is used at runtime.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        import os.path
+        def f(x: os.path.Foo) -> None:
+            return os.getcwd()
+    """)
+    assert typing_only == []
+
+
 def test_type_checking_mixed_use_is_runtime_1():
     _, _, typing_only, _ = _type_checking_issues("""
         from __future__ import annotations
