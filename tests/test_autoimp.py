@@ -2847,6 +2847,30 @@ def test_type_checking_method_string_annotation_is_typing_only_1():
     assert needed == []
 
 
+def test_type_checking_literal_strings_are_not_names_1():
+    _, unused, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from typing import Literal
+        from os import sep
+        def f(a: Literal["sep"]) -> Literal["sep", "other"]:
+            pass
+    """)
+    assert [str(imp) for _, imp, _ in unused] == ["from os import sep"]
+
+
+def test_type_checking_annotated_metadata_strings_are_not_names_1():
+    _, unused, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from typing import Annotated
+        from decimal import Decimal
+        from os import sep
+        def f(a: Annotated["Decimal", "sep"]):
+            pass
+    """)
+    assert [str(imp) for _, imp, _ in unused] == ["from os import sep"]
+    assert "from decimal import Decimal" in typing_only
+
+
 def test_type_checking_dotted_import_is_runtime_1():
     # 'import os.path' also binds 'os', which is used at runtime.
     _, _, typing_only, _ = _type_checking_issues("""

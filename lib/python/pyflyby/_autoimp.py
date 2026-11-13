@@ -557,6 +557,8 @@ class _MissingImportFinder:
         self._in_class_def = 0
         # Whether the innermost enclosing scope is a class body.
         self._in_class_body = False
+        # Whether strings in annotations are parsed as forward references.
+        self._parse_string_annotations = True
         # Stack of scope names (for functions/classes) to track where imports are defined
         self._scope_name_stack: List[str] = []
         # Source lines for pragma checking (set by scan_for_import_issues)
@@ -1186,9 +1188,32 @@ class _MissingImportFinder:
         logger.debug("visit_Pass(%r)", node)
         return self.generic_visit(node)
 
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        # Strings in ``Literal[...]`` and in ``Annotated`` metadata are not
+        # forward references.
+        if not self._in_annotation:
+            return self.generic_visit(node)
+        value = node.value
+        name = (value.id if isinstance(value, ast.Name)
+                else value.attr if isinstance(value, ast.Attribute) else None)
+        if name not in ("Literal", "Annotated"):
+            return self.generic_visit(node)
+        self.visit(value)
+        elts = (node.slice.elts if isinstance(node.slice, ast.Tuple)
+                else [node.slice])
+        save = self._parse_string_annotations
+        try:
+            for i, elt in enumerate(elts):
+                self._parse_string_annotations = (
+                    save and name == "Annotated" and i == 0)
+                self.visit(elt)
+        finally:
+            self._parse_string_annotations = save
+
     def visit_Constant(self, node:ast.Constant) -> None:
         logger.debug("visit_Constant(%r)", node)
-        if self._in_annotation and isinstance(node.value, str):
+        if (self._in_annotation and self._parse_string_annotations
+                and isinstance(node.value, str)):
             self._visit_string_annotation(node.value)
         return self.generic_visit(node)
 
