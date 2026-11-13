@@ -30,7 +30,8 @@ import sys
 import types
 from   types                    import EllipsisType, NoneType
 from   typing                   import (Any, Callable, Dict, Iterator, List,
-                                        NamedTuple, Optional, Set, Tuple, Union)
+                                        NamedTuple, Optional, Set, Tuple,
+                                        Union)
 
 
 if sys.version_info >= (3, 13):
