@@ -14,7 +14,7 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
 from   pyflyby._parse           import PythonStatement
-from   pyflyby._util            import (Inf, cached_attribute, cmp,
+from   pyflyby._util            import (_pragma_args, Inf, cached_attribute, cmp,
                                         longest_common_prefix)
 
 
@@ -519,14 +519,33 @@ class ImportStatement:
           ``tuple`` of `Import` s
         """
         result = []
+        comment = self.get_valid_comment()
+        if comment is None:
+            comment = self._get_ignore_pragma_comment()
         for alias in self.aliases:
             result.append(
                 Import.from_split(
                     (self.fromname, alias[0], alias[1]),
-                    comment=self.get_valid_comment(),
+                    comment=comment,
                 )
             )
         return tuple(result)
+
+    def _get_ignore_pragma_comment(self) -> Optional[str]:
+        """
+        For a multi-alias statement, return the single comment if it carries
+        a ``# tidy-imports: ignore-import`` pragma, else ``None``.
+
+        The pragma applies to every name in the statement, so it is kept on
+        each resulting `Import` (unlike ordinary comments, which are ambiguous
+        for multi-alias statements).
+        """
+        if self.comments and len(self.aliases) > 1:
+            valid = [c for c in self.comments if c is not None]
+            if len(valid) == 1 and _pragma_args(
+                    "#" + valid[0], "ignore-import") is not None:
+                return valid[0]
+        return None
 
     def get_valid_comment(self) -> Optional[str]:
         """Get the comment for the ImportStatment, if possible.

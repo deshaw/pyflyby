@@ -205,6 +205,20 @@ def partition(
     iterable: Iterable[_T], predicate: Callable[[_T], Any]
 ) -> Tuple[List[_T], List[_T]]:
     """
+    Split ``iterable`` into the items for which ``predicate`` is true and
+    those for which it is false.
+
+    The iterable is consumed once and relative order is preserved within each
+    list.  Note the order of the result: ``(trues, falses)``, i.e. matching
+    items come first.
+
+    :param iterable:
+      Items to split.
+    :param predicate:
+      Called once per item; its result is only tested for truthiness.
+    :return:
+      A tuple ``(matching, non_matching)`` of lists.
+
       >>> partition('12321233221', lambda c: int(c) % 2 == 0)
       (['2', '2', '2', '2', '2'], ['1', '3', '1', '3', '3', '1'])
 
