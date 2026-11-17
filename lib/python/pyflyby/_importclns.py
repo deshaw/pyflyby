@@ -543,6 +543,12 @@ class ImportSet:
 ImportSet._EMPTY = ImportSet._from_imports([])
 
 
+if sys.version_info >= (3, 15):
+    _frozendict: Any = frozendict  # builtin on 3.15+ # noqa: F821
+else:
+    _frozendict = None
+
+
 @total_ordering
 class ImportMap(object):
     r"""
@@ -578,7 +584,9 @@ class ImportMap(object):
         data = dict((Import(k).fullname, Import(v).fullname)
                     for k, v in arg.items())
         self = object.__new__(cls)
-        self._data = data
+        # Python 3.15+ has a builtin, hashable ``frozendict``; use it so the
+        # map is truly immutable and hashing is native.
+        self._data = _frozendict(data) if _frozendict is not None else data
         return self
 
     @classmethod
@@ -660,9 +668,9 @@ class ImportMap(object):
         return cmp(self._data, other._data)
 
     def __hash__(self) -> int:
-        h = hash(self._data)
-        self.__hash__ = lambda: h  # type: ignore[method-assign]
-        return h
+        if _frozendict is not None:
+            return hash(self._data)
+        return hash(frozenset(self._data.items()))
 
 
 ImportMap._EMPTY = ImportMap._from_map({})

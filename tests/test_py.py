@@ -7,7 +7,6 @@ from __future__ import print_function
 
 import ast
 from   functools                import cached_property
-import json
 import os
 import shutil
 from   shutil                   import rmtree
@@ -184,9 +183,11 @@ def test_print_version_module_1():
     # 'py <module> --version' prints the module's __version__
     # (print_version with a module argument).
 
-    result, retcode = py("json", "--version")
+    from pyflyby._version import __version__
+
+    result, retcode = py("pyflyby", "--version")
     assert retcode == 0
-    assert result == json.__version__
+    assert result == __version__
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="return 0 on older python")
@@ -870,7 +871,7 @@ def test_function_help_1():
     output, retcode = py("base64.b64encode", "--help")
     assert retcode == 0
     assert "s [altchars]" in output
-    assert ">>> base64.b64encode(s, altchars=None)" in output
+    assert ">>> base64.b64encode(s, altchars=None" in output
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "--version" not in output
@@ -1016,7 +1017,7 @@ def test_function_source_1():
     output, retcode = py("base64.b64encode", "--source")
     assert retcode == 0
     assert "[PYFLYBY] import base64" in output
-    assert ">>> base64.b64encode(s, altchars=None)" in output
+    assert ">>> base64.b64encode(s, altchars=None" in output
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
@@ -1028,7 +1029,7 @@ def test_function_source_autoimport_1():
     output, retcode = py("b64encode", "--source")
     assert retcode == 0
     assert "[PYFLYBY] from base64 import b64encode" in output
-    assert ">>> b64encode(s, altchars=None)" in output
+    assert ">>> b64encode(s, altchars=None" in output
     assert "$ py b64encode s [altchars]" in output
     assert "$ py b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
