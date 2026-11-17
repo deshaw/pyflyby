@@ -252,3 +252,11 @@ def test_ImportDB_pyflyby_forget_1():
         """)
         assert result == expected
         rmtree(d)
+
+
+def test_importdb_hashable_1():
+    db1 = ImportDB("import os")
+    db2 = ImportDB("import os")
+    assert hash(db1) == hash(db2)
+    assert len({db1, db2}) == 1
+    assert hash(ImportDB("from a import b\n__forget_imports__ = ['import os']")) is not None
