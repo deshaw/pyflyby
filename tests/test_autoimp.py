@@ -15,11 +15,13 @@ from   textwrap                 import dedent
 
 from   pyflyby                  import (Filename, ImportDB, auto_eval,
                                         auto_import, find_missing_imports)
-from   pyflyby._autoimp         import (LoadSymbolError, load_symbol,
+from   pyflyby._autoimp         import (LoadSymbolError, ScopeStack,
+                                        _MissingImportFinder, load_symbol,
                                         scan_for_import_issues)
 from   pyflyby._flags           import CompilerFlags
 from   pyflyby._idents          import DottedIdentifier
 from   pyflyby._importstmt      import Import
+from   pyflyby._parse           import PythonBlock
 from   pyflyby._util            import CwdCtx
 
 
@@ -2696,3 +2698,273 @@ def test_auto_eval_star_import_exec_default_off_1(dynamic_all_module):
     code = "from %s import *\nmkstemp\n" % dynamic_all_module
     with pytest.raises(NameError):
         auto_eval(code, globals={})
+
+
+def _type_checking_issues(code):
+    finder = _MissingImportFinder(
+        ScopeStack([{}]), find_unused_imports=True, parse_docstrings=True)
+    missing, unused = finder.scan_for_import_issues(PythonBlock(dedent(code)))
+    typing_only, needed_at_runtime = finder.find_type_checking_issues()
+    return (missing, unused,
+            [str(imp) for _, imp in typing_only],
+            [str(imp) for _, imp in needed_at_runtime])
+
+
+def test_scan_for_import_issues_string_annotation_uses_import_1():
+    # Used to report the import as unused (so tidy-imports removed it).
+    code = dedent("""
+        from collections import OrderedDict
+        from decimal import Decimal
+        def f(x: "OrderedDict") -> "list[Decimal]":
+            pass
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == []
+    assert unused == []
+
+
+def test_scan_for_import_issues_string_annotation_variable_1():
+    code = dedent("""
+        from decimal import Decimal
+        x: "Decimal | None" = None
+    """)
+    assert scan_for_import_issues(code) == ([], [])
+
+
+def test_scan_for_import_issues_string_annotation_not_missing_1():
+    # Undefined names and non-expressions inside strings are not reported.
+    code = dedent("""
+        from typing import Annotated, Literal
+        def f(x: "Undefined", y: Literal["not code"],
+              z: Annotated[int, "some doc"]):
+            pass
+    """)
+    assert scan_for_import_issues(code) == ([], [])
+
+
+def test_type_checking_future_annotations_1():
+    missing, unused, typing_only, runtime = _type_checking_issues("""
+        from __future__ import annotations
+        import os
+        from decimal import Decimal
+        from fractions import Fraction
+        def f(x: Decimal, y: Fraction) -> os.PathLike:
+            return Fraction(1, 2)
+    """)
+    assert (missing, unused) == ([], [])
+    assert typing_only == ["import os", "from decimal import Decimal"]
+    assert runtime == []
+
+
+def test_type_checking_annotations_evaluated_without_future_1():
+    # Without PEP 563, signature annotations are evaluated at def time.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f(x: Decimal) -> Decimal:
+            pass
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_string_annotation_is_typing_only_1():
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f(x: "Decimal") -> "list[Decimal]":
+            pass
+    """)
+    assert typing_only == ["from decimal import Decimal"]
+
+
+def test_type_checking_local_variable_annotation_1():
+    # Annotations of local variables are never evaluated (PEP 526).
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f():
+            x: Decimal = 1
+            return x
+    """)
+    assert typing_only == ["from decimal import Decimal"]
+
+
+def test_type_checking_class_annotation_is_runtime_1():
+    # Class-level annotations may be evaluated (pydantic, dataclasses...).
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from decimal import Decimal
+        class Model:
+            price: Decimal
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_class_in_function_annotation_is_runtime_1():
+    # A class nested in a function still has its annotations evaluated.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f():
+            class C:
+                x: Decimal
+            return C
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_method_local_annotation_is_typing_only_1():
+    # ... but a local variable in a method of a class is not evaluated.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        class C:
+            def m(self):
+                x: Decimal = None
+    """)
+    assert typing_only == ["from decimal import Decimal"]
+
+
+def test_type_checking_class_string_annotation_is_runtime_1():
+    # String annotations in a class body are resolved at runtime by pydantic,
+    # typing.get_type_hints, ...
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        class C:
+            x: "Decimal"
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_method_string_annotation_is_typing_only_1():
+    _, _, typing_only, needed = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        from collections import OrderedDict
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from fractions import Fraction
+        class A:
+            def m(self, x: "Decimal", y: "Fraction") -> "OrderedDict":
+                pass
+    """)
+    assert typing_only == ["from collections import OrderedDict",
+                           "from decimal import Decimal"]
+    assert needed == []
+
+
+def test_type_checking_literal_strings_are_not_names_1():
+    _, unused, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from typing import Literal
+        from os import sep
+        def f(a: Literal["sep"]) -> Literal["sep", "other"]:
+            pass
+    """)
+    assert [str(imp) for _, imp, _ in unused] == ["from os import sep"]
+
+
+def test_type_checking_annotated_metadata_strings_are_not_names_1():
+    _, unused, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from typing import Annotated
+        from decimal import Decimal
+        from os import sep
+        def f(a: Annotated["Decimal", "sep"]):
+            pass
+    """)
+    assert [str(imp) for _, imp, _ in unused] == ["from os import sep"]
+    assert "from decimal import Decimal" in typing_only
+
+
+def test_type_checking_dotted_import_is_runtime_1():
+    # 'import os.path' also binds 'os', which is used at runtime.
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        import os.path
+        def f(x: os.path.Foo) -> None:
+            return os.getcwd()
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_reimport_keeps_runtime_import_1():
+    _, unused, _, needed = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        x = Decimal(1)
+    """)
+    assert unused == []
+    assert needed == []
+
+
+@pytest.mark.xfail(reason="annotations of decorated functions may be "
+                   "evaluated by the decorator (e.g. singledispatch)")
+def test_type_checking_decorated_function_annotation_is_runtime_1():
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from functools import singledispatch
+        from decimal import Decimal
+        @singledispatch
+        def f(x): pass
+        @f.register
+        def _(x: Decimal): pass
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_mixed_use_is_runtime_1():
+    _, _, typing_only, _ = _type_checking_issues("""
+        from __future__ import annotations
+        from decimal import Decimal
+        def f(x: Decimal) -> Decimal:
+            return Decimal(x)
+    """)
+    assert typing_only == []
+
+
+def test_type_checking_type_comment_1():
+    _, _, typing_only, _ = _type_checking_issues("""
+        from decimal import Decimal
+        def f(a):
+            # type: (Decimal) -> None
+            pass
+    """)
+    assert typing_only == ["from decimal import Decimal"]
+
+
+def test_type_checking_block_imports_1():
+    missing, unused, typing_only, runtime = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        if TYPE_CHECKING:
+            from decimal import Decimal
+            Alias = list[Decimal]
+        def f(x: "Alias"):
+            pass
+    """)
+    assert (missing, unused) == ([], [])
+    assert typing_only == []
+    assert runtime == []
+
+
+def test_type_checking_block_import_used_at_runtime_1():
+    missing, unused, typing_only, runtime = _type_checking_issues("""
+        import typing
+        if typing.TYPE_CHECKING:
+            from decimal import Decimal
+        else:
+            from fractions import Fraction
+        def f():
+            return Decimal(1), Fraction(1)
+    """)
+    assert (missing, unused) == ([], [])
+    assert typing_only == []
+    assert runtime == ["from decimal import Decimal"]
+
+
+def test_type_checking_block_reimport_of_runtime_name_1():
+    # Re-importing a runtime name under TYPE_CHECKING is not an error.
+    _, _, _, runtime = _type_checking_issues("""
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        Decimal(1)
+    """)
+    assert runtime == []

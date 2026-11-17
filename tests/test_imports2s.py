@@ -1932,3 +1932,354 @@ def test_fix_unused_and_missing_imports_exec_star_conditional_1(tmp_module):
     output = fix_unused_and_missing_imports(input, add_mandatory=False,
                                             exec_star_imports=True)
     assert "from os.path import join" in " ".join(str(output).split())
+
+
+def test_fix_unused_imports_keeps_string_annotation_import_1():
+    input = PythonBlock(dedent('''
+        from collections import OrderedDict
+
+        def f(x: "OrderedDict") -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_string_annotation_1.py")
+    output = fix_unused_and_missing_imports(input, add_mandatory=False)
+    assert output == input
+
+
+def test_fix_type_checking_imports_report_1(capsys):
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+
+        import os
+        from decimal import Decimal
+
+        def f(x: Decimal) -> str:
+            return os.sep
+    ''').lstrip(), filename="/foo/test_type_checking_report_1.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="report")
+    assert output == input
+    out, err = capsys.readouterr()
+    assert ("'from decimal import Decimal' is only used for type checking"
+            in out)
+    assert "import os'" not in out
+
+
+def test_fix_type_checking_imports_default_is_ignore_1(capsys):
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+
+        def f(x: Decimal) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_default_1.py")
+    output = fix_unused_and_missing_imports(input, add_mandatory=False)
+    assert output == input
+    out, err = capsys.readouterr()
+    assert "TYPE_CHECKING" not in out
+
+
+def test_fix_type_checking_imports_move_new_block_1():
+    input = PythonBlock(dedent('''
+        """Docstring."""
+        import os
+        from collections import OrderedDict
+        from decimal import Decimal
+
+        def f(x: "OrderedDict") -> "Decimal":
+            return os.sep
+    ''').lstrip(), filename="/foo/test_type_checking_move_1.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        """Docstring."""
+        import os
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from collections import OrderedDict
+            from decimal     import Decimal
+
+        def f(x: "OrderedDict") -> "Decimal":
+            return os.sep
+    ''').lstrip(), filename="/foo/test_type_checking_move_1.py")
+    assert output == expected
+
+
+def test_fix_type_checking_imports_move_existing_block_1():
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+
+        import os
+        from decimal import Decimal
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from fractions import Fraction
+
+
+        def f(x: Decimal, y: Fraction) -> str:
+            return os.sep
+    ''').lstrip(), filename="/foo/test_type_checking_move_2.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        from __future__ import annotations
+
+        import os
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from decimal   import Decimal
+            from fractions import Fraction
+
+
+        def f(x: Decimal, y: Fraction) -> str:
+            return os.sep
+    ''').lstrip(), filename="/foo/test_type_checking_move_2.py")
+    assert output == expected
+
+
+def test_fix_type_checking_imports_move_keeps_block_comments_1():
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            # Only needed by mypy.
+            from fractions import Fraction
+
+        def f(x: Decimal, y: Fraction) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_3.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        from __future__ import annotations
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            # Only needed by mypy.
+            from decimal   import Decimal
+            from fractions import Fraction
+
+        def f(x: Decimal, y: Fraction) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_3.py")
+    assert output == expected
+
+
+def test_fix_type_checking_imports_move_keeps_inline_comments_1():
+    # Comments between the imports of the block are kept: the moved imports
+    # are appended instead of re-sorting the block.
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from fractions import Fraction  # mypy only
+            from numbers import Number
+
+        def f(x: Decimal, y: Fraction, z: Number) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_6.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        from __future__ import annotations
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from fractions import Fraction  # mypy only
+            from numbers import Number
+            from decimal import Decimal
+
+        def f(x: Decimal, y: Fraction, z: Number) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_6.py")
+    assert output == expected
+
+
+def test_fix_type_checking_imports_move_reuses_unused_import_1(capsys):
+    # An unused TYPE_CHECKING import is kept (not removed and re-added) when
+    # we create the block.
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+        from typing import TYPE_CHECKING
+
+        def f(x: Decimal) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_4.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        from __future__ import annotations
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from decimal import Decimal
+
+        def f(x: Decimal) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_4.py")
+    assert output == expected
+    out, err = capsys.readouterr()
+    assert "removed unused 'from typing import TYPE_CHECKING'" not in out
+    assert "added 'from typing import TYPE_CHECKING'" not in out
+
+
+def test_fix_type_checking_imports_move_result_is_valid_1():
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+        def f(x: Decimal) -> None:
+            return None
+        f(1)
+    ''').lstrip(), filename="/foo/test_type_checking_move_5.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    namespace = {}
+    exec(compile(str(output), "<test>", "exec"), namespace)
+    assert "Decimal" not in namespace
+    assert namespace["TYPE_CHECKING"] is False
+
+
+def test_fix_type_checking_imports_warns_runtime_use_1(capsys):
+    input = PythonBlock(dedent('''
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from decimal import Decimal
+
+        def f():
+            return Decimal(1)
+    ''').lstrip(), filename="/foo/test_type_checking_runtime_1.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="report")
+    assert output == input
+    out, err = capsys.readouterr()
+    assert ("'from decimal import Decimal' is imported under "
+            "'if TYPE_CHECKING:' but is used at runtime") in out
+
+
+def test_fix_type_checking_imports_invalid_mode_1():
+    with pytest.raises(ValueError):
+        fix_unused_and_missing_imports(
+            PythonBlock("import os\n"), type_checking_imports="always")
+
+
+def test_fix_type_checking_imports_skips_init_files_1(capsys):
+    # Imports in __init__.py are usually re-exports, like for unused imports.
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+        from decimal import Decimal
+
+        def f(x: Decimal) -> None:
+            pass
+    ''').lstrip(), filename="/foo/pkg/__init__.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    assert output == input
+    out, err = capsys.readouterr()
+    assert "TYPE_CHECKING" not in out
+
+
+def test_fix_type_checking_imports_move_class_in_function_1():
+    # Annotations in a class nested in a function are evaluated at runtime.
+    input = PythonBlock(dedent('''
+        from decimal import Decimal
+        def f():
+            class C:
+                x: Decimal
+            return C
+    ''').lstrip(), filename="/foo/test_type_checking_move_8.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    assert output == input
+
+
+def test_fix_type_checking_imports_move_one_line_block_1():
+    # An ``if TYPE_CHECKING: import x`` on one line must not be rewritten
+    # (and must not lose its import).
+    input = PythonBlock(dedent('''
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING: import sys
+        def f(x: "Decimal"): pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_9.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    assert "import sys" in str(output)
+    compile(str(output), "<test>", "exec")
+
+
+@pytest.mark.parametrize("block", [
+    "if (TYPE_CHECKING\n    ): import sys\n",
+    "if TYPE_CHECKING: \\\n  import sys\n",
+])
+def test_fix_type_checking_imports_move_odd_block_layout_1(block):
+    input = PythonBlock(
+        "from typing import TYPE_CHECKING\n"
+        "from decimal import Decimal\n" + block +
+        "def f(x: 'Decimal'): pass\n",
+        filename="/foo/test_type_checking_move_10.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    compile(str(output), "<test>", "exec")
+    assert "import sys" in str(output)
+    assert "from decimal import Decimal" in str(output)
+
+
+def test_fix_type_checking_imports_reimport_keeps_runtime_import_1():
+    input = PythonBlock(dedent('''
+        from typing import TYPE_CHECKING
+        from decimal import Decimal
+        if TYPE_CHECKING:
+            from decimal import Decimal
+        x = Decimal(1)
+    ''').lstrip(), filename="/foo/test_type_checking_move_11.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    # The runtime import is kept (the file may only be reordered).
+    assert str(output).count("from decimal import Decimal") == 2
+    assert "removed unused" not in str(output)
+
+
+def test_fix_type_checking_imports_move_after_type_checking_import_1():
+    # The new block must come after the import that binds TYPE_CHECKING, even
+    # when that import lands in a later group of imports.
+    input = PythonBlock(dedent('''
+        from __future__ import annotations
+
+        import sys
+
+        assert sys.platform != "nonexistent"
+
+        from decimal import Decimal
+        from typing import Any
+
+        def f(x: Decimal, y: Any) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_7.py")
+    output = fix_unused_and_missing_imports(
+        input, add_mandatory=False, type_checking_imports="move")
+    expected = PythonBlock(dedent('''
+        from __future__ import annotations
+
+        import sys
+
+        assert sys.platform != "nonexistent"
+
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from decimal import Decimal
+            from typing  import Any
+
+        def f(x: Decimal, y: Any) -> None:
+            pass
+    ''').lstrip(), filename="/foo/test_type_checking_move_7.py")
+    assert output == expected
+    exec(compile(str(output), "<test>", "exec"), {})

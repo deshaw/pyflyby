@@ -178,6 +178,47 @@ imports), use the ``--tidy-local-imports`` flag:
 You can make this the default for a project via ``pyproject.toml`` (see
 `Per-Project configuration of tidy-imports`_).
 
+Imports only needed for type checking
+-------------------------------------
+
+``tidy-imports`` understands string annotations, ``from __future__ import
+annotations`` and ``if TYPE_CHECKING:`` blocks. With
+``--type-checking-imports=report`` it lists top-level imports that are only
+used in annotations that are never evaluated at runtime (string annotations,
+annotations under ``from __future__ import annotations``, local variable
+annotations, type comments, ``if TYPE_CHECKING:`` blocks), and warns about
+imports under ``if TYPE_CHECKING:`` that are used at runtime.
+``--type-checking-imports=move`` also moves them into an
+``if TYPE_CHECKING:`` block:
+
+.. code:: bash
+
+   $ tidy-imports --type-checking-imports=move foo.py
+   [PYFLYBY] foo.py: moved 'from decimal import Decimal' into 'if TYPE_CHECKING:'
+   [PYFLYBY] foo.py: added 'from typing import TYPE_CHECKING'
+   --- foo.py
+   +++ foo.py
+   @@ -1,6 +1,9 @@
+    from __future__ import annotations
+   -from decimal import Decimal
+    import os
+   +from   typing                   import TYPE_CHECKING
+
+   +if TYPE_CHECKING:
+   +    from   decimal                  import Decimal
+   +
+    def f(x: Decimal) -> str:
+        return os.sep
+
+Class-level annotations are treated as runtime uses, since libraries such as
+pydantic and attrs evaluate them. Annotations of decorated functions are not:
+under ``from __future__ import annotations``, a decorator that evaluates them
+(``functools.singledispatch``, pydantic's ``validate_call``, FastAPI...) will
+break once their imports are moved, so review the result of
+``--type-checking-imports=move``. Like unused imports, ``__init__.py`` files
+are left alone. The default is ``ignore``; set ``type_checking_imports`` in
+``pyproject.toml`` to change it for a project.
+
 Ignoring specific imports
 -------------------------
 
