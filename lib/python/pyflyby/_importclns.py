@@ -16,7 +16,7 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (cached_attribute, cmp, partition,
+from   pyflyby._util            import (_pragma_args, cached_attribute, cmp, partition,
                                         stable_unique)
 
 from   typing                   import (Any, ClassVar, Dict, FrozenSet,
@@ -308,7 +308,15 @@ class ImportSet:
                 if star_imports:
                     result.append(ImportStatement(star_imports))
                 if nonstar_imports:
-                    result.append(ImportStatement(sorted(nonstar_imports)))
+                    marked, plain = partition(
+                        sorted(nonstar_imports),
+                        lambda imp: imp.comment is not None
+                        and _pragma_args(
+                            "#" + imp.comment, "ignore-import") is not None)
+                    if plain:
+                        result.append(ImportStatement(plain))
+                    for imp in marked:
+                        result.append(ImportStatement([imp]))
         return tuple(result)
 
     @cached_attribute
