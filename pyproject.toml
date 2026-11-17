@@ -125,6 +125,11 @@ addopts = [
 filterwarnings = [
     "error::Warning",
     "error::DeprecationWarning",
+    # Python 3.15 warns when pexpect/ptyprocess forkpty() from a multi-threaded
+    # process.  Benign (pexpect has always forked this way); remove once
+    # ptyprocess stops using fork().  See pexpect/pexpect#827 and
+    # pexpect/ptyprocess#89.
+    "ignore:This process .* is multi-threaded, use of forkpty\\(\\) may lead to deadlocks in the child:DeprecationWarning",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

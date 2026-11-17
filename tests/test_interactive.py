@@ -28,7 +28,7 @@ import requests
 
 import pyflyby
 from   pyflyby._file            import Filename
-from   tests._test_utils        import EnvVarCtx, xfail_forkpty_py315
+from   tests._test_utils        import EnvVarCtx
 from   typing                   import Any, Optional, Sequence, Union
 
 from   _pytest.outcomes         import OutcomeException as _Failed
@@ -1202,7 +1202,6 @@ def _clean_ipython_output(result):
     return result
 
 
-@xfail_forkpty_py315
 def test_ipython_1(frontend):
     # Test that we can run ipython and get results back.
     ipython("""
@@ -1213,7 +1212,6 @@ def test_ipython_1(frontend):
     """, frontend=frontend)
 
 
-@xfail_forkpty_py315
 def test_ipython_assert_fail_1(frontend):
     with assert_fail():
         ipython("""
@@ -1224,7 +1222,6 @@ def test_ipython_assert_fail_1(frontend):
         """, frontend=frontend)
 
 
-@xfail_forkpty_py315
 def test_ipython_indented_block_4spaces_1(frontend):
     # Test that indented blocks work vs IPython's autoindent.
     # 4 spaces is the IPython default autoindent.
