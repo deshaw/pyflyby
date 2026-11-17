@@ -544,7 +544,7 @@ ImportSet._EMPTY = ImportSet._from_imports([])
 
 
 if sys.version_info >= (3, 15):
-    _frozendict: Any = frozendict  # builtin on 3.15+
+    _frozendict: Any = frozendict  # builtin on 3.15+ # noqa: F821
 else:
     _frozendict = None
 
