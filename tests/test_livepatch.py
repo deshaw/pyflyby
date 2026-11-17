@@ -227,7 +227,7 @@ def test_xreload_pyc_1(tpp):
     del sys.modules['frost40788115']
     del frost40788115
     import frost40788115
-    fn = getattr(frost40788115, "__cached__", None) or frost40788115.__file__
+    fn = frost40788115.__spec__.cached
     assert fn.endswith(".pyc")
     from frost40788115 import foo
     assert foo() == 1997613
@@ -808,7 +808,7 @@ def test_xreload_auto_pyc_1(tpp):
     del sys.modules['cowpower84929107']
     del cowpower84929107
     import cowpower84929107
-    fn = getattr(cowpower84929107, "__cached__", None) or cowpower84929107.__file__
+    fn = cowpower84929107.__spec__.cached
     assert fn.endswith(".pyc")
     from cowpower84929107 import watt
     assert watt() == 16247534
