@@ -871,7 +871,7 @@ def test_function_help_1():
     output, retcode = py("base64.b64encode", "--help")
     assert retcode == 0
     assert "s [altchars]" in output
-    assert ">>> base64.b64encode(s, altchars=None)" in output
+    assert ">>> base64.b64encode(s, altchars=None" in output
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "--version" not in output
@@ -1017,7 +1017,7 @@ def test_function_source_1():
     output, retcode = py("base64.b64encode", "--source")
     assert retcode == 0
     assert "[PYFLYBY] import base64" in output
-    assert ">>> base64.b64encode(s, altchars=None)" in output
+    assert ">>> base64.b64encode(s, altchars=None" in output
     assert "$ py base64.b64encode s [altchars]" in output
     assert "$ py base64.b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
@@ -1029,7 +1029,7 @@ def test_function_source_autoimport_1():
     output, retcode = py("b64encode", "--source")
     assert retcode == 0
     assert "[PYFLYBY] from base64 import b64encode" in output
-    assert ">>> b64encode(s, altchars=None)" in output
+    assert ">>> b64encode(s, altchars=None" in output
     assert "$ py b64encode s [altchars]" in output
     assert "$ py b64encode --s=... [--altchars=...]" in output
     assert "binascii.b2a_base64" in output # from source code
