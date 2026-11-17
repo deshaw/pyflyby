@@ -16,7 +16,7 @@ from   textwrap                 import dedent
 
 from   pyflyby._cmdline         import _get_pyproj_toml_config
 from   pyflyby._util            import CwdCtx
-from   tests._test_utils        import EnvVarCtx
+from   tests._test_utils        import EnvVarCtx, xfail_forkpty_py315
 
 import pytest
 
@@ -448,6 +448,7 @@ def test_py_file_1():
     assert result == expected
 
 
+@xfail_forkpty_py315
 def test_tidy_imports_query_no_change_1():
     input = dedent('''
         from __future__ import absolute_import, division
@@ -469,6 +470,7 @@ def test_tidy_imports_query_no_change_1():
     assert output == input
 
 
+@xfail_forkpty_py315
 def test_tidy_imports_query_y_1():
     input = dedent('''
         from __future__ import absolute_import, division
@@ -495,6 +497,7 @@ def test_tidy_imports_query_y_1():
     assert output == expected
 
 
+@xfail_forkpty_py315
 def test_tidy_imports_query_n_1():
     input = dedent('''
         from __future__ import absolute_import, division
@@ -516,6 +519,7 @@ def test_tidy_imports_query_n_1():
     assert output == input
 
 
+@xfail_forkpty_py315
 def test_tidy_imports_query_junk_1():
     input = dedent('''
         from __future__ import absolute_import, division
