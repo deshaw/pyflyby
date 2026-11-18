@@ -534,17 +534,19 @@ class ImportStatement:
     def _get_ignore_pragma_comment(self) -> Optional[str]:
         """
         For a multi-alias statement, return the single comment if it carries
-        a ``# tidy-imports: ignore-import`` pragma, else ``None``.
+        a ``# tidy-imports: ignore-import`` pragma, else ``None``.  Several
+        identical comments (from merged statements) count as one.
 
         The pragma applies to every name in the statement, so it is kept on
         each resulting `Import` (unlike ordinary comments, which are ambiguous
         for multi-alias statements).
         """
         if self.comments and len(self.aliases) > 1:
-            valid = [c for c in self.comments if c is not None]
-            if len(valid) == 1 and _pragma_args(
-                    "#" + valid[0], "ignore-import") is not None:
-                return valid[0]
+            valid = {c for c in self.comments if c is not None}
+            if len(valid) == 1:
+                (comment,) = valid
+                if _pragma_args("#" + comment, "ignore-import") is not None:
+                    return comment
         return None
 
     def get_valid_comment(self) -> Optional[str]:
@@ -662,6 +664,8 @@ class ImportStatement:
         res = s0 + pyfill(s, tokens, params=fill_params)
 
         comment = self.get_valid_comment()
+        if comment is None:
+            comment = self._get_ignore_pragma_comment()
         if comment is not None:
             # ``pyfill`` always terminates with exactly one '\n'; splice the
             # comment in just before it so it lands on the last rendered line
