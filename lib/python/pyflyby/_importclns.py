@@ -20,7 +20,7 @@ from   pyflyby._util            import (_pragma_args, cached_attribute, cmp, par
                                         stable_unique)
 
 from   typing                   import (Any, ClassVar, Dict, FrozenSet,
-                                        Iterable, Iterator, Optional, Sequence,
+                                        Iterable, Iterator, List, Optional, Sequence,
                                         Tuple, Union)
 
 if sys.version_info < (3, 12):
@@ -315,8 +315,12 @@ class ImportSet:
                             "#" + imp.comment, "ignore-import") is not None)
                     if plain:
                         result.append(ImportStatement(plain))
+                    by_comment: Dict[str, List[Import]] = {}
                     for imp in marked:
-                        result.append(ImportStatement([imp]))
+                        assert imp.comment is not None
+                        by_comment.setdefault(imp.comment, []).append(imp)
+                    for group in by_comment.values():
+                        result.append(ImportStatement(group))
         return tuple(result)
 
     @cached_attribute

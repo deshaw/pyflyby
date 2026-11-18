@@ -566,10 +566,10 @@ def test_ignore_import_pragma(
 
 
 @pytest.mark.parametrize("remove_unused", [True, False])
-def test_ignore_import_pragma_same_module_not_merged(remove_unused):
-    """Marked imports from one module on separate lines are not merged into a
-    single statement (which would drop the pragma); each keeps its own line
-    and pragma, while unmarked imports from that module are still merged."""
+def test_ignore_import_pragma_same_module_merged(remove_unused):
+    """Marked imports from one module with identical pragmas are merged into a
+    single statement that keeps the pragma; unmarked imports from that module
+    are merged separately and never pick the pragma up."""
     code = dedent(
         """\
         from foo.bar import baz  # tidy-imports: ignore-import
@@ -583,10 +583,7 @@ def test_ignore_import_pragma_same_module_not_merged(remove_unused):
     )
     lines = [" ".join(line.split()) for line in str(output).splitlines()]
     pragma = "# tidy-imports: ignore-import"
-    assert f"from foo.bar import abc {pragma}" in lines
-    assert f"from foo.bar import baz {pragma}" in lines
-    # Exactly one statement per marked import; no merged "abc, baz" line.
-    assert not any("abc," in line or "baz," in line for line in lines)
+    assert f"from foo.bar import abc, baz {pragma}" in lines
     if remove_unused:
         assert not any(" x" in line or " y" in line for line in lines)
     else:
