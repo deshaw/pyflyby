@@ -6,7 +6,6 @@
 import difflib
 import json
 import os
-import random
 import re
 import sys
 import time
@@ -793,7 +792,6 @@ def IPythonCtx(prog="ipython",
 
 def _interact_ipython(child, input, exitstr=b"exit()\n",
                       sendeof=False, waiteof=True):
-    is_prompt_toolkit = child.ipython_frontend == "prompt_toolkit"
     # Canonicalize input lines.
     input = dedent(input.decode('utf-8')).encode('utf-8')
     input = re.sub(br"^\n+", b"", input)
@@ -819,15 +817,14 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
                 break
             else:
                 # We got ">>>", "...:", "ipdb>", etc.
-                if is_prompt_toolkit:
-                    # prompt_toolkit might rewrite "ipdb>" etc multiple times.
-                    # Make sure we eat up all the output so that the next
-                    # expect("ipdb>") doesn't get the rewritten "ipdb>" from
-                    # the previous line.  For "In [N]", we can rely on the
-                    # counter to do that.  For prompts without a counter, we
-                    # just try our best to eat up pending output.  Todo:
-                    # is there a better way?
-                    _wait_for_output(child, timeout=0.5 * _WAIT_SCALE)
+                # prompt_toolkit might rewrite "ipdb>" etc multiple times.
+                # Make sure we eat up all the output so that the next
+                # expect("ipdb>") doesn't get the rewritten "ipdb>" from
+                # the previous line.  For "In [N]", we can rely on the
+                # counter to do that.  For prompts without a counter, we
+                # just try our best to eat up pending output.  Todo:
+                # is there a better way?
+                _wait_for_output(child, timeout=0.5 * _WAIT_SCALE)
                 break
         while line:
             left, tab, right = line.partition(b"\t")
@@ -840,15 +837,9 @@ def _interact_ipython(child, input, exitstr=b"exit()\n",
             if tab:
                 # Send the tab.
                 child.send(tab)
-                # Wait for response to tab.
-                if is_prompt_toolkit:
-                    # When using prompt_toolkit (default for IPython 5+), we
-                    # need to wait for output.
-                    _wait_for_output(child)
-                else:
-                    # When using readline (only option for IPython 4 and
-                    # earlier), we can use the nonce trick.
-                    _wait_nonce(child)
+                # Wait for response to tab.  prompt_toolkit may redraw, so wait
+                # for output followed by a quiet period.
+                _wait_for_output(child)
             line = right
         child.send(b"\n")
     # We're finished sending input commands.  Wait for process to complete.
@@ -911,7 +902,7 @@ def ipython(
 
 
 @contextmanager
-def IPythonNotebookCtx(**kwargs):
+def IPythonNotebookCtx(**kwargs):  # pragma: no cover
     """
     Launch IPython Notebook.
 
@@ -1026,69 +1017,6 @@ def _wait_for_output(child, timeout=None, quiet_timeout=None):
         # We got some raw data.  Check if it's non-empty after ansi filtering.
         if data:
             got_data_already = True
-
-
-def _wait_nonce(child):
-    """
-    Send a nonce to the child, then wait for the nonce, then backspace it.
-    """
-    # This function performs a clever trick.  When we use tab completion, we
-    # need to handle a few variants of output.  Suppose the user enters
-    # "foo.b\t".  We could see:
-    #   1. No output.  There was nothing to complete, so there
-    #      will be no output.
-    #         In [1]: foo.b
-    #   2. Regular completion
-    #         In [1]: foo.bar
-    #   3. Multiple possibilities (perhaps partial completion)
-    #         In [1]: foo.b
-    #         foo.bar1  foo.bar2
-    #         In [1]: foo.bar
-    #   4. Autoimport
-    #         In [1]: foo.b
-    #         [PYFLYBY] import foo
-    #         In [1]: foo.bar
-    #   5. Autoimport + multiple possibilities
-    #         In [1]: foo.b
-    #         [PYFLYBY] import foo
-    #         In [1]: foo.b
-    #         foo.bar1  foo.bar2
-    #         In [1]: foo.bar
-    # We need to handle all of these possibilities.
-    # To do that, we send a nonce that IPython will echo back, *after* the
-    # response to the tab.  This way we can wait for the nonce and
-    # know exactly when IPython is done responding to the tab.
-    # Some previous attempts:
-    #   * Look for repeated "In [1]" to indicate that it's not a real prompt.
-    #     That doesn't work well for continuation prompts ("...:").
-    #   * Look for "\n" after tab and if so look for another repeated prompt.
-    #     That doesn't work well for case 5 (difficult to detect triple
-    #     prompts, especially if it's triple continuation prompts), and
-    #     required an annoying timeout to handle the no-output case.
-    logfile_read = child.logfile_read
-    try:
-        # Temporarily turn off logging of the output.  The caller doesn't need
-        # to see the nonce or the backspaces.
-        child.logfile_read = None
-        # Send the nonce.
-        nonce = "<SIG%s />" % (int(random.random()*1e9))
-        child.send(nonce)
-        # Wait for the nonce.
-        child.expect_exact(nonce, timeout=DEFAULT_TIMEOUT)
-        data_after_tab = child.before
-        # Log what came before the nonce (but not the nonce itself).
-        logfile_read.write(data_after_tab)
-        # Delete the nonce we typed.
-        child.send("\b" * len(nonce))
-        child.expect(
-            [r"\x1b\[%dD" % len(nonce), r"\x08\x1b\[K" * len(nonce), # IPython <  5
-             r"\x08 \x08"*len(nonce) # GitHub CI seem to overwrite with spaces on top of moving cursor ?
-            ],
-            timeout=DEFAULT_TIMEOUT,
-        )  # IPython >= 5 + rlipython
-
-    finally:
-        child.logfile_read = logfile_read
 
 
 # Geometry of the pty we spawn IPython on; see MySpawn(dimensions=...).
