@@ -16,12 +16,12 @@ from   pyflyby._importstmt      import (Import, ImportFormatParams,
                                         ImportStatement,
                                         NonImportStatementError)
 from   pyflyby._parse           import PythonBlock
-from   pyflyby._util            import (_pragma_args, cached_attribute, cmp, partition,
-                                        stable_unique)
+from   pyflyby._util            import (_pragma_args, cached_attribute, cmp,
+                                        partition, stable_unique)
 
 from   typing                   import (Any, ClassVar, Dict, FrozenSet,
-                                        Iterable, Iterator, List, Optional, Sequence,
-                                        Tuple, Union)
+                                        Iterable, Iterator, List, Optional,
+                                        Sequence, Tuple, Union)
 
 if sys.version_info < (3, 12):
     from typing_extensions          import Self
