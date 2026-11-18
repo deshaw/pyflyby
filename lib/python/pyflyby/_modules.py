@@ -22,8 +22,7 @@ from   pyflyby._file            import FileText, Filename
 from   pyflyby._idents          import DottedIdentifier, is_identifier
 from   pyflyby._importclns      import ImportSet, ImportStatement
 from   pyflyby._log             import logger
-from   pyflyby._util            import (ExcludeImplicitCwdFromPathCtx, cmp,
-                                        memoize)
+from   pyflyby._util            import ExcludeImplicitCwdFromPathCtx, memoize
 
 import re
 import shutil
@@ -565,13 +564,6 @@ class ModuleHandle(object):
 
     def __hash__(self) -> int:
         return hash(self.name)
-
-    def __cmp__(self, o: Any) -> Any:
-        if self is o:
-            return 0
-        if not isinstance(o, ModuleHandle):
-            return NotImplemented
-        return cmp(self.name, o.name)
 
     def __eq__(self, o: Any) -> Any:
         if self is o:

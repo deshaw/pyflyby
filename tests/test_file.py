@@ -56,6 +56,56 @@ def test_Filename_eqne_other_1():
     assert not (Filename("/foo") == object())
 
 
+def test_Filename_lt_1():
+    a = Filename("/foo/a")
+    b = Filename("/foo/b")
+    assert     a < b
+    assert not (b < a)
+    assert not (a < Filename("/foo/a"))
+    assert     a <= b
+    assert     b > a
+    assert     b >= a
+    assert     a <= Filename("/foo/a")
+    assert     a >= Filename("/foo/a")
+    assert sorted([b, a]) == [a, b]
+
+
+def test_Filename_lt_other_1():
+    assert Filename("/foo").__lt__("/foo") is NotImplemented
+    assert Filename("/foo").__lt__(object()) is NotImplemented
+    with pytest.raises(TypeError):
+        Filename("/foo") < "/foo"
+    with pytest.raises(TypeError):
+        Filename("/foo") < object()
+
+
+def test_Filename_startswith_1():
+    f = Filename("/foo/bar/baz")
+    assert f.startswith(Filename("/foo"))
+    assert f.startswith(Filename("/foo/bar"))
+    assert f.startswith("/foo/bar")
+    assert not f.startswith("/foo/ba")
+    assert not f.startswith("/foo/bar/baz/qux")
+    assert not f.startswith("/other")
+
+
+@pytest.mark.xfail(strict=True, reason="startswith builds '//' for the root prefix")
+def test_Filename_startswith_root_1():
+    assert Filename("/foo/bar").startswith("/")
+
+
+def test_Filename_startswith_self_1():
+    f = Filename("/foo/bar")
+    assert f.startswith(f)
+    assert f.startswith("/foo/bar")
+
+
+def test_Filename_startswith_partial_component_1():
+    # A common string prefix that isn't a path-component prefix doesn't count.
+    assert not Filename("/foo/barbaz").startswith("/foo/bar")
+    assert not Filename("/foobar").startswith("/foo")
+
+
 def test_Filename_abspath_1():
     with CwdCtx("/dev"):
         f = Filename("foo")

@@ -59,3 +59,13 @@ def test_parse_ignore_undefined_pragmas():
     ]
     assert _parse_ignore_undefined_pragmas(lines) == ({"c", "get_config"}, {2})
     assert _parse_ignore_undefined_pragmas([]) == (set(), set())
+
+
+def test_cmp_deprecated_1():
+    from pyflyby._util import cmp
+    with pytest.warns(DeprecationWarning, match="cmp is deprecated"):
+        assert cmp(1, 2) == -1
+    with pytest.warns(DeprecationWarning):
+        assert cmp(2, 1) == 1
+    with pytest.warns(DeprecationWarning):
+        assert cmp("a", "a") == 0

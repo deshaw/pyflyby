@@ -10,6 +10,7 @@ import os
 import sys
 import types
 from   types                    import MappingProxyType as DictProxyType
+import warnings
 
 # There used to be a custom caching_attribute implementation
 # this now uses functools's cached_property which is understood by
@@ -553,8 +554,18 @@ def AdviceCtx(joinpoint: Any, hook: Callable[..., Any]) -> Iterator[None]:
     finally:
         advice.unadvise()  # type: ignore[union-attr]
 
-# For Python 2/3 compatibility. cmp isn't included with six.
 def cmp(a: Any, b: Any) -> int:
+    """
+    Python 2 style three-way comparison.
+
+    .. deprecated::
+        ``cmp`` was only kept for Python 2/3 compatibility and is no longer
+        used by pyflyby itself.  Use ``(a > b) - (a < b)`` instead.
+    """
+    warnings.warn(
+        "pyflyby._util.cmp is deprecated and will be removed in a future "
+        "release; use (a > b) - (a < b) instead.",
+        DeprecationWarning, stacklevel=2)
     return (a > b) - (a < b)
 
 

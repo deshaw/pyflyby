@@ -9,7 +9,6 @@ from   functools                import cached_property, total_ordering
 from   keyword                  import iskeyword
 import re
 
-from   pyflyby._util            import cmp
 
 from   typing                   import (Any, Dict, Iterator, List, Optional,
                                         Tuple, Union)
@@ -226,10 +225,3 @@ class DottedIdentifier:
         if not isinstance(other, DottedIdentifier):
             return NotImplemented
         return self.name < other.name
-
-    def __cmp__(self, other: Any) -> int:
-        if self is other:
-            return 0
-        if not isinstance(other, DottedIdentifier):
-            return NotImplemented
-        return cmp(self.name, other.name)

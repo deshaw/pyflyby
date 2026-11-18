@@ -158,7 +158,12 @@ class DictFinder(importlib.abc.MetaPathFinder):
         if fullname in module_dict:
             module_code = module_dict[fullname]
             loader = DictLoader(fullname, module_code)
-            return importlib.util.spec_from_loader(fullname, loader)
+            # typeshed's LoaderProtocol still requires ``load_module``, which
+            # was removed from importlib.abc.Loader in Python 3.15. I'll try to
+            # send a fix to typeshed.
+            return importlib.util.spec_from_loader(
+                fullname, loader  # type: ignore[arg-type,unused-ignore]
+            )
         return None
 
 
