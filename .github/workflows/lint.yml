@@ -11,8 +11,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  mypy:
+    name: mypy
     runs-on: "ubuntu-latest"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14", "3.15"]
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Install uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        enable-cache: true
+        cache-dependency-glob: |
+          "pyproject.toml"
+    - name: Install lint dependencies
+      run: |
+        uv venv --python ${{ matrix.python-version }}
+        uv pip install --group lint
+    - run: uv run --no-sync mypy lib/python --ignore-missing-imports
+
+  flake8:
+    name: flake8
+    runs-on: "ubuntu-latest"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14", "3.15"]
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Install uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        enable-cache: true
+        cache-dependency-glob: |
+          "pyproject.toml"
+    - name: Install lint dependencies
+      run: |
+        uv venv --python ${{ matrix.python-version }}
+        uv pip install --group lint
+    - run: |
+        uv run --no-sync flake8 --exclude known_imports,etc,__init__.py,.venv --select=F;
+        uv run --no-sync flake8 --exclude known_imports,etc,__init__.py,.venv --select=F bin/*;
+
+  tidy-imports-self:
+    name: tidy-imports (self)
+    runs-on: "ubuntu-latest"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14", "3.15"]
     env:
       # Keep `uv run` from re-syncing the project, which would replace the
       # wheel installed below with an editable install.
@@ -21,31 +74,20 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-
     - name: Install uv
       uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         enable-cache: true
         cache-dependency-glob: |
           "pyproject.toml"
-
     - name: Install pyflyby
       run: |
-        uv python install 3.13
-        uv venv
+        uv python install ${{ matrix.python-version }}
+        uv venv --python ${{ matrix.python-version }}
         # Install a real wheel rather than an editable install: meson-python
         # editable wheels omit data scripts, so bin/pyflyby-diff would be
-        # missing and the Self-tidy-import step below could not show its diffs.
+        # missing and this job could not show its diffs.
         uv pip install meson-python meson ninja "pybind11>=2.10.4" "setuptools-scm>=8"
         uv build --wheel --no-build-isolation
-        uv pip install -v dist/*.whl --group lint
-    - name: Mypy
-      run: |
-        uv run mypy lib/python --ignore-missing-imports
-    - name: lint
-      run: |
-        uv run flake8 --exclude known_imports,etc,__init__.py,.venv --select=F;
-        uv run flake8 --exclude known_imports,etc,__init__.py,.venv --select=F bin/*;
-    - name: Self-tidy-import
-      run: |
-        uv run tidy-imports --actions=DIFF,CHANGEDEXIT1 --no-add lib/python/ tests/
+        uv pip install -v dist/*.whl
+    - run: uv run tidy-imports --actions=DIFF,CHANGEDEXIT1 --no-add lib/python/ tests/
