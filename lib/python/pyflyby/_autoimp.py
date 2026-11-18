@@ -1111,7 +1111,8 @@ class _MissingImportFinder:
         with self._NewScopeCtx(include_class_scopes=True):
             self.visit(node.generators)
             self.visit(node.key)
-            self.visit(node.value)
+            if node.value is not None:
+                self.visit(node.value)
 
     def visit_SetComp(self, node: ast.SetComp) -> None:
         # Visit a set comprehension node.

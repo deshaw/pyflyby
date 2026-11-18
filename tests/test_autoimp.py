@@ -1548,6 +1548,43 @@ def test_scan_for_import_issues_dictcomp_unused_1():
     assert unused == [(2, Import('import x1'), None), (2, Import('import x2'), None)]
 
 
+# PEP 798 (Python 3.15): ``*`` and ``**`` unpacking in comprehensions.
+# ``{**d for d in ds}`` parses to ``DictComp(key=<d>, value=None)``, so
+# visit_DictComp must cope with ``value is None``.
+#
+# NOTE: the snippets below are *strings*, so this module still imports fine on
+# older Pythons; they are only parsed when the test runs, hence the skipif.
+# Once the minimum supported Python is >= 3.15, drop the skipif marker (and
+# these notes) and the snippets can become ordinary source.
+requires_pep798 = pytest.mark.skipif(
+    sys.version_info < (3, 15),
+    reason="PEP 798 unpacking in comprehensions requires Python 3.15+")
+
+
+@requires_pep798
+def test_scan_for_import_issues_dictcomp_unpack_pep798_1():
+    code = dedent("""
+        import used_mod, unused_mod
+        {**used_mod.f(d) for d in missing_ds}
+    """)
+    missing, unused = scan_for_import_issues(code)
+    assert missing == [(3, DottedIdentifier('missing_ds'))]
+    assert unused == [(2, Import('import unused_mod'), None)]
+
+
+@requires_pep798
+def test_find_missing_imports_dictcomp_unpack_pep798_1():
+    # ``d`` is bound by the comprehension; ``ds`` is not.
+    result = find_missing_imports("{**d for d in ds}", [{}])
+    assert _dilist2strlist(result) == ['ds']
+
+
+@requires_pep798
+def test_find_missing_imports_listcomp_unpack_pep798_1():
+    result = find_missing_imports("[*xs for xs in yss]", [{}])
+    assert _dilist2strlist(result) == ['yss']
+
+
 def test_scan_for_import_issues_setcomp_missing_1():
     code = dedent("""
         y1 = 1234

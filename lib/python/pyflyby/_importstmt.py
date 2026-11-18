@@ -15,7 +15,7 @@ from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
 from   pyflyby._parse           import PythonStatement
 from   pyflyby._util            import (Inf, _pragma_args, cached_attribute,
-                                        cmp, longest_common_prefix)
+                                        longest_common_prefix)
 
 
 from   typing                   import (Any, Dict, List, Optional, Sequence,
@@ -332,13 +332,6 @@ class Import:
 
     def __hash__(self) -> int:
         return hash(self._data)
-
-    def __cmp__(self, other: Any) -> Any:
-        if self is other:
-            return 0
-        if not isinstance(other, Import):
-            return NotImplemented
-        return cmp(self._data, other._data)
 
     def __eq__(self, other: Any) -> Any:
         if self is other:
@@ -737,13 +730,6 @@ class ImportStatement:
 
     def __repr__(self) -> str:
         return "%s(%r)" % (type(self).__name__, str(self))
-
-    def __cmp__(self, other: Any) -> Any:
-        if self is other:
-            return 0
-        if not isinstance(other, ImportStatement):
-            return NotImplemented
-        return cmp(self._data, other._data)
 
     def __eq__(self, other: Any) -> Any:
         if self is other:
