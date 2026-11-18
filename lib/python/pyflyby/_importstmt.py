@@ -14,8 +14,8 @@ from   pyflyby._flags           import CompilerFlags
 from   pyflyby._format          import FormatParams, pyfill
 from   pyflyby._idents          import is_identifier
 from   pyflyby._parse           import PythonStatement
-from   pyflyby._util            import (_pragma_args, Inf, cached_attribute, cmp,
-                                        longest_common_prefix)
+from   pyflyby._util            import (Inf, _pragma_args, cached_attribute,
+                                        cmp, longest_common_prefix)
 
 
 from   typing                   import (Any, Dict, List, Optional, Sequence,
