@@ -74,7 +74,7 @@ def test_method_signatures_match_list():
         actual = inspect.signature(getattr(LoggedList, name))
         expected = inspect.signature(getattr(list, name))
         if actual != expected:
-            mismatched[name] = "%s != %s" % (actual, expected)
+            mismatched[name] = f"{actual} != {expected}"  # pragma: no cover
     assert mismatched == {}
 
 
