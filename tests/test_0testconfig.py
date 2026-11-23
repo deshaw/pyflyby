@@ -22,9 +22,10 @@ def pipe(command, stdin=""):
 
 def test_pytest_version_1():
     pytest_version = tuple(map(int, pytest.__version__.split(".")[:2]))
-    if pytest_version < (2, 4):
-        raise AssertionError("test cases require pytest >= 2.4; "
-                             "your version is pytest %s", pytest.__version__)
+    assert pytest_version > (2, 4), (
+        "test cases require pytest >= 2.4; your version is pytest %s"
+        % pytest.__version__
+    )
 
 
 def test_pyflyby_version_1():
