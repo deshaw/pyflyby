@@ -1144,6 +1144,20 @@ def test_PythonBlock_doctest_malformed_is_ignored_1():
     assert block.get_doctests() == []
 
 
+def test_PythonBlock_doctest_malformed_is_ignored_2():
+    block = PythonBlock(
+        dedent(
+            r'''
+        def f():
+            """
+            >>> "a\nb"
+            """
+    '''
+        )
+    )
+    assert block.get_doctests() == []
+
+
 def test_PythonStatement_string_literal_1():
     # A bare str/bytes expression statement is a string literal (the
     # `ast.Expr` branch of `_ast_str_literal_value`).
