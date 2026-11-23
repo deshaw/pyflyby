@@ -2,7 +2,7 @@ name: Run tests
 
 on:
   push:
-    branches: [master]
+    branches: ["main", "master"]
   pull_request:
 permissions: {}
 
